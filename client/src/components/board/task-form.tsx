@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useStore } from "@/lib/store";
 
 interface TaskFormProps {
   open: boolean;
@@ -31,6 +32,8 @@ interface TaskFormProps {
 
 export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
   const { toast } = useToast();
+  const { currentBoard, tasks } = useStore();
+
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
@@ -40,12 +43,24 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
       order: 0,
       priority: "medium",
       labels: [],
+      boardId: currentBoard?.id || 0,
     },
   });
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      await onSubmit(data);
+      // Calculate the new task's order
+      const maxOrder = tasks
+        .filter((t) => t.status === status)
+        .reduce((max, task) => Math.max(max, task.order), -1);
+
+      await onSubmit({
+        ...data,
+        order: maxOrder + 1,
+        boardId: currentBoard?.id || 0,
+        status,
+      });
+
       form.reset();
       onClose();
     } catch (error) {
@@ -58,9 +73,13 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
   };
 
   const handleLabelsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const labels = e.target.value.split(",").map((label) => label.trim());
+    const labels = e.target.value
+      .split(",")
+      .map((label) => label.trim())
+      .filter(Boolean);
     form.setValue("labels", labels);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -129,7 +148,14 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
                   <FormLabel>Labels (comma-separated)</FormLabel>
                   <FormControl>
                     <Input
-                      onChange={handleLabelsChange}
+                      value={field.value?.join(", ") || ""}
+                      onChange={(e) => {
+                        const labels = e.target.value
+                          .split(",")
+                          .map((label) => label.trim())
+                          .filter(Boolean);
+                        field.onChange(labels);
+                      }}
                       placeholder="bug, feature, UI"
                     />
                   </FormControl>
