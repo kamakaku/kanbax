@@ -20,7 +20,7 @@ const priorityIcons = {
 export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DialogTitle>{task.title}</DialogTitle>
@@ -28,7 +28,7 @@ export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 mt-4">
           {task.description && (
             <p className="text-muted-foreground">{task.description}</p>
           )}
