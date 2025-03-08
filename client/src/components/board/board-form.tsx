@@ -1,0 +1,81 @@
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertBoardSchema, type InsertBoard } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface BoardFormProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: InsertBoard) => void;
+}
+
+export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
+  const form = useForm<InsertBoard>({
+    resolver: zodResolver(insertBoardSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+    },
+  });
+
+  const handleSubmit = async (data: InsertBoard) => {
+    await onSubmit(data);
+    form.reset();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Neues Board erstellen</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Mein neues Board" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Beschreiben Sie Ihr Board..." />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" className="w-full">
+              Board erstellen
+            </Button>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

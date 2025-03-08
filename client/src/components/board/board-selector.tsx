@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Board, type InsertBoard } from "@shared/schema";
 import {
@@ -12,8 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { BoardForm } from "./board-form";
 
 export function BoardSelector() {
+  const [showForm, setShowForm] = useState(false);
   const { currentBoard, setCurrentBoard } = useStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -30,23 +33,17 @@ export function BoardSelector() {
     onSuccess: (newBoard) => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
       setCurrentBoard(newBoard);
-      toast({ title: "Board created successfully" });
+      toast({ title: "Board erfolgreich erstellt" });
+      setShowForm(false);
     },
     onError: (error) => {
       toast({
-        title: "Failed to create board",
+        title: "Fehler beim Erstellen des Boards",
         description: (error as Error).message,
         variant: "destructive",
       });
     },
   });
-
-  const handleCreateBoard = () => {
-    createBoard.mutate({
-      title: "New Board",
-      description: "A new board for your tasks",
-    });
-  };
 
   return (
     <div className="flex items-center gap-4">
@@ -60,7 +57,7 @@ export function BoardSelector() {
         }}
       >
         <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Select a board" />
+          <SelectValue placeholder="Board auswählen" />
         </SelectTrigger>
         <SelectContent>
           {boards?.map((board) => (
@@ -71,9 +68,15 @@ export function BoardSelector() {
         </SelectContent>
       </Select>
 
-      <Button onClick={handleCreateBoard} size="icon">
+      <Button onClick={() => setShowForm(true)} size="icon">
         <Plus className="h-4 w-4" />
       </Button>
+
+      <BoardForm
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        onSubmit={(data) => createBoard.mutate(data)}
+      />
     </div>
   );
 }
