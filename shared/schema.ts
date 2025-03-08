@@ -8,6 +8,13 @@ export const boards = pgTable("boards", {
   description: text("description"),
 });
 
+export const columns = pgTable("columns", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  boardId: integer("board_id").notNull(),
+  order: integer("order").notNull(),
+});
+
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -15,6 +22,7 @@ export const tasks = pgTable("tasks", {
   status: text("status").notNull(),
   order: integer("order").notNull(),
   boardId: integer("board_id").notNull(),
+  columnId: integer("column_id").notNull(),
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
   dueDate: timestamp("due_date"),
@@ -45,11 +53,17 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Board schemas
-export const insertBoardSchema = createInsertSchema(boards).pick({
-  title: true,
-  description: true,
-});
+// Column schemas
+export const insertColumnSchema = createInsertSchema(columns)
+  .pick({
+    title: true,
+    boardId: true,
+    order: true,
+  })
+  .extend({
+    title: z.string().min(1, "Title is required"),
+    boardId: z.number().int().positive("Board ID is required"),
+  });
 
 // Task schemas
 export const insertTaskSchema = createInsertSchema(tasks)
@@ -59,6 +73,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     status: true,
     order: true,
     boardId: true,
+    columnId: true,
     priority: true,
     labels: true,
     dueDate: true,
@@ -66,11 +81,12 @@ export const insertTaskSchema = createInsertSchema(tasks)
   })
   .extend({
     title: z.string().min(1, "Title is required"),
-    status: z.enum(["todo", "in-progress", "done"]),
+    status: z.enum(["backlog", "todo", "in-progress", "done"]),
     boardId: z.number().int().positive("Board ID is required"),
+    columnId: z.number().int().positive("Column ID is required"),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    dueDate: z.string().nullable().optional(), // Made dueDate optional
+    dueDate: z.string().nullable().optional(),
     archived: z.boolean().default(false)
   });
 
@@ -117,6 +133,8 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
 // Export types
 export type InsertBoard = z.infer<typeof insertBoardSchema>;
 export type Board = typeof boards.$inferSelect;
+export type InsertColumn = z.infer<typeof insertColumnSchema>;
+export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;

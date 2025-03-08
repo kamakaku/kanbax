@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express) {
   // Board routes
@@ -306,6 +306,71 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Failed to create activity log:", error);
       res.status(500).json({ message: (error as Error).message });
+    }
+  });
+
+  // Column routes
+  app.get("/api/boards/:boardId/columns", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    try {
+      const columns = await storage.getColumns(boardId);
+      res.json(columns);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+
+  app.post("/api/boards/:boardId/columns", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    const result = insertColumnSchema.safeParse({ ...req.body, boardId });
+    if (!result.success) {
+      return res.status(400).json({ 
+        message: "Invalid column data",
+        errors: result.error.errors 
+      });
+    }
+
+    try {
+      const column = await storage.createColumn(result.data);
+      res.status(201).json(column);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+
+  app.patch("/api/columns/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid column ID" });
+    }
+
+    try {
+      const column = await storage.updateColumn(id, req.body);
+      res.json(column);
+    } catch (error) {
+      res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/columns/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid column ID" });
+    }
+
+    try {
+      await storage.deleteColumn(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(404).json({ message: (error as Error).message });
     }
   });
 

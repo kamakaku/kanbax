@@ -1,4 +1,4 @@
-import { tasks, boards, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
+import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -9,6 +9,12 @@ export interface IStorage {
   createBoard(board: InsertBoard): Promise<Board>;
   updateBoard(id: number, board: UpdateBoard): Promise<Board>;
   deleteBoard(id: number): Promise<void>;
+
+  // Column operations
+  getColumns(boardId: number): Promise<Column[]>;
+  createColumn(column: InsertColumn): Promise<Column>;
+  updateColumn(id: number, column: Partial<InsertColumn>): Promise<Column>;
+  deleteColumn(id: number): Promise<void>;
 
   // Task operations
   getTasks(boardId: number): Promise<Task[]>;
@@ -50,6 +56,23 @@ export class DatabaseStorage implements IStorage {
       .insert(boards)
       .values(insertBoard)
       .returning();
+
+    // Create default columns for the new board
+    const defaultColumns = [
+      { title: "Backlog", order: 0 },
+      { title: "To Do", order: 1 },
+      { title: "In Progress", order: 2 },
+      { title: "Done", order: 3 },
+    ];
+
+    for (const column of defaultColumns) {
+      await db.insert(columns).values({
+        title: column.title,
+        boardId: board.id,
+        order: column.order,
+      });
+    }
+
     return board;
   }
 
@@ -262,6 +285,48 @@ export class DatabaseStorage implements IStorage {
 
     console.log("Activity log created successfully:", log);
     return log;
+  }
+
+  // Column operations
+  async getColumns(boardId: number): Promise<Column[]> {
+    return await db
+      .select()
+      .from(columns)
+      .where(eq(columns.boardId, boardId))
+      .orderBy(columns.order);
+  }
+
+  async createColumn(insertColumn: InsertColumn): Promise<Column> {
+    const [column] = await db
+      .insert(columns)
+      .values(insertColumn)
+      .returning();
+    return column;
+  }
+
+  async updateColumn(id: number, updateColumn: Partial<InsertColumn>): Promise<Column> {
+    const [column] = await db
+      .update(columns)
+      .set(updateColumn)
+      .where(eq(columns.id, id))
+      .returning();
+
+    if (!column) {
+      throw new Error(`Column ${id} not found`);
+    }
+
+    return column;
+  }
+
+  async deleteColumn(id: number): Promise<void> {
+    const [column] = await db
+      .delete(columns)
+      .where(eq(columns.id, id))
+      .returning();
+
+    if (!column) {
+      throw new Error(`Column ${id} not found`);
+    }
   }
 }
 

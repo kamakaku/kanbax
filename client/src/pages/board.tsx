@@ -1,25 +1,21 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Board } from "@shared/schema";
-import { Column } from "@/components/board/column";
+import { type Board, type Column } from "@shared/schema";
+import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-
-const COLUMNS = [
-  { title: "To Do", status: "todo" },
-  { title: "In Progress", status: "in-progress" },
-  { title: "Done", status: "done" },
-];
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default function Board() {
   const { toast } = useToast();
   const { currentBoard, setCurrentBoard, setBoards } = useStore();
 
-  const { data: boards, isLoading, error } = useQuery<Board[]>({
+  const { data: boards, isLoading: boardsLoading, error: boardsError } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
     queryFn: async () => {
       const res = await fetch("/api/boards");
@@ -30,9 +26,52 @@ export default function Board() {
     },
   });
 
+  const { data: columns = [], isLoading: columnsLoading } = useQuery<Column[]>({
+    queryKey: ["/api/boards", currentBoard?.id, "columns"],
+    queryFn: async () => {
+      const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch columns");
+      }
+      return res.json();
+    },
+    enabled: !!currentBoard,
+  });
+
+  const createColumn = useMutation({
+    mutationFn: async () => {
+      if (!currentBoard?.id) return;
+
+      const maxOrder = columns.reduce((max, col) => Math.max(max, col.order), -1);
+
+      const res = await apiRequest(
+        "POST",
+        `/api/boards/${currentBoard.id}/columns`,
+        {
+          title: "New Column",
+          order: maxOrder + 1,
+        }
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "columns"],
+      });
+      toast({ title: "Column created" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to create column",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { status, order });
+    mutationFn: async ({ id, columnId, order }: { id: number; columnId: number; order: number }) => {
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { columnId, order });
       return res.json();
     },
     onSuccess: () => {
@@ -50,37 +89,37 @@ export default function Board() {
   });
 
   useEffect(() => {
-    if (!isLoading && boards) {
+    if (!boardsLoading && boards && !currentBoard) {
       setBoards(boards);
-      if (!currentBoard && boards.length > 0) {
+      if (boards.length > 0) {
         setCurrentBoard(boards[0]);
       }
     }
-  }, [boards, isLoading, currentBoard, setCurrentBoard, setBoards]);
+  }, [boards, boardsLoading, currentBoard, setCurrentBoard, setBoards]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
     const { draggableId, source, destination } = result;
     const taskId = parseInt(draggableId);
-    const newStatus = destination.droppableId;
+    const newColumnId = parseInt(destination.droppableId);
     const newOrder = destination.index;
 
-    updateTaskStatus.mutate({ id: taskId, status: newStatus, order: newOrder });
+    updateTaskStatus.mutate({ id: taskId, columnId: newColumnId, order: newOrder });
   };
 
-  if (error) {
+  if (boardsError) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-red-500">Error loading boards: {error.message}</p>
+        <p className="text-lg text-red-500">Error loading boards: {boardsError.message}</p>
       </div>
     );
   }
 
-  if (isLoading) {
+  if (boardsLoading || columnsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading boards...</p>
+        <p className="text-lg text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -95,13 +134,20 @@ export default function Board() {
       {currentBoard ? (
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 overflow-x-auto pb-4">
-            {COLUMNS.map(({ title, status }) => (
-              <Column
-                key={status}
-                title={title}
-                status={status as "todo" | "in-progress" | "done"}
+            {columns.map((column) => (
+              <ColumnComponent
+                key={column.id}
+                column={column}
               />
             ))}
+            <Button
+              onClick={() => createColumn.mutate()}
+              variant="outline"
+              className="h-[500px] w-[280px] border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Column
+            </Button>
           </div>
         </DragDropContext>
       ) : (
