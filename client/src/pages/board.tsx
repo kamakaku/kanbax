@@ -29,7 +29,7 @@ export default function Board() {
   });
 
   const createTask = useMutation({
-    mutationFn: async (task: Omit<Task, "id">) => {
+    mutationFn: async (task: InsertTask) => {
       const res = await apiRequest(
         "POST",
         `/api/boards/${currentBoard?.id}/tasks`,
@@ -43,6 +43,13 @@ export default function Board() {
       });
       toast({ title: "Task created successfully" });
     },
+    onError: (error) => {
+      toast({ 
+        title: "Failed to create task",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   });
 
   const updateTask = useMutation({
@@ -85,6 +92,14 @@ export default function Board() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!currentBoard) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg text-muted-foreground">Please select a board</p>
       </div>
     );
   }
