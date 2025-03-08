@@ -28,6 +28,8 @@ import { CalendarIcon } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { Smile } from "lucide-react";
 
 interface TaskFormProps {
   open: boolean;
@@ -54,6 +56,7 @@ export function TaskForm({ open, onClose, onSubmit, status, existingTask }: Task
       boardId: existingTask?.boardId || currentBoard?.id || 0,
       dueDate: existingTask?.dueDate || undefined,
       archived: existingTask?.archived || false,
+      emoji: existingTask?.emoji || undefined, //Added emoji field to defaultValues
     },
   });
 
@@ -127,6 +130,35 @@ export function TaskForm({ open, onClose, onSubmit, status, existingTask }: Task
                   <FormLabel>Title</FormLabel>
                   <FormControl>
                     <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="emoji"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Emoji</FormLabel>
+                  <FormControl>
+                    <div className="flex items-center gap-2">
+                      <EmojiPicker
+                        value={field.value || undefined}
+                        onChange={(emoji) => field.onChange(emoji)}
+                      />
+                      {field.value && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => field.onChange(null)}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

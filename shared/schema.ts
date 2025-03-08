@@ -18,8 +18,8 @@ export const tasks = pgTable("tasks", {
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
   dueDate: timestamp("due_date"),
-  coverType: text("cover_type"),
-  coverValue: text("cover_value"),
+  emoji: text("emoji"),
+  icon: text("icon"),
   archived: boolean("archived").default(false),
 });
 
@@ -64,8 +64,8 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: true,
     labels: true,
     dueDate: true,
-    coverType: true,
-    coverValue: true,
+    emoji: true,
+    icon: true,
     archived: true
   })
   .extend({
@@ -75,8 +75,8 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable(),
-    coverType: z.enum(["color", "image"]).optional(),
-    coverValue: z.string().optional(),
+    emoji: z.string().nullable(),
+    icon: z.string().nullable(),
     archived: z.boolean().default(false)
   });
 

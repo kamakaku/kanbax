@@ -36,8 +36,12 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 className={`absolute top-0 left-0 w-full h-1 ${priorityColors[task.priority as keyof typeof priorityColors]}`} 
               />
               <CardHeader className="p-3 pb-2">
+                <div className="flex items-center gap-2 mb-2">
+                  {task.emoji && <span className="text-xl">{task.emoji}</span>}
+                  <h3 className="text-sm font-medium line-clamp-2">{task.title}</h3>
+                </div>
                 {task.labels && task.labels.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-2">
+                  <div className="flex flex-wrap gap-1">
                     {task.labels.map((label) => (
                       <Badge key={label} variant="secondary" className="px-2 py-0.5 text-xs">
                         {label}
@@ -45,7 +49,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
                     ))}
                   </div>
                 )}
-                <h3 className="text-sm font-medium line-clamp-2">{task.title}</h3>
               </CardHeader>
               <CardContent className="p-3 pt-0 space-y-2">
                 {task.description && (
