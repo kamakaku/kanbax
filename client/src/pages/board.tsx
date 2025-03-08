@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Task, type Board } from "@shared/schema";
+import { type Task, type Board, type InsertTask } from "@shared/schema";
 import { Column } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
@@ -117,7 +117,7 @@ export default function Board() {
             <Column
               key={status}
               title={title}
-              status={status}
+              status={status as "todo" | "in-progress" | "done"}
               tasks={tasks.filter((task) => task.status === status)}
               onAddTask={(task) => createTask.mutate(task)}
             />

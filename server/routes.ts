@@ -73,7 +73,9 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
+    console.log(`Fetching tasks for board ${boardId}`);
     const tasks = await storage.getTasks(boardId);
+    console.log(`Found ${tasks.length} tasks:`, tasks);
     res.json(tasks);
   });
 
@@ -87,7 +89,9 @@ export async function registerRoutes(app: Express) {
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
+    console.log("Creating task:", result.data);
     const task = await storage.createTask(result.data);
+    console.log("Created task:", task);
     res.status(201).json(task);
   });
 
