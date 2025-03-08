@@ -1,4 +1,6 @@
 import { tasks, type Task, type InsertTask, type UpdateTask } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getTasks(): Promise<Task[]>;
@@ -7,42 +9,43 @@ export interface IStorage {
   deleteTask(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private tasks: Map<number, Task>;
-  private currentId: number;
-
-  constructor() {
-    this.tasks = new Map();
-    this.currentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getTasks(): Promise<Task[]> {
-    return Array.from(this.tasks.values()).sort((a, b) => a.order - b.order);
+    return await db.select().from(tasks).orderBy(tasks.order);
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
-    const id = this.currentId++;
-    const task: Task = { ...insertTask, id };
-    this.tasks.set(id, task);
+    const [task] = await db
+      .insert(tasks)
+      .values(insertTask)
+      .returning();
     return task;
   }
 
   async updateTask(id: number, updateTask: UpdateTask): Promise<Task> {
-    const existing = this.tasks.get(id);
-    if (!existing) {
+    const [task] = await db
+      .update(tasks)
+      .set(updateTask)
+      .where(eq(tasks.id, id))
+      .returning();
+
+    if (!task) {
       throw new Error(`Task ${id} not found`);
     }
-    const updated = { ...existing, ...updateTask };
-    this.tasks.set(id, updated);
-    return updated;
+
+    return task;
   }
 
   async deleteTask(id: number): Promise<void> {
-    if (!this.tasks.has(id)) {
+    const [task] = await db
+      .delete(tasks)
+      .where(eq(tasks.id, id))
+      .returning();
+
+    if (!task) {
       throw new Error(`Task ${id} not found`);
     }
-    this.tasks.delete(id);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
