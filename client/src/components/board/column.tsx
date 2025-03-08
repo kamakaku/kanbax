@@ -51,8 +51,6 @@ export function Column({ title, status }: ColumnProps) {
         labels: taskData.labels || []
       };
 
-      console.log("Submitting task data:", fullTaskData);
-
       const res = await apiRequest(
         "POST",
         `/api/boards/${currentBoard.id}/tasks`,
@@ -74,7 +72,6 @@ export function Column({ title, status }: ColumnProps) {
       setShowForm(false);
     },
     onError: (error) => {
-      console.error("Task creation error:", error);
       toast({
         title: "Failed to create task",
         description: error.message,
@@ -86,14 +83,17 @@ export function Column({ title, status }: ColumnProps) {
   if (!currentBoard) return null;
 
   return (
-    <div className="flex flex-col bg-muted/50 rounded-lg p-4 min-h-[500px] w-[300px]">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">{title}</h2>
+    <div className="flex flex-col bg-muted/50 rounded-lg p-3 min-h-[500px] w-[280px]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+          <span className="text-muted-foreground text-sm">({tasks.length})</span>
+        </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setShowForm(true)}
-          className="h-8 w-8"
+          className="h-8 w-8 hover:bg-muted"
         >
           <Plus className="h-4 w-4" />
         </Button>
@@ -104,7 +104,7 @@ export function Column({ title, status }: ColumnProps) {
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className="flex-1"
+            className="flex-1 overflow-y-auto"
           >
             {tasks.map((task, index) => (
               <TaskCard key={task.id} task={task} index={index} />
