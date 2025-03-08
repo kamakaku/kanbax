@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Task } from "@shared/schema";
+import { type Task, type Board } from "@shared/schema";
 import { Column } from "@/components/board/column";
+import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,19 +17,30 @@ const COLUMNS = [
 
 export default function Board() {
   const { toast } = useToast();
-  const { tasks, setTasks, updateTaskOrder } = useStore();
+  const { tasks, setTasks, updateTaskOrder, currentBoard, setCurrentBoard } = useStore();
 
-  const { data, isLoading } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
+  const { data: boards } = useQuery<Board[]>({
+    queryKey: ["/api/boards"],
+  });
+
+  const { data: boardTasks, isLoading } = useQuery<Task[]>({
+    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    enabled: !!currentBoard,
   });
 
   const createTask = useMutation({
     mutationFn: async (task: Omit<Task, "id">) => {
-      const res = await apiRequest("POST", "/api/tasks", task);
+      const res = await apiRequest(
+        "POST",
+        `/api/boards/${currentBoard?.id}/tasks`,
+        task
+      );
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
       toast({ title: "Task created successfully" });
     },
   });
@@ -39,15 +51,23 @@ export default function Board() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
     },
   });
 
   useEffect(() => {
-    if (data) {
-      setTasks(data);
+    if (boards?.length && !currentBoard) {
+      setCurrentBoard(boards[0]);
     }
-  }, [data, setTasks]);
+  }, [boards, currentBoard, setCurrentBoard]);
+
+  useEffect(() => {
+    if (boardTasks) {
+      setTasks(boardTasks);
+    }
+  }, [boardTasks, setTasks]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -71,7 +91,11 @@ export default function Board() {
 
   return (
     <div className="p-8">
-      <h1 className="text-3xl font-bold mb-8">Kanban Board</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">Kanban Board</h1>
+        <BoardSelector />
+      </div>
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6 overflow-x-auto pb-4">
           {COLUMNS.map(({ title, status }) => (
