@@ -18,8 +18,8 @@ export const tasks = pgTable("tasks", {
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
   dueDate: timestamp("due_date"),
-  coverType: text("cover_type"), // 'color' or 'image'
-  coverValue: text("cover_value"), // color code or image URL
+  coverType: text("cover_type"),
+  coverValue: text("cover_value"),
   archived: boolean("archived").default(false),
 });
 
@@ -28,7 +28,7 @@ export const checklistItems = pgTable("checklist_items", {
   taskId: integer("task_id").notNull(),
   title: text("title").notNull(),
   completed: boolean("completed").default(false),
-  order: integer("order").notNull(),
+  itemOrder: integer("item_order").notNull(),
 });
 
 export const comments = pgTable("comments", {
@@ -42,8 +42,8 @@ export const comments = pgTable("comments", {
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull(),
-  action: text("action").notNull(), // e.g., 'created', 'updated', 'archived'
-  details: text("details"), // JSON string with action details
+  action: text("action").notNull(),
+  details: text("details"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -66,7 +66,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     dueDate: true,
     coverType: true,
     coverValue: true,
-    archived:true
+    archived: true
   })
   .extend({
     title: z.string().min(1, "Title is required"),
@@ -74,7 +74,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     boardId: z.number().int().positive("Board ID is required"),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    dueDate: z.string().datetime().optional(),
+    dueDate: z.string().nullable(),
     coverType: z.enum(["color", "image"]).optional(),
     coverValue: z.string().optional(),
     archived: z.boolean().default(false)
@@ -86,7 +86,7 @@ export const insertChecklistItemSchema = createInsertSchema(checklistItems)
     taskId: true,
     title: true,
     completed: true,
-    order: true,
+    itemOrder: true,
   })
   .extend({
     taskId: z.number().int().positive("Task ID is required"),

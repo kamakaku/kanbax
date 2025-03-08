@@ -100,9 +100,15 @@ export class DatabaseStorage implements IStorage {
 
     console.log("Creating task with data:", insertTask);
 
+    // Convert dueDate string to Date object if it exists
+    const taskData = {
+      ...insertTask,
+      dueDate: insertTask.dueDate ? new Date(insertTask.dueDate) : null,
+    };
+
     const [task] = await db
       .insert(tasks)
-      .values(insertTask)
+      .values(taskData)
       .returning();
 
     console.log("Task created successfully:", task);

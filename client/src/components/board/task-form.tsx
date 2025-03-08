@@ -61,6 +61,7 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
         ...data,
         boardId: currentBoard?.id || 0,
         status,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       });
 
       form.reset();
