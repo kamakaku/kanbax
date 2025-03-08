@@ -8,7 +8,7 @@ import { Droppable } from "react-beautiful-dnd";
 
 interface ColumnProps {
   title: string;
-  status: string;
+  status: "todo" | "in-progress" | "done";
   tasks: Task[];
   onAddTask: (task: Task) => void;
 }

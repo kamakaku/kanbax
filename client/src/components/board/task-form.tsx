@@ -26,7 +26,7 @@ interface TaskFormProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: InsertTask) => void;
-  status: string;
+  status: "todo" | "in-progress" | "done";
 }
 
 export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
