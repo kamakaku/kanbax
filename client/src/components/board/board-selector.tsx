@@ -10,20 +10,21 @@ import {
 import { useStore } from "@/lib/store";
 
 export function BoardSelector() {
-  const { boards, setCurrentBoard } = useStore();
-  
-  const { data: fetchedBoards } = useQuery<Board[]>({
+  const { currentBoard, setCurrentBoard } = useStore();
+
+  const { data: boards } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
   });
 
-  if (!fetchedBoards?.length) {
+  if (!boards?.length) {
     return null;
   }
 
   return (
     <Select
+      value={currentBoard?.id.toString()}
       onValueChange={(value) => {
-        const board = fetchedBoards.find((b) => b.id === parseInt(value));
+        const board = boards.find((b) => b.id === parseInt(value));
         if (board) {
           setCurrentBoard(board);
         }
@@ -33,7 +34,7 @@ export function BoardSelector() {
         <SelectValue placeholder="Select a board" />
       </SelectTrigger>
       <SelectContent>
-        {fetchedBoards.map((board) => (
+        {boards.map((board) => (
           <SelectItem key={board.id} value={board.id.toString()}>
             {board.title}
           </SelectItem>
