@@ -62,7 +62,10 @@ export function TaskForm({ open, onClose, onSubmit, status, existingTask }: Task
       const res = await apiRequest(
         "PATCH",
         `/api/tasks/${existingTask?.id}`,
-        data
+        {
+          ...data,
+          dueDate: data.dueDate || null, // Ensure dueDate is either the string or null
+        }
       );
       return res.json();
     },
@@ -89,7 +92,7 @@ export function TaskForm({ open, onClose, onSubmit, status, existingTask }: Task
           ...data,
           boardId: currentBoard?.id || 0,
           status: status || "todo",
-          dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+          dueDate: data.dueDate || null,
         });
       }
 
