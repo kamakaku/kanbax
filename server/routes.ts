@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express) {
   // Board routes
@@ -140,6 +140,52 @@ export async function registerRoutes(app: Express) {
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+  // Comment routes
+  app.get("/api/tasks/:taskId/comments", async (req, res) => {
+    const taskId = parseInt(req.params.taskId);
+    if (isNaN(taskId)) {
+      return res.status(400).json({ message: "Invalid task ID" });
+    }
+
+    try {
+      const comments = await storage.getComments(taskId);
+      res.json(comments);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/comments", async (req, res) => {
+    const taskId = parseInt(req.params.taskId);
+    if (isNaN(taskId)) {
+      return res.status(400).json({ message: "Invalid task ID" });
+    }
+
+    console.log("Received comment creation request:", {
+      body: req.body,
+      taskId: taskId
+    });
+
+    const result = insertCommentSchema.safeParse({ ...req.body, taskId });
+    if (!result.success) {
+      console.error("Comment validation failed:", result.error);
+      return res.status(400).json({ 
+        message: "Invalid comment data",
+        errors: result.error.errors 
+      });
+    }
+
+    try {
+      console.log("Validated comment data:", result.data);
+      const comment = await storage.createComment(result.data);
+      console.log("Created comment:", comment);
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Failed to create comment:", error);
+      res.status(500).json({ message: (error as Error).message });
     }
   });
 

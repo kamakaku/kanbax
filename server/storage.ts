@@ -1,6 +1,6 @@
-import { tasks, boards, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard } from "@shared/schema";
+import { tasks, boards, comments, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Comment, type InsertComment } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Board operations
@@ -15,6 +15,10 @@ export interface IStorage {
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: UpdateTask): Promise<Task>;
   deleteTask(id: number): Promise<void>;
+
+  // Comment operations
+  getComments(taskId: number): Promise<Comment[]>;
+  createComment(comment: InsertComment): Promise<Comment>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -118,6 +122,37 @@ export class DatabaseStorage implements IStorage {
     if (!task) {
       throw new Error(`Task ${id} not found`);
     }
+  }
+
+  // Comment operations
+  async getComments(taskId: number): Promise<Comment[]> {
+    return await db
+      .select()
+      .from(comments)
+      .where(eq(comments.taskId, taskId))
+      .orderBy(desc(comments.createdAt));
+  }
+
+  async createComment(insertComment: InsertComment): Promise<Comment> {
+    // First check if the task exists
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, insertComment.taskId));
+
+    if (!task) {
+      throw new Error(`Task ${insertComment.taskId} not found`);
+    }
+
+    console.log("Creating comment with data:", insertComment);
+
+    const [comment] = await db
+      .insert(comments)
+      .values(insertComment)
+      .returning();
+
+    console.log("Comment created successfully:", comment);
+    return comment;
   }
 }
 
