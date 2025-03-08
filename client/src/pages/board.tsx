@@ -21,7 +21,7 @@ export default function Board() {
   const { toast } = useToast();
   const { currentBoard, setCurrentBoard, setBoards } = useStore();
 
-  const { data: boards, isLoading } = useQuery<Board[]>({
+  const { data: boards, isLoading, error } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
   });
 
@@ -63,19 +63,18 @@ export default function Board() {
   });
 
   useEffect(() => {
-    if (boards?.length) {
+    if (!isLoading && boards) {
       setBoards(boards);
-      if (!currentBoard) {
+      if (!currentBoard && boards.length > 0) {
         setCurrentBoard(boards[0]);
+      } else if (boards.length === 0 && !createBoard.isPending) {
+        createBoard.mutate({
+          title: "My First Board",
+          description: "A board to get you started",
+        });
       }
-    } else if (boards?.length === 0) {
-      // Create a default board if none exists
-      createBoard.mutate({
-        title: "My First Board",
-        description: "A board to get you started",
-      });
     }
-  }, [boards, currentBoard, setCurrentBoard, setBoards]);
+  }, [boards, isLoading, currentBoard, setCurrentBoard, setBoards]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -87,6 +86,14 @@ export default function Board() {
 
     updateTaskStatus.mutate({ id: taskId, status: newStatus, order: newOrder });
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg text-red-500">Error loading boards: {error.message}</p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -102,7 +109,7 @@ export default function Board() {
         <h1 className="text-3xl font-bold">Kanban Board</h1>
         <div className="flex items-center gap-4">
           <BoardSelector />
-          {!boards?.length && (
+          {(!boards || boards.length === 0) && !createBoard.isPending && (
             <Button
               onClick={() =>
                 createBoard.mutate({
@@ -133,7 +140,7 @@ export default function Board() {
       ) : (
         <div className="flex items-center justify-center min-h-[500px]">
           <p className="text-lg text-muted-foreground">
-            {boards?.length
+            {boards && boards.length > 0
               ? "Please select a board"
               : "Create your first board to get started"}
           </p>

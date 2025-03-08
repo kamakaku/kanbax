@@ -41,10 +41,10 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
-// Initialize QueryClient with explicit configuration
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      queryFn: getQueryFn({ on401: "throw" }),
       retry: false,
       refetchOnWindowFocus: false,
       staleTime: 5000,
