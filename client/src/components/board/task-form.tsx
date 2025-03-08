@@ -49,8 +49,6 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
       labels: [],
       boardId: currentBoard?.id || 0,
       dueDate: undefined,
-      coverType: undefined,
-      coverValue: undefined,
       archived: false,
     },
   });
@@ -200,68 +198,6 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="coverType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cover Type</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      if (!value) {
-                        form.setValue("coverValue", undefined);
-                      }
-                    }}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select cover type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="color">Color</SelectItem>
-                      <SelectItem value="image">Image</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {form.watch("coverType") && (
-              <FormField
-                control={form.control}
-                name="coverValue"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {form.watch("coverType") === "color"
-                        ? "Color"
-                        : "Image URL"}
-                    </FormLabel>
-                    <FormControl>
-                      {form.watch("coverType") === "color" ? (
-                        <Input
-                          {...field}
-                          type="color"
-                          className="h-10 px-2"
-                        />
-                      ) : (
-                        <Input
-                          {...field}
-                          type="url"
-                          placeholder="https://example.com/image.jpg"
-                        />
-                      )}
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <Button type="submit" className="w-full">
               Create Task
