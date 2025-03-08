@@ -3,6 +3,7 @@ import { type Task } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
 import { CommentSection } from "@/components/comments/comment-section";
+import { ChecklistSection } from "@/components/checklist/checklist-section";
 
 interface TaskDialogProps {
   task: Task;
@@ -41,6 +42,10 @@ export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
               ))}
             </div>
           )}
+
+          <div className="border-t pt-6">
+            <ChecklistSection taskId={task.id} />
+          </div>
 
           <div className="border-t pt-6">
             <h3 className="font-semibold mb-4">Comments</h3>
