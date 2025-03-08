@@ -72,13 +72,13 @@ export function ChecklistSection({ taskId }: ChecklistSectionProps) {
     e.preventDefault();
     if (!newItemTitle.trim()) return;
 
-    const maxOrder = items.reduce((max, item) => Math.max(max, item.order), -1);
-    
+    const maxOrder = items.reduce((max, item) => Math.max(max, item.itemOrder), -1);
+
     createItem.mutate({
       taskId,
       title: newItemTitle.trim(),
       completed: false,
-      order: maxOrder + 1,
+      itemOrder: maxOrder + 1,
     });
   };
 
