@@ -70,7 +70,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     boardId: z.number().int().positive("Board ID is required"),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    dueDate: z.string().nullable(),
+    dueDate: z.string().nullable().optional(), // Made dueDate optional
     archived: z.boolean().default(false)
   });
 
