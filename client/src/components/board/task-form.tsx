@@ -64,9 +64,13 @@ export function TaskForm({ open, onClose, onSubmit, status, existingTask }: Task
         `/api/tasks/${existingTask?.id}`,
         {
           ...data,
-          dueDate: data.dueDate || null, // Ensure dueDate is either the string or null
+          dueDate: data.dueDate || null,
         }
       );
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(`Failed to update task: ${error}`);
+      }
       return res.json();
     },
     onSuccess: () => {

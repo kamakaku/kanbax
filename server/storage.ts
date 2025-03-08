@@ -116,9 +116,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTask(id: number, updateTask: UpdateTask): Promise<Task> {
+    // Convert dueDate string to Date object if it exists
+    const taskData = {
+      ...updateTask,
+      dueDate: updateTask.dueDate ? new Date(updateTask.dueDate) : null,
+    };
+
     const [task] = await db
       .update(tasks)
-      .set(updateTask)
+      .set(taskData)
       .where(eq(tasks.id, id))
       .returning();
 
