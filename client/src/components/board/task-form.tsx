@@ -21,6 +21,10 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import { useStore } from "@/lib/store";
 
 interface TaskFormProps {
@@ -44,12 +48,15 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
       priority: "medium",
       labels: [],
       boardId: currentBoard?.id || 0,
+      dueDate: undefined,
+      coverType: undefined,
+      coverValue: undefined,
+      archived: false,
     },
   });
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      console.log("Submitting task with data:", data);
       await onSubmit({
         ...data,
         boardId: currentBoard?.id || 0,
@@ -88,6 +95,7 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="description"
@@ -101,6 +109,7 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="priority"
@@ -126,6 +135,7 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="labels"
@@ -149,6 +159,109 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due Date</FormLabel>
+                  <FormControl>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left font-normal ${
+                            !field.value && "text-muted-foreground"
+                          }`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? (
+                            format(new Date(field.value), "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) =>
+                            field.onChange(date?.toISOString())
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="coverType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cover Type</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      if (!value) {
+                        form.setValue("coverValue", undefined);
+                      }
+                    }}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select cover type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="color">Color</SelectItem>
+                      <SelectItem value="image">Image</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {form.watch("coverType") && (
+              <FormField
+                control={form.control}
+                name="coverValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {form.watch("coverType") === "color"
+                        ? "Color"
+                        : "Image URL"}
+                    </FormLabel>
+                    <FormControl>
+                      {form.watch("coverType") === "color" ? (
+                        <Input
+                          {...field}
+                          type="color"
+                          className="h-10 px-2"
+                        />
+                      ) : (
+                        <Input
+                          {...field}
+                          type="url"
+                          placeholder="https://example.com/image.jpg"
+                        />
+                      )}
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <Button type="submit" className="w-full">
               Create Task
             </Button>

@@ -1,4 +1,4 @@
-import { tasks, boards, comments, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Comment, type InsertComment } from "@shared/schema";
+import { tasks, boards, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -19,6 +19,16 @@ export interface IStorage {
   // Comment operations
   getComments(taskId: number): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
+
+  // Checklist operations
+  getChecklistItems(taskId: number): Promise<ChecklistItem[]>;
+  createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem>;
+  updateChecklistItem(id: number, item: Partial<InsertChecklistItem>): Promise<ChecklistItem>;
+  deleteChecklistItem(id: number): Promise<void>;
+
+  // Activity Log operations
+  getActivityLogs(taskId: number): Promise<ActivityLog[]>;
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -153,6 +163,93 @@ export class DatabaseStorage implements IStorage {
 
     console.log("Comment created successfully:", comment);
     return comment;
+  }
+
+  // Checklist operations
+  async getChecklistItems(taskId: number): Promise<ChecklistItem[]> {
+    return await db
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.taskId, taskId))
+      .orderBy(checklistItems.item_order);
+  }
+
+  async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
+    // First check if the task exists
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, insertItem.taskId));
+
+    if (!task) {
+      throw new Error(`Task ${insertItem.taskId} not found`);
+    }
+
+    console.log("Creating checklist item with data:", insertItem);
+
+    const [item] = await db
+      .insert(checklistItems)
+      .values(insertItem)
+      .returning();
+
+    console.log("Checklist item created successfully:", item);
+    return item;
+  }
+
+  async updateChecklistItem(id: number, updateItem: Partial<InsertChecklistItem>): Promise<ChecklistItem> {
+    const [item] = await db
+      .update(checklistItems)
+      .set(updateItem)
+      .where(eq(checklistItems.id, id))
+      .returning();
+
+    if (!item) {
+      throw new Error(`Checklist item ${id} not found`);
+    }
+
+    return item;
+  }
+
+  async deleteChecklistItem(id: number): Promise<void> {
+    const [item] = await db
+      .delete(checklistItems)
+      .where(eq(checklistItems.id, id))
+      .returning();
+
+    if (!item) {
+      throw new Error(`Checklist item ${id} not found`);
+    }
+  }
+
+  // Activity Log operations
+  async getActivityLogs(taskId: number): Promise<ActivityLog[]> {
+    return await db
+      .select()
+      .from(activityLogs)
+      .where(eq(activityLogs.taskId, taskId))
+      .orderBy(desc(activityLogs.createdAt));
+  }
+
+  async createActivityLog(insertLog: InsertActivityLog): Promise<ActivityLog> {
+    // First check if the task exists
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, insertLog.taskId));
+
+    if (!task) {
+      throw new Error(`Task ${insertLog.taskId} not found`);
+    }
+
+    console.log("Creating activity log with data:", insertLog);
+
+    const [log] = await db
+      .insert(activityLogs)
+      .values(insertLog)
+      .returning();
+
+    console.log("Activity log created successfully:", log);
+    return log;
   }
 }
 
