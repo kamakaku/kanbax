@@ -21,6 +21,13 @@ export default function Board() {
 
   const { data: boards, isLoading, error } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
+    queryFn: async () => {
+      const res = await fetch("/api/boards");
+      if (!res.ok) {
+        throw new Error("Failed to fetch boards");
+      }
+      return res.json();
+    },
   });
 
   const updateTaskStatus = useMutation({

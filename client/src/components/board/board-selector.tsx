@@ -23,6 +23,13 @@ export function BoardSelector() {
 
   const { data: boards } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
+    queryFn: async () => {
+      const res = await fetch("/api/boards");
+      if (!res.ok) {
+        throw new Error("Failed to fetch boards");
+      }
+      return res.json();
+    },
   });
 
   const createBoard = useMutation({
@@ -33,13 +40,13 @@ export function BoardSelector() {
     onSuccess: (newBoard) => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
       setCurrentBoard(newBoard);
-      toast({ title: "Board erfolgreich erstellt" });
+      toast({ title: "Board created successfully" });
       setShowForm(false);
     },
     onError: (error) => {
       toast({
-        title: "Fehler beim Erstellen des Boards",
-        description: (error as Error).message,
+        title: "Failed to create board",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -57,7 +64,7 @@ export function BoardSelector() {
         }}
       >
         <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Board auswählen" />
+          <SelectValue placeholder="Select a board" />
         </SelectTrigger>
         <SelectContent>
           {boards?.map((board) => (
