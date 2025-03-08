@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Task, type Board, type InsertTask } from "@shared/schema";
+import { type Board } from "@shared/schema";
 import { Column } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
@@ -17,49 +17,27 @@ const COLUMNS = [
 
 export default function Board() {
   const { toast } = useToast();
-  const { tasks, setTasks, updateTaskOrder, currentBoard, setCurrentBoard } = useStore();
+  const { currentBoard, setCurrentBoard } = useStore();
 
   const { data: boards } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
   });
 
-  const { data: boardTasks, isLoading } = useQuery<Task[]>({
-    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
-    enabled: !!currentBoard,
-  });
-
-  const createTask = useMutation({
-    mutationFn: async (task: InsertTask) => {
-      const res = await apiRequest(
-        "POST",
-        `/api/boards/${currentBoard?.id}/tasks`,
-        task
-      );
+  const updateTaskStatus = useMutation({
+    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { status, order });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
-      toast({ title: "Task created successfully" });
     },
     onError: (error) => {
-      toast({ 
-        title: "Failed to create task",
+      toast({
+        title: "Failed to update task",
         description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
-
-  const updateTask = useMutation({
-    mutationFn: async ({ id, ...task }: Partial<Task> & { id: number }) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, task);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+        variant: "destructive",
       });
     },
   });
@@ -70,12 +48,6 @@ export default function Board() {
     }
   }, [boards, currentBoard, setCurrentBoard]);
 
-  useEffect(() => {
-    if (boardTasks) {
-      setTasks(boardTasks);
-    }
-  }, [boardTasks, setTasks]);
-
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -84,17 +56,8 @@ export default function Board() {
     const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
-    updateTaskOrder(taskId, newStatus, newOrder);
-    updateTask.mutate({ id: taskId, status: newStatus, order: newOrder });
+    updateTaskStatus.mutate({ id: taskId, status: newStatus, order: newOrder });
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary" />
-      </div>
-    );
-  }
 
   if (!currentBoard) {
     return (
@@ -118,8 +81,6 @@ export default function Board() {
               key={status}
               title={title}
               status={status as "todo" | "in-progress" | "done"}
-              tasks={tasks.filter((task) => task.status === status)}
-              onAddTask={(task) => createTask.mutate(task)}
             />
           ))}
         </div>
