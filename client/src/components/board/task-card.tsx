@@ -6,6 +6,16 @@ import { Calendar } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
 import { format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useStore } from "@/lib/store";
 
 interface TaskCardProps {
   task: Task;
@@ -18,8 +28,48 @@ const priorityColors = {
   low: "bg-green-500",
 };
 
+const priorityLabels = {
+  high: "High Priority",
+  medium: "Medium Priority",
+  low: "Low Priority",
+};
+
 export function TaskCard({ task, index }: TaskCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { currentBoard } = useStore();
+
+  const updatePriority = useMutation({
+    mutationFn: async (newPriority: "high" | "medium" | "low") => {
+      const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        priority: newPriority,
+      });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(`Failed to update priority: ${error}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
+      toast({ title: "Priority updated" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update priority",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handlePriorityChange = (e: React.MouseEvent, priority: "high" | "medium" | "low") => {
+    e.stopPropagation(); // Prevent opening the task dialog
+    updatePriority.mutate(priority);
+  };
 
   return (
     <>
@@ -31,12 +81,34 @@ export function TaskCard({ task, index }: TaskCardProps) {
             {...provided.dragHandleProps}
             onClick={() => setIsDialogOpen(true)}
           >
-            <Card className="mb-3 cursor-pointer hover:bg-muted/50 transition-colors shadow-sm hover:shadow-md relative overflow-hidden">
+            <Card className="mb-3 cursor-pointer hover:bg-muted/50 transition-colors shadow-sm hover:shadow-md relative overflow-hidden group">
               <div 
                 className={`absolute top-0 left-0 w-full h-1 ${priorityColors[task.priority as keyof typeof priorityColors]}`} 
               />
               <CardHeader className="p-3 pb-2">
-                <h3 className="text-sm font-medium line-clamp-2">{task.title}</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium line-clamp-2">{task.title}</h3>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className={`h-2 w-2 rounded-full ${
+                          priorityColors[task.priority as keyof typeof priorityColors]
+                        } cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity`}
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => handlePriorityChange(e, "high")}>
+                        High Priority
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => handlePriorityChange(e, "medium")}>
+                        Medium Priority
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => handlePriorityChange(e, "low")}>
+                        Low Priority
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {task.labels && task.labels.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {task.labels.map((label) => (
