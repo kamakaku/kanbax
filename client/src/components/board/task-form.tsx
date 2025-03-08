@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema, type InsertTask } from "@shared/schema";
+import { insertTaskSchema, type InsertTask, type Task } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -26,48 +26,79 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: InsertTask) => void;
-  status: "todo" | "in-progress" | "done";
+  status?: "todo" | "in-progress" | "done";
+  existingTask?: Task;
 }
 
-export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
+export function TaskForm({ open, onClose, onSubmit, status, existingTask }: TaskFormProps) {
   const { toast } = useToast();
   const { currentBoard } = useStore();
+  const queryClient = useQueryClient();
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
-      title: "",
-      description: "",
-      status,
-      order: 0,
-      priority: "medium",
-      labels: [],
-      boardId: currentBoard?.id || 0,
-      dueDate: undefined,
-      archived: false,
+      title: existingTask?.title || "",
+      description: existingTask?.description || "",
+      status: existingTask?.status || status || "todo",
+      order: existingTask?.order || 0,
+      priority: existingTask?.priority || "medium",
+      labels: existingTask?.labels || [],
+      boardId: existingTask?.boardId || currentBoard?.id || 0,
+      dueDate: existingTask?.dueDate || undefined,
+      archived: existingTask?.archived || false,
+    },
+  });
+
+  const updateTask = useMutation({
+    mutationFn: async (data: InsertTask) => {
+      const res = await apiRequest(
+        "PATCH",
+        `/api/tasks/${existingTask?.id}`,
+        data
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+      toast({ title: "Task updated successfully" });
+      onClose();
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update task",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
     },
   });
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      await onSubmit({
-        ...data,
-        boardId: currentBoard?.id || 0,
-        status,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
-      });
+      if (existingTask) {
+        await updateTask.mutate(data);
+      } else {
+        await onSubmit({
+          ...data,
+          boardId: currentBoard?.id || 0,
+          status: status || "todo",
+          dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        });
+      }
 
       form.reset();
       onClose();
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create task",
+        description: "Failed to save task",
         variant: "destructive",
       });
     }
@@ -77,7 +108,7 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Task</DialogTitle>
+          <DialogTitle>{existingTask ? "Edit Task" : "Add New Task"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
@@ -200,7 +231,7 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
             />
 
             <Button type="submit" className="w-full">
-              Create Task
+              {existingTask ? "Save Changes" : "Create Task"}
             </Button>
           </form>
         </Form>

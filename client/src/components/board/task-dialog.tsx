@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type Task } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
+import { Calendar, Edit2 } from "lucide-react";
 import { CommentSection } from "@/components/comments/comment-section";
 import { ChecklistSection } from "@/components/checklist/checklist-section";
+import { Button } from "@/components/ui/button";
+import { TaskForm } from "./task-form";
+import { format } from "date-fns";
 
 interface TaskDialogProps {
   task: Task;
@@ -11,20 +15,47 @@ interface TaskDialogProps {
   onClose: () => void;
 }
 
-const priorityIcons = {
-  high: <ArrowUp className="h-4 w-4 text-red-500" />,
-  medium: <ArrowRight className="h-4 w-4 text-yellow-500" />,
-  low: <ArrowDown className="h-4 w-4 text-green-500" />,
+const priorityColors = {
+  high: "bg-red-500",
+  medium: "bg-yellow-500",
+  low: "bg-green-500",
 };
 
 export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  if (isEditing) {
+    return (
+      <TaskForm
+        open={open}
+        onClose={() => {
+          setIsEditing(false);
+          onClose();
+        }}
+        onSubmit={async () => {
+          setIsEditing(false);
+        }}
+        existingTask={task}
+      />
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <DialogTitle>{task.title}</DialogTitle>
-            {priorityIcons[task.priority as keyof typeof priorityIcons]}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DialogTitle>{task.title}</DialogTitle>
+              <div className={`h-2 w-2 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors]}`} />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsEditing(true)}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
           </div>
         </DialogHeader>
 
@@ -40,6 +71,13 @@ export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
                   {label}
                 </Badge>
               ))}
+            </div>
+          )}
+
+          {task.dueDate && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              {format(new Date(task.dueDate), 'PPP')}
             </div>
           )}
 
