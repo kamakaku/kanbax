@@ -85,14 +85,29 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
+    console.log("Received task creation request:", {
+      body: req.body,
+      boardId: boardId
+    });
+
     const result = insertTaskSchema.safeParse({ ...req.body, boardId });
     if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
+      console.error("Task validation failed:", result.error);
+      return res.status(400).json({ 
+        message: "Invalid task data",
+        errors: result.error.errors 
+      });
     }
-    console.log("Creating task:", result.data);
-    const task = await storage.createTask(result.data);
-    console.log("Created task:", task);
-    res.status(201).json(task);
+
+    try {
+      console.log("Validated task data:", result.data);
+      const task = await storage.createTask(result.data);
+      console.log("Created task:", task);
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Failed to create task:", error);
+      res.status(500).json({ message: (error as Error).message });
+    }
   });
 
   app.patch("/api/tasks/:id", async (req, res) => {

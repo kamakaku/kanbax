@@ -32,7 +32,7 @@ interface TaskFormProps {
 
 export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
   const { toast } = useToast();
-  const { currentBoard, tasks } = useStore();
+  const { currentBoard } = useStore();
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
@@ -49,14 +49,9 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      // Calculate the new task's order
-      const maxOrder = tasks
-        .filter((t) => t.status === status)
-        .reduce((max, task) => Math.max(max, task.order), -1);
-
+      console.log("Submitting task with data:", data);
       await onSubmit({
         ...data,
-        order: maxOrder + 1,
         boardId: currentBoard?.id || 0,
         status,
       });
@@ -71,15 +66,6 @@ export function TaskForm({ open, onClose, onSubmit, status }: TaskFormProps) {
       });
     }
   };
-
-  const handleLabelsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const labels = e.target.value
-      .split(",")
-      .map((label) => label.trim())
-      .filter(Boolean);
-    form.setValue("labels", labels);
-  };
-
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

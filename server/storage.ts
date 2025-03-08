@@ -74,10 +74,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
+    // First check if the board exists
+    const [board] = await db
+      .select()
+      .from(boards)
+      .where(eq(boards.id, insertTask.boardId));
+
+    if (!board) {
+      throw new Error(`Board ${insertTask.boardId} not found`);
+    }
+
+    console.log("Creating task with data:", insertTask);
+
     const [task] = await db
       .insert(tasks)
       .values(insertTask)
       .returning();
+
+    console.log("Task created successfully:", task);
     return task;
   }
 

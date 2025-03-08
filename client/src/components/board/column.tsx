@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type Task } from "@shared/schema";
+import { type Task, type InsertTask } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { TaskCard } from "./task-card";
@@ -25,6 +25,9 @@ export function Column({ title, status }: ColumnProps) {
     queryKey: ["/api/boards", currentBoard?.id, "tasks", status],
     queryFn: async () => {
       const res = await fetch(`/api/boards/${currentBoard?.id}/tasks`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch tasks: ${res.statusText}`);
+      }
       const tasks = await res.json();
       return tasks.filter((task: Task) => task.status === status);
     },
@@ -32,12 +35,35 @@ export function Column({ title, status }: ColumnProps) {
   });
 
   const createTask = useMutation({
-    mutationFn: async (task: Task) => {
+    mutationFn: async (taskData: InsertTask) => {
+      if (!currentBoard?.id) {
+        throw new Error("No board selected");
+      }
+
+      const maxOrder = tasks.reduce((max, task) => Math.max(max, task.order), -1);
+
+      const fullTaskData: InsertTask = {
+        ...taskData,
+        boardId: currentBoard.id,
+        status,
+        order: maxOrder + 1,
+        priority: taskData.priority || "medium",
+        labels: taskData.labels || []
+      };
+
+      console.log("Submitting task data:", fullTaskData);
+
       const res = await apiRequest(
         "POST",
-        `/api/boards/${currentBoard?.id}/tasks`,
-        task
+        `/api/boards/${currentBoard.id}/tasks`,
+        fullTaskData
       );
+
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(`Failed to create task: ${error}`);
+      }
+
       return res.json();
     },
     onSuccess: () => {
@@ -48,6 +74,7 @@ export function Column({ title, status }: ColumnProps) {
       setShowForm(false);
     },
     onError: (error) => {
+      console.error("Task creation error:", error);
       toast({
         title: "Failed to create task",
         description: error.message,
