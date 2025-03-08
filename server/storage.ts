@@ -177,7 +177,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(checklistItems)
       .where(eq(checklistItems.taskId, taskId))
-      .orderBy(checklistItems.item_order);
+      .orderBy(checklistItems.itemOrder);
   }
 
   async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
