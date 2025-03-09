@@ -1,9 +1,69 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema } from "@shared/schema";
+import bcrypt from "bcryptjs";
 
 export async function registerRoutes(app: Express) {
+  // Authentication routes
+  app.post("/api/auth/register", async (req, res) => {
+    const result = insertUserSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(result.data.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(result.data.password, salt);
+
+      // Create user
+      const user = await storage.createUser({
+        username: result.data.username,
+        email: result.data.email,
+        passwordHash,
+      });
+
+      // Remove password hash from response
+      const { passwordHash: _, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Failed to create user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+      // Find user
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(400).json({ message: "Invalid credentials" });
+      }
+
+      // Verify password
+      const isValid = await bcrypt.compare(password, user.passwordHash);
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid credentials" });
+      }
+
+      // Remove password hash from response
+      const { passwordHash: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Failed to login:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
   // Board routes
   app.get("/api/boards", async (_req, res) => {
     const boards = await storage.getBoards();
@@ -93,9 +153,9 @@ export async function registerRoutes(app: Express) {
     const result = insertTaskSchema.safeParse({ ...req.body, boardId });
     if (!result.success) {
       console.error("Task validation failed:", result.error);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Invalid task data",
-        errors: result.error.errors 
+        errors: result.error.errors
       });
     }
 
@@ -172,9 +232,9 @@ export async function registerRoutes(app: Express) {
     const result = insertCommentSchema.safeParse({ ...req.body, taskId });
     if (!result.success) {
       console.error("Comment validation failed:", result.error);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Invalid comment data",
-        errors: result.error.errors 
+        errors: result.error.errors
       });
     }
 
@@ -218,9 +278,9 @@ export async function registerRoutes(app: Express) {
     const result = insertChecklistItemSchema.safeParse({ ...req.body, taskId });
     if (!result.success) {
       console.error("Checklist item validation failed:", result.error);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Invalid checklist item data",
-        errors: result.error.errors 
+        errors: result.error.errors
       });
     }
 
@@ -292,9 +352,9 @@ export async function registerRoutes(app: Express) {
     const result = insertActivityLogSchema.safeParse({ ...req.body, taskId });
     if (!result.success) {
       console.error("Activity log validation failed:", result.error);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Invalid activity log data",
-        errors: result.error.errors 
+        errors: result.error.errors
       });
     }
 
@@ -332,9 +392,9 @@ export async function registerRoutes(app: Express) {
 
     const result = insertColumnSchema.safeParse({ ...req.body, boardId });
     if (!result.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Invalid column data",
-        errors: result.error.errors 
+        errors: result.error.errors
       });
     }
 

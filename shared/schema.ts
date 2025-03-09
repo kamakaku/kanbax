@@ -2,6 +2,14 @@ import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -53,7 +61,19 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Column schemas
+export const insertUserSchema = createInsertSchema(users)
+  .pick({
+    username: true,
+    email: true,
+    passwordHash: true,
+  })
+  .extend({
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+  })
+  .omit({ passwordHash: true });
+
 export const insertColumnSchema = createInsertSchema(columns)
   .pick({
     title: true,
@@ -65,7 +85,6 @@ export const insertColumnSchema = createInsertSchema(columns)
     boardId: z.number().int().positive("Board ID is required"),
   });
 
-// Task schemas
 export const insertTaskSchema = createInsertSchema(tasks)
   .pick({
     title: true,
@@ -90,7 +109,6 @@ export const insertTaskSchema = createInsertSchema(tasks)
     archived: z.boolean().default(false)
   });
 
-// Checklist schemas
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)
   .pick({
     taskId: true,
@@ -104,7 +122,6 @@ export const insertChecklistItemSchema = createInsertSchema(checklistItems)
     completed: z.boolean().default(false),
   });
 
-// Comment schemas
 export const insertCommentSchema = createInsertSchema(comments)
   .pick({
     content: true,
@@ -117,7 +134,6 @@ export const insertCommentSchema = createInsertSchema(comments)
     authorName: z.string().min(1, "Author name is required"),
   });
 
-// Activity Log schemas
 export const insertActivityLogSchema = createInsertSchema(activityLogs)
   .pick({
     taskId: true,
@@ -130,7 +146,8 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     details: z.string().optional(),
   });
 
-// Export types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertBoard = z.infer<typeof insertBoardSchema>;
 export type Board = typeof boards.$inferSelect;
 export type InsertColumn = z.infer<typeof insertColumnSchema>;

@@ -1,4 +1,5 @@
 import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
+import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -35,6 +36,12 @@ export interface IStorage {
   // Activity Log operations
   getActivityLogs(taskId: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+
+  // Add user operations
+  getUser(id: number): Promise<User>;
+  getUserByUsername(username: string): Promise<User | null>;
+  getUserByEmail(email: string): Promise<User | null>;
+  createUser(user: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -327,6 +334,33 @@ export class DatabaseStorage implements IStorage {
     if (!column) {
       throw new Error(`Column ${id} not found`);
     }
+  }
+
+  // Add user operations implementation
+  async getUser(id: number): Promise<User> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    if (!user) {
+      throw new Error(`User ${id} not found`);
+    }
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | null> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || null;
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || null;
+  }
+
+  async createUser(userData: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .returning();
+    return user;
   }
 }
 
