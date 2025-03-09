@@ -10,6 +10,23 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Add new table for teams
+export const teams = pgTable("teams", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Add new table for team members
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  teamId: integer("team_id").notNull(),
+  userId: integer("user_id").notNull(),
+  role: text("role").notNull().default("member"), // 'member' or 'admin'
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -35,6 +52,10 @@ export const tasks = pgTable("tasks", {
   labels: text("labels").array(),
   dueDate: timestamp("due_date"),
   archived: boolean("archived").default(false),
+  // Add new fields for assignments
+  assignedUserId: integer("assigned_user_id"),
+  assignedTeamId: integer("assigned_team_id"),
+  assignedAt: timestamp("assigned_at"),
 });
 
 export const checklistItems = pgTable("checklist_items", {
@@ -105,7 +126,9 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: true,
     labels: true,
     dueDate: true,
-    archived: true
+    archived: true,
+    assignedUserId: true,
+    assignedTeamId: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
@@ -115,7 +138,9 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable().optional(),
-    archived: z.boolean().default(false)
+    archived: z.boolean().default(false),
+    assignedUserId: z.number().int().positive().optional(),
+    assignedTeamId: z.number().int().positive().optional(),
   });
 
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)
@@ -155,6 +180,26 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     details: z.string().optional(),
   });
 
+// Add team schemas
+export const insertTeamSchema = createInsertSchema(teams)
+  .pick({
+    name: true,
+    description: true,
+  })
+  .extend({
+    name: z.string().min(1, "Team name is required"),
+  });
+
+export const insertTeamMemberSchema = createInsertSchema(teamMembers)
+  .pick({
+    teamId: true,
+    userId: true,
+    role: true,
+  })
+  .extend({
+    role: z.enum(["member", "admin"]).default("member"),
+  });
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertBoard = z.infer<typeof insertBoardSchema>;
@@ -175,3 +220,8 @@ export type UpdateTask = z.infer<typeof updateTaskSchema>;
 
 export const updateBoardSchema = insertBoardSchema.partial();
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;
+
+export type Team = typeof teams.$inferSelect;
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;

@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useStore } from "@/lib/store";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface TaskCardProps {
   task: Task;
@@ -82,8 +83,8 @@ export function TaskCard({ task, index }: TaskCardProps) {
             onClick={() => setIsDialogOpen(true)}
           >
             <Card className="mb-3 cursor-pointer hover:bg-muted/50 transition-colors shadow-sm hover:shadow-md relative overflow-hidden group">
-              <div 
-                className={`absolute top-0 left-0 w-full h-1 ${priorityColors[task.priority as keyof typeof priorityColors]}`} 
+              <div
+                className={`absolute top-0 left-0 w-full h-1 ${priorityColors[task.priority as keyof typeof priorityColors]}`}
               />
               <CardHeader className="p-3 pb-2">
                 <div className="flex items-center justify-between">
@@ -128,7 +129,26 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 {task.dueDate && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Calendar className="h-3 w-3" />
-                    {format(new Date(task.dueDate), 'MMM d')}
+                    {format(new Date(task.dueDate), "MMM d")}
+                  </div>
+                )}
+                {task.assignedUserId && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-xs">
+                        {task.assignedUser?.username?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs text-muted-foreground">
+                      Assigned to: {task.assignedUser?.username}
+                    </span>
+                  </div>
+                )}
+                {task.assignedTeamId && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-muted-foreground">
+                      Team: {task.assignedTeam?.name}
+                    </span>
                   </div>
                 )}
               </CardContent>
