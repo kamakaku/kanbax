@@ -2,6 +2,7 @@ import { tasks, boards, columns, comments, checklistItems, activityLogs, type Ta
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
+import { teams, type Team } from "@shared/schema";
 
 export interface IStorage {
   // Board operations
@@ -110,11 +111,40 @@ export class DatabaseStorage implements IStorage {
 
   // Task operations
   async getTasks(boardId: number): Promise<Task[]> {
-    return await db
-      .select()
+    const tasks = await db
+      .select({
+        id: tasks.id,
+        title: tasks.title,
+        description: tasks.description,
+        status: tasks.status,
+        order: tasks.order,
+        boardId: tasks.boardId,
+        columnId: tasks.columnId,
+        priority: tasks.priority,
+        labels: tasks.labels,
+        dueDate: tasks.dueDate,
+        archived: tasks.archived,
+        assignedUserId: tasks.assignedUserId,
+        assignedTeamId: tasks.assignedTeamId,
+        assignedAt: tasks.assignedAt,
+        assignedUser: {
+          id: users.id,
+          username: users.username,
+          email: users.email
+        },
+        assignedTeam: {
+          id: teams.id,
+          name: teams.name,
+          description: teams.description
+        }
+      })
       .from(tasks)
+      .leftJoin(users, eq(tasks.assignedUserId, users.id))
+      .leftJoin(teams, eq(tasks.assignedTeamId, teams.id))
       .where(eq(tasks.boardId, boardId))
       .orderBy(tasks.order);
+
+    return tasks;
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {

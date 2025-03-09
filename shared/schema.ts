@@ -207,7 +207,19 @@ export type Board = typeof boards.$inferSelect;
 export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
-export type Task = typeof tasks.$inferSelect;
+// Update Task type to include joined data
+export type Task = typeof tasks.$inferSelect & {
+  assignedUser?: {
+    id: number;
+    username: string;
+    email: string;
+  } | null;
+  assignedTeam?: {
+    id: number;
+    name: string;
+    description: string | null;
+  } | null;
+};
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
