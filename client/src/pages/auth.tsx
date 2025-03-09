@@ -10,9 +10,9 @@ export default function Auth() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect to home if already logged in
+  // Redirect to dashboard if already logged in
   if (user) {
-    setLocation("/");
+    setLocation("/dashboard");
     return null;
   }
 
