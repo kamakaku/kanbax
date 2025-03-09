@@ -74,6 +74,15 @@ export const insertUserSchema = createInsertSchema(users)
   })
   .omit({ passwordHash: true });
 
+export const insertBoardSchema = createInsertSchema(boards)
+  .pick({
+    title: true,
+    description: true,
+  })
+  .extend({
+    title: z.string().min(1, "Title is required"),
+  });
+
 export const insertColumnSchema = createInsertSchema(columns)
   .pick({
     title: true,
