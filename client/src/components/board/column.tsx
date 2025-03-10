@@ -55,7 +55,10 @@ export function Column({ column }: ColumnProps) {
         boardId: currentBoard.id,
         columnId: column.id,
         order: maxOrder + 1,
+        status: column.title.toLowerCase() as "todo" | "in-progress" | "done" | "backlog",
       };
+
+      console.log("Creating task with data:", fullTaskData);
 
       const res = await apiRequest(
         "POST",
@@ -74,12 +77,13 @@ export function Column({ column }: ColumnProps) {
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
-      toast({ title: "Task created successfully" });
+      toast({ title: "Aufgabe erstellt" });
       setShowForm(false);
     },
     onError: (error) => {
+      console.error("Task creation error:", error);
       toast({
-        title: "Failed to create task",
+        title: "Fehler beim Erstellen der Aufgabe",
         description: error.message,
         variant: "destructive",
       });

@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema, type InsertTask, type Task, type UpdateTask } from "@shared/schema";
+import { insertTaskSchema, type InsertTask, type Task } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -12,152 +12,64 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
-  status?: "backlog" | "todo" | "in-progress" | "done";
-  existingTask?: Task;
-  onSubmit?: (task: Task) => void;
+  onSubmit: (task: InsertTask) => void;
+  columnId: number;
 }
 
-export function TaskForm({ open, onClose, status, existingTask, onSubmit }: TaskFormProps) {
-  const { toast } = useToast();
+export function TaskForm({ open, onClose, onSubmit, columnId }: TaskFormProps) {
   const { currentBoard } = useStore();
-  const queryClient = useQueryClient();
 
-  const form = useForm<InsertTask & { id?: number }>({
-    resolver: zodResolver(existingTask ? insertTaskSchema.partial() : insertTaskSchema),
+  const form = useForm<InsertTask>({
+    resolver: zodResolver(insertTaskSchema),
     defaultValues: {
-      id: existingTask?.id,
-      title: existingTask?.title || "",
-      description: existingTask?.description || "",
-      status: existingTask?.status || status || "todo",
-      order: existingTask?.order || 0,
-      boardId: existingTask?.boardId || currentBoard?.id || 0,
-      columnId: existingTask?.columnId || 0,
-      priority: existingTask?.priority || "medium",
-      labels: existingTask?.labels || [],
-      dueDate: existingTask?.dueDate || null,
-      archived: existingTask?.archived || false,
-      assignedUserId: existingTask?.assignedUserId || null,
-      assignedTeamId: existingTask?.assignedTeamId || null,
+      title: "",
+      description: "",
+      status: "todo",
+      order: 0,
+      boardId: currentBoard?.id || 0,
+      columnId: columnId,
+      priority: "medium",
+      labels: [],
     },
   });
 
-  const updateTask = useMutation({
-    mutationFn: async (data: UpdateTask) => {
-      if (!existingTask?.id) throw new Error("No task ID provided");
+  const handleSubmit = async (data: InsertTask) => {
+    if (!currentBoard?.id) return;
 
-      const res = await apiRequest(
-        "PATCH",
-        `/api/tasks/${existingTask.id}`,
-        data
-      );
-
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(`Failed to update task: ${error}`);
-      }
-
-      return res.json();
-    },
-    onSuccess: (updatedTask) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      toast({ title: "Task updated successfully" });
-      if (onSubmit) {
-        onSubmit(updatedTask);
-      }
-      onClose();
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to update task",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createTask = useMutation({
-    mutationFn: async (data: InsertTask) => {
-      const res = await apiRequest(
-        "POST",
-        `/api/boards/${currentBoard?.id}/tasks`,
-        data
-      );
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(`Failed to create task: ${error}`);
-      }
-      return res.json();
-    },
-    onSuccess: (newTask) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      toast({ title: "Task created successfully" });
-      if (onSubmit) {
-        onSubmit(newTask);
-      }
-      onClose();
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to create task",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = async (data: InsertTask & { id?: number }) => {
     try {
-      const { id, ...taskData } = data;
-      if (existingTask) {
-        await updateTask.mutateAsync(taskData);
-      } else {
-        await createTask.mutateAsync({
-          ...taskData,
-          boardId: currentBoard?.id || 0,
-          status: status || "todo",
-        });
-      }
+      await onSubmit({
+        ...data,
+        boardId: currentBoard.id,
+        columnId: columnId,
+      });
+      form.reset();
     } catch (error) {
-      // Error is handled by the mutation
+      console.error("Task creation error:", error);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{existingTask ? "Edit Task" : "Add New Task"}</DialogTitle>
+          <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input placeholder="Neue Aufgabe" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -169,58 +81,11 @@ export function TaskForm({ open, onClose, status, existingTask, onSubmit }: Task
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Beschreibung</FormLabel>
                   <FormControl>
-                    <Textarea {...field} value={field.value || ""} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priority</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="labels"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Labels (comma-separated)</FormLabel>
-                  <FormControl>
-                    <Input
-                      value={field.value?.join(", ") || ""}
-                      onChange={(e) => {
-                        const labels = e.target.value
-                          .split(",")
-                          .map((label) => label.trim())
-                          .filter(Boolean);
-                        field.onChange(labels);
-                      }}
-                      placeholder="bug, feature, UI"
+                    <Textarea
+                      placeholder="Beschreiben Sie die Aufgabe..."
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -228,48 +93,8 @@ export function TaskForm({ open, onClose, status, existingTask, onSubmit }: Task
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Due Date</FormLabel>
-                  <FormControl>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={`w-full justify-start text-left font-normal ${
-                            !field.value && "text-muted-foreground"
-                          }`}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? (
-                            format(new Date(field.value), "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) =>
-                            field.onChange(date?.toISOString())
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <Button type="submit" className="w-full">
-              {existingTask ? "Save Changes" : "Create Task"}
+              Aufgabe erstellen
             </Button>
           </form>
         </Form>
