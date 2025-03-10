@@ -5,7 +5,10 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { LayoutGrid, LayoutList } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TaskWithDetails extends Task {
   boardTitle: string;
@@ -32,7 +35,7 @@ export default function AllTasks() {
     queryKey: ["all-boards", projects?.map(p => p.id)],
     queryFn: async () => {
       if (!projects) return [];
-      
+
       const allBoards = await Promise.all(
         projects.map(async (project) => {
           const res = await fetch(`/api/projects/${project.id}/boards`);
@@ -45,7 +48,7 @@ export default function AllTasks() {
           }));
         })
       );
-      
+
       return allBoards.flat();
     },
     enabled: !!projects
@@ -79,7 +82,7 @@ export default function AllTasks() {
   const handleTaskClick = (task: TaskWithDetails) => {
     const board = boardQueries.data?.find(b => b.id === task.boardId);
     const project = projects?.find(p => p.id === task.projectId);
-    
+
     if (board && project) {
       setCurrentProject(project);
       setCurrentBoard(board);
@@ -105,6 +108,14 @@ export default function AllTasks() {
     task.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const statusColumns = {
+    'backlog': 'Backlog',
+    'todo': 'To Do',
+    'in-progress': 'In Progress',
+    'review': 'Review',
+    'done': 'Done'
+  };
+
   return (
     <div className="container mx-auto p-8">
       <div className="mb-8">
@@ -124,50 +135,105 @@ export default function AllTasks() {
         />
       </div>
 
-      {filteredTasks.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            {searchTerm ? "Keine Aufgaben gefunden" : "Keine Aufgaben vorhanden"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTasks.map((task) => (
-            <Card
-              key={task.id}
-              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
-              onClick={() => handleTaskClick(task)}
-            >
-              <CardHeader className="p-4 space-y-2">
-                <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                  {task.title}
-                </CardTitle>
-                <CardDescription className="text-sm space-y-2">
-                  <div className="line-clamp-2">{task.description}</div>
-                  <div className="pt-2 space-y-1">
-                    <div className="text-xs text-primary/80">
-                      Board: {task.boardTitle}
-                    </div>
-                    <div className="text-xs text-primary/80">
-                      Projekt: {task.projectTitle}
-                    </div>
-                    {task.priority && (
+      <Tabs defaultValue="kanban" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="kanban">
+            <LayoutGrid className="h-4 w-4 mr-2" />
+            Kanban
+          </TabsTrigger>
+          <TabsTrigger value="list">
+            <LayoutList className="h-4 w-4 mr-2" />
+            Liste
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="kanban" className="mt-6">
+          <div className="grid grid-cols-5 gap-4">
+            {Object.entries(statusColumns).map(([status, title]) => (
+              <div key={status} className="bg-muted/50 rounded-lg p-4">
+                <h3 className="font-semibold mb-4">{title}</h3>
+                <div className="space-y-4">
+                  {filteredTasks
+                    .filter(task => task.status === status)
+                    .map((task) => (
+                      <Card
+                        key={task.id}
+                        className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
+                        onClick={() => handleTaskClick(task)}
+                      >
+                        <CardHeader className="p-4 space-y-2">
+                          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                            {task.title}
+                          </CardTitle>
+                          <CardDescription className="text-sm space-y-2">
+                            <div className="line-clamp-2">{task.description}</div>
+                            <div className="pt-2 space-y-1">
+                              <div className="text-xs text-primary/80">
+                                Board: {task.boardTitle}
+                              </div>
+                              <div className="text-xs text-primary/80">
+                                Projekt: {task.projectTitle}
+                              </div>
+                              {task.priority && (
+                                <div className="text-xs text-primary/80">
+                                  Priorität: {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
+                                </div>
+                              )}
+                              {task.dueDate && (
+                                <div className="text-xs text-primary/80">
+                                  Fällig: {new Date(task.dueDate).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredTasks.map((task) => (
+              <Card
+                key={task.id}
+                className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
+                onClick={() => handleTaskClick(task)}
+              >
+                <CardHeader className="p-4 space-y-2">
+                  <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                    {task.title}
+                  </CardTitle>
+                  <CardDescription className="text-sm space-y-2">
+                    <div className="line-clamp-2">{task.description}</div>
+                    <div className="pt-2 space-y-1">
                       <div className="text-xs text-primary/80">
-                        Priorität: {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
+                        Board: {task.boardTitle}
                       </div>
-                    )}
-                    {task.dueDate && (
                       <div className="text-xs text-primary/80">
-                        Fällig: {new Date(task.dueDate).toLocaleDateString()}
+                        Projekt: {task.projectTitle}
                       </div>
-                    )}
-                  </div>
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      )}
+                      {task.priority && (
+                        <div className="text-xs text-primary/80">
+                          Priorität: {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
+                        </div>
+                      )}
+                      {task.dueDate && (
+                        <div className="text-xs text-primary/80">
+                          Fällig: {new Date(task.dueDate).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
