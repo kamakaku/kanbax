@@ -56,6 +56,8 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       order: 0,
       priority: "medium",
       labels: [],
+      columnId: 0, // Default columnId
+      archived: false
     },
   });
 
@@ -64,7 +66,12 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       const res = await apiRequest(
         existingTask ? "PATCH" : "POST",
         `/api/boards/${data.boardId}/tasks${existingTask ? `/${existingTask.id}` : ''}`,
-        data
+        {
+          ...data,
+          columnId: data.columnId || 0, // Ensure columnId is set
+          order: data.order || 0,
+          archived: false
+        }
       );
 
       if (!res.ok) {
@@ -89,6 +96,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       onSubmit();
     },
     onError: (error) => {
+      console.error("Task creation error:", error);
       toast({
         title: "Fehler",
         description: existingTask 
@@ -129,7 +137,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                       setSelectedProjectId(projectId);
                       field.onChange(projectId);
                       // Reset board selection when project changes
-                      form.setValue("boardId", undefined);
+                      form.setValue("boardId", undefined as any);
                     }}
                     defaultValue={field.value?.toString()}
                   >
@@ -173,6 +181,31 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                           {board.title}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="backlog">Backlog</SelectItem>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="review">Review</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
