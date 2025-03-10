@@ -35,18 +35,21 @@ interface TaskFormProps {
   onSubmit: () => Promise<void>;
   projects: Project[];
   boards: Board[];
+  existingTask?: InsertTask;
 }
 
-export function TaskForm({ open, onClose, onSubmit, projects, boards }: TaskFormProps) {
+export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTask }: TaskFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    existingTask?.projectId || null
+  );
 
   const projectBoards = boards.filter(board => board.projectId === selectedProjectId);
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
-    defaultValues: {
+    defaultValues: existingTask || {
       title: "",
       description: "",
       status: "todo",
@@ -59,8 +62,8 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards }: TaskForm
   const createTask = useMutation({
     mutationFn: async (data: InsertTask) => {
       const res = await apiRequest(
-        "POST",
-        `/api/boards/${data.boardId}/tasks`,
+        existingTask ? "PATCH" : "POST",
+        `/api/boards/${data.boardId}/tasks${existingTask ? `/${existingTask.id}` : ''}`,
         data
       );
 
@@ -77,14 +80,20 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards }: TaskForm
           queryKey: [`/api/boards/${board.id}/tasks`] 
         });
       });
-      toast({ title: "Aufgabe erfolgreich erstellt" });
+      toast({ 
+        title: existingTask 
+          ? "Aufgabe erfolgreich aktualisiert" 
+          : "Aufgabe erfolgreich erstellt" 
+      });
       form.reset();
       onSubmit();
     },
     onError: (error) => {
       toast({
         title: "Fehler",
-        description: "Die Aufgabe konnte nicht erstellt werden",
+        description: existingTask 
+          ? "Die Aufgabe konnte nicht aktualisiert werden"
+          : "Die Aufgabe konnte nicht erstellt werden",
         variant: "destructive",
       });
     },
@@ -102,7 +111,9 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards }: TaskForm
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
+          <DialogTitle>
+            {existingTask ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+          </DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -289,7 +300,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards }: TaskForm
             />
 
             <Button type="submit" className="w-full">
-              Aufgabe erstellen
+              {existingTask ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
             </Button>
           </form>
         </Form>
