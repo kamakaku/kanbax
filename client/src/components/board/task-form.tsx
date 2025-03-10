@@ -23,12 +23,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
 
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (task: Task) => Promise<void>;
+  onSubmit: () => Promise<void>;
   projects: Project[];
   boards: Board[];
   existingTask?: Task;
@@ -37,11 +36,6 @@ interface TaskFormProps {
 export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTask }: TaskFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    existingTask?.projectId || null
-  );
-
-  const projectBoards = boards.filter(board => board.projectId === selectedProjectId);
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
@@ -49,16 +43,17 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       title: existingTask?.title || "",
       description: existingTask?.description || "",
       status: existingTask?.status || "todo",
-      boardId: existingTask?.boardId || undefined,
+      boardId: existingTask?.boardId,
       priority: existingTask?.priority || "medium",
       labels: existingTask?.labels || [],
       columnId: existingTask?.columnId || 0,
+      order: existingTask?.order || 0,
       archived: existingTask?.archived || false,
     },
   });
 
-  const handleSubmit = async (data: InsertTask) => {
-    try {
+  const saveTask = useMutation({
+    mutationFn: async (data: InsertTask) => {
       const res = await apiRequest(
         existingTask ? "PATCH" : "POST",
         `/api/boards/${data.boardId}/tasks${existingTask ? `/${existingTask.id}` : ''}`,
@@ -74,24 +69,25 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         throw new Error("Failed to save task");
       }
 
-      const savedTask = await res.json();
-
+      return res.json();
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
           queryKey: [`/api/boards/${board.id}/tasks`] 
         });
       });
-
       toast({ 
         title: existingTask 
           ? "Aufgabe erfolgreich aktualisiert" 
           : "Aufgabe erfolgreich erstellt" 
       });
-
-      await onSubmit(savedTask);
       form.reset();
-    } catch (error) {
+      onSubmit();
+      onClose();
+    },
+    onError: (error) => {
       console.error("Task save error:", error);
       toast({
         title: "Fehler",
@@ -100,6 +96,24 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
           : "Die Aufgabe konnte nicht erstellt werden",
         variant: "destructive",
       });
+    },
+  });
+
+  const handleSubmit = async (data: InsertTask) => {
+    try {
+      console.log("Submitting task:", data); // Debug-Ausgabe
+      if (!data.boardId || !data.title) {
+        toast({
+          title: "Fehlende Angaben",
+          description: "Bitte wählen Sie ein Board aus und geben Sie einen Titel ein",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await saveTask.mutateAsync(data);
+    } catch (error) {
+      console.error("Form submission error:", error);
     }
   };
 
@@ -143,31 +157,6 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
 
             <FormField
               control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Status auswählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="backlog">Backlog</SelectItem>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="review">Review</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="title"
               render={({ field }) => (
                 <FormItem>
@@ -194,6 +183,31 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                       onChange={field.onChange}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="backlog">Backlog</SelectItem>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="review">Review</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
