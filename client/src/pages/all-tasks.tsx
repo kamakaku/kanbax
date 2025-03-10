@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { LayoutGrid, LayoutList } from "lucide-react";
+import { LayoutGrid, LayoutList, Calendar, Clock, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface TaskWithDetails extends Task {
   boardTitle: string;
@@ -116,6 +117,56 @@ export default function AllTasks() {
     'done': 'Done'
   };
 
+  const getTaskCard = (task: TaskWithDetails) => (
+    <Card
+      key={task.id}
+      className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
+      onClick={() => handleTaskClick(task)}
+    >
+      <CardHeader className="p-4 space-y-2">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1 flex-1">
+            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+              {task.title}
+            </CardTitle>
+            {task.description && (
+              <CardDescription className="text-sm line-clamp-2">
+                {task.description}
+              </CardDescription>
+            )}
+          </div>
+          {task.priority && (
+            <Badge
+              variant={task.priority === 'high' ? 'destructive' : task.priority === 'medium' ? 'default' : 'secondary'}
+              className="ml-2 shrink-0"
+            >
+              {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2 pt-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              {task.projectTitle}
+            </Badge>
+            <span>•</span>
+            <Badge variant="outline" className="text-xs">
+              {task.boardTitle}
+            </Badge>
+          </div>
+
+          {task.dueDate && (
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              <span>Fällig: {new Date(task.dueDate).toLocaleDateString()}</span>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+    </Card>
+  );
+
   return (
     <div className="container mx-auto p-8">
       <div className="mb-8">
@@ -155,40 +206,7 @@ export default function AllTasks() {
                 <div className="space-y-4">
                   {filteredTasks
                     .filter(task => task.status === status)
-                    .map((task) => (
-                      <Card
-                        key={task.id}
-                        className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
-                        onClick={() => handleTaskClick(task)}
-                      >
-                        <CardHeader className="p-4 space-y-2">
-                          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                            {task.title}
-                          </CardTitle>
-                          <CardDescription className="text-sm space-y-2">
-                            <div className="line-clamp-2">{task.description}</div>
-                            <div className="pt-2 space-y-1">
-                              <div className="text-xs text-primary/80">
-                                Board: {task.boardTitle}
-                              </div>
-                              <div className="text-xs text-primary/80">
-                                Projekt: {task.projectTitle}
-                              </div>
-                              {task.priority && (
-                                <div className="text-xs text-primary/80">
-                                  Priorität: {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
-                                </div>
-                              )}
-                              {task.dueDate && (
-                                <div className="text-xs text-primary/80">
-                                  Fällig: {new Date(task.dueDate).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          </CardDescription>
-                        </CardHeader>
-                      </Card>
-                    ))}
+                    .map((task) => getTaskCard(task))}
                 </div>
               </div>
             ))}
@@ -197,40 +215,7 @@ export default function AllTasks() {
 
         <TabsContent value="list" className="mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTasks.map((task) => (
-              <Card
-                key={task.id}
-                className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
-                onClick={() => handleTaskClick(task)}
-              >
-                <CardHeader className="p-4 space-y-2">
-                  <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                    {task.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm space-y-2">
-                    <div className="line-clamp-2">{task.description}</div>
-                    <div className="pt-2 space-y-1">
-                      <div className="text-xs text-primary/80">
-                        Board: {task.boardTitle}
-                      </div>
-                      <div className="text-xs text-primary/80">
-                        Projekt: {task.projectTitle}
-                      </div>
-                      {task.priority && (
-                        <div className="text-xs text-primary/80">
-                          Priorität: {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
-                        </div>
-                      )}
-                      {task.dueDate && (
-                        <div className="text-xs text-primary/80">
-                          Fällig: {new Date(task.dueDate).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
+            {filteredTasks.map((task) => getTaskCard(task))}
           </div>
         </TabsContent>
       </Tabs>
