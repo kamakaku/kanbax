@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema, type InsertTask } from "@shared/schema";
+import { insertTaskSchema, type InsertTask, type Project, type Board } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -24,17 +24,25 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { useStore } from "@/lib/store";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (task: InsertTask) => void;
-  columnId: number;
+  onSubmit: () => Promise<void>;
+  projects: Project[];
+  boards: Board[];
 }
 
-export function TaskForm({ open, onClose, onSubmit, columnId }: TaskFormProps) {
-  const { currentBoard } = useStore();
+export function TaskForm({ open, onClose, onSubmit, projects, boards }: TaskFormProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+
+  const projectBoards = boards.filter(board => board.projectId === selectedProjectId);
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
@@ -43,23 +51,48 @@ export function TaskForm({ open, onClose, onSubmit, columnId }: TaskFormProps) {
       description: "",
       status: "todo",
       order: 0,
-      boardId: currentBoard?.id || 0,
-      columnId: columnId,
       priority: "medium",
       labels: [],
     },
   });
 
-  const handleSubmit = async (data: InsertTask) => {
-    if (!currentBoard?.id) return;
+  const createTask = useMutation({
+    mutationFn: async (data: InsertTask) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/boards/${data.boardId}/tasks`,
+        data
+      );
 
-    try {
-      await onSubmit({
-        ...data,
-        boardId: currentBoard.id,
-        columnId: columnId,
+      if (!res.ok) {
+        throw new Error("Failed to create task");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      boards.forEach(board => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        });
       });
+      toast({ title: "Aufgabe erfolgreich erstellt" });
       form.reset();
+      onSubmit();
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = async (data: InsertTask) => {
+    try {
+      await createTask.mutateAsync(data);
     } catch (error) {
       console.error("Task creation error:", error);
     }
@@ -73,6 +106,69 @@ export function TaskForm({ open, onClose, onSubmit, columnId }: TaskFormProps) {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField 
+              control={form.control}
+              name="projectId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Projekt</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      const projectId = parseInt(value);
+                      setSelectedProjectId(projectId);
+                      field.onChange(projectId);
+                      // Reset board selection when project changes
+                      form.setValue("boardId", undefined);
+                    }}
+                    defaultValue={field.value?.toString()}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wählen Sie ein Projekt" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          {project.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="boardId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Board</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    defaultValue={field.value?.toString()}
+                    disabled={!selectedProjectId}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wählen Sie ein Board" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {projectBoards.map((board) => (
+                        <SelectItem key={board.id} value={board.id.toString()}>
+                          {board.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="title"
@@ -96,7 +192,8 @@ export function TaskForm({ open, onClose, onSubmit, columnId }: TaskFormProps) {
                   <FormControl>
                     <Textarea
                       placeholder="Beschreiben Sie die Aufgabe..."
-                      {...field}
+                      value={field.value || ""}
+                      onChange={field.onChange}
                     />
                   </FormControl>
                   <FormMessage />

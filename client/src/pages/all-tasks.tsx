@@ -7,15 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { LayoutGrid, LayoutList, Calendar } from "lucide-react";
+import { LayoutGrid, LayoutList, Calendar, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { TaskDialog } from "@/components/board/task-dialog";
+import { TaskForm } from "@/components/board/task-form";
 
 interface TaskWithDetails extends Task {
   boardTitle: string;
   projectTitle: string;
-  boardId: number;
   projectId: number;
 }
 
@@ -24,6 +24,7 @@ export default function AllTasks() {
   const { setCurrentBoard, setCurrentProject } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -73,7 +74,6 @@ export default function AllTasks() {
             ...task,
             boardTitle: board.title,
             projectTitle: board.projectTitle,
-            boardId: board.id,
             projectId: board.projectId
           }));
         })
@@ -85,33 +85,14 @@ export default function AllTasks() {
   });
 
   const handleTaskClick = (task: TaskWithDetails) => {
-    // Convert TaskWithDetails back to Task for the dialog
-    const baseTask: Task = {
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      status: task.status,
-      order: task.order,
-      boardId: task.boardId,
-      columnId: task.columnId,
-      priority: task.priority,
-      labels: task.labels,
-      dueDate: task.dueDate,
-      archived: task.archived,
-      assignedUserId: task.assignedUserId,
-      assignedTeamId: task.assignedTeamId,
-      assignedAt: task.assignedAt,
-      assignedUser: task.assignedUser,
-      assignedTeam: task.assignedTeam
-    };
-    setSelectedTask(baseTask);
+    setSelectedTask(task);
   };
 
   if (projectsLoading || boardQueries.isLoading || taskQueries.isLoading) {
     return (
       <div className="container mx-auto p-8">
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Lädt Aufgaben...</p>
+          <p className="text-muted-foreground">Lädt...</p>
         </div>
       </div>
     );
@@ -146,49 +127,19 @@ export default function AllTasks() {
     }
   };
 
-  const getTaskCard = (task: TaskWithDetails) => (
-    <Card
-      key={task.id}
-      className={cn(
-        "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
-        getPriorityStyle(task.priority)
-      )}
-      onClick={() => handleTaskClick(task)}
-    >
-      <CardHeader className="p-4 space-y-2">
-        <div className="space-y-1">
-          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-            {task.title}
-          </CardTitle>
-          {task.description && (
-            <CardDescription className="text-sm line-clamp-2">
-              {task.description}
-            </CardDescription>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1 pt-2">
-          <div className="text-[10px] text-muted-foreground">
-            {task.projectTitle} • {task.boardTitle}
-          </div>
-          {task.dueDate && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              <span>{new Date(task.dueDate).toLocaleDateString()}</span>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-    </Card>
-  );
-
   return (
     <div className="container mx-auto p-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-          Alle Aufgaben
-        </h1>
-        <p className="text-muted-foreground mt-2">Übersicht aller Aufgaben aus allen Boards</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Alle Aufgaben
+          </h1>
+          <p className="text-muted-foreground mt-2">Übersicht aller Aufgaben aus allen Boards</p>
+        </div>
+        <Button onClick={() => setShowNewTaskForm(true)} className="bg-primary/10 hover:bg-primary/20">
+          <Plus className="mr-2 h-4 w-4" />
+          Neue Aufgabe
+        </Button>
       </div>
 
       <div className="max-w-sm mb-6">
@@ -221,7 +172,41 @@ export default function AllTasks() {
                 <div className="space-y-4">
                   {filteredTasks
                     .filter(task => task.status === status)
-                    .map((task) => getTaskCard(task))}
+                    .map((task) => (
+                      <Card
+                        key={task.id}
+                        className={cn(
+                          "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
+                          getPriorityStyle(task.priority)
+                        )}
+                        onClick={() => handleTaskClick(task)}
+                      >
+                        <CardHeader className="p-4 space-y-2">
+                          <div className="space-y-1">
+                            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                              {task.title}
+                            </CardTitle>
+                            {task.description && (
+                              <CardDescription className="text-sm line-clamp-2">
+                                {task.description}
+                              </CardDescription>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1 pt-2">
+                            <div className="text-[10px] text-muted-foreground">
+                              {task.projectTitle} • {task.boardTitle}
+                            </div>
+                            {task.dueDate && (
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    ))}
                 </div>
               </div>
             ))}
@@ -230,7 +215,41 @@ export default function AllTasks() {
 
         <TabsContent value="list" className="mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTasks.map((task) => getTaskCard(task))}
+            {filteredTasks.map((task) => (
+              <Card
+                key={task.id}
+                className={cn(
+                  "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
+                  getPriorityStyle(task.priority)
+                )}
+                onClick={() => handleTaskClick(task)}
+              >
+                <CardHeader className="p-4 space-y-2">
+                  <div className="space-y-1">
+                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                      {task.title}
+                    </CardTitle>
+                    {task.description && (
+                      <CardDescription className="text-sm line-clamp-2">
+                        {task.description}
+                      </CardDescription>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1 pt-2">
+                    <div className="text-[10px] text-muted-foreground">
+                      {task.projectTitle} • {task.boardTitle}
+                    </div>
+                    {task.dueDate && (
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
           </div>
         </TabsContent>
       </Tabs>
@@ -239,7 +258,7 @@ export default function AllTasks() {
         <TaskDialog
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
-          onUpdate={(updatedTask) => {
+          onUpdate={() => {
             taskQueries.refetch();
             setSelectedTask(null);
           }}
@@ -247,6 +266,19 @@ export default function AllTasks() {
             taskQueries.refetch();
             setSelectedTask(null);
           }}
+        />
+      )}
+
+      {showNewTaskForm && (
+        <TaskForm
+          open={showNewTaskForm}
+          onClose={() => setShowNewTaskForm(false)}
+          onSubmit={async () => {
+            await taskQueries.refetch();
+            setShowNewTaskForm(false);
+          }}
+          projects={projects || []}
+          boards={boardQueries.data || []}
         />
       )}
     </div>
