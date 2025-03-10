@@ -4,7 +4,7 @@ import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 import { type Team } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
-import { type WikiArticle, type InsertWikiArticle, type UpdateWikiArticle } from "@shared/schema"; // Assuming these types are defined elsewhere
+import { wikiArticles, teams, type WikiArticle, type InsertWikiArticle, type UpdateWikiArticle } from "@shared/schema"; // Added missing imports
 
 
 export interface IStorage {
