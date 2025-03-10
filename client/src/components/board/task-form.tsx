@@ -34,9 +34,10 @@ interface TaskFormProps {
   onClose: () => void;
   status?: "backlog" | "todo" | "in-progress" | "done";
   existingTask?: Task;
+  onSubmit?: (task: Task) => void;
 }
 
-export function TaskForm({ open, onClose, status, existingTask }: TaskFormProps) {
+export function TaskForm({ open, onClose, status, existingTask, onSubmit }: TaskFormProps) {
   const { toast } = useToast();
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
@@ -62,20 +63,27 @@ export function TaskForm({ open, onClose, status, existingTask }: TaskFormProps)
 
   const updateTask = useMutation({
     mutationFn: async (data: UpdateTask) => {
+      if (!existingTask?.id) throw new Error("No task ID provided");
+
       const res = await apiRequest(
         "PATCH",
-        `/api/tasks/${existingTask?.id}`,
+        `/api/tasks/${existingTask.id}`,
         data
       );
+
       if (!res.ok) {
         const error = await res.text();
         throw new Error(`Failed to update task: ${error}`);
       }
+
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedTask) => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
       toast({ title: "Task updated successfully" });
+      if (onSubmit) {
+        onSubmit(updatedTask);
+      }
       onClose();
     },
     onError: (error) => {
@@ -100,9 +108,12 @@ export function TaskForm({ open, onClose, status, existingTask }: TaskFormProps)
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (newTask) => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
       toast({ title: "Task created successfully" });
+      if (onSubmit) {
+        onSubmit(newTask);
+      }
       onClose();
     },
     onError: (error) => {
