@@ -9,7 +9,7 @@ import { useState } from "react";
 import { ProjectForm } from "@/components/project/project-form";
 
 export default function ProjectDetail() {
-  const [params] = useParams();
+  const params = useParams();
   const projectId = parseInt(params.id);
   const [showEditForm, setShowEditForm] = useState(false);
 
