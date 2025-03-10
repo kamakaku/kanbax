@@ -8,12 +8,15 @@ import { ChecklistSection } from "@/components/checklist/checklist-section";
 import { Button } from "@/components/ui/button";
 import { TaskForm } from "./task-form";
 import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskDialogProps {
   task: Task & { boardTitle?: string; projectTitle?: string };
   open: boolean;
   onClose: () => void;
-  onUpdate?: (task: Task) => void;
+  onUpdate?: () => Promise<void>;
   onDelete?: () => void;
   projects?: Project[];
   boards?: Board[];
@@ -27,6 +30,43 @@ const priorityColors = {
 
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects = [], boards = [] }: TaskDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleTaskUpdate = async (updatedTask: Task) => {
+    try {
+      const res = await apiRequest(
+        "PATCH",
+        `/api/boards/${task.boardId}/tasks/${task.id}`,
+        updatedTask
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to update task");
+      }
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/boards/${task.boardId}/tasks`] 
+      });
+
+      toast({ title: "Aufgabe erfolgreich aktualisiert" });
+
+      if (onUpdate) {
+        await onUpdate();
+      }
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Task update error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isEditing) {
     return (
@@ -37,12 +77,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
           onClose();
         }}
         existingTask={task}
-        onSubmit={async (updatedTask) => {
-          if (onUpdate) {
-            await onUpdate(updatedTask);
-          }
-          setIsEditing(false);
-        }}
+        onSubmit={handleTaskUpdate}
         projects={projects}
         boards={boards}
       />

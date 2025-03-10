@@ -20,23 +20,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: () => Promise<void>;
+  onSubmit: (task: Task) => Promise<void>;
   projects: Project[];
   boards: Board[];
   existingTask?: Task;
 }
 
 export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTask }: TaskFormProps) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
@@ -52,87 +46,21 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
     },
   });
 
-  const saveTask = useMutation({
-    mutationFn: async (data: InsertTask) => {
-      const endpoint = existingTask 
-        ? `/api/boards/${data.boardId}/tasks/${existingTask.id}`
-        : `/api/boards/${data.boardId}/tasks`;
-
-      const method = existingTask ? "PATCH" : "POST";
-
-      console.log(`${method} request to ${endpoint}`, data); // Debug-Log
-
-      const res = await apiRequest(
-        method,
-        endpoint,
-        {
-          ...data,
-          columnId: data.columnId || 0,
-          order: existingTask?.order || 0,
-          archived: false,
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error("Server response:", errorData); // Debug-Log
-        throw new Error(errorData.message || "Failed to save task");
-      }
-
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      boards.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
-        });
-      });
-      toast({ 
-        title: existingTask 
-          ? "Aufgabe erfolgreich aktualisiert" 
-          : "Aufgabe erfolgreich erstellt" 
-      });
-      form.reset();
-      onSubmit();
-      onClose();
-    },
-    onError: (error) => {
-      console.error("Task save error:", error);
-      toast({
-        title: "Fehler",
-        description: existingTask 
-          ? "Die Aufgabe konnte nicht aktualisiert werden"
-          : "Die Aufgabe konnte nicht erstellt werden",
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleSubmit = async (data: InsertTask) => {
     try {
       if (!data.boardId || !data.title) {
-        toast({
-          title: "Fehlende Angaben",
-          description: "Bitte wählen Sie ein Board aus und geben Sie einen Titel ein",
-          variant: "destructive",
-        });
         return;
       }
 
-      // Stelle sicher, dass alle erforderlichen Felder vorhanden sind
-      const taskData: InsertTask = {
+      const taskData = {
+        ...existingTask,
         ...data,
         columnId: data.columnId || 0,
         order: existingTask?.order || 0,
         archived: false,
-        status: data.status || "todo",
-        priority: data.priority || "medium",
-        labels: data.labels || [],
       };
 
-      console.log("Submitting task:", taskData); // Debug-Log
-      await saveTask.mutateAsync(taskData);
+      await onSubmit(taskData as Task);
     } catch (error) {
       console.error("Form submission error:", error);
     }
