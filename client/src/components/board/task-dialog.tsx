@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { type Task, type Project, type Board } from "@shared/schema";
+import { type Task, type Project, type Board, type UpdateTask } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Edit2 } from "lucide-react";
 import { CommentSection } from "@/components/comments/comment-section";
@@ -37,16 +37,22 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
     try {
       console.log("Updating task with data:", updatedTask); // Debug log
 
+      // Erstelle ein Update-Objekt mit nur den zu aktualisierenden Feldern
+      const updateData: UpdateTask = {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        status: updatedTask.status,
+        priority: updatedTask.priority,
+        labels: updatedTask.labels || [],
+        dueDate: updatedTask.dueDate
+      };
+
+      console.log("Sending update data:", updateData); // Debug log
+
       const res = await apiRequest(
         "PATCH",
         `/api/boards/${task.boardId}/tasks/${task.id}`,
-        {
-          ...updatedTask,
-          id: task.id, // Ensure we keep the original task ID
-          boardId: task.boardId, // Keep the original board ID
-          columnId: task.columnId, // Keep the original column ID
-          order: task.order, // Keep the original order
-        }
+        updateData
       );
 
       if (!res.ok) {
@@ -54,9 +60,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
         console.error("Server error response:", errorData);
         throw new Error("Failed to update task");
       }
-
-      const updatedTaskData = await res.json();
-      console.log("Server response:", updatedTaskData); // Debug log
 
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });

@@ -52,15 +52,22 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         return;
       }
 
-      // Kombiniere die existierenden Task-Daten mit den Updates
+      // Erstelle ein Update-Objekt mit den richtigen Typen
       const taskData: Task = {
-        ...existingTask, // Behalte alle existierenden Felder
-        ...data, // Überschreibe mit den neuen Werten
-        id: existingTask?.id || 0, // Behalte die ID
-        boardId: existingTask?.boardId || data.boardId, // Behalte die Board-ID
-        columnId: existingTask?.columnId || 0,
+        id: existingTask?.id || 0,
+        title: data.title,
+        description: data.description || null,
+        status: data.status,
         order: existingTask?.order || 0,
+        boardId: existingTask?.boardId || data.boardId,
+        columnId: existingTask?.columnId || 0,
+        priority: data.priority,
+        labels: data.labels || [],
+        dueDate: null,
         archived: existingTask?.archived || false,
+        assignedUserId: existingTask?.assignedUserId || null,
+        assignedTeamId: existingTask?.assignedTeamId || null,
+        assignedAt: existingTask?.assignedAt || null,
       };
 
       console.log("Submitting task with data:", taskData); // Debug log
@@ -89,7 +96,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
                     defaultValue={field.value?.toString()}
-                    disabled={!!existingTask} // Disable board selection for existing tasks
+                    disabled={!!existingTask}
                   >
                     <FormControl>
                       <SelectTrigger>
