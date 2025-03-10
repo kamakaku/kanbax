@@ -10,6 +10,7 @@ import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
 import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
+import ProjectDetail from "@/pages/project-detail"; // Import the new component
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
@@ -84,6 +85,7 @@ function Router() {
       <Route path="/auth" component={Auth} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
+      <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} /> {/* Added route */}
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />
