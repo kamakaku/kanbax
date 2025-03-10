@@ -23,7 +23,7 @@ export default function AllTasks() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
@@ -99,7 +99,7 @@ export default function AllTasks() {
   }
 
   const allTasks = taskQueries.data || [];
-  const filteredTasks = allTasks.filter(task => 
+  const filteredTasks = allTasks.filter(task =>
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.boardTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -257,15 +257,8 @@ export default function AllTasks() {
       {selectedTask && (
         <TaskDialog
           task={selectedTask}
+          open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
-          onUpdate={() => {
-            taskQueries.refetch();
-            setSelectedTask(null);
-          }}
-          onDelete={() => {
-            taskQueries.refetch();
-            setSelectedTask(null);
-          }}
         />
       )}
 

@@ -3,17 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { type Task } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Edit2 } from "lucide-react";
-import { CommentSection } from "@/components/comments/comment-section";
-import { ChecklistSection } from "@/components/checklist/checklist-section";
 import { Button } from "@/components/ui/button";
-import { TaskForm } from "./task-form";
 import { format } from "date-fns";
 
 interface TaskDialogProps {
-  task: Task;
+  task: Task & { boardTitle?: string; projectTitle?: string };
   open: boolean;
   onClose: () => void;
-  onSubmit?: (task: Task) => void;
 }
 
 const priorityColors = {
@@ -22,28 +18,7 @@ const priorityColors = {
   low: "bg-green-500",
 };
 
-export function TaskDialog({ task, open, onClose, onSubmit }: TaskDialogProps) {
-  const [isEditing, setIsEditing] = useState(false);
-
-  if (isEditing) {
-    return (
-      <TaskForm
-        open={open}
-        onClose={() => {
-          setIsEditing(false);
-          onClose();
-        }}
-        existingTask={task}
-        onSubmit={(updatedTask) => {
-          if (onSubmit) {
-            onSubmit(updatedTask);
-          }
-          setIsEditing(false);
-        }}
-      />
-    );
-  }
-
+export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -53,19 +28,20 @@ export function TaskDialog({ task, open, onClose, onSubmit }: TaskDialogProps) {
               <DialogTitle>{task.title}</DialogTitle>
               <div className={`h-2 w-2 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors]}`} />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
           </div>
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
           {task.description && (
             <p className="text-muted-foreground">{task.description}</p>
+          )}
+
+          {task.projectTitle && task.boardTitle && (
+            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+              <Badge variant="outline">{task.projectTitle}</Badge>
+              <span>•</span>
+              <Badge variant="outline">{task.boardTitle}</Badge>
+            </div>
           )}
 
           {task.labels && task.labels.length > 0 && (
@@ -85,14 +61,32 @@ export function TaskDialog({ task, open, onClose, onSubmit }: TaskDialogProps) {
             </div>
           )}
 
-          <div className="border-t pt-6">
-            <ChecklistSection taskId={task.id} />
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Status</span>
+              <Badge>
+                {task.status === 'todo' ? 'To Do' :
+                 task.status === 'in-progress' ? 'In Progress' :
+                 task.status === 'review' ? 'Review' :
+                 task.status === 'done' ? 'Done' : 'Backlog'}
+              </Badge>
+            </div>
           </div>
 
-          <div className="border-t pt-6">
-            <h3 className="font-semibold mb-4">Comments</h3>
-            <CommentSection taskId={task.id} />
-          </div>
+          {task.priority && (
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Priorität</span>
+                <Badge variant={
+                  task.priority === 'high' ? 'destructive' :
+                  task.priority === 'medium' ? 'default' : 'secondary'
+                }>
+                  {task.priority === 'high' ? 'Hoch' :
+                   task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
+                </Badge>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
