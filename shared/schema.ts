@@ -18,7 +18,7 @@ export const teamMembers = pgTable("team_members", {
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
-// Update projects table - remove wikiContent
+// Projects table
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -26,7 +26,7 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Add new table for wiki articles
+// Wiki articles table
 export const wikiArticles = pgTable("wiki_articles", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -113,7 +113,7 @@ export const insertUserSchema = createInsertSchema(users)
   })
   .omit({ passwordHash: true });
 
-// Update project schema - remove wikiContent
+// Update project schema
 export const insertProjectSchema = createInsertSchema(projects)
   .pick({
     title: true,
@@ -125,7 +125,7 @@ export const insertProjectSchema = createInsertSchema(projects)
 
 export const updateProjectSchema = insertProjectSchema.partial();
 
-// Update board schema to include projectId
+// Update board schema
 export const insertBoardSchema = createInsertSchema(boards)
   .pick({
     title: true,
@@ -276,7 +276,7 @@ export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 
-// Add wiki article schema
+// Wiki article schema
 export const insertWikiArticleSchema = createInsertSchema(wikiArticles)
   .pick({
     title: true,
@@ -291,7 +291,7 @@ export const insertWikiArticleSchema = createInsertSchema(wikiArticles)
 
 export const updateWikiArticleSchema = insertWikiArticleSchema.partial();
 
-// Add types for wiki articles
+// Export types
 export type WikiArticle = typeof wikiArticles.$inferSelect;
 export type InsertWikiArticle = z.infer<typeof insertWikiArticleSchema>;
 export type UpdateWikiArticle = z.infer<typeof updateWikiArticleSchema>;

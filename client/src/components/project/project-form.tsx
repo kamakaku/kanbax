@@ -32,7 +32,6 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
     defaultValues: {
       title: existingProject?.title || "",
       description: existingProject?.description || "",
-      wikiContent: existingProject?.wikiContent || "",
     },
   });
 
@@ -61,17 +60,17 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
   const updateProject = useMutation({
     mutationFn: async (data: Partial<InsertProject>) => {
       if (!existingProject) return;
-      
+
       const res = await apiRequest(
         "PATCH",
         `/api/projects/${existingProject.id}`,
         data
       );
-      
+
       if (!res.ok) {
         throw new Error("Failed to update project");
       }
-      
+
       return res.json();
     },
     onSuccess: () => {
@@ -128,24 +127,6 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="wikiContent"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Wiki Content</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      {...field}
-                      rows={10}
-                      placeholder="Project documentation and notes..."
-                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

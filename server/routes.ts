@@ -147,9 +147,19 @@ export async function registerRoutes(app: Express) {
   });
 
   // Board routes
-  app.get("/api/boards", async (_req, res) => {
-    const boards = await storage.getBoards();
-    res.json(boards);
+  app.get("/api/projects/:projectId/boards", async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
+    try {
+      const boards = await storage.getBoardsByProject(projectId);
+      res.json(boards);
+    } catch (error) {
+      console.error("Failed to fetch boards:", error);
+      res.status(500).json({ message: "Failed to fetch boards" });
+    }
   });
 
   app.get("/api/boards/:id", async (req, res) => {
@@ -166,13 +176,24 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/boards", async (req, res) => {
-    const result = insertBoardSchema.safeParse(req.body);
+  app.post("/api/projects/:projectId/boards", async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
+    const result = insertBoardSchema.safeParse({ ...req.body, projectId });
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
-    const board = await storage.createBoard(result.data);
-    res.status(201).json(board);
+
+    try {
+      const board = await storage.createBoard(result.data);
+      res.status(201).json(board);
+    } catch (error) {
+      console.error("Failed to create board:", error);
+      res.status(500).json({ message: "Failed to create board" });
+    }
   });
 
   app.patch("/api/boards/:id", async (req, res) => {
@@ -516,7 +537,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Add Wiki Article routes
+  // Wiki Article routes
   app.get("/api/projects/:projectId/wiki", async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {

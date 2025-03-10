@@ -4,8 +4,7 @@ import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 import { type Team } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
-import { wikiArticles, teams, type WikiArticle, type InsertWikiArticle, type UpdateWikiArticle } from "@shared/schema"; // Added missing imports
-
+import { wikiArticles, teams, type WikiArticle, type InsertWikiArticle, type UpdateWikiArticle } from "@shared/schema";
 
 export interface IStorage {
   // Project operations
@@ -17,6 +16,7 @@ export interface IStorage {
 
   // Board operations
   getBoards(): Promise<Board[]>;
+  getBoardsByProject(projectId: number): Promise<Board[]>;
   getBoard(id: number): Promise<Board>;
   createBoard(board: InsertBoard): Promise<Board>;
   updateBoard(id: number, board: UpdateBoard): Promise<Board>;
@@ -109,9 +109,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Board operations
+  // Board operations with project support
   async getBoards(): Promise<Board[]> {
     return await db.select().from(boards);
+  }
+
+  async getBoardsByProject(projectId: number): Promise<Board[]> {
+    return await db
+      .select()
+      .from(boards)
+      .where(eq(boards.projectId, projectId));
   }
 
   async getBoard(id: number): Promise<Board> {
@@ -169,6 +176,48 @@ export class DatabaseStorage implements IStorage {
 
     if (!board) {
       throw new Error(`Board ${id} not found`);
+    }
+  }
+
+  // Column operations
+  async getColumns(boardId: number): Promise<Column[]> {
+    return await db
+      .select()
+      .from(columns)
+      .where(eq(columns.boardId, boardId))
+      .orderBy(columns.order);
+  }
+
+  async createColumn(insertColumn: InsertColumn): Promise<Column> {
+    const [column] = await db
+      .insert(columns)
+      .values(insertColumn)
+      .returning();
+    return column;
+  }
+
+  async updateColumn(id: number, updateColumn: Partial<InsertColumn>): Promise<Column> {
+    const [column] = await db
+      .update(columns)
+      .set(updateColumn)
+      .where(eq(columns.id, id))
+      .returning();
+
+    if (!column) {
+      throw new Error(`Column ${id} not found`);
+    }
+
+    return column;
+  }
+
+  async deleteColumn(id: number): Promise<void> {
+    const [column] = await db
+      .delete(columns)
+      .where(eq(columns.id, id))
+      .returning();
+
+    if (!column) {
+      throw new Error(`Column ${id} not found`);
     }
   }
 
@@ -385,48 +434,6 @@ export class DatabaseStorage implements IStorage {
 
     console.log("Activity log created successfully:", log);
     return log;
-  }
-
-  // Column operations
-  async getColumns(boardId: number): Promise<Column[]> {
-    return await db
-      .select()
-      .from(columns)
-      .where(eq(columns.boardId, boardId))
-      .orderBy(columns.order);
-  }
-
-  async createColumn(insertColumn: InsertColumn): Promise<Column> {
-    const [column] = await db
-      .insert(columns)
-      .values(insertColumn)
-      .returning();
-    return column;
-  }
-
-  async updateColumn(id: number, updateColumn: Partial<InsertColumn>): Promise<Column> {
-    const [column] = await db
-      .update(columns)
-      .set(updateColumn)
-      .where(eq(columns.id, id))
-      .returning();
-
-    if (!column) {
-      throw new Error(`Column ${id} not found`);
-    }
-
-    return column;
-  }
-
-  async deleteColumn(id: number): Promise<void> {
-    const [column] = await db
-      .delete(columns)
-      .where(eq(columns.id, id))
-      .returning();
-
-    if (!column) {
-      throw new Error(`Column ${id} not found`);
-    }
   }
 
   // Add user operations implementation
