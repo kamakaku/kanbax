@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
 
 interface BoardFormProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface BoardFormProps {
 
 export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
   const { currentProject } = useStore();
+  const { toast } = useToast();
 
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
@@ -35,15 +37,28 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
 
   const handleSubmit = async (data: InsertBoard) => {
     if (!currentProject?.id) {
-      console.error("No project selected");
+      toast({
+        title: "Fehler",
+        description: "Kein Projekt ausgewählt",
+        variant: "destructive",
+      });
       return;
     }
 
-    await onSubmit({
-      ...data,
-      projectId: currentProject.id,
-    });
-    form.reset();
+    try {
+      await onSubmit({
+        ...data,
+        projectId: currentProject.id,
+      });
+      form.reset();
+    } catch (error) {
+      console.error("Form submission error:", error);
+      toast({
+        title: "Fehler",
+        description: "Das Board konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -77,7 +92,11 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
                   <FormControl>
                     <Textarea 
                       placeholder="Beschreiben Sie Ihr Board..." 
-                      {...field} 
+                      value={field.value || ''} 
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                     />
                   </FormControl>
                   <FormMessage />

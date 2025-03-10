@@ -18,7 +18,21 @@ export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { setCurrentBoard } = useStore();
+  const { setCurrentBoard, setCurrentProject } = useStore();
+
+  // Set current project when component mounts
+  const { data: project } = useQuery({
+    queryKey: [`/api/projects/${projectId}`],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch project");
+      }
+      const data = await res.json();
+      setCurrentProject(data);
+      return data;
+    },
+  });
 
   const { data: boards, isLoading } = useQuery<Board[]>({
     queryKey: [`/api/projects/${projectId}/boards`],
@@ -33,6 +47,7 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const createBoard = useMutation({
     mutationFn: async (board: InsertBoard) => {
+      console.log("Creating board:", board);
       const res = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
@@ -54,6 +69,7 @@ export function BoardList({ projectId }: BoardListProps) {
       setShowForm(false);
     },
     onError: (error) => {
+      console.error("Board creation error:", error);
       toast({
         title: "Fehler beim Erstellen des Boards",
         description: error.message,
