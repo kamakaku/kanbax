@@ -4,7 +4,7 @@ import { type Board, type InsertBoard, insertBoardSchema } from "@shared/schema"
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
+import { useStore } from "@/lib/store";
 
 interface BoardListProps {
   projectId: number;
@@ -29,6 +30,8 @@ export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+  const { setCurrentBoard } = useStore();
 
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
@@ -64,10 +67,12 @@ export function BoardList({ projectId }: BoardListProps) {
 
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (newBoard) => {
       queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
+      setCurrentBoard(newBoard);
+      setLocation("/board");
       toast({ title: "Board erfolgreich erstellt" });
       setShowForm(false);
       form.reset();
@@ -83,6 +88,11 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const onSubmit = (data: InsertBoard) => {
     createBoard.mutate({ ...data, projectId });
+  };
+
+  const handleBoardClick = (board: Board) => {
+    setCurrentBoard(board);
+    setLocation("/board");
   };
 
   if (isLoading) {
@@ -105,14 +115,16 @@ export function BoardList({ projectId }: BoardListProps) {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {boards?.map((board) => (
-          <Link key={board.id} href={`/board/${board.id}`}>
-            <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-              <CardHeader>
-                <CardTitle>{board.title}</CardTitle>
-                <CardDescription>{board.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
+          <Card
+            key={board.id}
+            className="hover:bg-muted/50 transition-colors cursor-pointer"
+            onClick={() => handleBoardClick(board)}
+          >
+            <CardHeader>
+              <CardTitle>{board.title}</CardTitle>
+              <CardDescription>{board.description}</CardDescription>
+            </CardHeader>
+          </Card>
         ))}
       </div>
 
