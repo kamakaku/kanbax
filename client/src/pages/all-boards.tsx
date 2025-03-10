@@ -3,10 +3,15 @@ import { type Project, type Board } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { useState } from "react";
+import { BoardForm } from "@/components/board/board-form";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
+  const [showForm, setShowForm] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -64,11 +69,17 @@ export default function AllBoards() {
 
   return (
     <div className="container mx-auto p-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-          Alle Boards
-        </h1>
-        <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Alle Boards
+          </h1>
+          <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
+        </div>
+        <Button onClick={() => setShowForm(true)} className="bg-primary/10 hover:bg-primary/20">
+          <Plus className="mr-2 h-4 w-4" />
+          Neues Board
+        </Button>
       </div>
 
       {allBoards.length === 0 ? (
@@ -98,6 +109,12 @@ export default function AllBoards() {
           ))}
         </div>
       )}
+
+      <BoardForm
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        projects={projects || []}
+      />
     </div>
   );
 }

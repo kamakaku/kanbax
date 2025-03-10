@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertBoardSchema, type InsertBoard } from "@shared/schema";
+import { insertBoardSchema, type InsertBoard, type Project } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -15,53 +15,75 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface BoardFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: InsertBoard) => void;
+  projects: Project[];
 }
 
-export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
+export function BoardForm({ open, onClose, projects }: BoardFormProps) {
   const { currentProject } = useStore();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
       title: "",
       description: "",
-      projectId: currentProject?.id || 0,
+      projectId: currentProject?.id || (projects[0]?.id || 0),
     },
   });
 
-  const handleSubmit = async (data: InsertBoard) => {
-    if (!currentProject?.id) {
-      toast({
-        title: "Fehler",
-        description: "Kein Projekt ausgewählt",
-        variant: "destructive",
-      });
-      return;
-    }
+  const createBoard = useMutation({
+    mutationFn: async (data: InsertBoard) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/projects/${data.projectId}/boards`,
+        data
+      );
 
-    try {
-      console.log("Submitting board data:", {
-        ...data,
-        projectId: currentProject.id,
+      if (!res.ok) {
+        throw new Error("Failed to create board");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-boards"] });
+      projects.forEach(project => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/projects/${project.id}/boards`] 
+        });
       });
-      await onSubmit({
-        ...data,
-        projectId: currentProject.id,
-      });
+      toast({ title: "Board erfolgreich erstellt" });
       form.reset();
-    } catch (error) {
-      console.error("Form submission error:", error);
+      onClose();
+    },
+    onError: (error) => {
       toast({
         title: "Fehler",
         description: "Das Board konnte nicht erstellt werden",
         variant: "destructive",
       });
+    },
+  });
+
+  const handleSubmit = async (data: InsertBoard) => {
+    try {
+      await createBoard.mutateAsync(data);
+    } catch (error) {
+      console.error("Form submission error:", error);
     }
   };
 
@@ -99,6 +121,34 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="projectId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Projekt</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    defaultValue={field.value?.toString()}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wählen Sie ein Projekt" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          {project.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
