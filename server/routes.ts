@@ -162,30 +162,13 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/boards/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid board ID" });
-    }
-
-    try {
-      const board = await storage.getBoard(id);
-      res.json(board);
-    } catch (error) {
-      res.status(404).json({ message: (error as Error).message });
-    }
-  });
-
   app.post("/api/projects/:projectId/boards", async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {
       return res.status(400).json({ message: "Invalid project ID" });
     }
 
-    console.log("Received board creation request:", {
-      body: req.body,
-      projectId: projectId
-    });
+    console.log("Creating board:", { ...req.body, projectId });
 
     const result = insertBoardSchema.safeParse({ ...req.body, projectId });
     if (!result.success) {
@@ -197,13 +180,26 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      console.log("Validated board data:", result.data);
       const board = await storage.createBoard(result.data);
       console.log("Created board:", board);
       res.status(201).json(board);
     } catch (error) {
       console.error("Failed to create board:", error);
       res.status(500).json({ message: "Failed to create board" });
+    }
+  });
+
+  app.get("/api/boards/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    try {
+      const board = await storage.getBoard(id);
+      res.json(board);
+    } catch (error) {
+      res.status(404).json({ message: (error as Error).message });
     }
   });
 

@@ -1,14 +1,25 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Board, type InsertBoard } from "@shared/schema";
+import { type Board, type InsertBoard, insertBoardSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { BoardForm } from "@/components/board/board-form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
-import { useStore } from "@/lib/store";
 
 interface BoardListProps {
   projectId: number;
@@ -18,19 +29,13 @@ export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { setCurrentBoard, setCurrentProject } = useStore();
 
-  // Set current project when component mounts
-  const { data: project } = useQuery({
-    queryKey: [`/api/projects/${projectId}`],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch project");
-      }
-      const data = await res.json();
-      setCurrentProject(data);
-      return data;
+  const form = useForm<InsertBoard>({
+    resolver: zodResolver(insertBoardSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      projectId: projectId,
     },
   });
 
@@ -46,12 +51,11 @@ export function BoardList({ projectId }: BoardListProps) {
   });
 
   const createBoard = useMutation({
-    mutationFn: async (board: InsertBoard) => {
-      console.log("Creating board:", board);
+    mutationFn: async (data: InsertBoard) => {
       const res = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
-        board
+        data
       );
 
       if (!res.ok) {
@@ -60,16 +64,15 @@ export function BoardList({ projectId }: BoardListProps) {
 
       return res.json();
     },
-    onSuccess: (newBoard) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
-      setCurrentBoard(newBoard);
       toast({ title: "Board erfolgreich erstellt" });
       setShowForm(false);
+      form.reset();
     },
     onError: (error) => {
-      console.error("Board creation error:", error);
       toast({
         title: "Fehler beim Erstellen des Boards",
         description: error.message,
@@ -77,6 +80,10 @@ export function BoardList({ projectId }: BoardListProps) {
       });
     },
   });
+
+  const onSubmit = (data: InsertBoard) => {
+    createBoard.mutate({ ...data, projectId });
+  };
 
   if (isLoading) {
     return (
@@ -109,11 +116,51 @@ export function BoardList({ projectId }: BoardListProps) {
         ))}
       </div>
 
-      <BoardForm
-        open={showForm}
-        onClose={() => setShowForm(false)}
-        onSubmit={(data) => createBoard.mutate(data)}
-      />
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Neues Board erstellen</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titel</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Mein neues Board" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beschreibung</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Beschreiben Sie Ihr Board..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button type="submit" className="w-full">
+                Board erstellen
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
