@@ -54,9 +54,17 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
 
   const saveTask = useMutation({
     mutationFn: async (data: InsertTask) => {
+      const endpoint = existingTask 
+        ? `/api/boards/${data.boardId}/tasks/${existingTask.id}`
+        : `/api/boards/${data.boardId}/tasks`;
+
+      const method = existingTask ? "PATCH" : "POST";
+
+      console.log(`${method} request to ${endpoint}`, data); // Debug-Log
+
       const res = await apiRequest(
-        existingTask ? "PATCH" : "POST",
-        `/api/boards/${data.boardId}/tasks${existingTask ? `/${existingTask.id}` : ''}`,
+        method,
+        endpoint,
         {
           ...data,
           columnId: data.columnId || 0,
@@ -66,7 +74,9 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       );
 
       if (!res.ok) {
-        throw new Error("Failed to save task");
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Server response:", errorData); // Debug-Log
+        throw new Error(errorData.message || "Failed to save task");
       }
 
       return res.json();
@@ -101,7 +111,6 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      console.log("Submitting task:", data); // Debug-Ausgabe
       if (!data.boardId || !data.title) {
         toast({
           title: "Fehlende Angaben",
@@ -111,7 +120,19 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         return;
       }
 
-      await saveTask.mutateAsync(data);
+      // Stelle sicher, dass alle erforderlichen Felder vorhanden sind
+      const taskData: InsertTask = {
+        ...data,
+        columnId: data.columnId || 0,
+        order: existingTask?.order || 0,
+        archived: false,
+        status: data.status || "todo",
+        priority: data.priority || "medium",
+        labels: data.labels || [],
+      };
+
+      console.log("Submitting task:", taskData); // Debug-Log
+      await saveTask.mutateAsync(taskData);
     } catch (error) {
       console.error("Form submission error:", error);
     }
