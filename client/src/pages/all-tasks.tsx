@@ -154,9 +154,38 @@ export default function AllTasks() {
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      await createTask.mutateAsync(data);
+      console.log("Form data:", data); // Debug-Ausgabe
+
+      if (!data.boardId || !data.title) {
+        console.log("Validation failed:", { data }); // Debug-Ausgabe
+        toast({
+          title: "Fehlende Angaben",
+          description: "Bitte wählen Sie ein Board aus und geben Sie einen Titel ein",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Stelle sicher, dass alle erforderlichen Felder vorhanden sind
+      const taskData: InsertTask = {
+        ...data,
+        columnId: 0,
+        order: 0,
+        archived: false,
+        status: data.status || "todo",
+        priority: data.priority || "medium",
+        labels: data.labels || [],
+      };
+
+      console.log("Submitting task:", taskData); // Debug-Ausgabe
+      await createTask.mutateAsync(taskData);
     } catch (error) {
       console.error("Task creation error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht erstellt werden",
+        variant: "destructive",
+      });
     }
   };
 

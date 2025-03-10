@@ -165,9 +165,9 @@ export const insertTaskSchema = createInsertSchema(tasks)
   })
   .extend({
     title: z.string().min(1, "Title is required"),
-    status: z.enum(["backlog", "todo", "in-progress", "done"]),
+    status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
     boardId: z.number().int().positive("Board ID is required"),
-    columnId: z.number().int().positive("Column ID is required"),
+    columnId: z.number().int(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable().optional(),
