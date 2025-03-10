@@ -46,6 +46,10 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
     }
 
     try {
+      console.log("Submitting board data:", {
+        ...data,
+        projectId: currentProject.id,
+      });
       await onSubmit({
         ...data,
         projectId: currentProject.id,
@@ -92,11 +96,7 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
                   <FormControl>
                     <Textarea 
                       placeholder="Beschreiben Sie Ihr Board..." 
-                      value={field.value || ''} 
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      name={field.name}
-                      ref={field.ref}
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />

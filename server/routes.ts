@@ -182,13 +182,24 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid project ID" });
     }
 
+    console.log("Received board creation request:", {
+      body: req.body,
+      projectId: projectId
+    });
+
     const result = insertBoardSchema.safeParse({ ...req.body, projectId });
     if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
+      console.error("Board validation failed:", result.error);
+      return res.status(400).json({
+        message: "Invalid board data",
+        errors: result.error.errors
+      });
     }
 
     try {
+      console.log("Validated board data:", result.data);
       const board = await storage.createBoard(result.data);
+      console.log("Created board:", board);
       res.status(201).json(board);
     } catch (error) {
       console.error("Failed to create board:", error);
