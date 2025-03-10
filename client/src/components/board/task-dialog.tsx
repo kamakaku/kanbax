@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { type Task } from "@shared/schema";
+import { type Task, type Project, type Board } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Edit2 } from "lucide-react";
 import { CommentSection } from "@/components/comments/comment-section";
@@ -15,6 +15,8 @@ interface TaskDialogProps {
   onClose: () => void;
   onUpdate?: (task: Task) => void;
   onDelete?: () => void;
+  projects?: Project[];
+  boards?: Board[];
 }
 
 const priorityColors = {
@@ -23,7 +25,7 @@ const priorityColors = {
   low: "bg-green-500",
 };
 
-export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
+export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects = [], boards = [] }: TaskDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
 
   if (isEditing) {
@@ -35,12 +37,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
           onClose();
         }}
         existingTask={task}
-        onSubmit={(updatedTask) => {
+        onSubmit={async (updatedTask) => {
           if (onUpdate) {
             onUpdate(updatedTask);
           }
           setIsEditing(false);
         }}
+        projects={projects}
+        boards={boards}
       />
     );
   }

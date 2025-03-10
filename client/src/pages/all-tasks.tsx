@@ -259,6 +259,16 @@ export default function AllTasks() {
           task={selectedTask}
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
+          onUpdate={async () => {
+            await taskQueries.refetch();
+            setSelectedTask(null);
+          }}
+          onDelete={async () => {
+            await taskQueries.refetch();
+            setSelectedTask(null);
+          }}
+          projects={projects || []}
+          boards={boardQueries.data || []}
         />
       )}
 
