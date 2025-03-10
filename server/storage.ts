@@ -4,6 +4,8 @@ import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 import { type Team } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
+import { type WikiArticle, type InsertWikiArticle, type UpdateWikiArticle } from "@shared/schema"; // Assuming these types are defined elsewhere
+
 
 export interface IStorage {
   // Project operations
@@ -51,6 +53,13 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
   createUser(user: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User>;
+
+  // Wiki article operations
+  getWikiArticles(projectId: number): Promise<WikiArticle[]>;
+  getWikiArticle(id: number): Promise<WikiArticle>;
+  createWikiArticle(article: InsertWikiArticle): Promise<WikiArticle>;
+  updateWikiArticle(id: number, article: UpdateWikiArticle): Promise<WikiArticle>;
+  deleteWikiArticle(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -445,6 +454,64 @@ export class DatabaseStorage implements IStorage {
       .values(userData)
       .returning();
     return user;
+  }
+
+  // Wiki article implementations
+  async getWikiArticles(projectId: number): Promise<WikiArticle[]> {
+    return await db
+      .select()
+      .from(wikiArticles)
+      .where(eq(wikiArticles.projectId, projectId))
+      .orderBy(desc(wikiArticles.updatedAt));
+  }
+
+  async getWikiArticle(id: number): Promise<WikiArticle> {
+    const [article] = await db
+      .select()
+      .from(wikiArticles)
+      .where(eq(wikiArticles.id, id));
+
+    if (!article) {
+      throw new Error(`Wiki article ${id} not found`);
+    }
+
+    return article;
+  }
+
+  async createWikiArticle(insertArticle: InsertWikiArticle): Promise<WikiArticle> {
+    const [article] = await db
+      .insert(wikiArticles)
+      .values(insertArticle)
+      .returning();
+    return article;
+  }
+
+  async updateWikiArticle(id: number, updateArticle: UpdateWikiArticle): Promise<WikiArticle> {
+    const [article] = await db
+      .update(wikiArticles)
+      .set({
+        ...updateArticle,
+        updatedAt: new Date(),
+      })
+      .where(eq(wikiArticles.id, id))
+      .returning();
+
+    if (!article) {
+      throw new Error(`Wiki article ${id} not found`);
+    }
+
+    return article;
+  }
+
+  async deleteWikiArticle(id: number): Promise<void> {
+    const [article] = await db
+      .delete(wikiArticles)
+      .where(eq(wikiArticles.id, id))
+      .returning();
+
+    if (!article) {
+      throw new Error(`Wiki article ${id} not found`);
+    }
   }
 }
 

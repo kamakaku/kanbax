@@ -18,13 +18,22 @@ export const teamMembers = pgTable("team_members", {
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
-// Add new table for projects
+// Update projects table - remove wikiContent
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  wikiContent: text("wiki_content"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Add new table for wiki articles
+export const wikiArticles = pgTable("wiki_articles", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  projectId: integer("project_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const users = pgTable("users", {
@@ -104,12 +113,11 @@ export const insertUserSchema = createInsertSchema(users)
   })
   .omit({ passwordHash: true });
 
-// Add project schemas
+// Update project schema - remove wikiContent
 export const insertProjectSchema = createInsertSchema(projects)
   .pick({
     title: true,
     description: true,
-    wikiContent: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
@@ -225,6 +233,7 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers)
     role: z.enum(["member", "admin"]).default("member"),
   });
 
+// Add project types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertBoard = z.infer<typeof insertBoardSchema>;
@@ -266,3 +275,23 @@ export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
+
+// Add wiki article schema
+export const insertWikiArticleSchema = createInsertSchema(wikiArticles)
+  .pick({
+    title: true,
+    content: true,
+    projectId: true,
+  })
+  .extend({
+    title: z.string().min(1, "Title is required"),
+    content: z.string().min(1, "Content is required"),
+    projectId: z.number().int().positive("Project ID is required"),
+  });
+
+export const updateWikiArticleSchema = insertWikiArticleSchema.partial();
+
+// Add types for wiki articles
+export type WikiArticle = typeof wikiArticles.$inferSelect;
+export type InsertWikiArticle = z.infer<typeof insertWikiArticleSchema>;
+export type UpdateWikiArticle = z.infer<typeof updateWikiArticleSchema>;

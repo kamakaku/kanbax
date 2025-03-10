@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertWikiArticleSchema, updateWikiArticleSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
 export async function registerRoutes(app: Express) {
@@ -513,6 +513,92 @@ export async function registerRoutes(app: Express) {
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+  // Add Wiki Article routes
+  app.get("/api/projects/:projectId/wiki", async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
+    try {
+      const articles = await storage.getWikiArticles(projectId);
+      res.json(articles);
+    } catch (error) {
+      console.error("Failed to fetch wiki articles:", error);
+      res.status(500).json({ message: "Failed to fetch wiki articles" });
+    }
+  });
+
+  app.get("/api/wiki/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid wiki article ID" });
+    }
+
+    try {
+      const article = await storage.getWikiArticle(id);
+      res.json(article);
+    } catch (error) {
+      console.error("Failed to fetch wiki article:", error);
+      res.status(500).json({ message: "Failed to fetch wiki article" });
+    }
+  });
+
+  app.post("/api/projects/:projectId/wiki", async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
+    const result = insertWikiArticleSchema.safeParse({ ...req.body, projectId });
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const article = await storage.createWikiArticle(result.data);
+      res.status(201).json(article);
+    } catch (error) {
+      console.error("Failed to create wiki article:", error);
+      res.status(500).json({ message: "Failed to create wiki article" });
+    }
+  });
+
+  app.patch("/api/wiki/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid wiki article ID" });
+    }
+
+    const result = updateWikiArticleSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const article = await storage.updateWikiArticle(id, result.data);
+      res.json(article);
+    } catch (error) {
+      console.error("Failed to update wiki article:", error);
+      res.status(500).json({ message: "Failed to update wiki article" });
+    }
+  });
+
+  app.delete("/api/wiki/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid wiki article ID" });
+    }
+
+    try {
+      await storage.deleteWikiArticle(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete wiki article:", error);
+      res.status(500).json({ message: "Failed to delete wiki article" });
     }
   });
 
