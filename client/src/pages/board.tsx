@@ -10,21 +10,23 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Board() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { currentBoard, setCurrentBoard, setBoards } = useStore();
 
-  const { data: boards, isLoading: boardsLoading, error: boardsError } = useQuery<Board[]>({
-    queryKey: ["/api/boards"],
-    queryFn: async () => {
-      const res = await fetch("/api/boards");
-      if (!res.ok) {
-        throw new Error("Failed to fetch boards");
-      }
-      return res.json();
-    },
-  });
+  // Redirect to projects page if no board is selected
+  useEffect(() => {
+    if (!currentBoard) {
+      setLocation("/projects");
+      toast({
+        title: "Please select a project first",
+        description: "You need to select a project before viewing boards",
+      });
+    }
+  }, [currentBoard, setLocation, toast]);
 
   const { data: columns = [], isLoading: columnsLoading } = useQuery<Column[]>({
     queryKey: ["/api/boards", currentBoard?.id, "columns"],
@@ -88,15 +90,6 @@ export default function Board() {
     },
   });
 
-  useEffect(() => {
-    if (!boardsLoading && boards && !currentBoard) {
-      setBoards(boards);
-      if (boards.length > 0) {
-        setCurrentBoard(boards[0]);
-      }
-    }
-  }, [boards, boardsLoading, currentBoard, setCurrentBoard, setBoards]);
-
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -108,15 +101,11 @@ export default function Board() {
     updateTaskStatus.mutate({ id: taskId, columnId: newColumnId, order: newOrder });
   };
 
-  if (boardsError) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-red-500">Error loading boards: {boardsError.message}</p>
-      </div>
-    );
+  if (!currentBoard) {
+    return null; // Will redirect via useEffect
   }
 
-  if (boardsLoading || columnsLoading) {
+  if (columnsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-lg text-muted-foreground">Loading...</p>
@@ -131,34 +120,26 @@ export default function Board() {
         <BoardSelector />
       </div>
 
-      {currentBoard ? (
-        <div className="flex-1 overflow-x-auto">
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-6 pb-4">
-              {columns.map((column) => (
-                <ColumnComponent
-                  key={column.id}
-                  column={column}
-                />
-              ))}
-              <Button
-                onClick={() => createColumn.mutate()}
-                variant="outline"
-                className="h-[500px] w-[280px] border-dashed"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Column
-              </Button>
-            </div>
-          </DragDropContext>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center min-h-[500px]">
-          <p className="text-lg text-muted-foreground">
-            Please select or create a board to get started
-          </p>
-        </div>
-      )}
+      <div className="flex-1 overflow-x-auto">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex gap-6 pb-4">
+            {columns.map((column) => (
+              <ColumnComponent
+                key={column.id}
+                column={column}
+              />
+            ))}
+            <Button
+              onClick={() => createColumn.mutate()}
+              variant="outline"
+              className="h-[500px] w-[280px] border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Column
+            </Button>
+          </div>
+        </DragDropContext>
+      </div>
     </div>
   );
 }

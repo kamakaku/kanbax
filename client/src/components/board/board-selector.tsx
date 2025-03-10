@@ -17,28 +17,37 @@ import { BoardForm } from "./board-form";
 
 export function BoardSelector() {
   const [showForm, setShowForm] = useState(false);
-  const { currentBoard, setCurrentBoard } = useStore();
+  const { currentBoard, setCurrentBoard, currentProject } = useStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: boards } = useQuery<Board[]>({
-    queryKey: ["/api/boards"],
+    queryKey: [`/api/projects/${currentProject?.id}/boards`],
     queryFn: async () => {
-      const res = await fetch("/api/boards");
+      if (!currentProject?.id) return [];
+      const res = await fetch(`/api/projects/${currentProject.id}/boards`);
       if (!res.ok) {
         throw new Error("Failed to fetch boards");
       }
       return res.json();
     },
+    enabled: !!currentProject?.id,
   });
 
   const createBoard = useMutation({
     mutationFn: async (board: InsertBoard) => {
-      const res = await apiRequest("POST", "/api/boards", board);
+      if (!currentProject?.id) return;
+      const res = await apiRequest(
+        "POST", 
+        `/api/projects/${currentProject.id}/boards`,
+        board
+      );
       return res.json();
     },
     onSuccess: (newBoard) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/projects/${currentProject?.id}/boards`] 
+      });
       setCurrentBoard(newBoard);
       toast({ title: "Board created successfully" });
       setShowForm(false);
@@ -51,6 +60,10 @@ export function BoardSelector() {
       });
     },
   });
+
+  if (!currentProject) {
+    return null;
+  }
 
   return (
     <div className="flex items-center gap-4">
