@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useStore } from "@/lib/store";
 
 interface BoardFormProps {
   open: boolean;
@@ -21,16 +22,23 @@ interface BoardFormProps {
 }
 
 export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
+  const { currentProject } = useStore();
+
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
       title: "",
       description: "",
+      projectId: currentProject?.id,
     },
   });
 
   const handleSubmit = async (data: InsertBoard) => {
-    await onSubmit(data);
+    if (!currentProject?.id) return;
+    await onSubmit({
+      ...data,
+      projectId: currentProject.id,
+    });
     form.reset();
   };
 
