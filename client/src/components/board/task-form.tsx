@@ -41,9 +41,10 @@ export function TaskForm({ open, onClose, status, existingTask }: TaskFormProps)
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  const form = useForm<InsertTask>({
-    resolver: zodResolver(insertTaskSchema),
+  const form = useForm<InsertTask & { id?: number }>({
+    resolver: zodResolver(existingTask ? insertTaskSchema.partial() : insertTaskSchema),
     defaultValues: {
+      id: existingTask?.id,
       title: existingTask?.title || "",
       description: existingTask?.description || "",
       status: existingTask?.status || status || "todo",
@@ -113,18 +114,18 @@ export function TaskForm({ open, onClose, status, existingTask }: TaskFormProps)
     },
   });
 
-  const handleSubmit = async (data: InsertTask) => {
+  const handleSubmit = async (data: InsertTask & { id?: number }) => {
     try {
+      const { id, ...taskData } = data;
       if (existingTask) {
-        await updateTask.mutateAsync(data);
+        await updateTask.mutateAsync(taskData);
       } else {
         await createTask.mutateAsync({
-          ...data,
+          ...taskData,
           boardId: currentBoard?.id || 0,
           status: status || "todo",
         });
       }
-      form.reset();
     } catch (error) {
       // Error is handled by the mutation
     }
@@ -159,7 +160,7 @@ export function TaskForm({ open, onClose, status, existingTask }: TaskFormProps)
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
