@@ -13,6 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface TaskCardProps {
   task: Task;
@@ -29,6 +38,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || "");
+  const [editedPriority, setEditedPriority] = useState(task.priority);
+  const [editedLabels, setEditedLabels] = useState(task.labels || []);
+  const [editedDueDate, setEditedDueDate] = useState(task.dueDate);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentBoard } = useStore();
@@ -38,6 +50,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
       const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
         title: editedTitle,
         description: editedDescription,
+        priority: editedPriority,
+        labels: editedLabels,
+        dueDate: editedDueDate,
       });
 
       if (!res.ok) {
@@ -129,6 +144,63 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 onChange={(e) => setEditedDescription(e.target.value)}
                 rows={3}
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Priority</label>
+              <Select value={editedPriority} onValueChange={setEditedPriority}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Labels (comma-separated)</label>
+              <Input
+                value={editedLabels.join(", ")}
+                onChange={(e) => {
+                  const labels = e.target.value
+                    .split(",")
+                    .map((label) => label.trim())
+                    .filter(Boolean);
+                  setEditedLabels(labels);
+                }}
+                placeholder="bug, feature, UI"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Due Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={`w-full justify-start text-left font-normal ${
+                      !editedDueDate && "text-muted-foreground"
+                    }`}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedDueDate ? (
+                      format(new Date(editedDueDate), "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editedDueDate ? new Date(editedDueDate) : undefined}
+                    onSelect={(date) =>
+                      setEditedDueDate(date?.toISOString())
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="flex justify-end gap-2">
               <Button
