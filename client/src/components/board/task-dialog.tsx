@@ -3,13 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { type Task } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Edit2 } from "lucide-react";
+import { CommentSection } from "@/components/comments/comment-section";
+import { ChecklistSection } from "@/components/checklist/checklist-section";
 import { Button } from "@/components/ui/button";
+import { TaskForm } from "./task-form";
 import { format } from "date-fns";
 
 interface TaskDialogProps {
   task: Task & { boardTitle?: string; projectTitle?: string };
   open: boolean;
   onClose: () => void;
+  onUpdate?: (task: Task) => void;
+  onDelete?: () => void;
 }
 
 const priorityColors = {
@@ -18,7 +23,28 @@ const priorityColors = {
   low: "bg-green-500",
 };
 
-export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
+export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  if (isEditing) {
+    return (
+      <TaskForm
+        open={open}
+        onClose={() => {
+          setIsEditing(false);
+          onClose();
+        }}
+        existingTask={task}
+        onSubmit={(updatedTask) => {
+          if (onUpdate) {
+            onUpdate(updatedTask);
+          }
+          setIsEditing(false);
+        }}
+      />
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -28,6 +54,13 @@ export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
               <DialogTitle>{task.title}</DialogTitle>
               <div className={`h-2 w-2 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors]}`} />
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsEditing(true)}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
           </div>
         </DialogHeader>
 
@@ -87,6 +120,15 @@ export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
               </div>
             </div>
           )}
+
+          <div className="border-t pt-6">
+            <ChecklistSection taskId={task.id} />
+          </div>
+
+          <div className="border-t pt-6">
+            <h3 className="font-semibold mb-4">Kommentare</h3>
+            <CommentSection taskId={task.id} />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
