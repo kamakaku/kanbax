@@ -2,9 +2,17 @@ import { tasks, boards, columns, comments, checklistItems, activityLogs, type Ta
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
-import { teams, type Team } from "@shared/schema";
+import { type Team } from "@shared/schema";
+import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 
 export interface IStorage {
+  // Project operations
+  getProjects(): Promise<Project[]>;
+  getProject(id: number): Promise<Project>;
+  createProject(project: InsertProject): Promise<Project>;
+  updateProject(id: number, project: UpdateProject): Promise<Project>;
+  deleteProject(id: number): Promise<void>;
+
   // Board operations
   getBoards(): Promise<Board[]>;
   getBoard(id: number): Promise<Board>;
@@ -46,6 +54,52 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Project operations
+  async getProjects(): Promise<Project[]> {
+    return await db.select().from(projects);
+  }
+
+  async getProject(id: number): Promise<Project> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    if (!project) {
+      throw new Error(`Project ${id} not found`);
+    }
+    return project;
+  }
+
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const [project] = await db
+      .insert(projects)
+      .values(insertProject)
+      .returning();
+    return project;
+  }
+
+  async updateProject(id: number, updateProject: UpdateProject): Promise<Project> {
+    const [project] = await db
+      .update(projects)
+      .set(updateProject)
+      .where(eq(projects.id, id))
+      .returning();
+
+    if (!project) {
+      throw new Error(`Project ${id} not found`);
+    }
+
+    return project;
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    const [project] = await db
+      .delete(projects)
+      .where(eq(projects.id, id))
+      .returning();
+
+    if (!project) {
+      throw new Error(`Project ${id} not found`);
+    }
+  }
+
   // Board operations
   async getBoards(): Promise<Board[]> {
     return await db.select().from(boards);

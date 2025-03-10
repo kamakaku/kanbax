@@ -2,6 +2,15 @@ import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Add new table for projects
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  wikiContent: text("wiki_content"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -10,27 +19,12 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Add new table for teams
-export const teams = pgTable("teams", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// Add new table for team members
-export const teamMembers = pgTable("team_members", {
-  id: serial("id").primaryKey(),
-  teamId: integer("team_id").notNull(),
-  userId: integer("user_id").notNull(),
-  role: text("role").notNull().default("member"), // 'member' or 'admin'
-  joinedAt: timestamp("joined_at").defaultNow().notNull(),
-});
-
+// Update boards table to include projectId
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  projectId: integer("project_id").notNull(),
 });
 
 export const columns = pgTable("columns", {
@@ -52,7 +46,6 @@ export const tasks = pgTable("tasks", {
   labels: text("labels").array(),
   dueDate: timestamp("due_date"),
   archived: boolean("archived").default(false),
-  // Add new fields for assignments
   assignedUserId: integer("assigned_user_id"),
   assignedTeamId: integer("assigned_team_id"),
   assignedAt: timestamp("assigned_at"),
@@ -95,13 +88,29 @@ export const insertUserSchema = createInsertSchema(users)
   })
   .omit({ passwordHash: true });
 
+// Add project schemas
+export const insertProjectSchema = createInsertSchema(projects)
+  .pick({
+    title: true,
+    description: true,
+    wikiContent: true,
+  })
+  .extend({
+    title: z.string().min(1, "Title is required"),
+  });
+
+export const updateProjectSchema = insertProjectSchema.partial();
+
+// Update board schema to include projectId
 export const insertBoardSchema = createInsertSchema(boards)
   .pick({
     title: true,
     description: true,
+    projectId: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
+    projectId: z.number().int().positive("Project ID is required"),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -207,7 +216,6 @@ export type Board = typeof boards.$inferSelect;
 export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
-// Update Task type to include joined data
 export type Task = typeof tasks.$inferSelect & {
   assignedUser?: {
     id: number;
@@ -237,3 +245,8 @@ export type Team = typeof teams.$inferSelect;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+
+// Add project types
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type UpdateProject = z.infer<typeof updateProjectSchema>;
