@@ -349,7 +349,7 @@ export default function AllTasks() {
       )}
 
       <Dialog open={showNewTaskForm} onOpenChange={setShowNewTaskForm}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
           </DialogHeader>
@@ -440,6 +440,7 @@ export default function AllTasks() {
                     <FormControl>
                       <Textarea
                         placeholder="Beschreiben Sie die Aufgabe..."
+                        className="min-h-[100px]"
                         value={field.value || ""}
                         onChange={field.onChange}
                       />
