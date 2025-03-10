@@ -111,7 +111,7 @@ export class DatabaseStorage implements IStorage {
 
   // Task operations
   async getTasks(boardId: number): Promise<Task[]> {
-    const tasks = await db
+    const result = await db
       .select({
         id: tasks.id,
         title: tasks.title,
@@ -144,7 +144,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tasks.boardId, boardId))
       .orderBy(tasks.order);
 
-    return tasks;
+    return result;
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
