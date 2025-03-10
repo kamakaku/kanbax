@@ -25,6 +25,7 @@ export function BoardSelector() {
     queryKey: [`/api/projects/${currentProject?.id}/boards`],
     queryFn: async () => {
       if (!currentProject?.id) return [];
+
       const res = await fetch(`/api/projects/${currentProject.id}/boards`);
       if (!res.ok) {
         throw new Error("Failed to fetch boards");
@@ -36,25 +37,33 @@ export function BoardSelector() {
 
   const createBoard = useMutation({
     mutationFn: async (board: InsertBoard) => {
-      if (!currentProject?.id) return;
+      if (!currentProject?.id) {
+        throw new Error("No project selected");
+      }
+
       const res = await apiRequest(
-        "POST", 
+        "POST",
         `/api/projects/${currentProject.id}/boards`,
         board
       );
+
+      if (!res.ok) {
+        throw new Error("Failed to create board");
+      }
+
       return res.json();
     },
     onSuccess: (newBoard) => {
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/projects/${currentProject?.id}/boards`] 
+      queryClient.invalidateQueries({
+        queryKey: [`/api/projects/${currentProject?.id}/boards`],
       });
       setCurrentBoard(newBoard);
-      toast({ title: "Board created successfully" });
+      toast({ title: "Board erfolgreich erstellt" });
       setShowForm(false);
     },
     onError: (error) => {
       toast({
-        title: "Failed to create board",
+        title: "Fehler beim Erstellen des Boards",
         description: error.message,
         variant: "destructive",
       });
@@ -77,7 +86,7 @@ export function BoardSelector() {
         }}
       >
         <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Select a board" />
+          <SelectValue placeholder="Board auswählen" />
         </SelectTrigger>
         <SelectContent>
           {boards?.map((board) => (

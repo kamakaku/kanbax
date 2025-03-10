@@ -29,12 +29,16 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
     defaultValues: {
       title: "",
       description: "",
-      projectId: currentProject?.id,
+      projectId: currentProject?.id || 0,
     },
   });
 
   const handleSubmit = async (data: InsertBoard) => {
-    if (!currentProject?.id) return;
+    if (!currentProject?.id) {
+      console.error("No project selected");
+      return;
+    }
+
     await onSubmit({
       ...data,
       projectId: currentProject.id,
@@ -57,7 +61,7 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
                 <FormItem>
                   <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Mein neues Board" />
+                    <Input placeholder="Mein neues Board" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -71,7 +75,10 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
                 <FormItem>
                   <FormLabel>Beschreibung</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Beschreiben Sie Ihr Board..." />
+                    <Textarea 
+                      placeholder="Beschreiben Sie Ihr Board..." 
+                      {...field} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
