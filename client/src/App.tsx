@@ -4,7 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/lib/auth-store";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { Folder, LayoutDashboard, KanbanSquare } from "lucide-react";
+import { Folder, LayoutDashboard, KanbanSquare, ListTodo } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
@@ -12,6 +12,7 @@ import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
 import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
+import AllTasks from "@/pages/all-tasks";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
@@ -37,7 +38,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                   className="w-full"
                 >
                   <Folder className="h-4 w-4" />
-                  <span>Projects</span>
+                  <span>Projekte</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -47,6 +48,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 >
                   <KanbanSquare className="h-4 w-4" />
                   <span>Boards</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setLocation("/tasks")}
+                  className="w-full"
+                >
+                  <ListTodo className="h-4 w-4" />
+                  <span>Alle Aufgaben</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -98,6 +108,7 @@ function Router() {
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
+      <Route path="/tasks" component={() => <ProtectedRoute component={AllTasks} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />
     </Switch>
