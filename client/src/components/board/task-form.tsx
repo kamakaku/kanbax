@@ -52,15 +52,19 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         return;
       }
 
-      const taskData = {
-        ...existingTask,
-        ...data,
-        columnId: data.columnId || 0,
+      // Kombiniere die existierenden Task-Daten mit den Updates
+      const taskData: Task = {
+        ...existingTask, // Behalte alle existierenden Felder
+        ...data, // Überschreibe mit den neuen Werten
+        id: existingTask?.id || 0, // Behalte die ID
+        boardId: existingTask?.boardId || data.boardId, // Behalte die Board-ID
+        columnId: existingTask?.columnId || 0,
         order: existingTask?.order || 0,
-        archived: false,
+        archived: existingTask?.archived || false,
       };
 
-      await onSubmit(taskData as Task);
+      console.log("Submitting task with data:", taskData); // Debug log
+      await onSubmit(taskData);
     } catch (error) {
       console.error("Form submission error:", error);
     }
@@ -85,6 +89,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
                     defaultValue={field.value?.toString()}
+                    disabled={!!existingTask} // Disable board selection for existing tasks
                   >
                     <FormControl>
                       <SelectTrigger>

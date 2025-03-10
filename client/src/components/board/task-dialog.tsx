@@ -35,20 +35,35 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
 
   const handleTaskUpdate = async (updatedTask: Task) => {
     try {
+      console.log("Updating task with data:", updatedTask); // Debug log
+
       const res = await apiRequest(
         "PATCH",
         `/api/boards/${task.boardId}/tasks/${task.id}`,
-        updatedTask
+        {
+          ...updatedTask,
+          id: task.id, // Ensure we keep the original task ID
+          boardId: task.boardId, // Keep the original board ID
+          columnId: task.columnId, // Keep the original column ID
+          order: task.order, // Keep the original order
+        }
       );
 
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Server error response:", errorData);
         throw new Error("Failed to update task");
       }
 
-      // Invalidate queries
+      const updatedTaskData = await res.json();
+      console.log("Server response:", updatedTaskData); // Debug log
+
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/boards/${task.boardId}/tasks`] 
+      boards.forEach(board => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        });
       });
 
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
