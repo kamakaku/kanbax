@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema, type InsertTask, type Task } from "@shared/schema";
+import { insertTaskSchema, type InsertTask, type Task, type UpdateTask } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -32,12 +32,11 @@ import { apiRequest } from "@/lib/queryClient";
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: InsertTask) => void;
-  status?: "todo" | "in-progress" | "done";
+  status?: "backlog" | "todo" | "in-progress" | "done";
   existingTask?: Task;
 }
 
-export function TaskForm({ open, onClose, onSubmit, status, existingTask }: TaskFormProps) {
+export function TaskForm({ open, onClose, status, existingTask }: TaskFormProps) {
   const { toast } = useToast();
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
@@ -49,23 +48,23 @@ export function TaskForm({ open, onClose, onSubmit, status, existingTask }: Task
       description: existingTask?.description || "",
       status: existingTask?.status || status || "todo",
       order: existingTask?.order || 0,
+      boardId: existingTask?.boardId || currentBoard?.id || 0,
+      columnId: existingTask?.columnId || 0,
       priority: existingTask?.priority || "medium",
       labels: existingTask?.labels || [],
-      boardId: existingTask?.boardId || currentBoard?.id || 0,
-      dueDate: existingTask?.dueDate || undefined,
+      dueDate: existingTask?.dueDate || null,
       archived: existingTask?.archived || false,
+      assignedUserId: existingTask?.assignedUserId || null,
+      assignedTeamId: existingTask?.assignedTeamId || null,
     },
   });
 
   const updateTask = useMutation({
-    mutationFn: async (data: InsertTask) => {
+    mutationFn: async (data: UpdateTask) => {
       const res = await apiRequest(
         "PATCH",
         `/api/tasks/${existingTask?.id}`,
-        {
-          ...data,
-          dueDate: data.dueDate || null,
-        }
+        data
       );
       if (!res.ok) {
         const error = await res.text();
@@ -87,27 +86,47 @@ export function TaskForm({ open, onClose, onSubmit, status, existingTask }: Task
     },
   });
 
+  const createTask = useMutation({
+    mutationFn: async (data: InsertTask) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/boards/${currentBoard?.id}/tasks`,
+        data
+      );
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(`Failed to create task: ${error}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+      toast({ title: "Task created successfully" });
+      onClose();
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to create task",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = async (data: InsertTask) => {
     try {
       if (existingTask) {
-        await updateTask.mutate(data);
+        await updateTask.mutateAsync(data);
       } else {
-        await onSubmit({
+        await createTask.mutateAsync({
           ...data,
           boardId: currentBoard?.id || 0,
           status: status || "todo",
-          dueDate: data.dueDate || null,
         });
       }
-
       form.reset();
-      onClose();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save task",
-        variant: "destructive",
-      });
+      // Error is handled by the mutation
     }
   };
 

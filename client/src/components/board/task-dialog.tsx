@@ -13,6 +13,7 @@ interface TaskDialogProps {
   task: Task;
   open: boolean;
   onClose: () => void;
+  onSubmit?: (task:Task) => void; // Added onSubmit prop with type
 }
 
 const priorityColors = {
@@ -21,7 +22,7 @@ const priorityColors = {
   low: "bg-green-500",
 };
 
-export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
+export function TaskDialog({ task, open, onClose, onSubmit }: TaskDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
 
   if (isEditing) {
@@ -32,10 +33,8 @@ export function TaskDialog({ task, open, onClose }: TaskDialogProps) {
           setIsEditing(false);
           onClose();
         }}
-        onSubmit={async () => {
-          setIsEditing(false);
-        }}
         existingTask={task}
+        onSubmit={onSubmit} // Pass onSubmit prop to TaskForm
       />
     );
   }
