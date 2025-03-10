@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Board, type Column } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
+import { AISuggestions } from "@/components/board/ai-suggestions";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -132,24 +133,32 @@ export default function Board() {
       </div>
 
       {currentBoard ? (
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 overflow-x-auto pb-4">
-            {columns.map((column) => (
-              <ColumnComponent
-                key={column.id}
-                column={column}
-              />
-            ))}
-            <Button
-              onClick={() => createColumn.mutate()}
-              variant="outline"
-              className="h-[500px] w-[280px] border-dashed"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Column
-            </Button>
+        <div className="flex gap-6">
+          <div className="flex-1 overflow-x-auto">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="flex gap-6 pb-4">
+                {columns.map((column) => (
+                  <ColumnComponent
+                    key={column.id}
+                    column={column}
+                  />
+                ))}
+                <Button
+                  onClick={() => createColumn.mutate()}
+                  variant="outline"
+                  className="h-[500px] w-[280px] border-dashed"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Column
+                </Button>
+              </div>
+            </DragDropContext>
           </div>
-        </DragDropContext>
+
+          <div className="w-80 flex-shrink-0">
+            <AISuggestions />
+          </div>
+        </div>
       ) : (
         <div className="flex items-center justify-center min-h-[500px]">
           <p className="text-lg text-muted-foreground">

@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
+import { generateTaskSuggestions } from "./services/ai-suggestions";
 
 export async function registerRoutes(app: Express) {
   // Authentication routes
@@ -434,5 +435,30 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/boards/:id/suggest-tasks", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    try {
+      const board = await storage.getBoard(id);
+      const tasks = await storage.getTasks(id);
+
+      const suggestions = await generateTaskSuggestions(
+        board.title,
+        board.description,
+        tasks.map(task => ({
+          title: task.title,
+          description: task.description
+        }))
+      );
+
+      res.json({ suggestions });
+    } catch (error) {
+      console.error("Failed to generate task suggestions:", error);
+      res.status(500).json({ message: "Failed to generate task suggestions" });
+    }
+  });
   return createServer(app);
 }
