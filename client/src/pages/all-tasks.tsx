@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { type Project, type Board, type Task } from "@shared/schema";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { type Project, type Board, type Task, type InsertTask } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
@@ -11,7 +11,15 @@ import { LayoutGrid, LayoutList, Calendar, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { TaskDialog } from "@/components/board/task-dialog";
-import { TaskForm } from "@/components/board/task-form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertTaskSchema } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface TaskWithDetails extends Task {
   boardTitle: string;
@@ -25,6 +33,9 @@ export default function AllTasks() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -83,6 +94,71 @@ export default function AllTasks() {
     },
     enabled: !!boardQueries.data
   });
+
+  const form = useForm<InsertTask>({
+    resolver: zodResolver(insertTaskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "todo",
+      order: 0,
+      priority: "medium",
+      labels: [],
+      columnId: 0,
+      archived: false,
+    },
+  });
+
+  const projectBoards = boardQueries.data?.filter(board => board.projectId === selectedProjectId) || [];
+
+  const createTask = useMutation({
+    mutationFn: async (data: InsertTask) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/boards/${data.boardId}/tasks`,
+        {
+          ...data,
+          columnId: 0,
+          order: 0,
+          archived: false,
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to create task");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      boardQueries.data?.forEach(board => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        });
+      });
+      toast({ title: "Aufgabe erfolgreich erstellt" });
+      form.reset();
+      setShowNewTaskForm(false);
+      setSelectedProjectId(null);
+    },
+    onError: (error) => {
+      console.error("Task creation error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = async (data: InsertTask) => {
+    try {
+      await createTask.mutateAsync(data);
+    } catch (error) {
+      console.error("Task creation error:", error);
+    }
+  };
 
   const handleTaskClick = (task: TaskWithDetails) => {
     setSelectedTask(task);
@@ -272,18 +348,186 @@ export default function AllTasks() {
         />
       )}
 
-      {showNewTaskForm && (
-        <TaskForm
-          open={showNewTaskForm}
-          onClose={() => setShowNewTaskForm(false)}
-          onSubmit={async () => {
-            await taskQueries.refetch();
-            setShowNewTaskForm(false);
-          }}
-          projects={projects || []}
-          boards={boardQueries.data || []}
-        />
-      )}
+      <Dialog open={showNewTaskForm} onOpenChange={setShowNewTaskForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Projekt</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        const projectId = parseInt(value);
+                        setSelectedProjectId(projectId);
+                        field.onChange(projectId);
+                        form.setValue("boardId", undefined as any);
+                      }}
+                      defaultValue={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Wählen Sie ein Projekt" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {projects?.map((project) => (
+                          <SelectItem key={project.id} value={project.id.toString()}>
+                            {project.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="boardId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Board</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      defaultValue={field.value?.toString()}
+                      disabled={!selectedProjectId}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Wählen Sie ein Board" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {projectBoards.map((board) => (
+                          <SelectItem key={board.id} value={board.id.toString()}>
+                            {board.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titel</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Neue Aufgabe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beschreibung</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Beschreiben Sie die Aufgabe..."
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Status auswählen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="backlog">Backlog</SelectItem>
+                        <SelectItem value="todo">To Do</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="review">Review</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priorität</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Priorität auswählen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">Niedrig</SelectItem>
+                        <SelectItem value="medium">Mittel</SelectItem>
+                        <SelectItem value="high">Hoch</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="labels"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Labels (durch Komma getrennt)</FormLabel>
+                    <FormControl>
+                      <Input
+                        value={field.value?.join(", ") || ""}
+                        onChange={(e) => {
+                          const labels = e.target.value
+                            .split(",")
+                            .map((label) => label.trim())
+                            .filter(Boolean);
+                          field.onChange(labels);
+                        }}
+                        placeholder="bug, feature, UI"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button type="submit" className="w-full">
+                Aufgabe erstellen
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
