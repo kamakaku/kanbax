@@ -10,7 +10,7 @@ import { useState } from "react";
 import { LayoutGrid, LayoutList, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
+import { TaskDialog } from "@/components/board/task-dialog";
 
 interface TaskWithDetails extends Task {
   boardTitle: string;
@@ -216,55 +216,22 @@ export default function AllTasks() {
         </TabsContent>
       </Tabs>
 
-      <Drawer open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-        <DrawerContent className="max-h-[90vh]">
-          {selectedTask && (
-            <>
-              <DrawerHeader className="border-b pb-4">
-                <DrawerTitle>{selectedTask.title}</DrawerTitle>
-                <DrawerDescription>
-                  <div className="space-y-2 mt-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Projekt:</span>
-                      <span className="text-sm text-muted-foreground">{selectedTask.projectTitle}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Board:</span>
-                      <span className="text-sm text-muted-foreground">{selectedTask.boardTitle}</span>
-                    </div>
-                    {selectedTask.priority && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Priorität:</span>
-                        <span className="text-sm text-muted-foreground">
-                          {selectedTask.priority === 'high' ? 'Hoch' : selectedTask.priority === 'medium' ? 'Mittel' : 'Niedrig'}
-                        </span>
-                      </div>
-                    )}
-                    {selectedTask.dueDate && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Fällig:</span>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(selectedTask.dueDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="p-4">
-                {selectedTask.description && (
-                  <div className="space-y-2">
-                    <h3 className="font-medium">Beschreibung</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {selectedTask.description}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </DrawerContent>
-      </Drawer>
+      {selectedTask && (
+        <TaskDialog
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={(updatedTask) => {
+            // Invalidate queries to refresh the task list
+            taskQueries.refetch();
+            setSelectedTask(null);
+          }}
+          onDelete={() => {
+            // Invalidate queries to refresh the task list
+            taskQueries.refetch();
+            setSelectedTask(null);
+          }}
+        />
+      )}
     </div>
   );
 }
