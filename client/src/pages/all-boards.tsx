@@ -34,7 +34,7 @@ export default function AllBoards() {
   };
 
   return (
-    <div className="container mx-auto">
+    <div className="container mx-auto p-8">
       <div className="mb-8">
         <h1 className="text-4xl font-bold">Alle Boards</h1>
         <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
@@ -67,7 +67,7 @@ export default function AllBoards() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm text-muted-foreground">
-                  Status: {board.status || "Aktiv"}
+                  Erstellt am: {new Date(board.createdAt).toLocaleDateString()}
                 </div>
               </CardContent>
             </Card>
