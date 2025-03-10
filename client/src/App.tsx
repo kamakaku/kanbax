@@ -4,13 +4,14 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/lib/auth-store";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { Folder, LayoutDashboard } from "lucide-react";
+import { Folder, LayoutDashboard, KanbanSquare } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
 import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
-import ProjectDetail from "@/pages/project-detail"; // Import the new component
+import ProjectDetail from "@/pages/project-detail";
+import AllBoards from "@/pages/all-boards";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
@@ -37,6 +38,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 >
                   <Folder className="h-4 w-4" />
                   <span>Projects</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setLocation("/boards")}
+                  className="w-full"
+                >
+                  <KanbanSquare className="h-4 w-4" />
+                  <span>Boards</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -85,8 +95,9 @@ function Router() {
       <Route path="/auth" component={Auth} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
-      <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} /> {/* Added route */}
+      <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
+      <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />
     </Switch>
