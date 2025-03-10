@@ -39,7 +39,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
         existingTask={task}
         onSubmit={async (updatedTask) => {
           if (onUpdate) {
-            onUpdate(updatedTask);
+            await onUpdate(updatedTask);
           }
           setIsEditing(false);
         }}

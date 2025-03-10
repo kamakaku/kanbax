@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema, type InsertTask, type Project, type Board } from "@shared/schema";
+import { insertTaskSchema, type InsertTask, type Project, type Board, type Task } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,10 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -32,10 +28,10 @@ import { useState } from "react";
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: () => Promise<void>;
+  onSubmit: (task: Task) => Promise<void>;
   projects: Project[];
   boards: Board[];
-  existingTask?: InsertTask;
+  existingTask?: Task;
 }
 
 export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTask }: TaskFormProps) {
@@ -49,54 +45,54 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
-    defaultValues: existingTask || {
-      title: "",
-      description: "",
-      status: "todo",
-      order: 0,
-      priority: "medium",
-      labels: [],
-      columnId: 0, // Default columnId
-      archived: false
+    defaultValues: {
+      title: existingTask?.title || "",
+      description: existingTask?.description || "",
+      status: existingTask?.status || "todo",
+      boardId: existingTask?.boardId || undefined,
+      priority: existingTask?.priority || "medium",
+      labels: existingTask?.labels || [],
+      columnId: existingTask?.columnId || 0,
+      archived: existingTask?.archived || false,
     },
   });
 
-  const createTask = useMutation({
-    mutationFn: async (data: InsertTask) => {
+  const handleSubmit = async (data: InsertTask) => {
+    try {
       const res = await apiRequest(
         existingTask ? "PATCH" : "POST",
         `/api/boards/${data.boardId}/tasks${existingTask ? `/${existingTask.id}` : ''}`,
         {
           ...data,
-          columnId: data.columnId || 0, // Ensure columnId is set
-          order: data.order || 0,
-          archived: false
+          columnId: data.columnId || 0,
+          order: existingTask?.order || 0,
+          archived: false,
         }
       );
 
       if (!res.ok) {
-        throw new Error("Failed to create task");
+        throw new Error("Failed to save task");
       }
 
-      return res.json();
-    },
-    onSuccess: () => {
+      const savedTask = await res.json();
+
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
           queryKey: [`/api/boards/${board.id}/tasks`] 
         });
       });
+
       toast({ 
         title: existingTask 
           ? "Aufgabe erfolgreich aktualisiert" 
           : "Aufgabe erfolgreich erstellt" 
       });
+
+      await onSubmit(savedTask);
       form.reset();
-      onSubmit();
-    },
-    onError: (error) => {
-      console.error("Task creation error:", error);
+    } catch (error) {
+      console.error("Task save error:", error);
       toast({
         title: "Fehler",
         description: existingTask 
@@ -104,20 +100,12 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
           : "Die Aufgabe konnte nicht erstellt werden",
         variant: "destructive",
       });
-    },
-  });
-
-  const handleSubmit = async (data: InsertTask) => {
-    try {
-      await createTask.mutateAsync(data);
-    } catch (error) {
-      console.error("Task creation error:", error);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {existingTask ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
@@ -125,40 +113,6 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField 
-              control={form.control}
-              name="projectId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Projekt</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      const projectId = parseInt(value);
-                      setSelectedProjectId(projectId);
-                      field.onChange(projectId);
-                      // Reset board selection when project changes
-                      form.setValue("boardId", undefined as any);
-                    }}
-                    defaultValue={field.value?.toString()}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Wählen Sie ein Projekt" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id.toString()}>
-                          {project.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <FormField
               control={form.control}
               name="boardId"
@@ -168,7 +122,6 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
                     defaultValue={field.value?.toString()}
-                    disabled={!selectedProjectId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -176,7 +129,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {projectBoards.map((board) => (
+                      {boards.map((board) => (
                         <SelectItem key={board.id} value={board.id.toString()}>
                           {board.title}
                         </SelectItem>
@@ -220,7 +173,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                 <FormItem>
                   <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <Input placeholder="Neue Aufgabe" {...field} />
+                    <Input placeholder="Aufgabentitel" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -236,6 +189,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                   <FormControl>
                     <Textarea
                       placeholder="Beschreiben Sie die Aufgabe..."
+                      className="min-h-[100px]"
                       value={field.value || ""}
                       onChange={field.onChange}
                     />
@@ -286,46 +240,6 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                       }}
                       placeholder="bug, feature, UI"
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fälligkeitsdatum</FormLabel>
-                  <FormControl>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={`w-full justify-start text-left font-normal ${
-                            !field.value && "text-muted-foreground"
-                          }`}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? (
-                            format(new Date(field.value), "PPP")
-                          ) : (
-                            <span>Datum auswählen</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) =>
-                            field.onChange(date?.toISOString())
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
