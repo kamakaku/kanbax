@@ -23,7 +23,7 @@ export default function AllTasks() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -85,7 +85,26 @@ export default function AllTasks() {
   });
 
   const handleTaskClick = (task: TaskWithDetails) => {
-    setSelectedTask(task);
+    // Convert TaskWithDetails back to Task for the dialog
+    const baseTask: Task = {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      order: task.order,
+      boardId: task.boardId,
+      columnId: task.columnId,
+      priority: task.priority,
+      labels: task.labels,
+      dueDate: task.dueDate,
+      archived: task.archived,
+      assignedUserId: task.assignedUserId,
+      assignedTeamId: task.assignedTeamId,
+      assignedAt: task.assignedAt,
+      assignedUser: task.assignedUser,
+      assignedTeam: task.assignedTeam
+    };
+    setSelectedTask(baseTask);
   };
 
   if (projectsLoading || boardQueries.isLoading || taskQueries.isLoading) {
@@ -221,12 +240,10 @@ export default function AllTasks() {
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
           onUpdate={(updatedTask) => {
-            // Invalidate queries to refresh the task list
             taskQueries.refetch();
             setSelectedTask(null);
           }}
           onDelete={() => {
-            // Invalidate queries to refresh the task list
             taskQueries.refetch();
             setSelectedTask(null);
           }}
