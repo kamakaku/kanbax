@@ -189,6 +189,25 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.get("/api/boards", async (_req, res) => {
+    try {
+      const boards = await storage.getBoards();
+      const boardsWithProjects = await Promise.all(
+        boards.map(async (board) => {
+          const project = await storage.getProject(board.projectId);
+          return {
+            ...board,
+            project
+          };
+        })
+      );
+      res.json(boardsWithProjects);
+    } catch (error) {
+      console.error("Failed to fetch boards:", error);
+      res.status(500).json({ message: "Failed to fetch boards" });
+    }
+  });
+
   app.get("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
