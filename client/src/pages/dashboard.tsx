@@ -4,13 +4,15 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus } from "lucide-react";
-import type { Project } from "@shared/schema";
+import type { Project, Board } from "@shared/schema";
+import { useStore } from "@/lib/store";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { setCurrentBoard, setCurrentProject } = useStore();
 
-  const { data: projects, isLoading } = useQuery<Project[]>({
+  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
     queryFn: async () => {
       const res = await fetch("/api/projects");
@@ -21,100 +23,149 @@ export default function Dashboard() {
     },
   });
 
+  const boardQueries = useQuery({
+    queryKey: ["all-boards", projects?.map(p => p.id)],
+    queryFn: async () => {
+      if (!projects) return [];
+
+      const allBoards = await Promise.all(
+        projects.map(async (project) => {
+          const res = await fetch(`/api/projects/${project.id}/boards`);
+          if (!res.ok) return [];
+          const boards = await res.json();
+          return boards.map((board: Board) => ({
+            ...board,
+            projectTitle: project.title,
+            projectId: project.id
+          }));
+        })
+      );
+
+      return allBoards.flat();
+    },
+    enabled: !!projects
+  });
+
+  const handleBoardClick = (board: Board & { projectId: number, projectTitle: string }) => {
+    const project = projects?.find(p => p.id === board.projectId);
+    if (project) {
+      setCurrentProject(project);
+      setCurrentBoard(board);
+      setLocation("/board");
+    }
+  };
+
+  if (projectsLoading || boardQueries.isLoading) {
+    return (
+      <div className="container mx-auto p-8">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Lädt...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const allBoards = boardQueries.data || [];
+
   return (
     <div className="container mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold">Willkommen, {user?.username}!</h1>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Willkommen, {user?.username}!
+          </h1>
           <p className="text-muted-foreground mt-2">Hier ist eine Übersicht Ihres Arbeitsbereichs</p>
         </div>
-        <Button onClick={() => setLocation("/projects")}>
+        <Button onClick={() => setLocation("/projects")} className="bg-primary/10 hover:bg-primary/20">
           <Plus className="mr-2 h-4 w-4" />
           Neues Projekt
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader className="py-4">
-            <CardTitle>Projekte</CardTitle>
-            <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{projects?.length || 0}</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-8">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg">
+            <CardHeader className="py-4">
+              <CardTitle>Projekte</CardTitle>
+              <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-primary">{projects?.length || 0}</p>
+            </CardContent>
+          </Card>
 
-        {projects && projects.length > 0 ? (
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Ihre Projekte und Boards</h2>
-            <div className="space-y-6">
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg">
+            <CardHeader className="py-4">
+              <CardTitle>Boards</CardTitle>
+              <CardDescription>Gesamtzahl Ihrer Boards</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-primary">{allBoards.length}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold">Aktuelle Boards</h2>
+            <Button variant="outline" onClick={() => setLocation("/boards")} size="sm">
+              Alle Boards ansehen
+            </Button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {allBoards.map((board) => (
+              <Card
+                key={board.id}
+                className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
+                onClick={() => handleBoardClick(board)}
+              >
+                <CardHeader className="p-4 space-y-2">
+                  <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                    {board.title}
+                  </CardTitle>
+                  <CardDescription className="text-sm space-y-1">
+                    <div className="line-clamp-1">{board.description}</div>
+                    <div className="text-xs text-primary/80">
+                      {board.projectTitle}
+                    </div>
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {projects && projects.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold">Projekte</h2>
+              <Button variant="outline" onClick={() => setLocation("/projects")} size="sm">
+                Alle Projekte ansehen
+              </Button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
               {projects.map((project) => (
-                <Card key={project.id} className="overflow-visible">
-                  <CardHeader className="py-4">
-                    <CardTitle>
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-bold text-xl"
-                        onClick={() => setLocation(`/projects/${project.id}`)}
-                      >
-                        {project.title}
-                      </Button>
+                <Card
+                  key={project.id}
+                  className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
+                  onClick={() => setLocation(`/projects/${project.id}`)}
+                >
+                  <CardHeader className="p-4 space-y-2">
+                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                      {project.title}
                     </CardTitle>
-                    <CardDescription className="line-clamp-2">{project.description}</CardDescription>
+                    <CardDescription className="text-sm space-y-1">
+                      <div className="line-clamp-2">{project.description}</div>
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent className="pt-0">
-                    <BoardList projectId={project.id} onBoardClick={() => setLocation("/board")} />
-                  </CardContent>
                 </Card>
               ))}
             </div>
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              {isLoading
-                ? "Lädt Projekte..."
-                : "Noch keine Projekte vorhanden. Erstellen Sie ein Projekt, um loszulegen!"}
-            </p>
-          </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function BoardList({ projectId, onBoardClick }: { projectId: number; onBoardClick: () => void }) {
-  const { data: boards, isLoading } = useQuery({
-    queryKey: [`/api/projects/${projectId}/boards`],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}/boards`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch boards");
-      }
-      return res.json();
-    },
-  });
-
-  if (isLoading) return <p className="text-sm text-muted-foreground">Lädt Boards...</p>;
-  if (!boards?.length) return <p className="text-sm text-muted-foreground">Keine Boards vorhanden</p>;
-
-  return (
-    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-      {boards.map((board) => (
-        <Card
-          key={board.id}
-          className="hover:bg-muted/50 transition-colors cursor-pointer h-[120px]"
-          onClick={onBoardClick}
-        >
-          <CardHeader className="p-4">
-            <CardTitle className="text-base line-clamp-1">{board.title}</CardTitle>
-            {board.description && (
-              <CardDescription className="text-sm line-clamp-2">{board.description}</CardDescription>
-            )}
-          </CardHeader>
-        </Card>
-      ))}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { type Project, type Board } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 
 export default function AllBoards() {
@@ -65,7 +65,9 @@ export default function AllBoards() {
   return (
     <div className="container mx-auto p-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold">Alle Boards</h1>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          Alle Boards
+        </h1>
         <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
       </div>
 
@@ -78,15 +80,17 @@ export default function AllBoards() {
           {allBoards.map((board) => (
             <Card
               key={board.id}
-              className="hover:bg-muted/50 transition-colors cursor-pointer h-[140px]"
+              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
               onClick={() => handleBoardClick(board, board.projectId)}
             >
-              <CardHeader className="p-4">
-                <CardTitle className="text-base line-clamp-1">{board.title}</CardTitle>
-                <CardDescription className="text-sm line-clamp-2">
-                  {board.description}
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Projekt: {board.projectTitle}
+              <CardHeader className="p-4 space-y-2">
+                <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                  {board.title}
+                </CardTitle>
+                <CardDescription className="text-sm space-y-1">
+                  <div className="line-clamp-1">{board.description}</div>
+                  <div className="text-xs text-primary/80">
+                    {board.projectTitle}
                   </div>
                 </CardDescription>
               </CardHeader>
