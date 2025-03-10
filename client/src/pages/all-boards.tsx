@@ -74,27 +74,22 @@ export default function AllBoards() {
           <p className="text-muted-foreground">Keine Boards vorhanden</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
           {allBoards.map((board) => (
             <Card
               key={board.id}
-              className="hover:bg-muted/50 transition-colors cursor-pointer"
+              className="hover:bg-muted/50 transition-colors cursor-pointer h-[140px]"
               onClick={() => handleBoardClick(board, board.projectId)}
             >
-              <CardHeader>
-                <CardTitle>{board.title}</CardTitle>
-                <CardDescription>
+              <CardHeader className="p-4">
+                <CardTitle className="text-base line-clamp-1">{board.title}</CardTitle>
+                <CardDescription className="text-sm line-clamp-2">
                   {board.description}
-                  <div className="mt-2 text-sm text-muted-foreground">
+                  <div className="mt-1 text-xs text-muted-foreground">
                     Projekt: {board.projectTitle}
                   </div>
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  Erstellt am: {new Date(board.createdAt).toLocaleDateString()}
-                </div>
-              </CardContent>
             </Card>
           ))}
         </div>

@@ -36,7 +36,7 @@ export default function Dashboard() {
 
       <div className="grid gap-6">
         <Card>
-          <CardHeader>
+          <CardHeader className="py-4">
             <CardTitle>Projekte</CardTitle>
             <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
           </CardHeader>
@@ -48,10 +48,10 @@ export default function Dashboard() {
         {projects && projects.length > 0 ? (
           <div>
             <h2 className="text-2xl font-bold mb-4">Ihre Projekte und Boards</h2>
-            <div className="space-y-8">
+            <div className="space-y-6">
               {projects.map((project) => (
                 <Card key={project.id} className="overflow-visible">
-                  <CardHeader>
+                  <CardHeader className="py-4">
                     <CardTitle>
                       <Button
                         variant="link"
@@ -61,9 +61,9 @@ export default function Dashboard() {
                         {project.title}
                       </Button>
                     </CardTitle>
-                    <CardDescription>{project.description}</CardDescription>
+                    <CardDescription className="line-clamp-2">{project.description}</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <BoardList projectId={project.id} onBoardClick={() => setLocation("/board")} />
                   </CardContent>
                 </Card>
@@ -100,17 +100,17 @@ function BoardList({ projectId, onBoardClick }: { projectId: number; onBoardClic
   if (!boards?.length) return <p className="text-sm text-muted-foreground">Keine Boards vorhanden</p>;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
       {boards.map((board) => (
         <Card
           key={board.id}
-          className="hover:bg-muted/50 transition-colors cursor-pointer"
+          className="hover:bg-muted/50 transition-colors cursor-pointer h-[120px]"
           onClick={onBoardClick}
         >
-          <CardHeader>
-            <CardTitle className="text-base">{board.title}</CardTitle>
+          <CardHeader className="p-4">
+            <CardTitle className="text-base line-clamp-1">{board.title}</CardTitle>
             {board.description && (
-              <CardDescription className="text-sm">{board.description}</CardDescription>
+              <CardDescription className="text-sm line-clamp-2">{board.description}</CardDescription>
             )}
           </CardHeader>
         </Card>
