@@ -57,22 +57,16 @@ app.use((req, res, next) => {
       console.error("Server error:", err);
     });
 
-    // Serve static files using Express
-    const clientDir = path.join(process.cwd(), 'client', 'dist');
-    app.use(express.static(clientDir));
+    // In development, use Vite's development server
+    if (process.env.NODE_ENV === "development") {
+      log("Setting up Vite for development...");
+      await setupVite(app, server);
+      log("Vite setup completed");
+    }
 
-    // Catch-all route to serve index.html
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(clientDir, 'index.html'));
-    });
-
-    log("Static serving setup completed");
-
-    const port = process.env.PORT || 5000;
-    const host = '0.0.0.0';
-
-    server.listen(port, host, () => {
-      log(`Server successfully started on ${host}:${port}`);
+    const port = parseInt(process.env.PORT || "5000", 10);
+    server.listen(port, () => {
+      log(`Server successfully started on port ${port}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
