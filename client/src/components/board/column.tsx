@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type Task } from "@shared/schema";
-import { Plus } from "lucide-react";
+import { Plus, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Droppable } from "react-beautiful-dnd";
@@ -15,10 +15,8 @@ interface ColumnProps {
 }
 
 export function Column({ id, title, tasks = [], isAllTasksView = false }: ColumnProps) {
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-
-  // Ensure we have a valid string ID for the droppable
-  const droppableId = String(id || 'fallback');
 
   return (
     <Card className="min-w-[280px] max-w-[280px] h-fit">
@@ -35,7 +33,7 @@ export function Column({ id, title, tasks = [], isAllTasksView = false }: Column
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={() => setSelectedTask(null)}
+              onClick={() => setIsTaskDialogOpen(true)}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -43,7 +41,7 @@ export function Column({ id, title, tasks = [], isAllTasksView = false }: Column
         </div>
       </CardHeader>
       <CardContent className="py-2 px-3 flex flex-col gap-3">
-        <Droppable droppableId={droppableId}>
+        <Droppable droppableId={id.toString()}>
           {(provided) => (
             <div
               {...provided.droppableProps}

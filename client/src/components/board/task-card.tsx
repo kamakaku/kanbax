@@ -20,11 +20,8 @@ const priorityColors = {
 } as const;
 
 export function TaskCard({ task, index, showBoardTitle, onClick }: TaskCardProps) {
-  // Ensure we have a valid string ID for the draggable
-  const draggableId = String(task.id);
-
   return (
-    <Draggable draggableId={draggableId} index={index}>
+    <Draggable draggableId={task.id.toString()} index={index}>
       {(provided) => (
         <div
           ref={provided.innerRef}
