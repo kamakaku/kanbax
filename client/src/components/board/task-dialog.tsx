@@ -41,23 +41,18 @@ const priorityColors = {
 };
 
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects = [], boards = [] }: TaskDialogProps) {
-  // Directly enter edit mode
+  // Direkt in den Bearbeitungsmodus gehen
   const [isEditing, setIsEditing] = useState(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Check if task is null or undefined
-  if (!task) {
-    return null;
-  }
-
   const form = useForm<UpdateTask>({
     resolver: zodResolver(updateTaskSchema),
     defaultValues: {
-      title: task.title || "",
-      description: task.description || "",
-      status: task.status || "",
-      priority: task.priority || "medium",
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
       labels: task.labels || [],
     },
   });

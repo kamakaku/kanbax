@@ -1,9 +1,3 @@
-import { useState } from "react";
-import { type Task as TaskType } from "@shared/schema";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Draggable } from "react-beautiful-dnd";
-import { TaskDialog } from "./task-dialog";
-
 interface TaskProps {
   task: TaskType & { boardTitle?: string };
   index: number;
@@ -14,10 +8,10 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
   const priorityColor = {
-    low: "border-blue-500",
-    medium: "border-yellow-500", 
-    high: "border-red-500"
-  }[task.priority || "medium"] || "border-blue-500";
+    low: "bg-blue-500",
+    medium: "bg-yellow-500", 
+    high: "bg-red-500"
+  }[task.priority || "medium"] || "bg-blue-500";
 
   return (
     <>
@@ -30,12 +24,13 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
             ref={provided.innerRef}
             onClick={() => setIsTaskDialogOpen(true)}
           >
-            <Card className={`shadow-sm hover:shadow border-l-4 ${priorityColor} hover:border-primary/20 mb-2`}>
+            <Card className="shadow-sm hover:shadow border border-border/40 hover:border-primary/20">
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-sm font-medium line-clamp-2">
                     {task.title}
                   </CardTitle>
+                  <div className={`w-2 h-2 rounded-full ${priorityColor}`} />
                 </div>
                 {task.description && (
                   <CardDescription className="text-xs line-clamp-2">

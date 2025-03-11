@@ -1,215 +1,145 @@
-
-import { useState } from "react";
-import { DragDropContext, DropResult } from "react-beautiful-dnd";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "wouter";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { type Board as BoardType, type Column, type Task } from "@shared/schema";
+import { useEffect } from "react";
+import { DragDropContext, type DropResult } from "react-beautiful-dnd";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { type Board, type Column } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
-import { ColumnForm } from "@/components/board/column-form";
+import { BoardSelector } from "@/components/board/board-selector";
+import { useStore } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Board() {
-  const params = useParams();
-  const boardId = parseInt(params.id as string);
-  const queryClient = useQueryClient();
-  const [showColumnForm, setShowColumnForm] = useState(false);
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const { currentBoard, setCurrentBoard, setBoards } = useStore();
 
-  const { data: board, isLoading: boardLoading } = useQuery<BoardType>({
-    queryKey: [`/api/boards/${boardId}`],
-    queryFn: async () => {
-      const res = await fetch(`/api/boards/${boardId}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch board");
-      }
-      return res.json();
-    },
-  });
+  // Redirect to projects page if no board is selected
+  useEffect(() => {
+    if (!currentBoard) {
+      setLocation("/projects");
+      toast({
+        title: "Please select a project first",
+        description: "You need to select a project before viewing boards",
+      });
+    }
+  }, [currentBoard, setLocation, toast]);
 
   const { data: columns = [], isLoading: columnsLoading } = useQuery<Column[]>({
-    queryKey: [`/api/boards/${boardId}/columns`],
+    queryKey: ["/api/boards", currentBoard?.id, "columns"],
     queryFn: async () => {
-      const res = await fetch(`/api/boards/${boardId}/columns`);
+      const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
       if (!res.ok) {
         throw new Error("Failed to fetch columns");
       }
       return res.json();
     },
-    enabled: !!boardId,
+    enabled: !!currentBoard,
   });
 
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
-    queryKey: [`/api/boards/${boardId}/tasks`],
-    queryFn: async () => {
-      const res = await fetch(`/api/boards/${boardId}/tasks`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch tasks");
-      }
-      return res.json();
-    },
-    enabled: !!boardId,
-  });
+  const createColumn = useMutation({
+    mutationFn: async () => {
+      if (!currentBoard?.id) return;
 
-  const updateTaskMutation = useMutation({
-    mutationFn: async (updatedTask: Task) => {
-      const res = await fetch(`/api/tasks/${updatedTask.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedTask),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to update task");
-      }
+      const maxOrder = columns.reduce((max, col) => Math.max(max, col.order), -1);
+
+      const res = await apiRequest(
+        "POST",
+        `/api/boards/${currentBoard.id}/columns`,
+        {
+          title: "New Column",
+          order: maxOrder + 1,
+        }
+      );
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/boards/${boardId}/tasks`] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "columns"],
+      });
+      toast({ title: "Column created" });
     },
     onError: (error) => {
-      console.error("Task update error:", error);
+      toast({
+        title: "Failed to create column",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
-  const deleteColumnMutation = useMutation({
-    mutationFn: async (columnId: number) => {
-      const res = await fetch(`/api/columns/${columnId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to delete column");
-      }
+  const updateTaskStatus = useMutation({
+    mutationFn: async ({ id, columnId, order }: { id: number; columnId: number; order: number }) => {
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { columnId, order });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/boards/${boardId}/columns`] });
-    },
-  });
-
-  const updateColumnMutation = useMutation({
-    mutationFn: async (column: Column) => {
-      const res = await fetch(`/api/columns/${column.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(column),
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
-      if (!res.ok) {
-        throw new Error("Failed to update column");
-      }
-      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/boards/${boardId}/columns`] });
+    onError: (error) => {
+      toast({
+        title: "Failed to update task",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   const handleDragEnd = (result: DropResult) => {
-    const { destination, source, draggableId, type } = result;
+    if (!result.destination) return;
 
-    if (!destination) {
-      return;
-    }
+    const { draggableId, source, destination } = result;
+    const taskId = parseInt(draggableId);
+    const newColumnId = parseInt(destination.droppableId);
+    const newOrder = destination.index;
 
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
-
-    if (type === "task") {
-      const taskId = parseInt(draggableId.replace("task-", ""));
-      const task = tasks.find((t) => t.id === taskId);
-      
-      if (!task) {
-        return;
-      }
-
-      const updatedTask: Task = {
-        ...task,
-        status: destination.droppableId,
-        columnId: columns.find((col) => col.status === destination.droppableId)?.id || 0,
-        order: destination.index,
-      };
-
-      updateTaskMutation.mutate(updatedTask);
-    }
+    updateTaskStatus.mutate({ id: taskId, columnId: newColumnId, order: newOrder });
   };
 
-  const getColumnTasks = (columnStatus: string) => {
-    return tasks
-      .filter((task) => task.status === columnStatus)
-      .sort((a, b) => a.order - b.order);
-  };
-
-  const isLoading = boardLoading || columnsLoading || tasksLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading board...</p>
-      </div>
-    );
+  if (!currentBoard) {
+    return null; // Will redirect via useEffect
   }
 
-  if (!board) {
+  if (columnsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Board not found</p>
+        <p className="text-lg text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{board.title}</h1>
-        <Button onClick={() => setShowColumnForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Column
-        </Button>
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">Kanban Board</h1>
+        <BoardSelector />
       </div>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex space-x-4 overflow-x-auto pb-4">
-          {columns && columns.length > 0 ? (
-            columns
-              .sort((a, b) => a.order - b.order)
-              .map((column, index) => (
-                <ColumnComponent
-                  key={column.id}
-                  column={column}
-                  tasks={getColumnTasks(column.status || '')}
-                  index={index}
-                  boardId={boardId}
-                  onDeleteColumn={(columnId) => deleteColumnMutation.mutate(columnId)}
-                  onEditColumn={(column) => updateColumnMutation.mutate(column)}
-                />
-              ))
-          ) : (
-            <div className="flex-1 text-center p-8">
-              <p className="text-lg text-muted-foreground">No columns found</p>
-              <Button 
-                onClick={() => setShowColumnForm(true)}
-                variant="outline" 
-                className="mt-4"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add your first column
-              </Button>
-            </div>
-          )}
-        </div>
-      </DragDropContext>
-
-      <ColumnForm
-        open={showColumnForm}
-        onClose={() => setShowColumnForm(false)}
-        boardId={boardId}
-      />
+      <div className="flex-1 overflow-x-auto">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex gap-6 pb-4">
+            {columns.map((column) => (
+              <ColumnComponent
+                key={column.id}
+                column={column}
+              />
+            ))}
+            <Button
+              onClick={() => createColumn.mutate()}
+              variant="outline"
+              className="h-[500px] w-[280px] border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Column
+            </Button>
+          </div>
+        </DragDropContext>
+      </div>
     </div>
   );
 }

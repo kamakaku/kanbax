@@ -1,107 +1,222 @@
 import { useState } from "react";
-import { Draggable } from "react-beautiful-dnd";
-import { MoreHorizontal } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { 
-  Card, 
-  CardContent, 
-  CardFooter, 
-  CardHeader 
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { TaskForm } from "./task-form";
-import { TaskDeleteDialog } from "./task-delete-dialog";
 import { type Task } from "@shared/schema";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "lucide-react";
+import { Draggable } from "react-beautiful-dnd";
+import { format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useStore } from "@/lib/store";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-type TaskCardProps = {
+interface TaskCardProps {
   task: Task;
   index: number;
+}
+
+const priorityColors = {
+  high: "bg-red-500",
+  medium: "bg-yellow-500",
+  low: "bg-green-500",
 };
 
 export function TaskCard({ task, index }: TaskCardProps) {
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(task.title);
+  const [editedDescription, setEditedDescription] = useState(task.description || "");
+  const [editedPriority, setEditedPriority] = useState(task.priority);
+  const [editedLabels, setEditedLabels] = useState(task.labels || []);
+  const [editedDueDate, setEditedDueDate] = useState(task.dueDate);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { currentBoard } = useStore();
 
-  if (!task) {
-    return null;
-  }
+  const updateTask = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        title: editedTitle,
+        description: editedDescription,
+        priority: editedPriority,
+        labels: editedLabels,
+        dueDate: editedDueDate,
+      });
 
-  const taskId = task.id ? `task-${task.id}` : `task-${index}`;
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(`Failed to update task: ${error}`);
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
+      toast({ title: "Task updated successfully" });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update task",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateTask.mutate();
+  };
 
   return (
-    <Draggable draggableId={taskId} index={index}>
-      {(provided) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-        >
-          <Card className="mb-2">
-            <CardHeader className="flex flex-row items-center justify-between p-2">
-              <div className="font-medium text-sm">{task.title}</div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setShowEditForm(true)}>
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="text-destructive" 
-                    onClick={() => setShowDeleteDialog(true)}
+    <>
+      <Draggable draggableId={task.id.toString()} index={index}>
+        {(provided) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            onClick={() => setIsEditing(true)}
+          >
+            <Card className="mb-3 cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardHeader className="p-3">
+                <h3 className="text-sm font-medium">{task.title}</h3>
+                <div className={`h-1 w-8 rounded ${priorityColors[task.priority]}`} />
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                {task.description && (
+                  <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
+                )}
+                {task.labels && task.labels.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {task.labels.map((label) => (
+                      <Badge key={label} variant="secondary">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {task.dueDate && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    {format(new Date(task.dueDate), "PPP")}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </Draggable>
+
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <Input
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Priority</label>
+              <Select value={editedPriority} onValueChange={setEditedPriority}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Labels (comma-separated)</label>
+              <Input
+                value={editedLabels.join(", ")}
+                onChange={(e) => {
+                  const labels = e.target.value
+                    .split(",")
+                    .map((label) => label.trim())
+                    .filter(Boolean);
+                  setEditedLabels(labels);
+                }}
+                placeholder="bug, feature, UI"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Due Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={`w-full justify-start text-left font-normal ${
+                      !editedDueDate && "text-muted-foreground"
+                    }`}
                   >
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </CardHeader>
-            <CardContent className="p-2 pt-0">
-              {task.description && (
-                <p className="text-xs text-muted-foreground">
-                  {task.description}
-                </p>
-              )}
-            </CardContent>
-            <CardFooter className="p-2 pt-0 flex flex-wrap gap-1">
-              {task.priority && (
-                <Badge 
-                  variant={task.priority === "high" ? "destructive" : 
-                           task.priority === "medium" ? "default" : "outline"}
-                  className="text-xs"
-                >
-                  {task.priority}
-                </Badge>
-              )}
-              {task.labels && task.labels.map((label, idx) => (
-                <Badge key={idx} variant="secondary" className="text-xs">
-                  {label}
-                </Badge>
-              ))}
-            </CardFooter>
-          </Card>
-
-          <TaskForm
-            open={showEditForm}
-            onClose={() => setShowEditForm(false)}
-            existingTask={task}
-          />
-
-          <TaskDeleteDialog
-            open={showDeleteDialog}
-            onClose={() => setShowDeleteDialog(false)}
-            taskId={task.id}
-          />
-        </div>
-      )}
-    </Draggable>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedDueDate ? (
+                      format(new Date(editedDueDate), "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editedDueDate ? new Date(editedDueDate) : undefined}
+                    onSelect={(date) =>
+                      setEditedDueDate(date?.toISOString())
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditing(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateTask.isPending}>
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
