@@ -31,7 +31,7 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
   const queryClient = useQueryClient();
 
   // Formatiere den Status-Text für die Anzeige
-  const displayTitle = typeof title === 'string' ? 
+  const displayTitle = typeof title === 'string' && title ? 
     (statusLabels[title.toLowerCase()] || title) : 
     'Untitled';
 
