@@ -50,14 +50,10 @@ app.use((req, res, next) => {
     console.error("Server error:", err);
   });
 
-  if (app.get("env") === "development") {
-    log("Setting up Vite for development...");
-    await setupVite(app, server);
-    log("Vite setup completed");
-  } else {
-    log("Setting up static serving for production...");
-    serveStatic(app);
-  }
+  // Temporarily disable Vite setup and use static serving
+  log("Setting up static serving...");
+  serveStatic(app);
+  log("Static serving setup completed");
 
   // Verbesserte Port-Handling-Logik mit Timeouts und Retries
   const tryListen = async (port: number, maxRetries = 10, retryDelay = 1000) => {

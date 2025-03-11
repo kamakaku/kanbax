@@ -21,7 +21,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
 
   return (
     <>
-      <Draggable draggableId={task.id.toString()} index={index} type="task">
+      <Draggable draggableId={task.id.toString()} index={index}>
         {(provided) => (
           <div
             className="cursor-pointer"
