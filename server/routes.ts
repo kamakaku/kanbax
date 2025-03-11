@@ -299,6 +299,31 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  //New route added here
+  app.patch("/api/boards/:boardId/tasks/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid task ID" });
+    }
+
+    const result = updateTaskSchema.safeParse(req.body);
+    if (!result.success) {
+      console.error("Task validation failed:", result.error);
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      console.log("Updating task:", id, "with data:", result.data);
+      const task = await storage.updateTask(id, result.data);
+      console.log("Updated task:", task);
+      res.json(task);
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+
   app.patch("/api/tasks/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {

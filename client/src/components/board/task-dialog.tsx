@@ -38,10 +38,9 @@ const priorityColors = {
   high: "bg-red-500",
   medium: "bg-yellow-500",
   low: "bg-green-500",
-};
+} as const;
 
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects = [], boards = [] }: TaskDialogProps) {
-  // Direkt in den Bearbeitungsmodus gehen
   const [isEditing, setIsEditing] = useState(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -59,9 +58,11 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
 
   const handleUpdate = async (data: UpdateTask) => {
     try {
+      console.log("Sending update request for task:", task.id, "with data:", data);
+
       const res = await apiRequest(
         "PATCH",
-        `/api/tasks/${task.id}`,
+        `/api/boards/${task.boardId}/tasks/${task.id}`,
         data
       );
 
@@ -69,13 +70,25 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
         throw new Error("Failed to update task");
       }
 
-      // Aktualisiere Queries
+      const updatedTask = await res.json();
+      console.log("Received updated task from server:", updatedTask);
+
+      // Invalidate and refetch all relevant queries
       await Promise.all([
+        // Invalidate and refetch the all-tasks query with all board IDs
         queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["all-tasks"] }),
+
+        // Invalidate and refetch the specific board's tasks
         queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${task.boardId}/tasks`] 
+        }),
+        queryClient.refetchQueries({ 
           queryKey: [`/api/boards/${task.boardId}/tasks`] 
         })
       ]);
+
+      console.log("Queries have been invalidated and refetched");
 
       if (onUpdate) {
         await onUpdate();
