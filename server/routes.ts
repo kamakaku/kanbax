@@ -211,14 +211,35 @@ export async function registerRoutes(app: Express) {
   app.get("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
+      console.error("Invalid board ID received:", req.params.id);
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
     try {
+      console.log(`[GET /api/boards/${id}] Fetching board...`);
       const board = await storage.getBoard(id);
-      res.json(board);
+
+      if (!board) {
+        console.log(`[GET /api/boards/${id}] Board not found`);
+        return res.status(404).json({ message: "Board not found" });
+      }
+
+      console.log(`[GET /api/boards/${id}] Successfully fetched board:`, board);
+
+      // Fetch additional board data
+      const columns = await storage.getColumns(id);
+      const tasks = await storage.getTasks(id);
+
+      console.log(`[GET /api/boards/${id}] Found ${columns.length} columns and ${tasks.length} tasks`);
+
+      res.json({
+        ...board,
+        columns,
+        tasks,
+      });
     } catch (error) {
-      res.status(404).json({ message: (error as Error).message });
+      console.error(`[GET /api/boards/${id}] Error fetching board:`, error);
+      res.status(500).json({ message: "Failed to fetch board" });
     }
   });
 
