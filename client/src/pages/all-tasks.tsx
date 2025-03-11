@@ -154,10 +154,10 @@ export default function AllTasks() {
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      console.log("Form data:", data); // Debug-Ausgabe
+      console.log("Form data:", data); 
 
       if (!data.boardId || !data.title) {
-        console.log("Validation failed:", { data }); // Debug-Ausgabe
+        console.log("Validation failed:", { data }); 
         toast({
           title: "Fehlende Angaben",
           description: "Bitte wählen Sie ein Board aus und geben Sie einen Titel ein",
@@ -166,7 +166,6 @@ export default function AllTasks() {
         return;
       }
 
-      // Stelle sicher, dass alle erforderlichen Felder vorhanden sind
       const taskData: InsertTask = {
         ...data,
         columnId: 0,
@@ -177,7 +176,7 @@ export default function AllTasks() {
         labels: data.labels || [],
       };
 
-      console.log("Submitting task:", taskData); // Debug-Ausgabe
+      console.log("Submitting task:", taskData); 
       await createTask.mutateAsync(taskData);
     } catch (error) {
       console.error("Task creation error:", error);
@@ -191,6 +190,18 @@ export default function AllTasks() {
 
   const handleTaskClick = (task: TaskWithDetails) => {
     setSelectedTask(task);
+  };
+
+  const handleTaskUpdate = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
+      queryClient.refetchQueries({ queryKey: ["all-tasks"] }),
+      ...boardQueries.data?.map(board => 
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        })
+      ) || []
+    ]);
   };
 
   if (projectsLoading || boardQueries.isLoading || taskQueries.isLoading) {
@@ -364,12 +375,9 @@ export default function AllTasks() {
           task={selectedTask}
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
-          onUpdate={async () => {
-            await taskQueries.refetch();
-            setSelectedTask(null);
-          }}
+          onUpdate={handleTaskUpdate}
           onDelete={async () => {
-            await taskQueries.refetch();
+            await handleTaskUpdate();
             setSelectedTask(null);
           }}
           projects={projects || []}
