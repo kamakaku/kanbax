@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Project, type Board, type Task, type UpdateTask, type DeleteTask } from "@shared/schema";
+import { type Project, type Board, type Task } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
@@ -582,97 +582,6 @@ export default function AllTasks() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-import { useQuery } from "@tanstack/react-query";
-import { useStore } from "@/lib/store";
-import { apiRequest } from "@/lib/queryClient";
-import { Task } from "@shared/schema";
-import { DragDropContext, type DropResult } from "react-beautiful-dnd";
-import { Column } from "@/components/board/column";
-
-export default function AllTasks() {
-  const { currentProject } = useStore();
-  
-  // Fetch all tasks across all boards
-  const { data: allTasks, isLoading } = useQuery({
-    queryKey: ["all-tasks"],
-    queryFn: async () => {
-      const boardsResponse = await apiRequest("GET", "/api/boards");
-      const boards = await boardsResponse.json();
-      
-      // Fetch tasks for each board
-      const tasksPromises = boards.map(async (board) => {
-        const tasksResponse = await apiRequest("GET", `/api/boards/${board.id}/tasks`);
-        const tasks = await tasksResponse.json();
-        return tasks.map(task => ({
-          ...task,
-          boardTitle: board.title
-        }));
-      });
-      
-      const tasksArrays = await Promise.all(tasksPromises);
-      return tasksArrays.flat();
-    }
-  });
-
-  // Group tasks by status
-  const groupedTasks = allTasks ? allTasks.reduce((acc, task) => {
-    const status = task.status || 'todo';
-    if (!acc[status]) {
-      acc[status] = [];
-    }
-    acc[status].push(task);
-    return acc;
-  }, {}) : {};
-
-  // Create columns from grouped tasks
-  const columns = Object.entries(groupedTasks).map(([status, tasks]) => ({
-    id: status,
-    title: status.charAt(0).toUpperCase() + status.slice(1),
-    tasks
-  }));
-
-  // Dummy function for drag and drop (we won't implement actual reordering for this view)
-  const handleDragEnd = (result: DropResult) => {
-    // Implementation would go here if we wanted to support task reordering
-    console.log('Drag ended:', result);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading tasks...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Alle Aufgaben</h1>
-      </div>
-
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: "calc(100vh - 200px)" }}>
-          {columns.map((column) => (
-            <Column 
-              key={column.id}
-              id={column.id}
-              title={column.title}
-              tasks={column.tasks}
-              isAllTasksView={true}
-            />
-          ))}
-          
-          {columns.length === 0 && (
-            <div className="flex items-center justify-center w-full h-64">
-              <p className="text-muted-foreground">Keine Aufgaben gefunden</p>
-            </div>
-          )}
-        </div>
-      </DragDropContext>
     </div>
   );
 }

@@ -2,8 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
+import cors from "cors";
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -12,11 +14,13 @@ app.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
 });
 
-// Verbesserte Logging-Middleware
+// Enhanced request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  console.log(`[${new Date().toISOString()}] Incoming ${req.method} request for ${req.url}`);
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -57,11 +61,18 @@ app.use((req, res, next) => {
       console.error("Server error:", err);
     });
 
+    // Always set NODE_ENV to development in Replit environment
+    process.env.NODE_ENV = "development";
+    log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
+
     // In development, use Vite's development server
     if (process.env.NODE_ENV === "development") {
       log("Setting up Vite for development...");
       await setupVite(app, server);
       log("Vite setup completed");
+    } else {
+      log("Setting up static serving for production...");
+      serveStatic(app);
     }
 
     const port = parseInt(process.env.PORT || "5000", 10);
