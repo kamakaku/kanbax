@@ -1,13 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Project, type Board, type Task } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { LayoutGrid, LayoutList, Calendar, Plus } from "lucide-react";
+import { LayoutGrid, LayoutList, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { TaskDialog } from "@/components/board/task-dialog";
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema } from "@shared/schema";
+import { insertTaskSchema, type InsertTask } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -27,73 +27,22 @@ interface TaskWithDetails extends Task {
   projectId: number;
 }
 
+const statusColumns = {
+  'backlog': 'Backlog',
+  'todo': 'To Do',
+  'in-progress': 'In Progress',
+  'review': 'Review',
+  'done': 'Done'
+};
+
 export default function AllTasks() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) {
-        throw new Error("Failed to fetch projects");
-      }
-      return res.json();
-    },
-  });
-
-  const boardQueries = useQuery({
-    queryKey: ["all-boards", projects?.map(p => p.id)],
-    queryFn: async () => {
-      if (!projects) return [];
-
-      const allBoards = await Promise.all(
-        projects.map(async (project) => {
-          const res = await fetch(`/api/projects/${project.id}/boards`);
-          if (!res.ok) return [];
-          const boards = await res.json();
-          return boards.map((board: Board) => ({
-            ...board,
-            projectTitle: project.title,
-            projectId: project.id
-          }));
-        })
-      );
-
-      return allBoards.flat();
-    },
-    enabled: !!projects
-  });
-
-  const taskQueries = useQuery({
-    queryKey: ["all-tasks", boardQueries.data?.map(b => b.id)],
-    queryFn: async () => {
-      if (!boardQueries.data) return [];
-
-      const allTasks = await Promise.all(
-        boardQueries.data.map(async (board) => {
-          const res = await fetch(`/api/boards/${board.id}/tasks`);
-          if (!res.ok) return [];
-          const tasks = await res.json();
-          return tasks.map((task: Task) => ({
-            ...task,
-            boardTitle: board.title,
-            projectTitle: board.projectTitle,
-            projectId: board.projectId
-          }));
-        })
-      );
-
-      return allTasks.flat();
-    },
-    enabled: !!boardQueries.data
-  });
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
@@ -101,27 +50,80 @@ export default function AllTasks() {
       title: "",
       description: "",
       status: "todo",
-      order: 0,
       priority: "medium",
       labels: [],
+      order: 0,
       columnId: 0,
       archived: false,
+      boardId: 0,
+      projectId: 0,
     },
   });
 
-  const projectBoards = boardQueries.data?.filter(board => board.projectId === selectedProjectId) || [];
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery<TaskWithDetails[]>({
+    queryKey: ["all-tasks"],
+    queryFn: async () => {
+      const projectsRes = await fetch("/api/projects");
+      if (!projectsRes.ok) throw new Error("Failed to fetch projects");
+      const projects = await projectsRes.json();
+
+      const allTasks = await Promise.all(
+        projects.map(async (project: Project) => {
+          const boardsRes = await fetch(`/api/projects/${project.id}/boards`);
+          if (!boardsRes.ok) return [];
+          const boards = await boardsRes.json();
+
+          const tasksPromises = boards.map(async (board: Board) => {
+            const tasksRes = await fetch(`/api/boards/${board.id}/tasks`);
+            if (!tasksRes.ok) return [];
+            const tasks = await tasksRes.json();
+            return tasks.map((task: Task) => ({
+              ...task,
+              boardTitle: board.title,
+              projectTitle: project.title,
+              projectId: project.id
+            }));
+          });
+
+          return (await Promise.all(tasksPromises)).flat();
+        })
+      );
+
+      return allTasks.flat();
+    }
+  });
+
+  const filteredTasks = (tasks || []).filter(task =>
+    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.boardTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const tasksByStatus = Object.keys(statusColumns).reduce((acc, status) => {
+    acc[status] = filteredTasks.filter(task => task.status === status);
+    return acc;
+  }, {} as Record<string, TaskWithDetails[]>);
+
+  const getPriorityStyle = (priority?: string) => {
+    switch (priority) {
+      case 'high':
+        return 'border-t-red-500';
+      case 'medium':
+        return 'border-t-yellow-500';
+      case 'low':
+        return 'border-t-green-500';
+      default:
+        return 'border-t-transparent';
+    }
+  };
 
   const createTask = useMutation({
     mutationFn: async (data: InsertTask) => {
       const res = await apiRequest(
         "POST",
         `/api/boards/${data.boardId}/tasks`,
-        {
-          ...data,
-          columnId: 0,
-          order: 0,
-          archived: false,
-        }
+        data
       );
 
       if (!res.ok) {
@@ -132,15 +134,9 @@ export default function AllTasks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      boardQueries.data?.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
-        });
-      });
       toast({ title: "Aufgabe erfolgreich erstellt" });
       form.reset();
       setShowNewTaskForm(false);
-      setSelectedProjectId(null);
     },
     onError: (error) => {
       console.error("Task creation error:", error);
@@ -154,10 +150,7 @@ export default function AllTasks() {
 
   const handleSubmit = async (data: InsertTask) => {
     try {
-      console.log("Form data:", data); 
-
       if (!data.boardId || !data.title) {
-        console.log("Validation failed:", { data }); 
         toast({
           title: "Fehlende Angaben",
           description: "Bitte wählen Sie ein Board aus und geben Sie einen Titel ein",
@@ -166,18 +159,7 @@ export default function AllTasks() {
         return;
       }
 
-      const taskData: InsertTask = {
-        ...data,
-        columnId: 0,
-        order: 0,
-        archived: false,
-        status: data.status || "todo",
-        priority: data.priority || "medium",
-        labels: data.labels || [],
-      };
-
-      console.log("Submitting task:", taskData); 
-      await createTask.mutateAsync(taskData);
+      await createTask.mutateAsync(data);
     } catch (error) {
       console.error("Task creation error:", error);
       toast({
@@ -188,9 +170,13 @@ export default function AllTasks() {
     }
   };
 
-  const handleTaskUpdate = async (updatedTask: UpdateTask) => {
+  const handleTaskUpdate = async (updatedTask: Task) => {
     try {
-      const res = await apiRequest("PUT", `/api/tasks/${updatedTask.id}`, updatedTask);
+      const res = await apiRequest(
+        "PATCH",
+        `/api/tasks/${updatedTask.id}`,
+        updatedTask
+      );
       if (!res.ok) {
         throw new Error("Failed to update task");
       }
@@ -198,7 +184,10 @@ export default function AllTasks() {
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
     } catch (error) {
       console.error("Task update error:", error);
-      toast({ title: "Fehler beim Aktualisieren der Aufgabe", variant: "destructive" });
+      toast({
+        title: "Fehler beim Aktualisieren der Aufgabe",
+        variant: "destructive"
+      });
     }
   };
 
@@ -213,12 +202,14 @@ export default function AllTasks() {
       toast({ title: "Aufgabe erfolgreich gelöscht" });
     } catch (error) {
       console.error("Task delete error:", error);
-      toast({ title: "Fehler beim Löschen der Aufgabe", variant: "destructive" });
+      toast({
+        title: "Fehler beim Löschen der Aufgabe",
+        variant: "destructive"
+      });
     }
   };
 
-
-  if (projectsLoading || boardQueries.isLoading || taskQueries.isLoading) {
+  if (tasksLoading) {
     return (
       <div className="container mx-auto p-8">
         <div className="text-center py-12">
@@ -227,35 +218,6 @@ export default function AllTasks() {
       </div>
     );
   }
-
-  const allTasks = taskQueries.data || [];
-  const filteredTasks = allTasks.filter(task =>
-    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.boardTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const statusColumns = {
-    'backlog': 'Backlog',
-    'todo': 'To Do',
-    'in-progress': 'In Progress',
-    'review': 'Review',
-    'done': 'Done'
-  };
-
-  const getPriorityStyle = (priority?: string) => {
-    switch (priority) {
-      case 'high':
-        return 'border-t-red-500';
-      case 'medium':
-        return 'border-t-yellow-500';
-      case 'low':
-        return 'border-t-green-500';
-      default:
-        return 'border-t-transparent';
-    }
-  };
 
   return (
     <div className="container mx-auto p-8">
@@ -300,48 +262,30 @@ export default function AllTasks() {
               <div key={status} className="bg-muted/50 rounded-lg p-4">
                 <h3 className="font-semibold mb-4">{title}</h3>
                 <div className="space-y-4">
-                  {filteredTasks
-                    .filter(task => task.status === status)
-                    .map((task) => (
-                      <Card
-                        key={task.id}
-                        className={cn(
-                          "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
-                          getPriorityStyle(task.priority)
+                  {tasksByStatus[status]?.map((task) => (
+                    <Card
+                      key={task.id}
+                      className={cn(
+                        "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
+                        getPriorityStyle(task.priority)
+                      )}
+                      onClick={() => setSelectedTask(task)}
+                    >
+                      <CardHeader className="p-4 space-y-2">
+                        <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                          {task.title}
+                        </CardTitle>
+                        {task.description && (
+                          <CardDescription className="text-sm line-clamp-2">
+                            {task.description}
+                          </CardDescription>
                         )}
-                        onClick={() => setSelectedTask(task)}
-                      >
-                        <CardHeader className="p-4 space-y-2">
-                          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                            {task.title}
-                          </CardTitle>
-                          {task.description && (
-                            <CardDescription className="text-sm line-clamp-2">
-                              {task.description}
-                            </CardDescription>
-                          )}
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0">
-                          <div className="flex justify-between items-center">
-                            <div className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded">
-                              {statusColumns[task.status as keyof typeof statusColumns] || task.status}
-                            </div>
-                            {task.labels && task.labels.length > 0 && (
-                              <div className="flex gap-1">
-                                {task.labels.map((label, index) => (
-                                  <span
-                                    key={index}
-                                    className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded"
-                                  >
-                                    {label}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                        <div className="text-xs text-muted-foreground">
+                          {task.projectTitle} • {task.boardTitle}
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  ))}
                 </div>
               </div>
             ))}
@@ -360,27 +304,29 @@ export default function AllTasks() {
                 onClick={() => setSelectedTask(task)}
               >
                 <CardHeader className="p-4 space-y-2">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                      {task.title}
-                    </CardTitle>
-                    {task.description && (
-                      <CardDescription className="text-sm line-clamp-2">
-                        {task.description}
-                      </CardDescription>
-                    )}
+                  <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                    {task.title}
+                  </CardTitle>
+                  {task.description && (
+                    <CardDescription className="text-sm line-clamp-2">
+                      {task.description}
+                    </CardDescription>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    {task.projectTitle} • {task.boardTitle}
                   </div>
-
-                  <div className="flex flex-col gap-1 pt-2">
-                    <div className="text-[10px] text-muted-foreground">
-                      {task.projectTitle} • {task.boardTitle}
-                    </div>
-                    {task.dueDate && (
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>{new Date(task.dueDate).toLocaleDateString()}</span>
-                      </div>
-                    )}
+                  <div className="flex gap-2 mt-2">
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                      {statusColumns[task.status as keyof typeof statusColumns]}
+                    </span>
+                    {task.labels?.map((label, index) => (
+                      <span
+                        key={index}
+                        className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded"
+                      >
+                        {label}
+                      </span>
+                    ))}
                   </div>
                 </CardHeader>
               </Card>
@@ -391,13 +337,11 @@ export default function AllTasks() {
 
       {selectedTask && (
         <TaskDialog
-          task={selectedTask}
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
+          task={selectedTask}
           onUpdate={handleTaskUpdate}
           onDelete={handleTaskDelete}
-          projects={projects || []}
-          boards={boardQueries.data || []}
         />
       )}
 
@@ -417,7 +361,6 @@ export default function AllTasks() {
                     <Select
                       onValueChange={(value) => {
                         const projectId = parseInt(value);
-                        setSelectedProjectId(projectId);
                         field.onChange(projectId);
                         form.setValue("boardId", undefined as any);
                       }}
@@ -429,11 +372,14 @@ export default function AllTasks() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {projects?.map((project) => (
-                          <SelectItem key={project.id} value={project.id.toString()}>
-                            {project.title}
-                          </SelectItem>
-                        ))}
+                        {[...new Set(tasks.map(task => task.projectId))].map((projectId) => {
+                          const task = tasks.find(t => t.projectId === projectId);
+                          return (
+                            <SelectItem key={projectId} value={projectId.toString()}>
+                              {task?.projectTitle}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -450,7 +396,7 @@ export default function AllTasks() {
                     <Select
                       onValueChange={(value) => field.onChange(parseInt(value))}
                       defaultValue={field.value?.toString()}
-                      disabled={!selectedProjectId}
+                      disabled={!form.watch("projectId")}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -458,7 +404,10 @@ export default function AllTasks() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {projectBoards.map((board) => (
+                        {[...new Set(tasks
+                          .filter(task => task.projectId === form.watch("projectId"))
+                          .map(task => ({ id: task.boardId, title: task.boardTitle })))
+                        ].map((board) => (
                           <SelectItem key={board.id} value={board.id.toString()}>
                             {board.title}
                           </SelectItem>
@@ -494,8 +443,7 @@ export default function AllTasks() {
                       <Textarea
                         placeholder="Beschreiben Sie die Aufgabe..."
                         className="min-h-[100px]"
-                        value={field.value || ""}
-                        onChange={field.onChange}
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
