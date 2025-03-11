@@ -30,10 +30,10 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Formatiere den Status-Text für die Anzeige
+  // Format the status text for display
   const displayTitle = typeof title === 'string' ? 
     (statusLabels[title.toLowerCase()] || title) : 
-    'Untitled';
+    'Untitled';;
 
   return (
     <Card className="min-w-[280px] max-w-[280px] h-fit">
