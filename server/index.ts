@@ -76,7 +76,7 @@ app.use((req, res, next) => {
     }
 
     const port = parseInt(process.env.PORT || "3000", 10);
-    server.listen(port, () => {
+    server.listen(port, "0.0.0.0", () => {
       log(`Server successfully started on port ${port}`);
     });
   } catch (error) {
