@@ -59,7 +59,7 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
       </CardHeader>
       <CardContent className="py-2 px-3 flex flex-col gap-3">
         <Droppable 
-          droppableId={id.toString()} 
+          droppableId={(id ?? "").toString()} 
           type="TASK"
           isDropDisabled={isAllTasksView} 
         >
