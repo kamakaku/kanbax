@@ -41,7 +41,8 @@ const priorityColors = {
 };
 
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects = [], boards = [] }: TaskDialogProps) {
-  const [isEditing, setIsEditing] = useState(false);
+  // Direkt in den Bearbeitungsmodus gehen
+  const [isEditing, setIsEditing] = useState(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -52,7 +53,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
       description: task.description,
       status: task.status,
       priority: task.priority,
-      labels: task.labels,
+      labels: task.labels || [],
     },
   });
 
@@ -69,26 +70,19 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
       }
 
       // Aktualisiere Queries
-      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["all-tasks"] });
-
-      if (boards) {
-        for (const board of boards) {
-          await queryClient.invalidateQueries({ 
-            queryKey: [`/api/boards/${board.id}/tasks`] 
-          });
-          await queryClient.refetchQueries({ 
-            queryKey: [`/api/boards/${board.id}/tasks`] 
-          });
-        }
-      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${task.boardId}/tasks`] 
+        })
+      ]);
 
       if (onUpdate) {
         await onUpdate();
       }
 
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
-      setIsEditing(false);
+      onClose();
     } catch (error) {
       console.error("Task update error:", error);
       toast({
@@ -99,220 +93,129 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
     }
   };
 
-  if (isEditing) {
-    return (
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Aufgabe bearbeiten</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Titel</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beschreibung</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        className="min-h-[100px]"
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Status auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="backlog">Backlog</SelectItem>
-                        <SelectItem value="todo">To Do</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="review">Review</SelectItem>
-                        <SelectItem value="done">Done</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priorität</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Priorität auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="low">Niedrig</SelectItem>
-                        <SelectItem value="medium">Mittel</SelectItem>
-                        <SelectItem value="high">Hoch</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="labels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Labels (durch Komma getrennt)</FormLabel>
-                    <FormControl>
-                      <Input
-                        value={field.value?.join(", ") || ""}
-                        onChange={(e) => {
-                          const labels = e.target.value
-                            .split(",")
-                            .map((label) => label.trim())
-                            .filter(Boolean);
-                          field.onChange(labels);
-                        }}
-                        placeholder="bug, feature, UI"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button type="submit" className="w-full">
-                Speichern
-              </Button>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DialogTitle>{task.title}</DialogTitle>
-              <div className={`h-2 w-2 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors]}`} />
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle>Aufgabe bearbeiten</DialogTitle>
         </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <div className="space-y-6 mt-4">
-          {task.description && (
-            <p className="text-muted-foreground">{task.description}</p>
-          )}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {task.projectTitle && task.boardTitle && (
-            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">{task.projectTitle}</Badge>
-              <span>•</span>
-              <Badge variant="outline">{task.boardTitle}</Badge>
-            </div>
-          )}
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="backlog">Backlog</SelectItem>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="review">Review</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {task.labels && task.labels.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {task.labels.map((label) => (
-                <Badge key={label} variant="secondary">
-                  {label}
-                </Badge>
-              ))}
-            </div>
-          )}
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priorität</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Priorität auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {task.dueDate && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              {format(new Date(task.dueDate), 'PPP')}
-            </div>
-          )}
+            <FormField
+              control={form.control}
+              name="labels"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Labels (durch Komma getrennt)</FormLabel>
+                  <FormControl>
+                    <Input
+                      value={field.value?.join(", ") || ""}
+                      onChange={(e) => {
+                        const labels = e.target.value
+                          .split(",")
+                          .map((label) => label.trim())
+                          .filter(Boolean);
+                        field.onChange(labels);
+                      }}
+                      placeholder="bug, feature, UI"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="border-t pt-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Status</span>
-              <Badge>
-                {task.status === 'todo' ? 'To Do' :
-                 task.status === 'in-progress' ? 'In Progress' :
-                 task.status === 'review' ? 'Review' :
-                 task.status === 'done' ? 'Done' : 'Backlog'}
-              </Badge>
-            </div>
-          </div>
-
-          {task.priority && (
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Priorität</span>
-                <Badge variant={
-                  task.priority === 'high' ? 'destructive' :
-                  task.priority === 'medium' ? 'default' : 'secondary'
-                }>
-                  {task.priority === 'high' ? 'Hoch' :
-                   task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
-                </Badge>
-              </div>
-            </div>
-          )}
-
-          <div className="border-t pt-6">
-            <ChecklistSection taskId={task.id} />
-          </div>
-
-          <div className="border-t pt-6">
-            <h3 className="font-semibold mb-4">Kommentare</h3>
-            <CommentSection taskId={task.id} />
-          </div>
-        </div>
+            <Button type="submit" className="w-full">
+              Speichern
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
