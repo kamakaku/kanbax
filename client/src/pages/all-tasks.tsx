@@ -200,8 +200,8 @@ export default function AllTasks() {
 
   // Erstellen der Columns aus gruppierten Tasks
   const columns = Object.entries(groupedTasks).map(([status, tasks]) => ({
-    id: status,
-    title: status.charAt(0).toUpperCase() + status.slice(1).replace("-", " "),
+    id: status || 'undefined-status',
+    title: status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/-/g, " ") : 'Untitled',
     tasks
   }));
 
@@ -239,7 +239,7 @@ export default function AllTasks() {
         </TabsList>
         <TabsContent value="kanban">
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 max-w-full overflow-x-auto pb-4">
               {columns.map(column => (
                 <Column
                   key={column.id}

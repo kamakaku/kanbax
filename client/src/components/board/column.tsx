@@ -26,8 +26,11 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // Formatiere den Status-Text für die Anzeige
-  const displayTitle = typeof title === 'string' ? 
+  // Ensure id is always a string
+  const columnId = id ? String(id) : '';
+  
+  // Formatiere den Status-Text für die Anzeige - with null checks
+  const displayTitle = title && typeof title === 'string' ? 
     (statusLabels[title.toLowerCase()] || title) : 
     'Untitled';
 
