@@ -46,15 +46,19 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Überprüfen, ob task vorhanden ist, und Default-Werte vorbereiten
+  const defaultValues = {
+    title: task?.title || '',
+    description: task?.description || '',
+    status: task?.status || '',
+    priority: task?.priority || 'medium',
+    labels: task?.labels || [],
+    boardId: task?.boardId,
+  };
+
   const form = useForm<UpdateTask>({
     resolver: zodResolver(updateTaskSchema),
-    defaultValues: {
-      title: task.title,
-      description: task.description,
-      status: task.status,
-      priority: task.priority,
-      labels: task.labels || [],
-    },
+    defaultValues,
   });
 
   const handleUpdate = async (data: UpdateTask) => {

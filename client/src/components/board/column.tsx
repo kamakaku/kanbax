@@ -83,7 +83,7 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
         </Droppable>
       </CardContent>
 
-      {!isAllTasksView && (
+      {!isAllTasksView && isTaskDialogOpen && selectedTask && (
         <TaskDialog
           open={isTaskDialogOpen}
           onClose={() => setIsTaskDialogOpen(false)}
