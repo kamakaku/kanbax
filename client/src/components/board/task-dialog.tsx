@@ -61,7 +61,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
     try {
       const res = await apiRequest(
         "PATCH",
-        `/api/boards/${task.boardId}/tasks/${task.id}`,
+        `/api/tasks/${task.id}`,
         data
       );
 

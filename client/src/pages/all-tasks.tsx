@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Project, type Board, type Task, type InsertTask } from "@shared/schema";
+import { type Project, type Board, type Task, type UpdateTask, type DeleteTask } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -188,21 +188,35 @@ export default function AllTasks() {
     }
   };
 
-  const handleTaskClick = (task: TaskWithDetails) => {
-    setSelectedTask(task);
+  const handleTaskUpdate = async (updatedTask: UpdateTask) => {
+    try {
+      const res = await apiRequest("PUT", `/api/tasks/${updatedTask.id}`, updatedTask);
+      if (!res.ok) {
+        throw new Error("Failed to update task");
+      }
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      toast({ title: "Aufgabe erfolgreich aktualisiert" });
+    } catch (error) {
+      console.error("Task update error:", error);
+      toast({ title: "Fehler beim Aktualisieren der Aufgabe", variant: "destructive" });
+    }
   };
 
-  const handleTaskUpdate = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
-      queryClient.refetchQueries({ queryKey: ["all-tasks"] }),
-      ...boardQueries.data?.map(board => 
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
-        })
-      ) || []
-    ]);
+  const handleTaskDelete = async (taskId: number) => {
+    try {
+      const res = await apiRequest("DELETE", `/api/tasks/${taskId}`);
+      if (!res.ok) {
+        throw new Error("Failed to delete task");
+      }
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      setSelectedTask(null);
+      toast({ title: "Aufgabe erfolgreich gelöscht" });
+    } catch (error) {
+      console.error("Task delete error:", error);
+      toast({ title: "Fehler beim Löschen der Aufgabe", variant: "destructive" });
+    }
   };
+
 
   if (projectsLoading || boardQueries.isLoading || taskQueries.isLoading) {
     return (
@@ -295,32 +309,37 @@ export default function AllTasks() {
                           "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
                           getPriorityStyle(task.priority)
                         )}
-                        onClick={() => handleTaskClick(task)}
+                        onClick={() => setSelectedTask(task)}
                       >
                         <CardHeader className="p-4 space-y-2">
-                          <div className="space-y-1">
-                            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                              {task.title}
-                            </CardTitle>
-                            {task.description && (
-                              <CardDescription className="text-sm line-clamp-2">
-                                {task.description}
-                              </CardDescription>
-                            )}
-                          </div>
-
-                          <div className="flex flex-col gap-1 pt-2">
-                            <div className="text-[10px] text-muted-foreground">
-                              {task.projectTitle} • {task.boardTitle}
+                          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                            {task.title}
+                          </CardTitle>
+                          {task.description && (
+                            <CardDescription className="text-sm line-clamp-2">
+                              {task.description}
+                            </CardDescription>
+                          )}
+                        </CardHeader>
+                        <CardContent className="p-4 pt-0">
+                          <div className="flex justify-between items-center">
+                            <div className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded">
+                              {statusColumns[task.status as keyof typeof statusColumns] || task.status}
                             </div>
-                            {task.dueDate && (
-                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                            {task.labels && task.labels.length > 0 && (
+                              <div className="flex gap-1">
+                                {task.labels.map((label, index) => (
+                                  <span
+                                    key={index}
+                                    className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded"
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
                               </div>
                             )}
                           </div>
-                        </CardHeader>
+                        </CardContent>
                       </Card>
                     ))}
                 </div>
@@ -338,7 +357,7 @@ export default function AllTasks() {
                   "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
                   getPriorityStyle(task.priority)
                 )}
-                onClick={() => handleTaskClick(task)}
+                onClick={() => setSelectedTask(task)}
               >
                 <CardHeader className="p-4 space-y-2">
                   <div className="space-y-1">
@@ -376,10 +395,7 @@ export default function AllTasks() {
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
           onUpdate={handleTaskUpdate}
-          onDelete={async () => {
-            await handleTaskUpdate();
-            setSelectedTask(null);
-          }}
+          onDelete={handleTaskDelete}
           projects={projects || []}
           boards={boardQueries.data || []}
         />
