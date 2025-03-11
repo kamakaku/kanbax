@@ -61,20 +61,27 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
         throw new Error("Failed to update task");
       }
 
-      // Invalidate all relevant queries
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      boards.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
-        });
-      });
+      // Invalidate queries
+      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["all-tasks"] });
 
-      toast({ title: "Aufgabe erfolgreich aktualisiert" });
+      // Invalidate and refetch board-specific queries
+      if (boards) {
+        for (const board of boards) {
+          await queryClient.invalidateQueries({ 
+            queryKey: [`/api/boards/${board.id}/tasks`] 
+          });
+          await queryClient.refetchQueries({ 
+            queryKey: [`/api/boards/${board.id}/tasks`] 
+          });
+        }
+      }
 
       if (onUpdate) {
         await onUpdate();
       }
 
+      toast({ title: "Aufgabe erfolgreich aktualisiert" });
       setIsEditing(false);
     } catch (error) {
       console.error("Task update error:", error);

@@ -52,7 +52,6 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         return;
       }
 
-      // Erstelle ein Update-Objekt mit den richtigen Typen
       const taskData: Task = {
         id: existingTask?.id || 0,
         title: data.title,
@@ -70,7 +69,6 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         assignedAt: existingTask?.assignedAt || null,
       };
 
-      console.log("Submitting task with data:", taskData); // Debug log
       await onSubmit(taskData);
     } catch (error) {
       console.error("Form submission error:", error);
