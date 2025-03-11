@@ -48,18 +48,17 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
 
   // Check if task is null or undefined
   if (!task) {
-    // Return early or show a fallback UI
     return null;
   }
 
   const form = useForm<UpdateTask>({
     resolver: zodResolver(updateTaskSchema),
     defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "",
-      priority: task?.priority || "medium",
-      labels: task?.labels || [],
+      title: task.title || "",
+      description: task.description || "",
+      status: task.status || "",
+      priority: task.priority || "medium",
+      labels: task.labels || [],
     },
   });
 

@@ -30,10 +30,13 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Format status text for display
-  const displayTitle = typeof title === 'string' && title ? 
-    (statusLabels[title.toLowerCase()] || title) : 
-    'Untitled';
+  // Format status text for display - safely handle undefined or null titles
+  let displayTitle = 'Untitled';
+  
+  if (title) {
+    const titleKey = String(title).toLowerCase();
+    displayTitle = statusLabels[titleKey] || String(title);
+  }
 
   return (
     <Card className="min-w-[280px] max-w-[280px] h-fit">
@@ -59,7 +62,7 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
       </CardHeader>
       <CardContent className="py-2 px-3 flex flex-col gap-3">
         <Droppable 
-          droppableId={id ? id.toString() : `column-${Math.random().toString(36).substring(2, 9)}`} 
+          droppableId={id !== undefined && id !== null ? String(id) : `column-${Math.random().toString(36).substring(2, 9)}`} 
           type="TASK"
           isDropDisabled={isAllTasksView} 
         >
