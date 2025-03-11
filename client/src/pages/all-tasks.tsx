@@ -200,7 +200,7 @@ export default function AllTasks() {
 
   // Erstellen der Columns aus gruppierten Tasks
   const columns = Object.entries(groupedTasks).map(([status, tasks]) => ({
-    id: status || 'undefined-status',
+    id: status || 'undefined-status', // Ensure id is never undefined
     title: status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/-/g, " ") : 'Untitled',
     tasks
   }));
