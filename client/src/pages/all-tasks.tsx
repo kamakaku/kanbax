@@ -194,7 +194,12 @@ export default function AllTasks() {
     if (!acc[status]) {
       acc[status] = [];
     }
-    acc[status].push(task);
+    // Ensure task has a valid ID
+    const validTask = {
+      ...task,
+      id: task.id || Math.floor(Math.random() * 10000)
+    };
+    acc[status].push(validTask);
     return acc;
   }, {} as Record<string, TaskWithDetails[]>);
 
