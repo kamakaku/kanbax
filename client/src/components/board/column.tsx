@@ -1,132 +1,142 @@
+
 import { useState } from "react";
-import { type Task } from "@shared/schema";
-import { Plus } from "lucide-react";
+import { Draggable, Droppable } from "react-beautiful-dnd";
+import { MoreVertical, Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TaskCard } from "./task-card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Droppable } from "react-beautiful-dnd";
-import { useStore } from "@/lib/store";
-import { TaskDialog } from "./task-dialog";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TaskForm } from "./task-form";
+import { ColumnDeleteDialog } from "./column-delete-dialog";
+import { ColumnForm } from "./column-form";
+import { type Column as ColumnType, type Task } from "@shared/schema";
 
-interface Column {
-  id: number;
-  title: string;
+type ColumnProps = {
+  column: ColumnType;
   tasks: Task[];
-}
-
-interface ColumnProps {
-  column: Column;
-  isAllTasksView?: boolean;
-}
-
-const statusColumns = {
-  'backlog': 'Backlog',
-  'todo': 'To Do',
-  'in-progress': 'In Progress',
-  'review': 'Review',
-  'done': 'Done'
+  index: number;
+  boardId: number;
+  onDeleteColumn: (columnId: number) => void;
+  onEditColumn: (column: ColumnType) => void;
 };
 
-const getPriorityStyle = (priority?: string) => {
-  switch (priority) {
-    case 'high':
-      return 'border-t-red-500';
-    case 'medium':
-      return 'border-t-yellow-500';
-    case 'low':
-      return 'border-t-green-500';
-    default:
-      return 'border-t-transparent';
-  }
-};
+export function Column({ 
+  column, 
+  tasks, 
+  index, 
+  boardId, 
+  onDeleteColumn, 
+  onEditColumn 
+}: ColumnProps) {
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
-export function Column({ column, isAllTasksView = false }: ColumnProps) {
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { currentBoard } = useStore();
-
-  // Format status text for display
-  let displayTitle = 'Untitled';
-  if (column && column.title) {
-    const titleKey = String(column.title).toLowerCase();
-    displayTitle = statusColumns[titleKey] || String(column.title);
+  if (!column) {
+    return null;
   }
 
+  // Ensure column has a status property and it's a string
+  const safeStatus = column.status ? column.status.toString() : 'default';
+  
   return (
-    <div className="bg-muted/50 rounded-lg p-4 min-w-[280px] max-w-[280px]">
-      <h3 className="font-semibold mb-4 flex items-center justify-between">
-        {displayTitle}
-        {!isAllTasksView && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setIsTaskDialogOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        )}
-      </h3>
-
-      <Droppable 
-        droppableId={String(column.id)} 
-        type="TASK"
-        isDropDisabled={isAllTasksView}
-      >
-        {(provided) => (
-          <div
-            {...provided.droppableProps}
-            ref={provided.innerRef}
-            className="space-y-4"
-          >
-            {column.tasks.map((task) => (
-              <Card
-                key={task.id}
-                className={cn(
-                  "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
-                  getPriorityStyle(task.priority)
-                )}
-                onClick={() => setSelectedTask(task)}
-              >
-                <CardHeader className="p-4 space-y-2">
-                  <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                    {task.title}
-                  </CardTitle>
-                  {task.description && (
-                    <CardDescription className="text-sm line-clamp-2">
-                      {task.description}
-                    </CardDescription>
-                  )}
-                  <div className="text-xs text-muted-foreground">
-                    {currentBoard?.title}
+    <Draggable draggableId={`column-${column.id}`} index={index}>
+      {(provided) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className="mb-4 min-w-[300px] max-w-[300px] flex-shrink-0"
+        >
+          <Card className="h-full">
+            <CardHeader
+              {...provided.dragHandleProps}
+              className="flex flex-row items-center justify-between p-3"
+            >
+              <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-muted-foreground">
+                  {tasks ? tasks.length : 0} tasks
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setShowEditForm(true)}>
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col p-2">
+              <Droppable droppableId={safeStatus} type="task">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="flex flex-1 flex-col gap-2 min-h-[200px]"
+                  >
+                    {tasks && tasks.map((task, idx) => (
+                      <TaskCard key={task.id} task={task} index={idx} />
+                    ))}
+                    {provided.placeholder}
                   </div>
-                  {task.labels && task.labels.length > 0 && (
-                    <div className="flex gap-2">
-                      {task.labels.map((label, index) => (
-                        <span
-                          key={index}
-                          className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded"
-                        >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </CardHeader>
-              </Card>
-            ))}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
+                )}
+              </Droppable>
+              <Button
+                onClick={() => setShowTaskForm(true)}
+                variant="ghost"
+                size="sm"
+                className="mt-2 justify-start text-xs text-muted-foreground"
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add task
+              </Button>
+            </CardContent>
+          </Card>
 
-      {!isAllTasksView && isTaskDialogOpen && (
-        <TaskDialog
-          open={isTaskDialogOpen}
-          onClose={() => setIsTaskDialogOpen(false)}
-          task={selectedTask}
-        />
+          <TaskForm
+            open={showTaskForm}
+            onClose={() => setShowTaskForm(false)}
+            boardId={boardId}
+            columnId={column.id}
+            status={safeStatus}
+          />
+
+          <ColumnDeleteDialog
+            open={showDeleteDialog}
+            onClose={() => setShowDeleteDialog(false)}
+            onConfirm={() => {
+              onDeleteColumn(column.id);
+              setShowDeleteDialog(false);
+            }}
+          />
+
+          <ColumnForm
+            open={showEditForm}
+            onClose={() => setShowEditForm(false)}
+            existingColumn={column}
+            onSubmit={(updatedColumn) => {
+              onEditColumn(updatedColumn);
+              setShowEditForm(false);
+            }}
+          />
+        </div>
       )}
-    </div>
+    </Draggable>
   );
 }
