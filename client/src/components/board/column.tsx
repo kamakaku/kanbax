@@ -9,10 +9,14 @@ import { useStore } from "@/lib/store";
 import { Task as TaskComponent } from "./task";
 import { TaskDialog } from "./task-dialog";
 
-interface ColumnProps {
-  id: string | number;
+interface Column {
+  id: number;
   title: string;
   tasks: Task[];
+}
+
+interface ColumnProps {
+  column: Column;
   isAllTasksView?: boolean;
 }
 
@@ -24,7 +28,7 @@ const statusLabels: Record<string, string> = {
   'done': 'Done'
 };
 
-export function Column({ column, isAllTasksView = false }: { column: Column, isAllTasksView?: boolean }) {
+export function Column({ column, isAllTasksView = false }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { currentBoard } = useStore();
@@ -32,7 +36,7 @@ export function Column({ column, isAllTasksView = false }: { column: Column, isA
 
   // Format status text for display - safely handle undefined or null titles
   let displayTitle = 'Untitled';
-  
+
   if (column && column.title) {
     const titleKey = String(column.title).toLowerCase();
     displayTitle = statusLabels[titleKey] || String(column.title);
@@ -86,11 +90,11 @@ export function Column({ column, isAllTasksView = false }: { column: Column, isA
         </Droppable>
       </CardContent>
 
-      {!isAllTasksView && isTaskDialogOpen && selectedTask && (
+      {!isAllTasksView && isTaskDialogOpen && (
         <TaskDialog
           open={isTaskDialogOpen}
           onClose={() => setIsTaskDialogOpen(false)}
-          task={selectedTask}
+          existingTask={selectedTask}
         />
       )}
     </Card>

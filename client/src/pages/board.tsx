@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Board, type Column } from "@shared/schema";
+import { type Board, type Column, type Task } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
@@ -12,30 +12,38 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useLocation } from "wouter";
 
+interface BoardData extends Board {
+  columns: Column[];
+  tasks: Task[];
+}
+
 export default function Board() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { currentBoard, setCurrentBoard, setBoards } = useStore();
+  const { currentBoard } = useStore();
 
   // Redirect to projects page if no board is selected
   useEffect(() => {
     if (!currentBoard) {
       setLocation("/projects");
       toast({
-        title: "Please select a project first",
-        description: "You need to select a project before viewing boards",
+        title: "Bitte wählen Sie zuerst ein Projekt aus",
+        description: "Sie müssen ein Projekt auswählen, bevor Sie Boards anzeigen können",
       });
     }
   }, [currentBoard, setLocation, toast]);
 
-  const { data: columns = [], isLoading: columnsLoading } = useQuery<Column[]>({
-    queryKey: ["/api/boards", currentBoard?.id, "columns"],
+  const { data: boardData, isLoading } = useQuery<BoardData>({
+    queryKey: ["/api/boards", currentBoard?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
+      console.log("Fetching board data for:", currentBoard?.id);
+      const res = await fetch(`/api/boards/${currentBoard?.id}`);
       if (!res.ok) {
-        throw new Error("Failed to fetch columns");
+        throw new Error("Failed to fetch board");
       }
-      return res.json();
+      const data = await res.json();
+      console.log("Fetched board data:", data);
+      return data;
     },
     enabled: !!currentBoard,
   });
@@ -44,13 +52,13 @@ export default function Board() {
     mutationFn: async () => {
       if (!currentBoard?.id) return;
 
-      const maxOrder = columns.reduce((max, col) => Math.max(max, col.order), -1);
+      const maxOrder = (boardData?.columns || []).reduce((max, col) => Math.max(max, col.order), -1);
 
       const res = await apiRequest(
         "POST",
         `/api/boards/${currentBoard.id}/columns`,
         {
-          title: "New Column",
+          title: "Neue Spalte",
           order: maxOrder + 1,
         }
       );
@@ -58,13 +66,13 @@ export default function Board() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "columns"],
+        queryKey: ["/api/boards", currentBoard?.id],
       });
-      toast({ title: "Column created" });
+      toast({ title: "Spalte erstellt" });
     },
     onError: (error) => {
       toast({
-        title: "Failed to create column",
+        title: "Fehler beim Erstellen der Spalte",
         description: error.message,
         variant: "destructive",
       });
@@ -78,12 +86,12 @@ export default function Board() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+        queryKey: ["/api/boards", currentBoard?.id],
       });
     },
     onError: (error) => {
       toast({
-        title: "Failed to update task",
+        title: "Fehler beim Aktualisieren der Aufgabe",
         description: error.message,
         variant: "destructive",
       });
@@ -101,17 +109,42 @@ export default function Board() {
     updateTaskStatus.mutate({ id: taskId, columnId: newColumnId, order: newOrder });
   };
 
-  if (!currentBoard) {
-    return null; // Will redirect via useEffect
-  }
-
-  if (columnsLoading) {
+  if (!currentBoard || !boardData || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading...</p>
+        <p className="text-lg text-muted-foreground">Lädt...</p>
       </div>
     );
   }
+
+  // Sort tasks by their order within each column
+  const assignedTasks = boardData.tasks.filter(task => task.columnId !== 0);
+  const unassignedTasks = boardData.tasks.filter(task => task.columnId === 0);
+
+  // Create columns list including a backlog column for unassigned tasks
+  let allColumns = [...boardData.columns].sort((a, b) => a.order - b.order);
+
+  // Add backlog column if there are unassigned tasks
+  if (unassignedTasks.length > 0) {
+    allColumns.unshift({
+      id: -1,
+      title: "Backlog",
+      order: -1,
+      boardId: currentBoard.id
+    });
+  }
+
+  // Map tasks to their columns
+  const columnsWithTasks = allColumns.map(column => ({
+    ...column,
+    tasks: column.id === -1 
+      ? unassignedTasks.sort((a, b) => a.order - b.order)
+      : assignedTasks
+          .filter(task => task.columnId === column.id)
+          .sort((a, b) => a.order - b.order)
+  }));
+
+  console.log("Final columns with tasks:", columnsWithTasks);
 
   return (
     <div className="p-8">
@@ -123,26 +156,19 @@ export default function Board() {
       <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
-            {columns.map((column) => {
-            // Ensure each column has a tasks array
-            const columnWithTasks = {
-              ...column,
-              tasks: column.tasks || []
-            };
-            return (
+            {columnsWithTasks.map((column) => (
               <ColumnComponent
                 key={column.id}
-                column={columnWithTasks}
+                column={column}
               />
-            );
-          })}
+            ))}
             <Button
               onClick={() => createColumn.mutate()}
               variant="outline"
               className="h-[500px] w-[280px] border-dashed"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add Column
+              Spalte hinzufügen
             </Button>
           </div>
         </DragDropContext>
