@@ -123,12 +123,19 @@ export default function Board() {
       <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
-            {columns.map((column) => (
+            {columns.map((column) => {
+            // Ensure each column has a tasks array
+            const columnWithTasks = {
+              ...column,
+              tasks: column.tasks || []
+            };
+            return (
               <ColumnComponent
                 key={column.id}
-                column={column}
+                column={columnWithTasks}
               />
-            ))}
+            );
+          })}
             <Button
               onClick={() => createColumn.mutate()}
               variant="outline"

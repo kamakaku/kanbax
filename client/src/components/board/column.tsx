@@ -72,7 +72,7 @@ export function Column({ column, isAllTasksView = false }: { column: Column, isA
               ref={provided.innerRef}
               className="flex flex-col gap-3 min-h-[50px]"
             >
-              {column.tasks && column.tasks.map((task, index) => (
+              {Array.isArray(column.tasks) && column.tasks.map((task, index) => (
                 <TaskComponent 
                   key={task.id} 
                   task={task} 
