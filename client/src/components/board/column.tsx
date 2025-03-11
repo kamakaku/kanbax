@@ -45,7 +45,7 @@ export function Column({ column, isAllTasksView = false }: { column: Column, isA
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             {displayTitle}
             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-              {tasks.length}
+              {column.tasks ? column.tasks.length : 0}
             </span>
           </CardTitle>
           {!isAllTasksView && (
@@ -72,7 +72,7 @@ export function Column({ column, isAllTasksView = false }: { column: Column, isA
               ref={provided.innerRef}
               className="flex flex-col gap-3 min-h-[50px]"
             >
-              {tasks.map((task, index) => (
+              {column.tasks && column.tasks.map((task, index) => (
                 <TaskComponent 
                   key={task.id} 
                   task={task} 
