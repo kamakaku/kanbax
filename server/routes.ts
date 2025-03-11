@@ -154,7 +154,9 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
+      console.log(`Fetching boards for project ${projectId}`);
       const boards = await storage.getBoardsByProject(projectId);
+      console.log(`Found ${boards.length} boards:`, boards);
       res.json(boards);
     } catch (error) {
       console.error("Failed to fetch boards:", error);
@@ -215,9 +217,12 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
+      console.log(`Fetching board ${id}`);
       const board = await storage.getBoard(id);
+      console.log("Found board:", board);
       res.json(board);
     } catch (error) {
+      console.error("Failed to fetch board:", error);
       res.status(404).json({ message: (error as Error).message });
     }
   });

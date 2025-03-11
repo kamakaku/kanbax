@@ -108,7 +108,7 @@ export default function AllTasks() {
   };
 
   const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
+    if (!result.destination || result.type !== "task") return;
 
     const { source, destination, draggableId } = result;
     const task = allTasks.find(t => t.id.toString() === draggableId);
@@ -239,7 +239,7 @@ export default function AllTasks() {
         </TabsList>
         <TabsContent value="kanban">
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {columns.map(column => (
                 <Column
                   key={column.id}

@@ -1,5 +1,11 @@
+import { useState } from "react";
+import { type Task } from "@shared/schema";
+import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Draggable } from "react-beautiful-dnd";
+import { TaskDialog } from "./task-dialog";
+
 interface TaskProps {
-  task: TaskType & { boardTitle?: string };
+  task: Task & { boardTitle?: string };
   index: number;
   showBoardTitle?: boolean;
 }
@@ -15,7 +21,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
 
   return (
     <>
-      <Draggable draggableId={task.id.toString()} index={index}>
+      <Draggable draggableId={task.id.toString()} index={index} type="task">
         {(provided) => (
           <div
             className="cursor-pointer"
@@ -65,7 +71,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
       <TaskDialog
         open={isTaskDialogOpen}
         onClose={() => setIsTaskDialogOpen(false)}
-        existingTask={task}
+        task={task}
       />
     </>
   );

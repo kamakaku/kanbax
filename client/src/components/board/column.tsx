@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type Task } from "@shared/schema";
-import { Plus, MoreVertical } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Droppable } from "react-beautiful-dnd";
@@ -14,16 +14,29 @@ interface ColumnProps {
   isAllTasksView?: boolean;
 }
 
-export function Column({ id, title, tasks = [], isAllTasksView = false }: ColumnProps) {
+const statusLabels: Record<string, string> = {
+  'backlog': 'Backlog',
+  'todo': 'To Do',
+  'in-progress': 'In Progress',
+  'review': 'Review',
+  'done': 'Done'
+};
+
+export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = false }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Formatiere den Status-Text für die Anzeige
+  const displayTitle = typeof title === 'string' ? 
+    (statusLabels[title.toLowerCase()] || title) : 
+    'Untitled';
 
   return (
     <Card className="min-w-[280px] max-w-[280px] h-fit">
       <CardHeader className="py-2 px-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            {title}
+            {displayTitle}
             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
               {tasks.length}
             </span>
@@ -41,7 +54,7 @@ export function Column({ id, title, tasks = [], isAllTasksView = false }: Column
         </div>
       </CardHeader>
       <CardContent className="py-2 px-3 flex flex-col gap-3">
-        <Droppable droppableId={id.toString()}>
+        <Droppable droppableId={id.toString()} type="task">
           {(provided) => (
             <div
               {...provided.droppableProps}
