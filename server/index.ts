@@ -6,7 +6,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Verbesserte Logging-Middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -38,68 +37,33 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  log("Starting server initialization...");
   const server = await registerRoutes(app);
-  log("Routes registered successfully");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    console.error("Server error:", err);
+    throw err;
   });
 
-  // Temporarily disable Vite setup and use static serving
-  log("Setting up static serving...");
-  serveStatic(app);
-  log("Static serving setup completed");
-
-  // Verbesserte Port-Handling-Logik mit Timeouts und Retries
-  const tryListen = async (port: number, maxRetries = 10, retryDelay = 1000) => {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        log(`Attempting to start server on port ${port} (attempt ${attempt + 1}/${maxRetries})`);
-
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error(`Timeout while trying to bind to port ${port}`));
-          }, 5000);
-
-          server.listen({
-            port,
-            host: "0.0.0.0",
-            reusePort: true,
-          }, () => {
-            clearTimeout(timeout);
-            log(`Server successfully started on port ${port}`);
-            resolve();
-          }).on('error', (error: NodeJS.ErrnoException) => {
-            clearTimeout(timeout);
-            reject(error);
-          });
-        });
-
-        return; // Successfully started
-      } catch (error: unknown) {
-        if (error instanceof Error && 'code' in error && error.code === 'EADDRINUSE') {
-          log(`Port ${port} is in use, waiting ${retryDelay}ms before trying port ${port + 1}`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-          port++;
-        } else {
-          console.error("Unexpected error while starting server:", error);
-          throw error;
-        }
-      }
-    }
-
-    throw new Error(`Could not find an available port after ${maxRetries} attempts`);
-  };
-
-  try {
-    await tryListen(5000);
-  } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
   }
+
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client
+  const port = 5000;
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    log(`serving on port ${port}`);
+  });
 })();

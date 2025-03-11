@@ -154,9 +154,7 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      console.log(`Fetching boards for project ${projectId}`);
       const boards = await storage.getBoardsByProject(projectId);
-      console.log(`Found ${boards.length} boards:`, boards);
       res.json(boards);
     } catch (error) {
       console.error("Failed to fetch boards:", error);
@@ -217,12 +215,9 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      console.log(`Fetching board ${id}`);
       const board = await storage.getBoard(id);
-      console.log("Found board:", board);
       res.json(board);
     } catch (error) {
-      console.error("Failed to fetch board:", error);
       res.status(404).json({ message: (error as Error).message });
     }
   });
@@ -303,31 +298,6 @@ export async function registerRoutes(app: Express) {
       res.status(500).json({ message: (error as Error).message });
     }
   });
-
-  //New route added here
-  app.patch("/api/boards/:boardId/tasks/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid task ID" });
-    }
-
-    const result = updateTaskSchema.safeParse(req.body);
-    if (!result.success) {
-      console.error("Task validation failed:", result.error);
-      return res.status(400).json({ message: result.error.message });
-    }
-
-    try {
-      console.log("Updating task:", id, "with data:", result.data);
-      const task = await storage.updateTask(id, result.data);
-      console.log("Updated task:", task);
-      res.json(task);
-    } catch (error) {
-      console.error("Failed to update task:", error);
-      res.status(404).json({ message: (error as Error).message });
-    }
-  });
-
 
   app.patch("/api/tasks/:id", async (req, res) => {
     const id = parseInt(req.params.id);

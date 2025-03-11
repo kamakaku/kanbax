@@ -1,11 +1,5 @@
-import { useState } from "react";
-import { type Task } from "@shared/schema";
-import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
-import { Draggable } from "react-beautiful-dnd";
-import { TaskDialog } from "./task-dialog";
-
 interface TaskProps {
-  task: Task & { boardTitle?: string };
+  task: TaskType & { boardTitle?: string };
   index: number;
   showBoardTitle?: boolean;
 }
@@ -71,7 +65,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
       <TaskDialog
         open={isTaskDialogOpen}
         onClose={() => setIsTaskDialogOpen(false)}
-        task={task}
+        existingTask={task}
       />
     </>
   );
