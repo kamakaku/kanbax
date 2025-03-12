@@ -75,20 +75,33 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const startServer = (port: number) => {
+    const startServer = (port: number, maxAttempts = 3) => {
       const host = '0.0.0.0';
-      server.on('error', (e: any) => {
+      
+      if (maxAttempts <= 0) {
+        log('Exceeded maximum port attempts. Please manually kill the process using port 5000+');
+        process.exit(1);
+        return;
+      }
+      
+      const handleServer = () => {
+        server.listen(port, host, () => {
+          log(`Server successfully started on ${host}:${port}`);
+        });
+      };
+      
+      server.once('error', (e: any) => {
         if (e.code === 'EADDRINUSE') {
           log(`Port ${port} is already in use, trying ${port + 1}...`);
-          startServer(port + 1);
+          server.removeAllListeners('listening');
+          startServer(port + 1, maxAttempts - 1);
         } else {
           console.error('Server error:', e);
+          process.exit(1);
         }
       });
       
-      server.listen(port, host, () => {
-        log(`Server successfully started on ${host}:${port}`);
-      });
+      handleServer();
     };
     
     const port = parseInt(process.env.PORT || "5000", 10);
