@@ -109,77 +109,73 @@ export default function AllTasks() {
     const { source, destination, draggableId } = result;
     const taskId = parseInt(draggableId);
 
-    // Get the task being moved
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    // Get all tasks in source column before the move
-    const tasksInSourceColumn = tasks
+    // Get all tasks in the affected columns
+    const tasksInSrcColumn = tasks
       .filter(t => t.status === source.droppableId)
       .sort((a, b) => a.order - b.order);
 
-    // Get all tasks in destination column before the move
-    const tasksInDestColumn = tasks
-      .filter(t => t.status === destination.droppableId)
-      .sort((a, b) => a.order - b.order);
+    const tasksInDestColumn = source.droppableId === destination.droppableId
+      ? tasksInSrcColumn
+      : tasks
+        .filter(t => t.status === destination.droppableId)
+        .sort((a, b) => a.order - b.order);
 
-    // Remove task from source array
-    tasksInSourceColumn.splice(source.index, 1);
-
-    // Insert task at new position
-    if (source.droppableId === destination.droppableId) {
-      tasksInSourceColumn.splice(destination.index, 0, task);
-    } else {
-      tasksInDestColumn.splice(destination.index, 0, task);
-    }
+    // Find the task being moved
+    const movedTask = tasks.find(t => t.id === taskId);
+    if (!movedTask) return;
 
     try {
-      // Prepare updates for all affected tasks
-      const updates = [];
-
-      // Update order for source column tasks
       if (source.droppableId === destination.droppableId) {
-        updates.push(...tasksInSourceColumn.map((t, index) => ({
-          id: t.id,
-          order: index,
-          status: t.status,
-          boardId: t.boardId,
-          columnId: t.columnId
-        })));
-      } else {
-        // Update both columns
-        updates.push(
-          ...tasksInSourceColumn.map((t, index) => ({
-            id: t.id,
+        // Same column reorder
+        tasksInSrcColumn.splice(source.index, 1);
+        tasksInSrcColumn.splice(destination.index, 0, movedTask);
+
+        // Update all tasks in the column with new order
+        const updates = tasksInSrcColumn.map((task, index) =>
+          apiRequest("PATCH", `/api/tasks/${task.id}`, {
             order: index,
             status: source.droppableId,
-            boardId: t.boardId,
-            columnId: t.columnId
-          })),
-          ...tasksInDestColumn.map((t, index) => ({
-            id: t.id,
-            order: index,
-            status: destination.droppableId,
-            boardId: t.boardId,
-            columnId: t.columnId
-          }))
+            boardId: task.boardId,
+            columnId: task.columnId
+          })
         );
+
+        await Promise.all(updates);
+      } else {
+        // Moving between columns
+        tasksInSrcColumn.splice(source.index, 1);
+        tasksInDestColumn.splice(destination.index, 0, movedTask);
+
+        // Update tasks in both columns
+        const updates = [
+          ...tasksInSrcColumn.map((task, index) =>
+            apiRequest("PATCH", `/api/tasks/${task.id}`, {
+              order: index,
+              status: source.droppableId,
+              boardId: task.boardId,
+              columnId: task.columnId
+            })
+          ),
+          ...tasksInDestColumn.map((task, index) =>
+            apiRequest("PATCH", `/api/tasks/${task.id}`, {
+              order: index,
+              status: destination.droppableId,
+              boardId: task.boardId,
+              columnId: task.columnId
+            })
+          )
+        ];
+
+        await Promise.all(updates);
       }
 
-      // Execute all updates
-      await Promise.all(
-        updates.map(update =>
-          apiRequest("PATCH", `/api/tasks/${update.id}`, update)
-        )
-      );
-
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      boards.forEach(board => {
-        queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      for (const board of boards) {
+        await queryClient.invalidateQueries({
           queryKey: [`/api/boards/${board.id}/tasks`]
         });
-      });
+      }
 
       toast({ title: "Aufgabenreihenfolge aktualisiert" });
     } catch (error) {
