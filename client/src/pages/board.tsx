@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Board, type Column } from "@shared/schema";
+import { type Board, type Column, type Task } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
@@ -34,6 +34,18 @@ export default function Board() {
       const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
       if (!res.ok) {
         throw new Error("Failed to fetch columns");
+      }
+      return res.json();
+    },
+    enabled: !!currentBoard,
+  });
+
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
+    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    queryFn: async () => {
+      const res = await fetch(`/api/boards/${currentBoard?.id}/tasks`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch tasks");
       }
       return res.json();
     },
@@ -105,7 +117,7 @@ export default function Board() {
     return null; // Will redirect via useEffect
   }
 
-  if (columnsLoading) {
+  if (columnsLoading || tasksLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-lg text-muted-foreground">Loading...</p>
