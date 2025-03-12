@@ -73,19 +73,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const handleSubmit = async (data: any) => {
     try {
       let response;
-
       if (task) {
-        response = await apiRequest(
-          "PATCH",
-          `/api/tasks/${task.id}`,
-          data
-        );
+        response = await apiRequest("PATCH", `/api/tasks/${task.id}`, data);
       } else {
-        response = await apiRequest(
-          "POST",
-          `/api/boards/${currentBoard?.id}/tasks`,
-          data
-        );
+        response = await apiRequest("POST", `/api/boards/${currentBoard?.id}/tasks`, data);
       }
 
       if (!response.ok) {
@@ -116,7 +107,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   };
 
   const handleDelete = async () => {
-    if (!onDelete || !task) return;
+    if (!task || !onDelete) return;
 
     try {
       await onDelete(task.id);
@@ -131,20 +122,17 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  // Simplified checklist functions
-  async function addChecklistItem(event: React.FormEvent) {
-    event.preventDefault();
-
+  const addChecklistItem = async () => {
     if (!task || !newChecklistItem.trim() || !onUpdate) return;
 
-    const updatedTask = {
-      ...task,
-      checklist: [...(task.checklist || []), { text: newChecklistItem.trim(), checked: false }]
-    };
+    const updatedChecklist = [
+      ...(task.checklist || []),
+      { text: newChecklistItem.trim(), checked: false }
+    ];
 
     try {
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        checklist: updatedTask.checklist
+        checklist: updatedChecklist
       });
 
       if (!response.ok) throw new Error();
@@ -159,14 +147,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         variant: "destructive"
       });
     }
-  }
+  };
 
-  async function toggleChecklistItem(index: number) {
-    if (!task || !onUpdate) return;
+  const toggleChecklistItem = async (index: number) => {
+    if (!task?.checklist || !onUpdate) return;
 
-    const updatedChecklist = task.checklist?.map((item, i) => 
+    const updatedChecklist = task.checklist.map((item, i) => 
       i === index ? { ...item, checked: !item.checked } : item
-    ) || [];
+    );
 
     try {
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
@@ -184,7 +172,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         variant: "destructive"
       });
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -300,16 +288,27 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                       ))}
                     </div>
 
-                    <form onSubmit={addChecklistItem} className="flex gap-2">
+                    <div className="flex gap-2">
                       <Input
                         value={newChecklistItem}
                         onChange={(e) => setNewChecklistItem(e.target.value)}
                         placeholder="Neuer Checklistenpunkt"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addChecklistItem();
+                          }
+                        }}
                       />
-                      <Button type="submit" variant="outline" size="icon">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={addChecklistItem}
+                      >
                         <Plus className="h-4 w-4" />
                       </Button>
-                    </form>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
