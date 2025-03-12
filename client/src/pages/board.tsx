@@ -95,14 +95,20 @@ export default function Board() {
     mutationFn: async ({ id, columnId, order, status }: { id: number; columnId: number; order: number; status: string }) => {
       // Find the task to get its current board information
       const task = tasks.find(t => t.id === id);
-      if (!task) return;
+      if (!task) throw new Error("Task not found");
+
+      // Find the column with the matching status
+      const targetColumn = cols.find(col => col.title === status);
+      if (!targetColumn) throw new Error(`No column found for status: ${status}`);
 
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
-        columnId, 
+        columnId: targetColumn.id,
         order, 
-        status, 
+        status,
         boardId: task.boardId
       });
+
+      if (!res.ok) throw new Error("Failed to update task");
       return res.json();
     },
     onSuccess: () => {
@@ -113,6 +119,7 @@ export default function Board() {
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
     },
     onError: (error) => {
+      console.error("Update task error:", error);
       toast({
         title: "Failed to update task",
         description: error.message,
@@ -133,14 +140,11 @@ export default function Board() {
     const column = cols.find(col => col.id === newColumnId);
     if (!column) return;
 
-    // Use the column's title directly as it's already in the correct format
-    const newStatus = column.title || 'todo';
-
     updateTaskStatus.mutate({ 
       id: taskId, 
       columnId: newColumnId, 
       order: newOrder,
-      status: newStatus
+      status: column.title || 'todo'
     });
   };
 

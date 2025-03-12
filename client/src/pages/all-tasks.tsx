@@ -96,13 +96,13 @@ export default function AllTasks() {
       const board = boards.find(b => b.id === task.boardId);
       if (!board) throw new Error("Board not found");
 
-      // Fetch columns for the board to find matching column
+      // Fetch columns for the original board
       const columnsRes = await fetch(`/api/boards/${task.boardId}/columns`);
       if (!columnsRes.ok) throw new Error("Failed to fetch columns");
 
       const boardColumns = await columnsRes.json();
 
-      // Find the column that matches the new status
+      // Find the column in the original board that matches the new status
       const targetColumn = boardColumns.find((col: any) => col.title === status);
       if (!targetColumn) throw new Error(`No column found for status: ${status}`);
 
@@ -141,7 +141,7 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    const newStatus = destination.droppableId; // This is already the correct status format
+    const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
     updateTaskStatus.mutate({ 
