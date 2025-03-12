@@ -15,9 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CommentList } from "@/components/comments/comment-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStore } from "@/lib/store";
-import { Clock, Edit2, MessageSquare, User } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Clock, Edit2, MessageSquare, Plus, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface TaskDialogProps {
   task?: Task;
@@ -48,6 +53,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
+  const [newChecklistItem, setNewChecklistItem] = useState("");
 
   // Query für Aktivitäten
   const { data: activities = [] } = useQuery({
@@ -72,6 +78,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
       boardId: task?.boardId || currentBoard?.id || 0,
       columnId: task?.columnId || 0,
       order: task?.order || 0,
+      dueDate: task?.dueDate || null,
+      checklist: task?.checklist || [],
     },
   });
 
@@ -139,6 +147,23 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
     }
   };
 
+  const handleAddChecklistItem = () => {
+    if (!newChecklistItem.trim()) return;
+
+    const currentChecklist = form.getValues("checklist") || [];
+    form.setValue("checklist", [
+      ...currentChecklist,
+      { text: newChecklistItem, checked: false }
+    ]);
+    setNewChecklistItem("");
+  };
+
+  const handleToggleChecklistItem = (index: number) => {
+    const currentChecklist = [...(form.getValues("checklist") || [])];
+    currentChecklist[index].checked = !currentChecklist[index].checked;
+    form.setValue("checklist", currentChecklist);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -176,6 +201,12 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
                 <Badge variant="outline" className="capitalize">
                   Priorität: {priorityLabels[task.priority]}
                 </Badge>
+                {task.dueDate && (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <CalendarIcon className="h-3 w-3" />
+                    {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
+                  </Badge>
+                )}
               </div>
 
               {task.labels && task.labels.length > 0 && (
@@ -185,6 +216,26 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
                       {label}
                     </Badge>
                   ))}
+                </div>
+              )}
+
+              {/* Checklist */}
+              {task.checklist && task.checklist.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Checkliste</h4>
+                  <div className="space-y-2">
+                    {task.checklist.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Checkbox
+                          checked={item.checked}
+                          onCheckedChange={() => handleToggleChecklistItem(index)}
+                        />
+                        <span className={`text-sm ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                          {item.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -250,6 +301,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
             onSubmit={handleSubmit}
             onDelete={handleDelete}
             task={task}
+            newChecklistItem={newChecklistItem}
+            setNewChecklistItem={setNewChecklistItem}
+            onAddChecklistItem={handleAddChecklistItem}
+            onToggleChecklistItem={handleToggleChecklistItem}
           />
         )}
       </DialogContent>
@@ -257,7 +312,16 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
   );
 }
 
-function EditForm({ form, onSubmit, onDelete, task }: any) {
+function EditForm({ 
+  form, 
+  onSubmit, 
+  onDelete, 
+  task,
+  newChecklistItem,
+  setNewChecklistItem,
+  onAddChecklistItem,
+  onToggleChecklistItem
+}: any) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -293,55 +357,95 @@ function EditForm({ form, onSubmit, onDelete, task }: any) {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status auswählen" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Status auswählen" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.entries(statusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Priorität</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Priorität auswählen" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}
-          name="priority"
+          name="dueDate"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Priorität</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Priorität auswählen" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="low">Niedrig</SelectItem>
-                  <SelectItem value="medium">Mittel</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Fälligkeitsdatum</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      className={`w-full justify-start text-left font-normal ${
+                        !field.value && "text-muted-foreground"
+                      }`}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {field.value ? (
+                        format(new Date(field.value), "PPP", { locale: de })
+                      ) : (
+                        <span>Datum auswählen</span>
+                      )}
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value ? new Date(field.value) : undefined}
+                    onSelect={field.onChange}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
               <FormMessage />
             </FormItem>
           )}
@@ -366,6 +470,47 @@ function EditForm({ form, onSubmit, onDelete, task }: any) {
                   placeholder="bug, feature, UI"
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Checklist */}
+        <FormField
+          control={form.control}
+          name="checklist"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Checkliste</FormLabel>
+              <div className="space-y-2">
+                {field.value?.map((item: any, index: number) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Checkbox
+                      checked={item.checked}
+                      onCheckedChange={() => onToggleChecklistItem(index)}
+                    />
+                    <span className={`text-sm ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                      {item.text}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input
+                    value={newChecklistItem}
+                    onChange={(e) => setNewChecklistItem(e.target.value)}
+                    placeholder="Neuer Checklistenpunkt"
+                    onKeyPress={(e) => e.key === 'Enter' && onAddChecklistItem()}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={onAddChecklistItem}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
               <FormMessage />
             </FormItem>
           )}

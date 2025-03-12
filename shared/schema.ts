@@ -70,6 +70,7 @@ export const tasks = pgTable("tasks", {
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
   dueDate: timestamp("due_date"),
+  checklist: text("checklist").array(), // Array of JSON strings
   archived: boolean("archived").default(false),
   assignedUserId: integer("assigned_user_id"),
   assignedTeamId: integer("assigned_team_id"),
@@ -101,6 +102,11 @@ export const activityLogs = pgTable("activity_logs", {
   action: text("action").notNull(),
   details: text("details"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+const checklistItemSchema = z.object({
+  text: z.string().min(1, "Text is required"),
+  checked: z.boolean().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users)
@@ -162,6 +168,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: true,
     labels: true,
     dueDate: true,
+    checklist: true,
     archived: true,
     assignedUserId: true,
     assignedTeamId: true,
@@ -174,6 +181,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable().optional(),
+    checklist: z.array(checklistItemSchema).default([]),
     archived: z.boolean().default(false),
     assignedUserId: z.number().int().positive().optional(),
     assignedTeamId: z.number().int().positive().optional(),
@@ -248,6 +256,10 @@ export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect & {
+  checklist?: Array<{
+    text: string;
+    checked: boolean;
+  }>;
   assignedUser?: {
     id: number;
     username: string;
