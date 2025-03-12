@@ -14,6 +14,7 @@ import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentList } from "@/components/comments/comment-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 
 interface TaskDialogProps {
   task: Task & { boardTitle?: string; projectTitle?: string };
@@ -30,6 +31,12 @@ const statusLabels = {
   'review': 'Review',
   'done': 'Done'
 };
+
+const priorityItems = [
+  { id: "high", label: "Hoch", color: "bg-red-500" },
+  { id: "medium", label: "Mittel", color: "bg-yellow-500" },
+  { id: "low", label: "Niedrig", color: "bg-blue-500" }
+];
 
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
@@ -64,7 +71,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
       const updatedTask = await res.json();
 
-      // Invalidate both the specific board's tasks and all tasks queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
         queryClient.invalidateQueries({ 
@@ -104,6 +110,45 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
+  const handleDragEnd = async (result: any) => {
+    if (!result.destination) return;
+
+    const newPriority = priorityItems[result.destination.index].id;
+
+    try {
+      const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        priority: newPriority
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update task priority");
+      }
+
+      const updatedTask = await res.json();
+      form.setValue("priority", newPriority);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${task.boardId}/tasks`] 
+        })
+      ]);
+
+      if (onUpdate) {
+        await onUpdate(updatedTask);
+      }
+
+      toast({ title: "Priorität erfolgreich aktualisiert" });
+    } catch (error) {
+      console.error("Priority update error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Priorität konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -111,8 +156,9 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
           <DialogTitle>Aufgabe bearbeiten</DialogTitle>
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="priority">Priorität</TabsTrigger>
             <TabsTrigger value="comments">Kommentare</TabsTrigger>
           </TabsList>
           <TabsContent value="details">
@@ -180,32 +226,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
                 <FormField
                   control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priorität</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Priorität auswählen" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="low">Niedrig</SelectItem>
-                          <SelectItem value="medium">Mittel</SelectItem>
-                          <SelectItem value="high">Hoch</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name="labels"
                   render={({ field }) => (
                     <FormItem>
@@ -242,6 +262,44 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 </div>
               </form>
             </Form>
+          </TabsContent>
+          <TabsContent value="priority" className="pt-4">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="priority-list">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="space-y-2"
+                  >
+                    {priorityItems.map((item, index) => (
+                      <Draggable
+                        key={item.id}
+                        draggableId={item.id}
+                        index={index}
+                      >
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`p-3 rounded-lg border ${
+                              task.priority === item.id ? "border-primary" : "border-border"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                              <span className="font-medium">{item.label}</span>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           </TabsContent>
           <TabsContent value="comments" className="pt-4">
             <CommentList taskId={task.id} />
