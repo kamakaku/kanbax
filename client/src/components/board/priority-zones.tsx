@@ -40,7 +40,7 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       queryClient.invalidateQueries({ 
-        queryKey: ["/api/boards"] 
+        queryKey: [`/api/boards/${task.boardId}/tasks`] 
       });
 
       if (onUpdate) {

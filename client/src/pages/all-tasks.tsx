@@ -106,27 +106,25 @@ export default function AllTasks() {
 
   const updateTaskPriority = useMutation({
     mutationFn: async ({ taskId, newPriority }: { taskId: number; newPriority: string }) => {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) throw new Error("Task not found");
-
-      const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
-        priority: newPriority,
-        status: task.status,
-        boardId: task.boardId,
-        columnId: task.columnId,
-        order: task.order
-      });
+      // Simplify the API call to only update priority
+      const res = await apiRequest(
+        "PATCH", 
+        `/api/tasks/${taskId}`,
+        { priority: newPriority }
+      );
 
       if (!res.ok) throw new Error("Failed to update task priority");
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
           queryKey: [`/api/boards/${board.id}/tasks`] 
         });
       });
+      toast({ title: "Priorität erfolgreich aktualisiert" });
     },
     onError: (error) => {
       console.error("Priority update error:", error);
