@@ -1,205 +1,212 @@
-import { useQuery } from "@tanstack/react-query";
-import { type Task, type Project, type Board } from "@shared/schema";
-import { useStore } from "@/lib/store";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList } from "@/components/ui/breadcrumb";
-import { ChevronRight } from "lucide-react";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { DragDropContext, Draggable, Droppable, type DropResult } from "react-beautiful-dnd";
+import { Task } from "@shared/schema";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { TaskDialog } from "@/components/board/task-dialog";
+import { useToast } from "@/hooks/use-toast";
 
-export default function AllTasks() {
-  const [, setLocation] = useLocation();
-  const { setCurrentTask } = useStore();
+const defaultColumns = [
+  { id: "backlog", title: "Backlog" },
+  { id: "todo", title: "To Do" },
+  { id: "in-progress", title: "In Progress" },
+  { id: "review", title: "Review" },
+  { id: "done", title: "Done" }
+];
+
+function AllTasks() {
+  console.log("AllTasks component mounting...");
+
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["all-tasks"],
     queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) {
-        throw new Error("Failed to fetch projects");
+      console.log("Fetching all tasks...");
+      const res = await apiRequest("GET", "/api/tasks");
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      const data = await res.json();
+      console.log("Fetched tasks:", data.length);
+      return data;
+    }
+  });
+
+  const { data: boards = [] } = useQuery({
+    queryKey: ["/api/boards"],
+    queryFn: async () => {
+      console.log("Fetching boards...");
+      const res = await apiRequest("GET", "/api/boards");
+      if (!res.ok) throw new Error("Failed to fetch boards");
+      const data = await res.json();
+      console.log("Fetched boards:", data.length);
+      return data;
+    }
+  });
+
+  const handleDragEnd = async (result: DropResult) => {
+    console.log("Drag end event:", result);
+
+    if (!result.destination) return;
+
+    const { source, destination, draggableId } = result;
+    const taskId = parseInt(draggableId);
+
+    try {
+      // Vereinfachte Version: Nur die Position der gezogenen Task aktualisieren
+      console.log("Updating task position:", {
+        taskId,
+        source,
+        destination
+      });
+
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        console.error("Task not found:", taskId);
+        return;
       }
-      return res.json();
-    },
-  });
 
-  const tasksQuery = useQuery({
-    queryKey: ["all-tasks", projects?.map(p => p.id)],
-    queryFn: async () => {
-      if (!projects) return [];
+      const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+        status: destination.droppableId,
+        order: destination.index
+      });
 
-      const allTasks = await Promise.all(
-        projects.map(async (project) => {
-          const boardsRes = await fetch(`/api/projects/${project.id}/boards`);
-          if (!boardsRes.ok) return [];
-          const boards = await boardsRes.json();
+      if (!res.ok) {
+        throw new Error("Failed to update task order");
+      }
 
-          const boardTasks = await Promise.all(
-            boards.map(async (board: Board) => {
-              const tasksRes = await fetch(`/api/boards/${board.id}/tasks`);
-              if (!tasksRes.ok) return [];
-              const tasks = await tasksRes.json();
-              return tasks.map((task: Task) => ({
-                ...task,
-                boardTitle: board.title,
-                projectTitle: project.title,
-                projectId: project.id,
-                boardId: board.id
-              }));
-            })
-          );
-
-          return boardTasks.flat();
-        })
-      );
-
-      return allTasks.flat();
-    },
-    enabled: !!projects,
-  });
-
-  if (projectsLoading || tasksQuery.isLoading) {
-    return (
-      <div className="container mx-auto p-8">
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Lädt...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const allTasks = tasksQuery.data || [];
-
-  const handleTaskClick = (task: Task & { projectId: number, boardId: number }) => {
-    setCurrentTask(task);
-    setLocation(`/board/${task.boardId}/task/${task.id}`);
+      console.log("Task update successful");
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      toast({ title: "Aufgabenreihenfolge aktualisiert" });
+    } catch (error) {
+      console.error("Task update error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Reihenfolge konnte nicht aktualisiert werden",
+        variant: "destructive"
+      });
+    }
   };
 
-  // Filter tasks
-  const filteredTasks = allTasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        task.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+  // Filter tasks based on search
+  const filteredTasks = tasks.filter((task) =>
+    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.boardTitle?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    return matchesSearch && matchesStatus && matchesPriority;
+  console.log("Rendering AllTasks with:", {
+    totalTasks: tasks.length,
+    filteredTasks: filteredTasks.length,
+    boards: boards.length
   });
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="mb-8">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => setLocation("/dashboard")}>Dashboard</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbItem>
-              <ChevronRight className="h-4 w-4" />
-            </BreadcrumbItem>
-            <BreadcrumbItem>
-              <BreadcrumbLink>Alle Aufgaben</BreadcrumbLink>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <h1 className="text-3xl font-bold mt-4">Alle Aufgaben</h1>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Alle Aufgaben</h1>
+        <Input
+          type="search"
+          placeholder="Aufgaben suchen..."
+          className="max-w-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      <div className="flex flex-col gap-6 mb-8">
-        <div className="flex flex-wrap gap-4">
-          <div className="w-full md:w-1/3">
-            <Label htmlFor="search">Suche</Label>
-            <Input 
-              id="search"
-              placeholder="Nach Aufgaben suchen..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="w-full md:w-1/3">
-            <Label htmlFor="status">Status</Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger id="status">
-                <SelectValue placeholder="Status auswählen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Status</SelectItem>
-                <SelectItem value="BACKLOG">Backlog</SelectItem>
-                <SelectItem value="TODO">Zu erledigen</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Bearbeitung</SelectItem>
-                <SelectItem value="DONE">Erledigt</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-full md:w-1/3">
-            <Label htmlFor="priority">Priorität</Label>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger id="priority">
-                <SelectValue placeholder="Priorität auswählen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Prioritäten</SelectItem>
-                <SelectItem value="LOW">Niedrig</SelectItem>
-                <SelectItem value="MEDIUM">Mittel</SelectItem>
-                <SelectItem value="HIGH">Hoch</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      {filteredTasks.length === 0 ? (
-        <div className="text-center py-12 border rounded-lg">
-          <p className="text-muted-foreground">Keine Aufgaben gefunden.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTasks.map((task) => (
-            <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTaskClick(task)}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{task.title}</CardTitle>
-                  <Badge 
-                    className={
-                      task.priority === 'HIGH' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' :
-                      task.priority === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20' :
-                      'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
-                    }
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {defaultColumns.map((column) => (
+            <div key={column.id} className="bg-card rounded-lg p-4">
+              <h2 className="text-lg font-semibold mb-4">{column.title}</h2>
+              <Droppable droppableId={column.id}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`space-y-2 min-h-[100px] ${
+                      snapshot.isDraggingOver ? "bg-muted/50" : ""
+                    }`}
                   >
-                    {task.priority === 'HIGH' ? 'Hoch' : task.priority === 'MEDIUM' ? 'Mittel' : 'Niedrig'}
-                  </Badge>
-                </div>
-                <CardDescription className="text-xs">
-                  {task.projectTitle} &gt; {task.boardTitle}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm truncate">{task.description || 'Keine Beschreibung'}</p>
-              </CardContent>
-              <CardFooter className="pt-0">
-                <Badge variant="outline" className="mr-2">
-                  {task.status === 'BACKLOG' ? 'Backlog' : 
-                   task.status === 'TODO' ? 'Zu erledigen' : 
-                   task.status === 'IN_PROGRESS' ? 'In Bearbeitung' : 'Erledigt'}
-                </Badge>
-                {task.dueDate && (
-                  <Badge variant="outline" className="ml-auto">
-                    Fällig: {new Date(task.dueDate).toLocaleDateString()}
-                  </Badge>
+                    {filteredTasks
+                      .filter((task) => task.status === column.id)
+                      .sort((a, b) => a.order - b.order)
+                      .map((task, index) => (
+                        <Draggable
+                          key={task.id}
+                          draggableId={task.id.toString()}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`bg-background border rounded-lg p-3 cursor-move ${
+                                snapshot.isDragging ? "shadow-lg border-primary" : ""
+                              }`}
+                              onClick={() => setSelectedTask(task)}
+                            >
+                              <h3 className="font-medium">{task.title}</h3>
+                              {task.boardTitle && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Board: {task.boardTitle}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                    {provided.placeholder}
+                  </div>
                 )}
-              </CardFooter>
-            </Card>
+              </Droppable>
+            </div>
           ))}
         </div>
+      </DragDropContext>
+
+      {selectedTask && (
+        <TaskDialog
+          task={selectedTask}
+          open={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={async (updatedTask) => {
+            const res = await apiRequest(
+              "PATCH",
+              `/api/tasks/${updatedTask.id}`,
+              updatedTask
+            );
+
+            if (!res.ok) {
+              throw new Error("Failed to update task");
+            }
+
+            queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+            toast({ title: "Aufgabe erfolgreich aktualisiert" });
+          }}
+          onDelete={async (taskId) => {
+            const res = await apiRequest(
+              "DELETE",
+              `/api/tasks/${taskId}`
+            );
+
+            if (!res.ok) {
+              throw new Error("Failed to delete task");
+            }
+
+            queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+            setSelectedTask(null);
+            toast({ title: "Aufgabe erfolgreich gelöscht" });
+          }}
+        />
       )}
     </div>
   );
 }
+
+export default AllTasks;
