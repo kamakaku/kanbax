@@ -1,13 +1,20 @@
+import { useEffect } from "react";
+import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Project, type Board, type Task } from "@shared/schema";
-import { useLocation } from "wouter";
-import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Column as ColumnComponent } from "@/components/board/column";
 import { useStore } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { type Location } from "wouter";
+import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { LayoutGrid, LayoutList, Calendar, Plus } from "lucide-react";
+import { LayoutGrid, LayoutList, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { TaskDialog } from "@/components/board/task-dialog";
@@ -18,8 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTaskSchema } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+
 
 interface TaskWithDetails extends Task {
   boardTitle: string;
@@ -28,7 +34,7 @@ interface TaskWithDetails extends Task {
 }
 
 export default function AllTasks() {
-  const [, setLocation] = useLocation();
+  const [, setLocation] = useLocation<Location>();
   const { setCurrentBoard, setCurrentProject } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
@@ -42,7 +48,7 @@ export default function AllTasks() {
     queryKey: ["/api/projects"],
   });
 
-  // Fetch all boards for all projects
+  // Fetch all boards
   const { data: boards = [] } = useQuery<(Board & { projectTitle: string; projectId: number })[]>({
     queryKey: ["all-boards"],
     queryFn: async () => {
@@ -64,7 +70,7 @@ export default function AllTasks() {
   });
 
   // Fetch tasks from all boards
-  const { data: tasks = [] } = useQuery<TaskWithDetails[]>({
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery<TaskWithDetails[]>({
     queryKey: ["all-tasks"],
     queryFn: async () => {
       const allTasks = await Promise.all(
@@ -84,6 +90,40 @@ export default function AllTasks() {
     },
     enabled: boards.length > 0
   });
+
+  const updateTaskStatus = useMutation({
+    mutationFn: async ({ id, columnId, order }: { id: number; columnId: number; order: number }) => {
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { columnId, order });
+      return res.json();
+    },
+    onSuccess: () => {
+      // Invalidate both specific board tasks and all tasks
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      boards.forEach(board => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        });
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update task",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const { draggableId, source, destination } = result;
+    const taskId = parseInt(draggableId);
+    const newColumnId = parseInt(destination.droppableId);
+    const newOrder = destination.index;
+
+    updateTaskStatus.mutate({ id: taskId, columnId: newColumnId, order: newOrder });
+  };
 
   const form = useForm({
     resolver: zodResolver(insertTaskSchema),
@@ -200,21 +240,28 @@ export default function AllTasks() {
     'done': 'Done'
   };
 
-  // Group tasks by status
-  const groupedTasks = Object.entries(statusColumns).reduce((acc, [status, label]) => {
-    acc[status] = filteredTasks.filter(task => task.status === status);
-    return acc;
-  }, {} as Record<string, TaskWithDetails[]>);
+  // Define the fixed columns for all tasks
+  const columns = [
+    { id: "backlog", title: "Backlog" },
+    { id: "todo", title: "To Do" },
+    { id: "in-progress", title: "In Progress" },
+    { id: "review", title: "Review" },
+    { id: "done", title: "Done" }
+  ];
+
+  if (tasksLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
 
   return (
-    <div className="container mx-auto p-8">
+    <div className="p-8">
       <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Alle Aufgaben
-          </h1>
-          <p className="text-muted-foreground mt-2">Übersicht aller Aufgaben aus allen Boards</p>
-        </div>
+        <h1 className="text-3xl font-bold">Alle Aufgaben</h1>
         <Button onClick={() => setShowNewTaskForm(true)} className="bg-primary/10 hover:bg-primary/20">
           <Plus className="mr-2 h-4 w-4" />
           Neue Aufgabe
@@ -231,88 +278,22 @@ export default function AllTasks() {
         />
       </div>
 
-      <Tabs defaultValue="kanban" className="mt-6">
-        <TabsList>
-          <TabsTrigger value="kanban">
-            <LayoutGrid className="h-4 w-4 mr-2" />
-            Kanban
-          </TabsTrigger>
-          <TabsTrigger value="list">
-            <LayoutList className="h-4 w-4 mr-2" />
-            Liste
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="kanban" className="mt-6">
-          <div className="grid grid-cols-5 gap-4">
-            {Object.entries(statusColumns).map(([status, title]) => (
-              <div key={status} className="bg-muted/50 rounded-lg p-4">
-                <h3 className="font-semibold mb-4">{title}</h3>
-                <div className="space-y-4">
-                  {groupedTasks[status]?.map((task) => (
-                    <Card
-                      key={task.id}
-                      className={cn(
-                        "cursor-pointer hover:shadow-lg transition-all duration-300",
-                        task.priority === 'high' && "border-t-2 border-t-red-500",
-                        task.priority === 'medium' && "border-t-2 border-t-yellow-500",
-                        task.priority === 'low' && "border-t-2 border-t-green-500"
-                      )}
-                      onClick={() => setSelectedTask(task)}
-                    >
-                      <CardHeader className="p-4">
-                        <CardTitle className="text-base line-clamp-2">
-                          {task.title}
-                        </CardTitle>
-                        {task.description && (
-                          <CardDescription className="text-sm line-clamp-2">
-                            {task.description}
-                          </CardDescription>
-                        )}
-                        <div className="text-xs text-muted-foreground mt-2">
-                          {task.projectTitle} • {task.boardTitle}
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  ))}
-                </div>
-              </div>
+      <div className="flex-1 overflow-x-auto">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex gap-6 pb-4">
+            {columns.map((column) => (
+              <ColumnComponent
+                key={column.id}
+                column={column}
+                tasks={tasks.filter(task => task.status === column.id)}
+                isAllTasksView={true}
+                onUpdate={handleTaskUpdate}
+                onDelete={handleTaskDelete}
+              />
             ))}
           </div>
-        </TabsContent>
-
-        <TabsContent value="list" className="mt-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTasks.map((task) => (
-              <Card
-                key={task.id}
-                className={cn(
-                  "cursor-pointer hover:shadow-lg transition-all duration-300",
-                  task.priority === 'high' && "border-t-2 border-t-red-500",
-                  task.priority === 'medium' && "border-t-2 border-t-yellow-500",
-                  task.priority === 'low' && "border-t-2 border-t-green-500"
-                )}
-                onClick={() => setSelectedTask(task)}
-              >
-                <CardHeader className="p-4">
-                  <CardTitle className="text-base line-clamp-2">
-                    {task.title}
-                  </CardTitle>
-                  {task.description && (
-                    <CardDescription className="text-sm line-clamp-2">
-                      {task.description}
-                    </CardDescription>
-                  )}
-                  <div className="text-xs text-muted-foreground mt-2">
-                    {task.projectTitle} • {task.boardTitle}
-                  </div>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
+        </DragDropContext>
+      </div>
       {selectedTask && (
         <TaskDialog
           open={!!selectedTask}
@@ -322,7 +303,6 @@ export default function AllTasks() {
           onDelete={handleTaskDelete}
         />
       )}
-
       <Dialog open={showNewTaskForm} onOpenChange={setShowNewTaskForm}>
         <DialogContent>
           <DialogHeader>

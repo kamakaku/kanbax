@@ -13,8 +13,6 @@ interface ColumnProps {
   column: {
     id: string | number;
     title?: string;
-    boardId?: number;
-    order?: number;
   };
   tasks: Task[];
   isAllTasksView?: boolean;
@@ -34,12 +32,9 @@ export function Column({ column, tasks = [], isAllTasksView = false }: ColumnPro
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Extrahiere die Werte aus der column Prop
-  const { id, title = 'Untitled' } = column || {};
-
   // Formatiere den Status-Text für die Anzeige
-  const displayTitle = typeof title === 'string' && title ? 
-    (statusLabels[title.toLowerCase()] || title) : 
+  const displayTitle = typeof column.title === 'string' ? 
+    (statusLabels[column.title.toLowerCase()] || column.title) : 
     'Untitled';
 
   return (
@@ -66,9 +61,8 @@ export function Column({ column, tasks = [], isAllTasksView = false }: ColumnPro
       </CardHeader>
       <CardContent className="py-2 px-3 flex flex-col gap-3">
         <Droppable 
-          droppableId={id?.toString() || ""} 
+          droppableId={column.id?.toString() || ""} 
           type="TASK"
-          isDropDisabled={isAllTasksView} 
         >
           {(provided) => (
             <div
@@ -90,7 +84,7 @@ export function Column({ column, tasks = [], isAllTasksView = false }: ColumnPro
         </Droppable>
       </CardContent>
 
-      {!isAllTasksView && isTaskDialogOpen && selectedTask && (
+      {!isAllTasksView && isTaskDialogOpen && (
         <TaskDialog
           open={isTaskDialogOpen}
           onClose={() => setIsTaskDialogOpen(false)}
