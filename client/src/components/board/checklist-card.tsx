@@ -126,8 +126,8 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
+    <Card onMouseDown={(e) => e.stopPropagation()}>
+      <CardContent className="pt-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm font-medium">Checkliste</div>
           {items.length > 0 && (
@@ -172,7 +172,11 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
                 type="submit" 
                 variant="outline" 
                 size="icon" 
-                onClick={(e) => e.stopPropagation()} // Verhindert, dass der Klick zum Dialog-Container propagiert
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }} 
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <Plus className="h-4 w-4" />
               </Button>

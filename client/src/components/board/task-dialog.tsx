@@ -133,7 +133,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {task && !isEditing ? (
           <>
             <DialogHeader className="flex flex-row items-center justify-between pb-6">
