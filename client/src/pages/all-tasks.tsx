@@ -37,22 +37,15 @@ export default function AllTasks() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
+  // Fetch all projects
+  const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) {
-        throw new Error("Failed to fetch projects");
-      }
-      return res.json();
-    },
   });
 
-  const boardQueries = useQuery({
-    queryKey: ["all-boards", projects?.map(p => p.id)],
+  // Fetch all boards for all projects
+  const { data: boards = [] } = useQuery<(Board & { projectTitle: string; projectId: number })[]>({
+    queryKey: ["all-boards"],
     queryFn: async () => {
-      if (!projects) return [];
-
       const allBoards = await Promise.all(
         projects.map(async (project) => {
           const res = await fetch(`/api/projects/${project.id}/boards`);
@@ -65,19 +58,17 @@ export default function AllTasks() {
           }));
         })
       );
-
       return allBoards.flat();
     },
-    enabled: !!projects
+    enabled: projects.length > 0
   });
 
-  const taskQueries = useQuery({
-    queryKey: ["all-tasks", boardQueries.data?.map(b => b.id)],
+  // Fetch tasks from all boards
+  const { data: tasks = [] } = useQuery<TaskWithDetails[]>({
+    queryKey: ["all-tasks"],
     queryFn: async () => {
-      if (!boardQueries.data) return [];
-
       const allTasks = await Promise.all(
-        boardQueries.data.map(async (board) => {
+        boards.map(async (board) => {
           const res = await fetch(`/api/boards/${board.id}/tasks`);
           if (!res.ok) return [];
           const tasks = await res.json();
@@ -89,61 +80,47 @@ export default function AllTasks() {
           }));
         })
       );
-
       return allTasks.flat();
     },
-    enabled: !!boardQueries.data
+    enabled: boards.length > 0
   });
 
-  const form = useForm<InsertTask>({
+  const form = useForm({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
       title: "",
       description: "",
       status: "todo",
-      order: 0,
       priority: "medium",
       labels: [],
+      boardId: undefined,
       columnId: 0,
+      order: 0,
       archived: false,
     },
   });
 
-  const projectBoards = boardQueries.data?.filter(board => board.projectId === selectedProjectId) || [];
+  const projectBoards = boards.filter(board => board.projectId === selectedProjectId);
 
   const createTask = useMutation({
-    mutationFn: async (data: InsertTask) => {
+    mutationFn: async (data: any) => {
       const res = await apiRequest(
         "POST",
         `/api/boards/${data.boardId}/tasks`,
-        {
-          ...data,
-          columnId: 0,
-          order: 0,
-          archived: false,
-        }
+        data
       );
-
       if (!res.ok) {
         throw new Error("Failed to create task");
       }
-
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      boardQueries.data?.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
-        });
-      });
       toast({ title: "Aufgabe erfolgreich erstellt" });
       form.reset();
       setShowNewTaskForm(false);
-      setSelectedProjectId(null);
     },
     onError: (error) => {
-      console.error("Task creation error:", error);
       toast({
         title: "Fehler",
         description: "Die Aufgabe konnte nicht erstellt werden",
@@ -152,53 +129,33 @@ export default function AllTasks() {
     },
   });
 
-  const handleSubmit = async (data: InsertTask) => {
+  const handleTaskUpdate = async (updatedTask: Task) => {
     try {
-      console.log("Form data:", data); 
+      const res = await apiRequest(
+        "PATCH", 
+        `/api/tasks/${updatedTask.id}`,
+        updatedTask
+      );
 
-      if (!data.boardId || !data.title) {
-        console.log("Validation failed:", { data }); 
-        toast({
-          title: "Fehlende Angaben",
-          description: "Bitte wählen Sie ein Board aus und geben Sie einen Titel ein",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const taskData: InsertTask = {
-        ...data,
-        columnId: 0,
-        order: 0,
-        archived: false,
-        status: data.status || "todo",
-        priority: data.priority || "medium",
-        labels: data.labels || [],
-      };
-
-      console.log("Submitting task:", taskData); 
-      await createTask.mutateAsync(taskData);
-    } catch (error) {
-      console.error("Task creation error:", error);
-      toast({
-        title: "Fehler",
-        description: "Die Aufgabe konnte nicht erstellt werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleTaskUpdate = async (updatedTask: UpdateTask) => {
-    try {
-      const res = await apiRequest("PUT", `/api/tasks/${updatedTask.id}`, updatedTask);
       if (!res.ok) {
         throw new Error("Failed to update task");
       }
+
+      // Invalidate queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      boards.forEach(board => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        });
+      });
+
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
     } catch (error) {
       console.error("Task update error:", error);
-      toast({ title: "Fehler beim Aktualisieren der Aufgabe", variant: "destructive" });
+      toast({ 
+        title: "Fehler beim Aktualisieren der Aufgabe", 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -208,28 +165,27 @@ export default function AllTasks() {
       if (!res.ok) {
         throw new Error("Failed to delete task");
       }
+
+      // Invalidate queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      boards.forEach(board => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        });
+      });
+
       setSelectedTask(null);
       toast({ title: "Aufgabe erfolgreich gelöscht" });
     } catch (error) {
       console.error("Task delete error:", error);
-      toast({ title: "Fehler beim Löschen der Aufgabe", variant: "destructive" });
+      toast({ 
+        title: "Fehler beim Löschen der Aufgabe", 
+        variant: "destructive" 
+      });
     }
   };
 
-
-  if (projectsLoading || boardQueries.isLoading || taskQueries.isLoading) {
-    return (
-      <div className="container mx-auto p-8">
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Lädt...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const allTasks = taskQueries.data || [];
-  const filteredTasks = allTasks.filter(task =>
+  const filteredTasks = tasks.filter(task =>
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.boardTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -244,18 +200,11 @@ export default function AllTasks() {
     'done': 'Done'
   };
 
-  const getPriorityStyle = (priority?: string) => {
-    switch (priority) {
-      case 'high':
-        return 'border-t-red-500';
-      case 'medium':
-        return 'border-t-yellow-500';
-      case 'low':
-        return 'border-t-green-500';
-      default:
-        return 'border-t-transparent';
-    }
-  };
+  // Group tasks by status
+  const groupedTasks = Object.entries(statusColumns).reduce((acc, [status, label]) => {
+    acc[status] = filteredTasks.filter(task => task.status === status);
+    return acc;
+  }, {} as Record<string, TaskWithDetails[]>);
 
   return (
     <div className="container mx-auto p-8">
@@ -295,54 +244,37 @@ export default function AllTasks() {
         </TabsList>
 
         <TabsContent value="kanban" className="mt-6">
-          {/* The change is applied here */}
           <div className="grid grid-cols-5 gap-4">
             {Object.entries(statusColumns).map(([status, title]) => (
               <div key={status} className="bg-muted/50 rounded-lg p-4">
                 <h3 className="font-semibold mb-4">{title}</h3>
                 <div className="space-y-4">
-                  {filteredTasks
-                    .filter(task => task.status === status)
-                    .map((task) => (
-                      <Card
-                        key={task.id}
-                        className={cn(
-                          "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
-                          getPriorityStyle(task.priority)
+                  {groupedTasks[status]?.map((task) => (
+                    <Card
+                      key={task.id}
+                      className={cn(
+                        "cursor-pointer hover:shadow-lg transition-all duration-300",
+                        task.priority === 'high' && "border-t-2 border-t-red-500",
+                        task.priority === 'medium' && "border-t-2 border-t-yellow-500",
+                        task.priority === 'low' && "border-t-2 border-t-green-500"
+                      )}
+                      onClick={() => setSelectedTask(task)}
+                    >
+                      <CardHeader className="p-4">
+                        <CardTitle className="text-base line-clamp-2">
+                          {task.title}
+                        </CardTitle>
+                        {task.description && (
+                          <CardDescription className="text-sm line-clamp-2">
+                            {task.description}
+                          </CardDescription>
                         )}
-                        onClick={() => setSelectedTask(task)}
-                      >
-                        <CardHeader className="p-4 space-y-2">
-                          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                            {task.title}
-                          </CardTitle>
-                          {task.description && (
-                            <CardDescription className="text-sm line-clamp-2">
-                              {task.description}
-                            </CardDescription>
-                          )}
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0">
-                          <div className="flex justify-between items-center">
-                            <div className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded">
-                              {statusColumns[task.status as keyof typeof statusColumns] || task.status}
-                            </div>
-                            {task.labels && task.labels.length > 0 && (
-                              <div className="flex gap-1">
-                                {task.labels.map((label, index) => (
-                                  <span
-                                    key={index}
-                                    className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded"
-                                  >
-                                    {label}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                        <div className="text-xs text-muted-foreground mt-2">
+                          {task.projectTitle} • {task.boardTitle}
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  ))}
                 </div>
               </div>
             ))}
@@ -355,33 +287,24 @@ export default function AllTasks() {
               <Card
                 key={task.id}
                 className={cn(
-                  "group hover:shadow-lg transition-all duration-300 cursor-pointer border-t-2",
-                  getPriorityStyle(task.priority)
+                  "cursor-pointer hover:shadow-lg transition-all duration-300",
+                  task.priority === 'high' && "border-t-2 border-t-red-500",
+                  task.priority === 'medium' && "border-t-2 border-t-yellow-500",
+                  task.priority === 'low' && "border-t-2 border-t-green-500"
                 )}
                 onClick={() => setSelectedTask(task)}
               >
-                <CardHeader className="p-4 space-y-2">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                      {task.title}
-                    </CardTitle>
-                    {task.description && (
-                      <CardDescription className="text-sm line-clamp-2">
-                        {task.description}
-                      </CardDescription>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-1 pt-2">
-                    <div className="text-[10px] text-muted-foreground">
-                      {task.projectTitle} • {task.boardTitle}
-                    </div>
-                    {task.dueDate && (
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>{new Date(task.dueDate).toLocaleDateString()}</span>
-                      </div>
-                    )}
+                <CardHeader className="p-4">
+                  <CardTitle className="text-base line-clamp-2">
+                    {task.title}
+                  </CardTitle>
+                  {task.description && (
+                    <CardDescription className="text-sm line-clamp-2">
+                      {task.description}
+                    </CardDescription>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-2">
+                    {task.projectTitle} • {task.boardTitle}
                   </div>
                 </CardHeader>
               </Card>
@@ -392,23 +315,21 @@ export default function AllTasks() {
 
       {selectedTask && (
         <TaskDialog
-          task={selectedTask}
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
+          task={selectedTask}
           onUpdate={handleTaskUpdate}
           onDelete={handleTaskDelete}
-          projects={projects || []}
-          boards={boardQueries.data || []}
         />
       )}
 
       <Dialog open={showNewTaskForm} onOpenChange={setShowNewTaskForm}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(createTask.mutate)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="projectId"
@@ -417,12 +338,9 @@ export default function AllTasks() {
                     <FormLabel>Projekt</FormLabel>
                     <Select
                       onValueChange={(value) => {
-                        const projectId = parseInt(value);
-                        setSelectedProjectId(projectId);
-                        field.onChange(projectId);
-                        form.setValue("boardId", undefined as any);
+                        setSelectedProjectId(parseInt(value));
+                        field.onChange(parseInt(value));
                       }}
-                      defaultValue={field.value?.toString()}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -430,7 +348,7 @@ export default function AllTasks() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {projects?.map((project) => (
+                        {projects.map((project) => (
                           <SelectItem key={project.id} value={project.id.toString()}>
                             {project.title}
                           </SelectItem>
@@ -450,7 +368,6 @@ export default function AllTasks() {
                     <FormLabel>Board</FormLabel>
                     <Select
                       onValueChange={(value) => field.onChange(parseInt(value))}
-                      defaultValue={field.value?.toString()}
                       disabled={!selectedProjectId}
                     >
                       <FormControl>
@@ -478,7 +395,7 @@ export default function AllTasks() {
                   <FormItem>
                     <FormLabel>Titel</FormLabel>
                     <FormControl>
-                      <Input placeholder="Neue Aufgabe" {...field} />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -492,12 +409,7 @@ export default function AllTasks() {
                   <FormItem>
                     <FormLabel>Beschreibung</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Beschreiben Sie die Aufgabe..."
-                        className="min-h-[100px]"
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -517,11 +429,11 @@ export default function AllTasks() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="backlog">Backlog</SelectItem>
-                        <SelectItem value="todo">To Do</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="review">Review</SelectItem>
-                        <SelectItem value="done">Done</SelectItem>
+                        {Object.entries(statusColumns).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -552,32 +464,8 @@ export default function AllTasks() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="labels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Labels (durch Komma getrennt)</FormLabel>
-                    <FormControl>
-                      <Input
-                        value={field.value?.join(", ") || ""}
-                        onChange={(e) => {
-                          const labels = e.target.value
-                            .split(",")
-                            .map((label) => label.trim())
-                            .filter(Boolean);
-                          field.onChange(labels);
-                        }}
-                        placeholder="bug, feature, UI"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button type="submit" className="w-full">
-                Aufgabe erstellen
+              <Button type="submit" disabled={createTask.isPending}>
+                {createTask.isPending ? "Wird erstellt..." : "Aufgabe erstellen"}
               </Button>
             </form>
           </Form>
