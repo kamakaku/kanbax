@@ -22,8 +22,8 @@ interface ColumnProps {
 
 const statusColors: Record<string, { bg: string, border: string, text: string }> = {
   'backlog': { 
-    bg: 'bg-slate-100',
-    border: 'border-slate-200',
+    bg: 'bg-slate-50',
+    border: 'border-slate-100',
     text: 'text-slate-600'
   },
   'todo': { 
@@ -58,7 +58,6 @@ const statusLabels: Record<string, string> = {
 
 export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, onDelete }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
@@ -69,37 +68,37 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
     'Untitled';
 
   return (
-    <Card className={`min-w-[300px] max-w-[300px] h-fit ${columnStyle.bg} border-0 shadow-none`}>
-      <CardHeader className="p-4 pb-2">
+    <Card className={`min-w-[260px] max-w-[260px] h-fit ${columnStyle.bg} border-0 shadow-none`}>
+      <CardHeader className="p-3 pb-2">
         <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-3">
-            <div className={`h-3 w-3 rounded-full ${columnStyle.text.replace('text-', 'bg-')}`} />
-            <h3 className={`font-medium ${columnStyle.text}`}>
+          <div className="flex items-center gap-2">
+            <div className={`h-2 w-2 rounded-full ${columnStyle.text.replace('text-', 'bg-')}`} />
+            <h3 className={`font-medium text-sm ${columnStyle.text}`}>
               {displayTitle}
             </h3>
+            <div className={`px-1.5 rounded text-xs ${columnStyle.text} ${columnStyle.bg} border ${columnStyle.border}`}>
+              {tasks.length}
+            </div>
           </div>
           {!isAllTasksView && (
             <Button
               variant="ghost"
               size="icon"
-              className={`h-7 w-7 hover:bg-white/50 ${columnStyle.text}`}
+              className={`h-6 w-6 hover:bg-white/50 ${columnStyle.text}`}
               onClick={() => setIsTaskDialogOpen(true)}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3 w-3" />
             </Button>
           )}
         </div>
-        <div className={`inline-flex px-2 py-0.5 rounded text-xs ${columnStyle.text} ${columnStyle.bg} border ${columnStyle.border}`}>
-          {tasks.length} {tasks.length === 1 ? 'Aufgabe' : 'Aufgaben'}
-        </div>
       </CardHeader>
-      <CardContent className="p-4 pt-2">
-        <Droppable droppableId={column.title} type="TASK">
+      <CardContent className="p-2">
+        <Droppable droppableId={column.title || ""} type="TASK">
           {(provided, snapshot) => (
             <div
               {...provided.droppableProps}
               ref={provided.innerRef}
-              className={`flex flex-col gap-3 min-h-[50px] transition-colors rounded-lg p-2 ${
+              className={`flex flex-col gap-2 min-h-[50px] transition-colors rounded-lg p-1 ${
                 snapshot.isDraggingOver ? 'bg-white/50' : ''
               }`}
             >
@@ -119,13 +118,18 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         </Droppable>
       </CardContent>
 
-      {!isAllTasksView && selectedTask && (
+      {!isAllTasksView && (
         <TaskDialog
           open={isTaskDialogOpen}
           onClose={() => setIsTaskDialogOpen(false)}
-          task={selectedTask}
-          onUpdate={onUpdate}
-          onDelete={onDelete}
+          onSubmit={async (task) => {
+            if (onUpdate) {
+              await onUpdate(task);
+            }
+            setIsTaskDialogOpen(false);
+          }}
+          projects={[]}
+          boards={[]}
         />
       )}
     </Card>

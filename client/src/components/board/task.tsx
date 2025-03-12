@@ -6,7 +6,8 @@ import { TaskDialog } from "./task-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Users } from "lucide-react";
+import { MessageSquare, User } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface TaskProps {
   task: TaskType & { boardTitle?: string };
@@ -15,10 +16,18 @@ interface TaskProps {
 }
 
 const priorityColors = {
-  low: "bg-blue-500",
-  medium: "bg-orange-500", 
-  high: "bg-red-500"
+  low: "border-blue-400",
+  medium: "border-orange-400",
+  high: "border-red-400"
 } as const;
+
+const labelColors: Record<string, { bg: string, text: string }> = {
+  bug: { bg: "bg-red-100", text: "text-red-700" },
+  feature: { bg: "bg-green-100", text: "text-green-700" },
+  ui: { bg: "bg-purple-100", text: "text-purple-700" },
+  docs: { bg: "bg-blue-100", text: "text-blue-700" },
+  default: { bg: "bg-gray-100", text: "text-gray-700" }
+};
 
 export function Task({ task, index, showBoardTitle = false }: TaskProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -39,6 +48,12 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
     toast({ title: "Aufgabe erfolgreich gelöscht" });
   };
 
+  // Get color for label
+  const getLabelColor = (label: string) => {
+    const normalizedLabel = label.toLowerCase();
+    return labelColors[normalizedLabel] || labelColors.default;
+  };
+
   return (
     <>
       <Draggable 
@@ -54,53 +69,51 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
             ref={provided.innerRef}
             onClick={() => setIsTaskDialogOpen(true)}
           >
-            <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 ${
-              snapshot.isDragging ? "shadow-lg ring-2 ring-primary/20" : "hover:ring-1 hover:ring-primary/10"
+            <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 
+              border-t-2 ${priorityColors[task.priority || "medium"]} ${
+              snapshot.isDragging ? "shadow-lg ring-1 ring-primary/20" : ""
             }`}>
-              <CardContent className="p-4 space-y-3">
-                {/* Priority Indicator */}
-                <div className="flex items-start justify-between">
-                  <div className={`h-2 w-2 rounded-full mt-1 ${priorityColors[task.priority || "medium"]}`} />
-                  {task.assignedTeamId && (
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-
-                {/* Task Title */}
-                <h3 className="font-medium text-sm line-clamp-2">{task.title}</h3>
-
-                {/* Task Description */}
-                {task.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {task.description}
-                  </p>
-                )}
-
+              <CardContent className="p-3">
                 {/* Labels */}
                 {task.labels && task.labels.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {task.labels.map((label, i) => (
-                      <Badge
-                        key={i}
-                        variant="secondary"
-                        className="px-2 py-0.5 text-[10px] bg-secondary/20 hover:bg-secondary/30"
-                      >
-                        {label}
-                      </Badge>
-                    ))}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {task.labels.map((label, i) => {
+                      const color = getLabelColor(label);
+                      return (
+                        <Badge
+                          key={i}
+                          variant="secondary"
+                          className={`px-1.5 py-0.5 text-[10px] ${color.bg} ${color.text} hover:${color.bg}`}
+                        >
+                          {label}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 )}
 
+                {/* Task Title */}
+                <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
+
                 {/* Footer Info */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                  {task.dueDate && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    {/* User Avatar */}
+                    {task.assignedUserId && (
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[10px]">
+                          <User className="h-3 w-3" />
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+
+                    {/* Comment Count */}
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>
-                        {new Date(task.dueDate).toLocaleDateString()}
-                      </span>
+                      <MessageSquare className="h-3 w-3" />
+                      <span>3</span>
                     </div>
-                  )}
+                  </div>
+
                   {showBoardTitle && task.boardTitle && (
                     <span className="text-[10px] font-medium text-primary/80">
                       {task.boardTitle}
