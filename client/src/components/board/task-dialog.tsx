@@ -14,7 +14,7 @@ import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentList } from "@/components/comments/comment-list";
 import { useStore } from "@/lib/store";
-import { Calendar as CalendarIcon, Check, Clock, Edit2, MessageSquare, Plus, User } from "lucide-react";
+import { Calendar as CalendarIcon, Edit2, MessageSquare, Plus, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
@@ -135,10 +135,9 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleAddChecklistItem = async (e?: React.MouseEvent) => {
-    // Prevent dialog from closing
-    e?.preventDefault();
-    e?.stopPropagation();
+  const handleAddChecklistItem = async (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
     if (!newChecklistItem.trim() || !task) return;
 
@@ -175,19 +174,16 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleToggleChecklistItem = async (index: number, e?: React.MouseEvent) => {
-    // Prevent dialog from closing
-    e?.preventDefault();
-    e?.stopPropagation();
+  const handleToggleChecklistItem = async (index: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
     if (!task?.checklist) return;
 
     try {
-      const updatedChecklist = [...task.checklist];
-      updatedChecklist[index] = {
-        ...updatedChecklist[index],
-        checked: !updatedChecklist[index].checked
-      };
+      const updatedChecklist = task.checklist.map((item, i) => 
+        i === index ? { ...item, checked: !item.checked } : item
+      );
 
       const response = await apiRequest(
         "PATCH",
@@ -212,16 +208,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddChecklistItem();
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <Dialog 
+      open={open} 
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         {task && !isEditing ? (
           <>
             <DialogHeader className="flex flex-row items-center justify-between pb-6">
@@ -231,7 +225,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsEditing(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }}
                 className="h-8 w-8"
               >
                 <Edit2 className="h-4 w-4" />
@@ -323,7 +320,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                       <div key={index} className="flex items-center gap-3 group">
                         <Checkbox
                           checked={item.checked}
-                          onCheckedChange={() => handleToggleChecklistItem(index)}
+                          onCheckedChange={(checked) => handleToggleChecklistItem(index, { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
                         />
                         <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
                           {item.text}
@@ -335,13 +332,18 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                         value={newChecklistItem}
                         onChange={(e) => setNewChecklistItem(e.target.value)}
                         placeholder="Neuer Checklistenpunkt"
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAddChecklistItem(e);
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <Button
                         type="button"
                         variant="outline"
                         size="icon"
-                        onClick={handleAddChecklistItem}
+                        onClick={(e) => handleAddChecklistItem(e)}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
@@ -379,16 +381,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   );
 }
 
-function EditForm({
-  form,
-  onSubmit,
-  onDelete,
-  task,
-  newChecklistItem,
-  setNewChecklistItem,
-  onAddChecklistItem,
-  onToggleChecklistItem
-}: any) {
+function EditForm({ form, onSubmit, onDelete, task }: any) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -537,46 +530,6 @@ function EditForm({
                   placeholder="bug, feature, UI"
                 />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="checklist"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Checkliste</FormLabel>
-              <div className="space-y-2">
-                {field.value?.map((item: any, index: number) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Checkbox
-                      checked={item.checked}
-                      onCheckedChange={() => onToggleChecklistItem(index)}
-                    />
-                    <span className={`text-sm ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
-                      {item.text}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex gap-2">
-                  <Input
-                    value={newChecklistItem}
-                    onChange={(e) => setNewChecklistItem(e.target.value)}
-                    placeholder="Neuer Checklistenpunkt"
-                    onKeyPress={(e) => e.key === 'Enter' && onAddChecklistItem()}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={onAddChecklistItem}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
               <FormMessage />
             </FormItem>
           )}
