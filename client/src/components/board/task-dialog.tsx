@@ -13,9 +13,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentList } from "@/components/comments/comment-list";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStore } from "@/lib/store";
-import { Calendar as CalendarIcon, Check, Clock, Edit2, Info, MessageSquare, Plus, User } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Clock, Edit2, MessageSquare, Plus, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,6 +24,7 @@ import { de } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 interface TaskDialogProps {
   task?: Task;
@@ -32,7 +32,6 @@ interface TaskDialogProps {
   onClose: () => void;
   onUpdate?: (updatedTask: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
-  defaultTab?: string;
 }
 
 const statusLabels: Record<string, string> = {
@@ -49,24 +48,12 @@ const priorityLabels: Record<string, string> = {
   'high': 'Hoch'
 };
 
-export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab = "info" }: TaskDialogProps) {
+export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState(defaultTab);
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
   const [newChecklistItem, setNewChecklistItem] = useState("");
-
-  const { data: activities = [] } = useQuery({
-    queryKey: [`/api/tasks/${task?.id}/activities`],
-    queryFn: async () => {
-      if (!task) return [];
-      const res = await fetch(`/api/tasks/${task.id}/activities`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!task
-  });
 
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
@@ -170,139 +157,134 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between pb-6">
-          <DialogTitle className="text-xl">
-            {task ? "Aufgaben-Details" : "Neue Aufgabe erstellen"}
-          </DialogTitle>
-          {task && !isEditing && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsEditing(true)}
-              className="h-8 w-8"
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-          )}
-        </DialogHeader>
-
         {task && !isEditing ? (
-          <div className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="info" className="flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  <span>Info</span>
-                </TabsTrigger>
-                <TabsTrigger value="comments" className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Kommentare</span>
-                </TabsTrigger>
-                <TabsTrigger value="activities" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span>Aktivitäten</span>
-                </TabsTrigger>
-              </TabsList>
+          <>
+            <DialogHeader className="flex flex-row items-center justify-between pb-6">
+              <DialogTitle className="text-xl">
+                {task.title}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditing(true)}
+                className="h-8 w-8"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            </DialogHeader>
 
-              <TabsContent value="info" className="pt-4">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">{task.title}</h3>
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground">{task.description}</p>
-                    )}
+            <div className="space-y-6">
+              {/* Status and Priority */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Status</div>
+                    <Badge variant="outline" className="capitalize">
+                      {statusLabels[task.status]}
+                    </Badge>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Priorität</div>
+                    <Badge variant="outline" className="capitalize">
+                      {priorityLabels[task.priority]}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Description */}
+              {task.description && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Beschreibung</h4>
+                  <p className="text-sm text-muted-foreground">{task.description}</p>
+                </div>
+              )}
+
+              {/* Due Date and Assignee */}
+              <div className="flex items-center justify-between">
+                {task.dueDate && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-sm font-medium mb-1">Status</div>
-                        <Badge variant="outline" className="capitalize">
-                          {statusLabels[task.status]}
-                        </Badge>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-sm font-medium mb-1">Priorität</div>
-                        <Badge variant="outline" className="capitalize">
-                          {priorityLabels[task.priority]}
-                        </Badge>
-                      </CardContent>
-                    </Card>
+                )}
+                {task.assignedUserId && (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">Zugewiesen an</span>
                   </div>
+                )}
+              </div>
 
-                  <div className="flex items-center justify-between">
-                    {task.dueDate && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
-                      </div>
-                    )}
-                    {task.assignedUserId && (
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback>
-                            <User className="h-4 w-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">Zugewiesen an</span>
-                      </div>
-                    )}
+              {/* Labels */}
+              {task.labels && task.labels.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Labels</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {task.labels.map((label, i) => (
+                      <Badge key={i} variant="secondary">
+                        {label}
+                      </Badge>
+                    ))}
                   </div>
+                </div>
+              )}
 
-                  {task.labels && task.labels.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Labels</div>
-                      <div className="flex flex-wrap gap-1">
-                        {task.labels.map((label, i) => (
-                          <Badge key={i} variant="secondary">
-                            {label}
-                          </Badge>
-                        ))}
+              {/* Checklist */}
+              {task.checklist && task.checklist.length > 0 && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm font-medium">Checkliste</div>
+                      <div className="text-sm text-muted-foreground">
+                        {task.checklist.filter(item => item.checked).length} von {task.checklist.length}
                       </div>
                     </div>
-                  )}
-
-                  {task.checklist && task.checklist.length > 0 && (
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="text-sm font-medium">Checkliste</div>
-                          <div className="text-sm text-muted-foreground">
-                            {task.checklist.filter(item => item.checked).length} von {task.checklist.length}
-                          </div>
+                    <Progress
+                      value={(task.checklist.filter(item => item.checked).length / task.checklist.length) * 100}
+                      className="mb-4"
+                    />
+                    <div className="space-y-2">
+                      {task.checklist.map((item, index) => (
+                        <div key={index} className="flex items-center gap-3 group">
+                          <Checkbox
+                            checked={item.checked}
+                            onCheckedChange={() => handleToggleChecklistItem(index)}
+                          />
+                          <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                            {item.text}
+                          </span>
                         </div>
-                        <Progress
-                          value={(task.checklist.filter(item => item.checked).length / task.checklist.length) * 100}
-                          className="mb-4"
-                        />
-                        <div className="space-y-2">
-                          {task.checklist.map((item, index) => (
-                            <div key={index} className="flex items-center gap-3 group">
-                              <Checkbox
-                                checked={item.checked}
-                                onCheckedChange={() => handleToggleChecklistItem(index)}
-                              />
-                              <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
-                                {item.text}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </TabsContent>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-              <TabsContent value="comments" className="pt-4">
+              <Separator />
+
+              {/* Comments */}
+              <div>
+                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Kommentare</span>
+                </h4>
                 <CommentList taskId={task.id} />
-              </TabsContent>
-
-              <TabsContent value="activities" className="pt-4">
+              </div>
+              {/* Activities */}
+              <div>
+                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>Aktivitäten</span>
+                </h4>
                 <div className="space-y-4">
-                  {activities.map((activity: any) => (
+                  {task?.activities?.map((activity: any) => (
                     <div
                       key={activity.id}
                       className="flex items-start gap-3 text-sm text-muted-foreground"
@@ -316,15 +298,15 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
                       </div>
                     </div>
                   ))}
-                  {activities.length === 0 && (
+                  {task?.activities?.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       Keine Aktivitäten vorhanden
                     </p>
                   )}
                 </div>
-              </TabsContent>
-            </Tabs>
-          </div>
+              </div>
+            </div>
+          </>
         ) : (
           <EditForm
             form={form}
