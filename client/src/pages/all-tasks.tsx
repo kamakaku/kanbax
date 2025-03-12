@@ -89,11 +89,21 @@ export default function AllTasks() {
 
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { status, order });
+      // Find the task to get its current board and column information
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+
+      // Update both status and columnId
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
+        status,
+        order,
+        // Behalte die ursprüngliche columnId bei
+        columnId: task.columnId
+      });
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate both specific board tasks and all tasks
+      // Invalidate both all tasks and specific board tasks
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 

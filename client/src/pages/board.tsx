@@ -15,7 +15,7 @@ import { useLocation } from "wouter";
 export default function Board() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { currentBoard, setCurrentBoard, setBoards } = useStore();
+  const { currentBoard, setCurrentBoard } = useStore();
 
   // Redirect to projects page if no board is selected
   useEffect(() => {
@@ -84,14 +84,16 @@ export default function Board() {
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, columnId, order }: { id: number; columnId: number; order: number }) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { columnId, order });
+    mutationFn: async ({ id, columnId, order, status }: { id: number; columnId: number; order: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { columnId, order, status });
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate both specific board tasks and all tasks
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
     },
     onError: (error) => {
       toast({
@@ -105,12 +107,74 @@ export default function Board() {
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
-    const { draggableId, source, destination } = result;
+    const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
     const newColumnId = parseInt(destination.droppableId);
     const newOrder = destination.index;
 
-    updateTaskStatus.mutate({ id: taskId, columnId: newColumnId, order: newOrder });
+    // Find the column to get its status
+    const column = columns.find(col => col.id === newColumnId);
+    if (!column) return;
+
+    updateTaskStatus.mutate({ 
+      id: taskId, 
+      columnId: newColumnId, 
+      order: newOrder,
+      status: column.title?.toLowerCase() || 'todo'
+    });
+  };
+
+  const handleTaskUpdate = async (updatedTask: Task) => {
+    try {
+      const res = await apiRequest(
+        "PATCH",
+        `/api/tasks/${updatedTask.id}`,
+        updatedTask
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to update task");
+      }
+
+      // Invalidate both specific board tasks and all tasks
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+
+      toast({ title: "Task updated successfully" });
+    } catch (error) {
+      console.error("Task update error:", error);
+      toast({
+        title: "Failed to update task",
+        description: "Could not update the task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTaskDelete = async (taskId: number) => {
+    try {
+      const res = await apiRequest("DELETE", `/api/tasks/${taskId}`);
+      if (!res.ok) {
+        throw new Error("Failed to delete task");
+      }
+
+      // Invalidate both specific board tasks and all tasks
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+
+      toast({ title: "Task deleted successfully" });
+    } catch (error) {
+      console.error("Task delete error:", error);
+      toast({
+        title: "Failed to delete task",
+        description: "Could not delete the task",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!currentBoard) {
@@ -140,6 +204,8 @@ export default function Board() {
                 key={column.id}
                 column={column}
                 tasks={tasks.filter(task => task.columnId === column.id)}
+                onUpdate={handleTaskUpdate}
+                onDelete={handleTaskDelete}
               />
             ))}
             <Button
