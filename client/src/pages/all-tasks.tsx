@@ -247,10 +247,7 @@ export default function AllTasks() {
       newOrder: destination.index,
       sourceColumnTasks: source.droppableId === destination.droppableId ? null : sourceColumnTasks,
       destinationColumnTasks
-    });n;
-
-    const { source, destination, draggableId } = result;
-    const taskId = parseInt(draggableId);
+    });
 
     // Get all tasks in source column
     const sourceColumnTasks = filteredTasks
