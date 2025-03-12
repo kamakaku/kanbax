@@ -135,15 +135,19 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleAddChecklistItem = async () => {
+  const handleAddChecklistItem = async (e?: React.MouseEvent) => {
+    // Prevent dialog from closing
+    e?.preventDefault();
+    e?.stopPropagation();
+
     if (!newChecklistItem.trim() || !task) return;
 
-    const updatedChecklist = [
-      ...(task.checklist || []),
-      { text: newChecklistItem, checked: false }
-    ];
-
     try {
+      const updatedChecklist = [
+        ...(task.checklist || []),
+        { text: newChecklistItem, checked: false }
+      ];
+
       const response = await apiRequest(
         "PATCH",
         `/api/tasks/${task.id}`,
@@ -155,6 +159,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       }
 
       const updatedTask = await response.json();
+
       if (onUpdate) {
         await onUpdate(updatedTask);
       }
@@ -170,16 +175,20 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleToggleChecklistItem = async (index: number) => {
+  const handleToggleChecklistItem = async (index: number, e?: React.MouseEvent) => {
+    // Prevent dialog from closing
+    e?.preventDefault();
+    e?.stopPropagation();
+
     if (!task?.checklist) return;
 
-    const updatedChecklist = [...task.checklist];
-    updatedChecklist[index] = {
-      ...updatedChecklist[index],
-      checked: !updatedChecklist[index].checked
-    };
-
     try {
+      const updatedChecklist = [...task.checklist];
+      updatedChecklist[index] = {
+        ...updatedChecklist[index],
+        checked: !updatedChecklist[index].checked
+      };
+
       const response = await apiRequest(
         "PATCH",
         `/api/tasks/${task.id}`,
@@ -203,9 +212,16 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddChecklistItem();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {task && !isEditing ? (
           <>
             <DialogHeader className="flex flex-row items-center justify-between pb-6">
@@ -319,7 +335,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                         value={newChecklistItem}
                         onChange={(e) => setNewChecklistItem(e.target.value)}
                         placeholder="Neuer Checklistenpunkt"
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddChecklistItem()}
+                        onKeyPress={handleKeyPress}
                       />
                       <Button
                         type="button"
