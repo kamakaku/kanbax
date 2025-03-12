@@ -24,6 +24,7 @@ import { de } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { ChecklistCard } from "./checklist-card";
 
 interface TaskDialogProps {
   task?: Task;
@@ -52,7 +53,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
-  const [newItem, setNewItem] = useState("");
 
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
@@ -129,63 +129,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       toast({
         title: "Fehler",
         description: "Die Aufgabe konnte nicht gelöscht werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleChecklistSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItem.trim() || !task || !onUpdate) return;
-
-    try {
-      const updatedChecklist = [
-        ...(task.checklist || []),
-        { text: newItem.trim(), checked: false }
-      ];
-
-      const response = await apiRequest(
-        "PATCH",
-        `/api/tasks/${task.id}`,
-        { checklist: updatedChecklist }
-      );
-
-      if (!response.ok) throw new Error("Failed to add checklist item");
-
-      const updatedTask = await response.json();
-      await onUpdate(updatedTask);
-      setNewItem("");
-    } catch (error) {
-      toast({
-        title: "Fehler",
-        description: "Der Checklistenpunkt konnte nicht hinzugefügt werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleChecklistItemToggle = async (index: number) => {
-    if (!task?.checklist || !onUpdate) return;
-
-    try {
-      const updatedChecklist = task.checklist.map((item, i) => 
-        i === index ? { ...item, checked: !item.checked } : item
-      );
-
-      const response = await apiRequest(
-        "PATCH",
-        `/api/tasks/${task.id}`,
-        { checklist: updatedChecklist }
-      );
-
-      if (!response.ok) throw new Error("Failed to update checklist item");
-
-      const updatedTask = await response.json();
-      await onUpdate(updatedTask);
-    } catch (error) {
-      toast({
-        title: "Fehler",
-        description: "Der Checklistenpunkt konnte nicht aktualisiert werden",
         variant: "destructive",
       });
     }
@@ -269,54 +212,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 </div>
               )}
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm font-medium">Checkliste</div>
-                    {task.checklist && task.checklist.length > 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        {task.checklist.filter(item => item.checked).length} von {task.checklist.length}
-                      </div>
-                    )}
-                  </div>
-
-                  {task.checklist && task.checklist.length > 0 && (
-                    <Progress
-                      value={(task.checklist.filter(item => item.checked).length / task.checklist.length) * 100}
-                      className="mb-4"
-                    />
-                  )}
-
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      {task.checklist?.map((item, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={item.checked}
-                            onChange={() => handleChecklistItemToggle(index)}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
-                            {item.text}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <form onSubmit={handleChecklistSubmit} className="flex gap-2">
-                      <Input
-                        value={newItem}
-                        onChange={(e) => setNewItem(e.target.value)}
-                        placeholder="Neuer Checklistenpunkt"
-                      />
-                      <Button type="submit" variant="outline" size="icon">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </form>
-                  </div>
-                </CardContent>
-              </Card>
+              {onUpdate && <ChecklistCard task={task} onUpdate={onUpdate} />}
 
               <Separator />
 
