@@ -85,7 +85,16 @@ export default function Board() {
 
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, columnId, order, status }: { id: number; columnId: number; order: number; status: string }) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { columnId, order, status });
+      // Find the task to get its current board information
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
+        columnId, 
+        order, 
+        status,
+        boardId: task.boardId // Keep the original boardId
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -116,11 +125,14 @@ export default function Board() {
     const column = columns.find(col => col.id === newColumnId);
     if (!column) return;
 
+    // Get the status from the column title
+    const newStatus = column.title?.toLowerCase() || 'todo';
+
     updateTaskStatus.mutate({ 
       id: taskId, 
       columnId: newColumnId, 
       order: newOrder,
-      status: column.title?.toLowerCase() || 'todo'
+      status: newStatus
     });
   };
 

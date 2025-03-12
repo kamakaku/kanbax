@@ -93,12 +93,16 @@ export default function AllTasks() {
       const task = tasks.find(t => t.id === id);
       if (!task) return;
 
-      // Update both status and columnId
+      // Find the corresponding board
+      const board = boards.find(b => b.id === task.boardId);
+      if (!board) return;
+
+      // Update status, keep the original columnId and boardId
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
         status,
         order,
-        // Behalte die ursprüngliche columnId bei
-        columnId: task.columnId
+        boardId: task.boardId,
+        columnId: task.columnId // Keep the original columnId
       });
       return res.json();
     },
@@ -125,10 +129,14 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    const newStatus = destination.droppableId;
+    const newStatus = destination.droppableId; // The status is the column ID in AllTasks view
     const newOrder = destination.index;
 
-    updateTaskStatus.mutate({ id: taskId, status: newStatus, order: newOrder });
+    updateTaskStatus.mutate({ 
+      id: taskId, 
+      status: newStatus,
+      order: newOrder
+    });
   };
 
   const handleTaskUpdate = async (updatedTask: Task) => {
