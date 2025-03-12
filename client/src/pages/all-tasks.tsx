@@ -9,12 +9,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type Location } from "wouter";
+import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { LayoutGrid, LayoutList, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { TaskDialog } from "@/components/board/task-dialog";
@@ -26,7 +25,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTaskSchema } from "@shared/schema";
 
-
 interface TaskWithDetails extends Task {
   boardTitle: string;
   projectTitle: string;
@@ -34,7 +32,7 @@ interface TaskWithDetails extends Task {
 }
 
 export default function AllTasks() {
-  const [, setLocation] = useLocation<Location>();
+  const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
