@@ -43,6 +43,7 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
   const handleAddItem = async (e: React.FormEvent) => {
     // Verhindern der Standardaktion des Formulars (wie z.B. ein Neuladen der Seite)
     e.preventDefault();
+    e.stopPropagation(); // Stoppen der Event-Propagation, um zu verhindern, dass das Event zum übergeordneten Dialog gelangt
     
     if (!newItemTitle.trim()) return;
 
@@ -167,7 +168,12 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
                 onChange={(e) => setNewItemTitle(e.target.value)}
                 placeholder="Neuer Checklistenpunkt"
               />
-              <Button type="submit" variant="outline" size="icon">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                size="icon" 
+                onClick={(e) => e.stopPropagation()} // Verhindert, dass der Klick zum Dialog-Container propagiert
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </form>
