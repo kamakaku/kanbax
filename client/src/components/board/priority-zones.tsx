@@ -61,42 +61,7 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
   return (
     <DragDropContext onDragEnd={handlePriorityDrop}>
       <div className="space-y-4">
-        {/* Current Priority Marker */}
-        <Droppable droppableId="current-priority">
-          {(provided) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className="mb-8"
-            >
-              <Draggable
-                draggableId="priority-marker"
-                index={0}
-              >
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    className={`p-3 rounded-lg border-2 ${
-                      snapshot.isDragging ? "border-primary shadow-lg" : "border-primary"
-                    } bg-primary/10 cursor-move`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        priorityZones.find(p => p.id === task.priority)?.color
-                      }`} />
-                      <span className="font-medium">Aktuelle Priorität</span>
-                    </div>
-                  </div>
-                )}
-              </Draggable>
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-
-        {/* Priority Drop Zones */}
+        {/* Priority drop zones */}
         {priorityZones.map((zone) => (
           <Droppable key={zone.id} droppableId={zone.id}>
             {(provided, snapshot) => (
@@ -113,6 +78,26 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
                   <div className={`w-3 h-3 rounded-full ${zone.color}`} />
                   <span className="font-medium">{zone.label}</span>
                 </div>
+                {zone.id === task.priority && (
+                  <Draggable
+                    draggableId={`task-${task.id}`}
+                    index={0}
+                  >
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        className="mt-2 p-3 rounded-lg border border-primary bg-primary/10 cursor-move"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${zone.color}`} />
+                          <span className="font-medium">Aktuelle Aufgabe</span>
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                )}
                 {provided.placeholder}
               </div>
             )}
