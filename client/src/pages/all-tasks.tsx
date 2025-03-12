@@ -29,7 +29,6 @@ interface TaskWithDetails extends Task {
   projectId: number;
 }
 
-// Definiere die Standard-Spalten mit korrekten Status-Werten
 const defaultColumns = [
   { id: "backlog", title: "backlog" },
   { id: "todo", title: "todo" },
@@ -104,181 +103,93 @@ export default function AllTasks() {
     enabled: boards.length > 0
   });
 
-  const updateTaskPriority = useMutation({
-    mutationFn: async ({ taskId, newPriority }: { taskId: number; newPriority: string }) => {
-      // Simplify the API call to only update priority
-      const res = await apiRequest(
-        "PATCH",
-        `/api/tasks/${taskId}`,
-        { priority: newPriority }
-      );
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
 
-      if (!res.ok) throw new Error("Failed to update task priority");
-      return res.json();
-    },
-    onSuccess: () => {
-      // Invalidate all relevant queries
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      boards.forEach(board => {
-        queryClient.invalidateQueries({
-          queryKey: [`/api/boards/${board.id}/tasks`]
-        });
-      });
-      toast({ title: "Priorität erfolgreich aktualisiert" });
-    },
-    onError: (error) => {
-      console.error("Priority update error:", error);
-      toast({
-        title: "Fehler",
-        description: "Die Priorität konnte nicht aktualisiert werden",
-        variant: "destructive",
-      });
-    },
-  });
+    const { source, destination, draggableId } = result;
+    const taskId = parseInt(draggableId);
 
-  const updateTaskOrder = useMutation({
-    mutationFn: async ({
-      taskId,
-      newStatus,
-      newOrder,
-      sourceColumnTasks,
-      destinationColumnTasks
-    }: {
-      taskId: number;
-      newStatus: string;
-      newOrder: number;
-      sourceColumnTasks: Task[];
-      destinationColumnTasks: Task[];
-    }) => {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) throw new Error("Task not found");
+    // Get the task being moved
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
+    // Get all tasks in source column before the move
+    const tasksInSourceColumn = tasks
+      .filter(t => t.status === source.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Get all tasks in destination column before the move
+    const tasksInDestColumn = tasks
+      .filter(t => t.status === destination.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Remove task from source array
+    tasksInSourceColumn.splice(source.index, 1);
+
+    // Insert task at new position
+    if (source.droppableId === destination.droppableId) {
+      tasksInSourceColumn.splice(destination.index, 0, task);
+    } else {
+      tasksInDestColumn.splice(destination.index, 0, task);
+    }
+
+    try {
       // Prepare updates for all affected tasks
       const updates = [];
 
-      // Update tasks in source column
-      if (sourceColumnTasks) {
-        updates.push(...sourceColumnTasks.map((t, index) => ({
+      // Update order for source column tasks
+      if (source.droppableId === destination.droppableId) {
+        updates.push(...tasksInSourceColumn.map((t, index) => ({
           id: t.id,
-          status: t.status,
           order: index,
+          status: t.status,
           boardId: t.boardId,
           columnId: t.columnId
         })));
+      } else {
+        // Update both columns
+        updates.push(
+          ...tasksInSourceColumn.map((t, index) => ({
+            id: t.id,
+            order: index,
+            status: source.droppableId,
+            boardId: t.boardId,
+            columnId: t.columnId
+          })),
+          ...tasksInDestColumn.map((t, index) => ({
+            id: t.id,
+            order: index,
+            status: destination.droppableId,
+            boardId: t.boardId,
+            columnId: t.columnId
+          }))
+        );
       }
-
-      // Update tasks in destination column
-      if (destinationColumnTasks) {
-        updates.push(...destinationColumnTasks.map((t, index) => ({
-          id: t.id,
-          status: t.status,
-          order: index,
-          boardId: t.boardId,
-          columnId: t.columnId
-        })));
-      }
-
-      // Update the dragged task
-      updates.push({
-        id: taskId,
-        status: newStatus,
-        order: newOrder,
-        boardId: task.boardId, // Preserve original board
-        columnId: task.columnId // Preserve original column
-      });
 
       // Execute all updates
-      const results = await Promise.all(
+      await Promise.all(
         updates.map(update =>
           apiRequest("PATCH", `/api/tasks/${update.id}`, update)
         )
       );
 
-      if (results.some(res => !res.ok)) {
-        throw new Error("Failed to update task order");
-      }
-
-      return results;
-    },
-    onSuccess: () => {
-      // Invalidate queries for all boards
+      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({
           queryKey: [`/api/boards/${board.id}/tasks`]
         });
       });
-    },
-    onError: (error) => {
+
+      toast({ title: "Aufgabenreihenfolge aktualisiert" });
+    } catch (error) {
       console.error("Order update error:", error);
       toast({
         title: "Fehler",
         description: "Die Reihenfolge konnte nicht aktualisiert werden",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
-  });
-
-
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    
-    const { source, destination, draggableId } = result;
-    const taskId = parseInt(draggableId);
-    
-    // Get the task being moved
-    const task = filteredTasks.find(t => t.id === taskId);
-    if (!task) return;
-    
-    // Get all tasks in source column
-    const sourceColumnTasks = filteredTasks
-      .filter(t => t.status === source.droppableId)
-      .sort((a, b) => a.order - b.order);
-    
-    // Get all tasks in destination column
-    const destinationColumnTasks = filteredTasks
-      .filter(t => t.status === destination.droppableId)
-      .sort((a, b) => a.order - b.order);
-    
-    // Update task order
-    updateTaskOrder.mutate({
-      taskId,
-      newStatus: destination.droppableId,
-      newOrder: destination.index,
-      sourceColumnTasks: source.droppableId === destination.droppableId ? null : sourceColumnTasks,
-      destinationColumnTasks
-    });
-
-    // Get all tasks in source column
-    const sourceColumnTasks = filteredTasks
-      .filter(t => t.status === source.droppableId)
-      .sort((a, b) => a.order - b.order);
-
-    // Get all tasks in destination column
-    const destinationColumnTasks = filteredTasks
-      .filter(t => t.status === destination.droppableId)
-      .sort((a, b) => a.order - b.order);
-
-    // Remove task from source array
-    const [movedTask] = sourceColumnTasks.splice(source.index, 1);
-
-    // Insert task at new position
-    if (source.droppableId === destination.droppableId) {
-      // Same column
-      sourceColumnTasks.splice(destination.index, 0, movedTask);
-    } else {
-      // Different column
-      destinationColumnTasks.splice(destination.index, 0, movedTask);
-    }
-
-    // Update task order
-    updateTaskOrder.mutate({
-      taskId,
-      newStatus: destination.droppableId,
-      newOrder: destination.index,
-      sourceColumnTasks: source.droppableId === destination.droppableId ? null : sourceColumnTasks,
-      destinationColumnTasks
-    });
   };
 
   const handleTaskUpdate = async (updatedTask: Task) => {
@@ -448,36 +359,6 @@ export default function AllTasks() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => createTask.mutate(data))} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="projectId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Projekt</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        setSelectedProjectId(parseInt(value));
-                        field.onChange(parseInt(value));
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Wählen Sie ein Projekt" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id.toString()}>
-                            {project.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="boardId"
