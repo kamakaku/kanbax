@@ -24,7 +24,6 @@ import { de } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { ChecklistCard } from "./checklist-card";
 
 interface TaskDialogProps {
   task?: Task;
@@ -53,6 +52,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
+  const [newChecklistItem, setNewChecklistItem] = useState("");
 
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
@@ -93,13 +93,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       }
 
       const updatedTask = await response.json();
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
-        queryClient.invalidateQueries({
-          queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`]
-        })
-      ]);
+      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      await queryClient.invalidateQueries({
+        queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`]
+      });
 
       if (onUpdate) {
         await onUpdate(updatedTask);
@@ -133,6 +130,61 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       });
     }
   };
+
+  // Simplified checklist functions
+  async function addChecklistItem(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (!task || !newChecklistItem.trim() || !onUpdate) return;
+
+    const updatedTask = {
+      ...task,
+      checklist: [...(task.checklist || []), { text: newChecklistItem.trim(), checked: false }]
+    };
+
+    try {
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        checklist: updatedTask.checklist
+      });
+
+      if (!response.ok) throw new Error();
+
+      const result = await response.json();
+      await onUpdate(result);
+      setNewChecklistItem("");
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Konnte Checklistenpunkt nicht hinzufügen",
+        variant: "destructive"
+      });
+    }
+  }
+
+  async function toggleChecklistItem(index: number) {
+    if (!task || !onUpdate) return;
+
+    const updatedChecklist = task.checklist?.map((item, i) => 
+      i === index ? { ...item, checked: !item.checked } : item
+    ) || [];
+
+    try {
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        checklist: updatedChecklist
+      });
+
+      if (!response.ok) throw new Error();
+
+      const result = await response.json();
+      await onUpdate(result);
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Konnte Checklistenpunkt nicht aktualisieren",
+        variant: "destructive"
+      });
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -212,7 +264,55 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 </div>
               )}
 
-              {onUpdate && <ChecklistCard task={task} onUpdate={onUpdate} />}
+              {/* Checklist */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm font-medium">Checkliste</div>
+                    {task.checklist && task.checklist.length > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        {task.checklist.filter(item => item.checked).length} von {task.checklist.length}
+                      </div>
+                    )}
+                  </div>
+
+                  {task.checklist && task.checklist.length > 0 && (
+                    <Progress
+                      value={(task.checklist.filter(item => item.checked).length / task.checklist.length) * 100}
+                      className="mb-4"
+                    />
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      {task.checklist?.map((item, index) => (
+                        <div key={index} className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => toggleChecklistItem(index)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                            {item.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <form onSubmit={addChecklistItem} className="flex gap-2">
+                      <Input
+                        value={newChecklistItem}
+                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                        placeholder="Neuer Checklistenpunkt"
+                      />
+                      <Button type="submit" variant="outline" size="icon">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </form>
+                  </div>
+                </CardContent>
+              </Card>
 
               <Separator />
 
