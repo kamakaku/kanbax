@@ -16,9 +16,9 @@ interface TaskProps {
 }
 
 const priorityColors = {
-  low: "border-blue-400",
-  medium: "border-orange-400",
-  high: "border-red-400"
+  low: "border-t-blue-400",
+  medium: "border-t-orange-400",
+  high: "border-t-red-400"
 } as const;
 
 const labelColors: Record<string, { bg: string, text: string }> = {
@@ -70,7 +70,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
             onClick={() => setIsTaskDialogOpen(true)}
           >
             <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 
-              border-t-2 ${priorityColors[task.priority || "medium"]} ${
+              border-t-2 border-slate-200 ${priorityColors[task.priority || "medium"]} ${
               snapshot.isDragging ? "shadow-lg ring-1 ring-primary/20" : ""
             }`}>
               <CardContent className="p-3">
