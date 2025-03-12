@@ -15,7 +15,31 @@ const defaultColumns = [
   { id: "done", title: "Done" }
 ];
 
-function AllTasks() {
+// Hilfsfunktion zur Berechnung der neuen Reihenfolge
+function calculateNewOrder(tasks: Task[], sourceIndex: number, destinationIndex: number): number {
+  if (tasks.length === 0) return 0;
+  if (tasks.length === 1) return 1000;
+
+  // Sortiere Tasks nach order
+  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
+
+  if (destinationIndex === 0) {
+    // Am Anfang einfügen
+    return sortedTasks[0].order - 1000;
+  }
+
+  if (destinationIndex >= tasks.length) {
+    // Am Ende einfügen
+    return sortedTasks[sortedTasks.length - 1].order + 1000;
+  }
+
+  // Zwischen zwei Tasks einfügen
+  const prevOrder = sortedTasks[destinationIndex - 1].order;
+  const nextOrder = sortedTasks[destinationIndex].order;
+  return prevOrder + (nextOrder - prevOrder) / 2;
+}
+
+export default function AllTasks() {
   console.log("AllTasks component mounting...");
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -35,16 +59,16 @@ function AllTasks() {
     }
   });
 
-  const { data: boards = [] } = useQuery({
-    queryKey: ["/api/boards"],
-    queryFn: async () => {
-      console.log("Fetching boards...");
-      const res = await apiRequest("GET", "/api/boards");
-      if (!res.ok) throw new Error("Failed to fetch boards");
-      const data = await res.json();
-      console.log("Fetched boards:", data.length);
-      return data;
-    }
+  // Filter tasks based on search
+  const filteredTasks = tasks.filter((task) =>
+    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.status.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  console.log("Rendering AllTasks with:", {
+    totalTasks: tasks.length,
+    filteredTasks: filteredTasks.length
   });
 
   const handleDragEnd = async (result: DropResult) => {
@@ -56,13 +80,26 @@ function AllTasks() {
     const taskId = parseInt(draggableId);
 
     try {
-      // Vereinfachte Version: Nur die Position der gezogenen Task aktualisieren
+      // Hole alle Tasks in der Zielspalte für die Neuordnung
+      const tasksInColumn = tasks
+        .filter(t => t.status === destination.droppableId)
+        .sort((a, b) => a.order - b.order);
+
+      // Berechne die neue Order
+      const newOrder = calculateNewOrder(
+        tasksInColumn.filter(t => t.id !== taskId), // Exclude the dragged task
+        source.index,
+        destination.index
+      );
+
       console.log("Updating task position:", {
         taskId,
         source,
-        destination
+        destination,
+        newOrder
       });
 
+      // Update der verschobenen Task
       const task = tasks.find(t => t.id === taskId);
       if (!task) {
         console.error("Task not found:", taskId);
@@ -71,7 +108,8 @@ function AllTasks() {
 
       const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
         status: destination.droppableId,
-        order: destination.index
+        order: newOrder,
+        boardId: task.boardId
       });
 
       if (!res.ok) {
@@ -79,7 +117,7 @@ function AllTasks() {
       }
 
       console.log("Task update successful");
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       toast({ title: "Aufgabenreihenfolge aktualisiert" });
     } catch (error) {
       console.error("Task update error:", error);
@@ -90,20 +128,6 @@ function AllTasks() {
       });
     }
   };
-
-  // Filter tasks based on search
-  const filteredTasks = tasks.filter((task) =>
-    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.boardTitle?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  console.log("Rendering AllTasks with:", {
-    totalTasks: tasks.length,
-    filteredTasks: filteredTasks.length,
-    boards: boards.length
-  });
 
   return (
     <div className="container mx-auto p-4">
@@ -128,7 +152,7 @@ function AllTasks() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`space-y-2 min-h-[100px] ${
+                    className={`space-y-2 min-h-[100px] rounded-lg transition-colors ${
                       snapshot.isDraggingOver ? "bg-muted/50" : ""
                     }`}
                   >
@@ -152,11 +176,6 @@ function AllTasks() {
                               onClick={() => setSelectedTask(task)}
                             >
                               <h3 className="font-medium">{task.title}</h3>
-                              {task.boardTitle && (
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  Board: {task.boardTitle}
-                                </p>
-                              )}
                             </div>
                           )}
                         </Draggable>
@@ -208,5 +227,3 @@ function AllTasks() {
     </div>
   );
 }
-
-export default AllTasks;
