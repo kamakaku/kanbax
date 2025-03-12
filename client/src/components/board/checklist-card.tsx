@@ -40,7 +40,10 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
   }, [task.id]);
 
   // Neues Item hinzufügen
-  const handleAddItem = async () => {
+  const handleAddItem = async (e: React.FormEvent) => {
+    // Verhindern der Standardaktion des Formulars (wie z.B. ein Neuladen der Seite)
+    e.preventDefault();
+    
     if (!newItemTitle.trim()) return;
 
     try {
@@ -157,10 +160,7 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
           <div className="flex gap-2">
             <form 
               className="flex gap-2 w-full" 
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleAddItem();
-              }}
+              onSubmit={handleAddItem}
             >
               <Input
                 value={newItemTitle}
