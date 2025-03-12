@@ -1,3 +1,9 @@
+import { useState } from "react";
+import { type Task as TaskType } from "@shared/schema";
+import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Draggable } from "react-beautiful-dnd";
+import { TaskDialog } from "./task-dialog";
+
 interface TaskProps {
   task: TaskType & { boardTitle?: string };
   index: number;
