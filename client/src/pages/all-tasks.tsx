@@ -10,7 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLocation } from "wouter";
+// useLocation is already imported elsewhere
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
@@ -108,12 +108,12 @@ export default function AllTasks() {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-    
+
     // Keine Änderung, wenn an gleicher Position
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
     }
-    
+
     const taskId = parseInt(draggableId);
 
     // Finde die zu bewegende Aufgabe
@@ -131,16 +131,16 @@ export default function AllTasks() {
       : [...tasks]
           .filter(t => t.status === destination.droppableId)
           .sort((a, b) => a.order - b.order);
-    
+
     // Erstelle Kopien, um die Aufgaben neu anzuordnen
     const newSrcTasks = [...tasksInSrcColumn];
     const newDestTasks = source.droppableId === destination.droppableId 
       ? newSrcTasks 
       : [...tasksInDestColumn];
-    
+
     // Entferne Aufgabe aus Quellspalte
     newSrcTasks.splice(source.index, 1);
-    
+
     // Füge Aufgabe in Zielspalte ein
     if (source.droppableId === destination.droppableId) {
       newSrcTasks.splice(destination.index, 0, movedTask);
