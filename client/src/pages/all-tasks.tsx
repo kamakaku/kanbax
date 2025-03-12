@@ -10,11 +10,9 @@ import { queryClient } from "@/lib/queryClient";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { TaskDialog } from "@/components/board/task-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -90,8 +88,8 @@ export default function AllTasks() {
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, columnId, order }: { id: number; columnId: number; order: number }) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { columnId, order });
+    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { status, order });
       return res.json();
     },
     onSuccess: () => {
@@ -115,57 +113,13 @@ export default function AllTasks() {
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
-    const { draggableId, source, destination } = result;
+    const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    const newColumnId = parseInt(destination.droppableId);
+    const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
-    updateTaskStatus.mutate({ id: taskId, columnId: newColumnId, order: newOrder });
+    updateTaskStatus.mutate({ id: taskId, status: newStatus, order: newOrder });
   };
-
-  const form = useForm({
-    resolver: zodResolver(insertTaskSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      status: "todo",
-      priority: "medium",
-      labels: [],
-      boardId: undefined,
-      columnId: 0,
-      order: 0,
-      archived: false,
-    },
-  });
-
-  const projectBoards = boards.filter(board => board.projectId === selectedProjectId);
-
-  const createTask = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await apiRequest(
-        "POST",
-        `/api/boards/${data.boardId}/tasks`,
-        data
-      );
-      if (!res.ok) {
-        throw new Error("Failed to create task");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      toast({ title: "Aufgabe erfolgreich erstellt" });
-      form.reset();
-      setShowNewTaskForm(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Fehler",
-        description: "Die Aufgabe konnte nicht erstellt werden",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleTaskUpdate = async (updatedTask: Task) => {
     try {
@@ -240,12 +194,57 @@ export default function AllTasks() {
 
   // Define the fixed columns for all tasks
   const columns = [
-    { id: "backlog", title: "Backlog" },
-    { id: "todo", title: "To Do" },
-    { id: "in-progress", title: "In Progress" },
-    { id: "review", title: "Review" },
-    { id: "done", title: "Done" }
+    { id: "backlog", title: "backlog" },
+    { id: "todo", title: "todo" },
+    { id: "in-progress", title: "in-progress" },
+    { id: "review", title: "review" },
+    { id: "done", title: "done" }
   ];
+
+  const form = useForm({
+    resolver: zodResolver(insertTaskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      labels: [],
+      boardId: undefined,
+      columnId: 0,
+      order: 0,
+      archived: false,
+    },
+  });
+
+  const projectBoards = boards.filter(board => board.projectId === selectedProjectId);
+
+  const createTask = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/boards/${data.boardId}/tasks`,
+        data
+      );
+      if (!res.ok) {
+        throw new Error("Failed to create task");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      toast({ title: "Aufgabe erfolgreich erstellt" });
+      form.reset();
+      setShowNewTaskForm(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    },
+  });
+
 
   if (tasksLoading) {
     return (
@@ -254,7 +253,6 @@ export default function AllTasks() {
       </div>
     );
   }
-
 
   return (
     <div className="p-8">
@@ -283,7 +281,7 @@ export default function AllTasks() {
               <ColumnComponent
                 key={column.id}
                 column={column}
-                tasks={tasks.filter(task => task.status === column.id)}
+                tasks={filteredTasks.filter(task => task.status === column.id)}
                 isAllTasksView={true}
                 onUpdate={handleTaskUpdate}
                 onDelete={handleTaskDelete}
@@ -292,6 +290,7 @@ export default function AllTasks() {
           </div>
         </DragDropContext>
       </div>
+
       {selectedTask && (
         <TaskDialog
           open={!!selectedTask}
@@ -301,13 +300,14 @@ export default function AllTasks() {
           onDelete={handleTaskDelete}
         />
       )}
+
       <Dialog open={showNewTaskForm} onOpenChange={setShowNewTaskForm}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(createTask.mutate)} className="space-y-4">
+            <form onSubmit={form.handleSubmit((data) => createTask.mutate(data))} className="space-y-4">
               <FormField
                 control={form.control}
                 name="projectId"

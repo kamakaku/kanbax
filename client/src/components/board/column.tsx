@@ -16,6 +16,8 @@ interface ColumnProps {
   };
   tasks: Task[];
   isAllTasksView?: boolean;
+  onUpdate?: (task: Task) => Promise<void>;
+  onDelete?: (taskId: number) => Promise<void>;
 }
 
 const statusLabels: Record<string, string> = {
@@ -26,7 +28,7 @@ const statusLabels: Record<string, string> = {
   'done': 'Done'
 };
 
-export function Column({ column, tasks = [], isAllTasksView = false }: ColumnProps) {
+export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, onDelete }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { currentBoard } = useStore();
@@ -76,6 +78,8 @@ export function Column({ column, tasks = [], isAllTasksView = false }: ColumnPro
                   task={task} 
                   index={index}
                   showBoardTitle={isAllTasksView}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
                 />
               ))}
               {provided.placeholder}
@@ -84,11 +88,13 @@ export function Column({ column, tasks = [], isAllTasksView = false }: ColumnPro
         </Droppable>
       </CardContent>
 
-      {!isAllTasksView && isTaskDialogOpen && (
+      {!isAllTasksView && selectedTask && (
         <TaskDialog
           open={isTaskDialogOpen}
           onClose={() => setIsTaskDialogOpen(false)}
           task={selectedTask}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
         />
       )}
     </Card>
