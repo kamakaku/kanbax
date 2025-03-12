@@ -3,6 +3,8 @@ import { type Task as TaskType } from "@shared/schema";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskProps {
   task: TaskType & { boardTitle?: string };
@@ -12,12 +14,36 @@ interface TaskProps {
 
 export function Task({ task, index, showBoardTitle = false }: TaskProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const priorityColor = {
     low: "bg-blue-500",
     medium: "bg-yellow-500", 
     high: "bg-red-500"
   }[task.priority || "medium"] || "bg-blue-500";
+
+  const handleUpdate = async (updatedTask: TaskType) => {
+    // Invalidate queries for both the specific board and all tasks
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] })
+    ]);
+    
+    setIsTaskDialogOpen(false);
+    toast({ title: "Aufgabe erfolgreich aktualisiert" });
+  };
+
+  const handleDelete = async (taskId: number) => {
+    // Invalidate queries for both the specific board and all tasks
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] })
+    ]);
+    
+    setIsTaskDialogOpen(false);
+    toast({ title: "Aufgabe erfolgreich gelöscht" });
+  };
 
   return (
     <>
@@ -71,7 +97,9 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
       <TaskDialog
         open={isTaskDialogOpen}
         onClose={() => setIsTaskDialogOpen(false)}
-        existingTask={task}
+        task={task}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
       />
     </>
   );

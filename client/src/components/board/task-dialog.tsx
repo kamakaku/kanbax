@@ -1,67 +1,53 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { type Task, type Project, type Board, type UpdateTask } from "@shared/schema";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Edit2 } from "lucide-react";
-import { CommentSection } from "@/components/comments/comment-section";
-import { ChecklistSection } from "@/components/checklist/checklist-section";
+import { type Task } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateTaskSchema } from "@shared/schema";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface TaskDialogProps {
   task: Task & { boardTitle?: string; projectTitle?: string };
   open: boolean;
   onClose: () => void;
-  onUpdate?: () => Promise<void>;
-  onDelete?: () => void;
-  projects?: Project[];
-  boards?: Board[];
+  onUpdate?: (updatedTask: Task) => Promise<void>;
+  onDelete?: (taskId: number) => Promise<void>;
 }
 
-const priorityColors = {
-  high: "bg-red-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
+const statusLabels = {
+  'backlog': 'Backlog',
+  'todo': 'To Do',
+  'in-progress': 'In Progress',
+  'review': 'Review',
+  'done': 'Done'
 };
 
-export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects = [], boards = [] }: TaskDialogProps) {
-  // Direkt in den Bearbeitungsmodus gehen
-  const [isEditing, setIsEditing] = useState(true);
+export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Überprüfen, ob task vorhanden ist, und Default-Werte vorbereiten
-  const defaultValues = {
-    title: task?.title || '',
-    description: task?.description || '',
-    status: task?.status || '',
-    priority: task?.priority || 'medium',
-    labels: task?.labels || [],
-    boardId: task?.boardId,
-  };
-
-  const form = useForm<UpdateTask>({
+  const form = useForm({
     resolver: zodResolver(updateTaskSchema),
-    defaultValues,
+    defaultValues: {
+      title: task.title,
+      description: task.description || "",
+      status: task.status,
+      priority: task.priority,
+      labels: task.labels || [],
+      boardId: task.boardId,
+      columnId: task.columnId,
+      order: task.order,
+    },
   });
 
-  const handleUpdate = async (data: UpdateTask) => {
+  const handleUpdate = async (data: any) => {
     try {
       const res = await apiRequest(
         "PATCH",
@@ -73,7 +59,9 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
         throw new Error("Failed to update task");
       }
 
-      // Aktualisiere Queries
+      const updatedTask = await res.json();
+
+      // Invalidate both the specific board's tasks and all tasks queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
         queryClient.invalidateQueries({ 
@@ -82,7 +70,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
       ]);
 
       if (onUpdate) {
-        await onUpdate();
+        await onUpdate(updatedTask);
       }
 
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
@@ -92,6 +80,22 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
       toast({
         title: "Fehler",
         description: "Die Aufgabe konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+
+    try {
+      await onDelete(task.id);
+      onClose();
+    } catch (error) {
+      console.error("Task delete error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht gelöscht werden",
         variant: "destructive",
       });
     }
@@ -153,11 +157,11 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="backlog">Backlog</SelectItem>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="review">Review</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
+                      {Object.entries(statusLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -215,9 +219,18 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, projects =
               )}
             />
 
-            <Button type="submit" className="w-full">
-              Speichern
-            </Button>
+            <div className="flex justify-between gap-2">
+              <Button 
+                type="button" 
+                variant="destructive"
+                onClick={handleDelete}
+              >
+                Löschen
+              </Button>
+              <Button type="submit">
+                Speichern
+              </Button>
+            </div>
           </form>
         </Form>
       </DialogContent>
