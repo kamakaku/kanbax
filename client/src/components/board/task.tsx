@@ -50,6 +50,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
       <Draggable 
         draggableId={task.id.toString()} 
         index={index}
+        key={task.id}
       >
         {(provided) => (
           <div

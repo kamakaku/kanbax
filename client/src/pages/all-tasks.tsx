@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Project, type Board, type Task } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
@@ -107,31 +108,50 @@ export default function AllTasks() {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
+    
+    // Keine Änderung, wenn an gleicher Position
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
+    
     const taskId = parseInt(draggableId);
 
-    // Get all tasks in the affected columns
-    const tasksInSrcColumn = tasks
-      .filter(t => t.status === source.droppableId)
-      .sort((a, b) => a.order - b.order);
-
-    const tasksInDestColumn = source.droppableId === destination.droppableId
-      ? tasksInSrcColumn
-      : tasks
-        .filter(t => t.status === destination.droppableId)
-        .sort((a, b) => a.order - b.order);
-
-    // Find the task being moved
+    // Finde die zu bewegende Aufgabe
     const movedTask = tasks.find(t => t.id === taskId);
     if (!movedTask) return;
 
+    // Hole alle Aufgaben aus der Quellspalte
+    let tasksInSrcColumn = [...tasks]
+      .filter(t => t.status === source.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Hole alle Aufgaben aus der Zielspalte
+    let tasksInDestColumn = source.droppableId === destination.droppableId 
+      ? tasksInSrcColumn 
+      : [...tasks]
+          .filter(t => t.status === destination.droppableId)
+          .sort((a, b) => a.order - b.order);
+    
+    // Erstelle Kopien, um die Aufgaben neu anzuordnen
+    const newSrcTasks = [...tasksInSrcColumn];
+    const newDestTasks = source.droppableId === destination.droppableId 
+      ? newSrcTasks 
+      : [...tasksInDestColumn];
+    
+    // Entferne Aufgabe aus Quellspalte
+    newSrcTasks.splice(source.index, 1);
+    
+    // Füge Aufgabe in Zielspalte ein
+    if (source.droppableId === destination.droppableId) {
+      newSrcTasks.splice(destination.index, 0, movedTask);
+    } else {
+      newDestTasks.splice(destination.index, 0, movedTask);
+    }
+
     try {
       if (source.droppableId === destination.droppableId) {
-        // Same column reorder
-        tasksInSrcColumn.splice(source.index, 1);
-        tasksInSrcColumn.splice(destination.index, 0, movedTask);
-
-        // Update all tasks in the column with new order
-        const updates = tasksInSrcColumn.map((task, index) =>
+        // Aktualisiere die Reihenfolge aller Aufgaben in der gleichen Spalte
+        const updates = newSrcTasks.map((task, index) =>
           apiRequest("PATCH", `/api/tasks/${task.id}`, {
             order: index,
             status: source.droppableId,
@@ -142,13 +162,10 @@ export default function AllTasks() {
 
         await Promise.all(updates);
       } else {
-        // Moving between columns
-        tasksInSrcColumn.splice(source.index, 1);
-        tasksInDestColumn.splice(destination.index, 0, movedTask);
-
-        // Update tasks in both columns
+        // Aktualisiere Aufgaben in beiden Spalten
         const updates = [
-          ...tasksInSrcColumn.map((task, index) =>
+          // Aktualisiere Quellspalte
+          ...newSrcTasks.map((task, index) =>
             apiRequest("PATCH", `/api/tasks/${task.id}`, {
               order: index,
               status: source.droppableId,
@@ -156,14 +173,17 @@ export default function AllTasks() {
               columnId: task.columnId
             })
           ),
-          ...tasksInDestColumn.map((task, index) =>
-            apiRequest("PATCH", `/api/tasks/${task.id}`, {
+          // Aktualisiere Zielspalte, einschließlich der verschobenen Aufgabe
+          ...newDestTasks.map((task, index) => {
+            const newStatus = destination.droppableId;
+            return apiRequest("PATCH", `/api/tasks/${task.id}`, {
               order: index,
-              status: destination.droppableId,
+              status: newStatus,
               boardId: task.boardId,
-              columnId: task.columnId
-            })
-          )
+              // Die verschobene Aufgabe muss ihren Status aktualisieren
+              ...(task.id === taskId && { status: newStatus })
+            });
+          })
         ];
 
         await Promise.all(updates);
