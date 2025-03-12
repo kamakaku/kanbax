@@ -113,11 +113,16 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
 
-    const newPriority = priorityItems[result.destination.index].id;
+    const { source, destination } = result;
+    const draggedPriority = priorityItems[source.index].id;
+    const targetPriority = priorityItems[destination.index].id;
+
+    // Wenn die Priorität sich nicht geändert hat, nichts tun
+    if (draggedPriority === targetPriority) return;
 
     try {
       const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        priority: newPriority
+        priority: targetPriority
       });
 
       if (!res.ok) {
@@ -125,7 +130,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       }
 
       const updatedTask = await res.json();
-      form.setValue("priority", newPriority);
+      form.setValue("priority", targetPriority);
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
@@ -285,7 +290,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                             {...provided.dragHandleProps}
                             className={`p-3 rounded-lg border ${
                               task.priority === item.id ? "border-primary" : "border-border"
-                            }`}
+                            } hover:bg-accent cursor-move`}
                           >
                             <div className="flex items-center gap-2">
                               <div className={`w-3 h-3 rounded-full ${item.color}`} />
