@@ -8,8 +8,6 @@ import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import { useLocation } from "wouter";
 
 // Definiere die Standard-Spalten mit korrekten Status-Werten
@@ -37,7 +35,7 @@ export default function Board() {
     }
   }, [currentBoard, setLocation, toast]);
 
-  const { data: cols = defaultColumns, isLoading: columnsLoading } = useQuery<Column[]>({
+  const { data: columns = defaultColumns, isLoading: columnsLoading } = useQuery<Column[]>({
     queryKey: ["/api/boards", currentBoard?.id, "columns"],
     queryFn: async () => {
       const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
@@ -62,20 +60,20 @@ export default function Board() {
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
+    mutationFn: async ({ id, columnId, order }: { id: number; columnId: number; order: number }) => {
       // Find the task to get its current board information
       const task = tasks.find(t => t.id === id);
       if (!task) throw new Error("Task not found");
 
-      // Find the column that matches the new status
-      const targetColumn = cols.find(col => col.title === status);
-      if (!targetColumn) throw new Error(`No column found for status: ${status}`);
+      // Find the column to get its status
+      const column = columns.find(col => col.id === columnId);
+      if (!column) throw new Error("Column not found");
 
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
-        status,
+        status: column.title,
+        columnId,
         order,
-        boardId: task.boardId,
-        columnId: targetColumn.id
+        boardId: task.boardId
       });
 
       if (!res.ok) throw new Error("Failed to update task");
@@ -102,15 +100,13 @@ export default function Board() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-
-    // Find the column to get its status
-    const column = cols.find(col => col.id === destination.droppableId);
-    if (!column) return;
+    const newColumnId = parseInt(destination.droppableId);
+    const newOrder = destination.index;
 
     updateTaskStatus.mutate({
       id: taskId,
-      status: column.title,
-      order: destination.index
+      columnId: newColumnId,
+      order: newOrder
     });
   };
 
@@ -187,7 +183,7 @@ export default function Board() {
       <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
-            {cols.map((column) => (
+            {columns.map((column) => (
               <ColumnComponent
                 key={column.id}
                 column={column}

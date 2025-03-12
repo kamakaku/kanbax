@@ -106,24 +106,25 @@ export default function AllTasks() {
 
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
-      // Find the task and its original board
+      // Find the task to get its current board information
       const task = tasks.find(t => t.id === id);
       if (!task) throw new Error("Task not found");
 
+      // Find the board for this task
       const board = boards.find(b => b.id === task.boardId);
       if (!board) throw new Error("Board not found");
 
-      // Fetch columns for the original board
+      // Fetch columns for the board
       const columnsRes = await fetch(`/api/boards/${task.boardId}/columns`);
       if (!columnsRes.ok) throw new Error("Failed to fetch columns");
 
       const boardColumns = await columnsRes.json();
 
-      // Find the column in the original board that matches the new status
+      // Find the column that matches the new status
       const targetColumn = boardColumns.find((col: any) => col.title === status);
       if (!targetColumn) throw new Error(`No column found for status: ${status}`);
 
-      // Update task with new status and columnId
+      // Update both status and columnId
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
         status,
         order,
@@ -158,7 +159,7 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    // Die destination.droppableId entspricht dem Status aus dem Schema
+    // Die destination.droppableId ist der Status aus dem Schema (z.B. "todo")
     const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
@@ -276,7 +277,6 @@ export default function AllTasks() {
       });
     },
   });
-
 
   if (tasksLoading) {
     return (
