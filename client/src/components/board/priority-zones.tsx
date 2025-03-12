@@ -26,7 +26,6 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
     if (newPriority === task.priority) return;
 
     try {
-      // Simplified API call that only updates priority
       const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
         priority: newPriority
       });
@@ -37,11 +36,12 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
 
       const updatedTask = await res.json();
 
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/boards/${task.boardId}/tasks`] 
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${task.boardId}/tasks`] 
+        })
+      ]);
 
       if (onUpdate) {
         await onUpdate(updatedTask);
@@ -61,7 +61,6 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
   return (
     <DragDropContext onDragEnd={handlePriorityDrop}>
       <div className="space-y-4">
-        {/* Priority drop zones */}
         {priorityZones.map((zone) => (
           <Droppable key={zone.id} droppableId={zone.id}>
             {(provided, snapshot) => (
@@ -80,7 +79,7 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
                 </div>
                 {zone.id === task.priority && (
                   <Draggable
-                    draggableId={`task-${task.id}`}
+                    draggableId={task.id.toString()}
                     index={0}
                   >
                     {(provided) => (
