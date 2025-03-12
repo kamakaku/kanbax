@@ -110,12 +110,13 @@ export default function AllTasks() {
       const task = tasks.find(t => t.id === id);
       if (!task) throw new Error("Task not found");
 
-      // Update task with new status
+      // Update task with new status while preserving original board and column
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
         status,
         order,
         boardId: task.boardId,
-        columnId: task.columnId
+        columnId: task.columnId, // Preserve the original columnId
+        priority: task.priority // Preserve the original priority
       });
 
       if (!res.ok) throw new Error("Failed to update task");
@@ -124,6 +125,7 @@ export default function AllTasks() {
     onSuccess: () => {
       // Invalidate queries for both views
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      // Invalidate each board's tasks
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
           queryKey: [`/api/boards/${board.id}/tasks`] 
