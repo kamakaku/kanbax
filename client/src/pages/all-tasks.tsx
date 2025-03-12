@@ -222,6 +222,32 @@ export default function AllTasks() {
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
+    
+    const { source, destination, draggableId } = result;
+    const taskId = parseInt(draggableId);
+    
+    // Get the task being moved
+    const task = filteredTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Get all tasks in source column
+    const sourceColumnTasks = filteredTasks
+      .filter(t => t.status === source.droppableId)
+      .sort((a, b) => a.order - b.order);
+    
+    // Get all tasks in destination column
+    const destinationColumnTasks = filteredTasks
+      .filter(t => t.status === destination.droppableId)
+      .sort((a, b) => a.order - b.order);
+    
+    // Update task order
+    updateTaskOrder.mutate({
+      taskId,
+      newStatus: destination.droppableId,
+      newOrder: destination.index,
+      sourceColumnTasks: source.droppableId === destination.droppableId ? null : sourceColumnTasks,
+      destinationColumnTasks
+    });n;
 
     const { source, destination, draggableId } = result;
     const taskId = parseInt(draggableId);

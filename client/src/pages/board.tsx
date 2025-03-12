@@ -48,7 +48,7 @@ export default function Board() {
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ taskId, newStatus, newOrder }: { taskId: number; newStatus: string; newOrder: number }) => {
+    mutationFn: async ({ taskId, newStatus, newOrder, sourceColumnTasks, destinationColumnTasks }: { taskId: number; newStatus: string; newOrder: number; sourceColumnTasks?: Task[]; destinationColumnTasks?: Task[] }) => {
       // Find the existing task
       const task = tasks.find(t => t.id === taskId);
       if (!task) throw new Error("Task not found");
@@ -86,12 +86,43 @@ export default function Board() {
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
-    const { draggableId, destination } = result;
+    const { source, destination, draggableId } = result;
     const taskId = parseInt(draggableId);
-    const newStatus = destination.droppableId;
-    const newOrder = destination.index;
 
-    updateTaskStatus.mutate({ taskId, newStatus, newOrder });
+    // No change
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
+
+    // Get all tasks in source column
+    const sourceColumnTasks = tasks
+      .filter(t => t.status === source.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Remove task from source array
+    const [movedTask] = sourceColumnTasks.splice(source.index, 1);
+
+    // Get all tasks in destination column
+    const destinationColumnTasks = tasks
+      .filter(t => t.status === destination.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Insert task at new position if it's a different column
+    if (source.droppableId !== destination.droppableId) {
+      destinationColumnTasks.splice(destination.index, 0, movedTask);
+    } else {
+      // If same column, use the updated sourceColumnTasks and insert at new position
+      sourceColumnTasks.splice(destination.index, 0, movedTask);
+    }
+
+    // Update task status and order
+    updateTaskStatus.mutate({
+      taskId,
+      newStatus: destination.droppableId,
+      newOrder: destination.index,
+      sourceColumnTasks: source.droppableId !== destination.droppableId ? sourceColumnTasks : null,
+      destinationColumnTasks: source.droppableId !== destination.droppableId ? destinationColumnTasks : sourceColumnTasks
+    });
   };
 
   const handleTaskUpdate = async (updatedTask: Task) => {

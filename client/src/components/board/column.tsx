@@ -63,7 +63,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
       </CardHeader>
       <CardContent className="py-2 px-3 flex flex-col gap-3">
         <Droppable 
-          droppableId={column.id?.toString() || ""} 
+          droppableId={column.title} 
           type="TASK"
         >
           {(provided) => (
