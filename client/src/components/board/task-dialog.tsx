@@ -14,7 +14,7 @@ import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentList } from "@/components/comments/comment-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
+import { PriorityZones } from "./priority-zones";
 
 interface TaskDialogProps {
   task: Task & { boardTitle?: string; projectTitle?: string };
@@ -31,12 +31,6 @@ const statusLabels = {
   'review': 'Review',
   'done': 'Done'
 };
-
-const priorityZones = [
-  { id: "high", label: "Hoch", color: "bg-red-500" },
-  { id: "medium", label: "Mittel", color: "bg-yellow-500" },
-  { id: "low", label: "Niedrig", color: "bg-blue-500" }
-];
 
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
@@ -89,51 +83,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       toast({
         title: "Fehler",
         description: "Die Aufgabe konnte nicht aktualisiert werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePriorityDrop = async (result: any) => {
-    if (!result.destination) return;
-
-    // Die destination.droppableId ist die neue Priorität
-    const newPriority = result.destination.droppableId;
-
-    try {
-      // Nur die Priorität aktualisieren, andere Werte bleiben unverändert
-      const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        priority: newPriority,
-        status: task.status,
-        boardId: task.boardId,
-        columnId: task.columnId,
-        order: task.order
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to update task priority");
-      }
-
-      const updatedTask = await res.json();
-      form.setValue("priority", newPriority);
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${task.boardId}/tasks`] 
-        })
-      ]);
-
-      if (onUpdate) {
-        await onUpdate(updatedTask);
-      }
-
-      toast({ title: "Priorität erfolgreich aktualisiert" });
-    } catch (error) {
-      console.error("Priority update error:", error);
-      toast({
-        title: "Fehler",
-        description: "Die Priorität konnte nicht aktualisiert werden",
         variant: "destructive",
       });
     }
@@ -270,65 +219,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
             </Form>
           </TabsContent>
           <TabsContent value="priority" className="pt-4">
-            <DragDropContext onDragEnd={handlePriorityDrop}>
-              <div className="space-y-4">
-                {/* Draggable current priority marker */}
-                <Droppable droppableId="current-priority">
-                  {(provided) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className="mb-8"
-                    >
-                      <Draggable
-                        draggableId="priority-marker"
-                        index={0}
-                      >
-                        {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className="p-3 rounded-lg border border-primary bg-primary/10 cursor-move"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className={`w-3 h-3 rounded-full ${
-                                priorityZones.find(p => p.id === task.priority)?.color
-                              }`} />
-                              <span className="font-medium">Aktuelle Priorität</span>
-                            </div>
-                          </div>
-                        )}
-                      </Draggable>
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-
-                {/* Priority drop zones */}
-                {priorityZones.map((zone) => (
-                  <Droppable key={zone.id} droppableId={zone.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`p-4 rounded-lg border-2 ${
-                          snapshot.isDraggingOver 
-                            ? "border-primary bg-primary/5" 
-                            : "border-dashed border-muted"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${zone.color}`} />
-                          <span className="font-medium">{zone.label}</span>
-                        </div>
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                ))}
-              </div>
-            </DragDropContext>
+            <PriorityZones task={task} onUpdate={onUpdate} />
           </TabsContent>
           <TabsContent value="comments" className="pt-4">
             <CommentList taskId={task.id} />
