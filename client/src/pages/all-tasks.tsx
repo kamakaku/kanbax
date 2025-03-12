@@ -141,6 +141,7 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
+    // destination.droppableId enthält direkt den korrekten Status-Wert aus dem Schema
     const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
@@ -223,7 +224,7 @@ export default function AllTasks() {
     { id: "done", title: "done" }
   ];
 
-  const statusColumns = {
+  const statusLabels = {
     'backlog': 'Backlog',
     'todo': 'To Do',
     'in-progress': 'In Progress',
@@ -437,7 +438,7 @@ export default function AllTasks() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Object.entries(statusColumns).map(([value, label]) => (
+                        {Object.entries(statusLabels).map(([value, label]) => (
                           <SelectItem key={value} value={value}>
                             {label}
                           </SelectItem>

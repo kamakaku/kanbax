@@ -97,12 +97,8 @@ export default function Board() {
       const task = tasks.find(t => t.id === id);
       if (!task) throw new Error("Task not found");
 
-      // Find the column with the matching status
-      const targetColumn = cols.find(col => col.title === status);
-      if (!targetColumn) throw new Error(`No column found for status: ${status}`);
-
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
-        columnId: targetColumn.id,
+        columnId, 
         order, 
         status,
         boardId: task.boardId
@@ -112,7 +108,6 @@ export default function Board() {
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate both specific board tasks and all tasks
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
@@ -137,14 +132,14 @@ export default function Board() {
     const newOrder = destination.index;
 
     // Find the column to get its status
-    const column = cols.find(col => col.id === newColumnId);
+    const column = columns.find(col => col.id === destination.droppableId);
     if (!column) return;
 
     updateTaskStatus.mutate({ 
       id: taskId, 
       columnId: newColumnId, 
       order: newOrder,
-      status: column.title || 'todo'
+      status: column.title 
     });
   };
 
