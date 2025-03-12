@@ -32,7 +32,7 @@ const statusLabels = {
   'done': 'Done'
 };
 
-const priorityItems = [
+const priorityZones = [
   { id: "high", label: "Hoch", color: "bg-red-500" },
   { id: "medium", label: "Mittel", color: "bg-yellow-500" },
   { id: "low", label: "Niedrig", color: "bg-blue-500" }
@@ -94,35 +94,15 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleDelete = async () => {
-    if (!onDelete) return;
-
-    try {
-      await onDelete(task.id);
-      onClose();
-    } catch (error) {
-      console.error("Task delete error:", error);
-      toast({
-        title: "Fehler",
-        description: "Die Aufgabe konnte nicht gelöscht werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDragEnd = async (result: any) => {
+  const handlePriorityDrop = async (result: any) => {
     if (!result.destination) return;
 
-    const { source, destination } = result;
-    const draggedPriority = priorityItems[source.index].id;
-    const targetPriority = priorityItems[destination.index].id;
-
-    // Wenn die Priorität sich nicht geändert hat, nichts tun
-    if (draggedPriority === targetPriority) return;
+    // Die destination.droppableId ist die neue Priorität
+    const newPriority = result.destination.droppableId;
 
     try {
       const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        priority: targetPriority
+        priority: newPriority
       });
 
       if (!res.ok) {
@@ -130,7 +110,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       }
 
       const updatedTask = await res.json();
-      form.setValue("priority", targetPriority);
+      form.setValue("priority", newPriority);
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
@@ -149,6 +129,22 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       toast({
         title: "Fehler",
         description: "Die Priorität konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+
+    try {
+      await onDelete(task.id);
+      onClose();
+    } catch (error) {
+      console.error("Task delete error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht gelöscht werden",
         variant: "destructive",
       });
     }
@@ -269,41 +265,64 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
             </Form>
           </TabsContent>
           <TabsContent value="priority" className="pt-4">
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="priority-list">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="space-y-2"
-                  >
-                    {priorityItems.map((item, index) => (
+            <DragDropContext onDragEnd={handlePriorityDrop}>
+              <div className="space-y-4">
+                {/* Draggable current priority marker */}
+                <Droppable droppableId="current-priority">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="mb-8"
+                    >
                       <Draggable
-                        key={item.id}
-                        draggableId={item.id}
-                        index={index}
+                        draggableId="priority-marker"
+                        index={0}
                       >
                         {(provided) => (
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            className={`p-3 rounded-lg border ${
-                              task.priority === item.id ? "border-primary" : "border-border"
-                            } hover:bg-accent cursor-move`}
+                            className="p-3 rounded-lg border border-primary bg-primary/10 cursor-move"
                           >
                             <div className="flex items-center gap-2">
-                              <div className={`w-3 h-3 rounded-full ${item.color}`} />
-                              <span className="font-medium">{item.label}</span>
+                              <div className={`w-3 h-3 rounded-full ${
+                                priorityZones.find(p => p.id === task.priority)?.color
+                              }`} />
+                              <span className="font-medium">Aktuelle Priorität</span>
                             </div>
                           </div>
                         )}
                       </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+
+                {/* Priority drop zones */}
+                {priorityZones.map((zone) => (
+                  <Droppable key={zone.id} droppableId={zone.id}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`p-4 rounded-lg border-2 ${
+                          snapshot.isDraggingOver 
+                            ? "border-primary bg-primary/5" 
+                            : "border-dashed border-muted"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${zone.color}`} />
+                          <span className="font-medium">{zone.label}</span>
+                        </div>
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                ))}
+              </div>
             </DragDropContext>
           </TabsContent>
           <TabsContent value="comments" className="pt-4">
