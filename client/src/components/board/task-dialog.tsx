@@ -24,7 +24,6 @@ import { de } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import {ChecklistCard} from "@/components/board/checklist-card";
 
 interface TaskDialogProps {
   task?: Task;
@@ -51,24 +50,8 @@ const priorityLabels: Record<string, string> = {
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
-
-  const form = useForm({
-    resolver: zodResolver(updateTaskSchema),
-    defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: task?.priority || "medium",
-      labels: task?.labels || [],
-      boardId: task?.boardId || currentBoard?.id || 0,
-      columnId: task?.columnId || 0,
-      order: task?.order || 0,
-      dueDate: task?.dueDate || null,
-      // checklist: task?.checklist || [], // Removed checklist from defaultValues
-    },
-  });
+  const [newItem, setNewItem] = useState("");
 
   const handleSubmit = async (data: any) => {
     try {
@@ -84,8 +67,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       }
 
       const updatedTask = await response.json();
-      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      await queryClient.invalidateQueries({
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      queryClient.invalidateQueries({
         queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`]
       });
 
@@ -93,7 +76,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         await onUpdate(updatedTask);
       }
 
-      setIsEditing(false);
       toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
       onClose();
     } catch (error) {
@@ -122,104 +104,83 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const updateTask = async (data: Task) => {
-    if (onUpdate) await onUpdate(data);
+  const handleAddChecklistItem = async () => {
+    if (!task || !newItem.trim() || !onUpdate) return;
+
+    try {
+      const updatedChecklist = [
+        ...(task.checklist || []),
+        { text: newItem.trim(), checked: false }
+      ];
+
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        checklist: updatedChecklist
+      });
+
+      if (!response.ok) throw new Error();
+
+      const result = await response.json();
+      await onUpdate(result);
+      setNewItem("");
+    } catch (error) {
+      console.error("Failed to add checklist item:", error);
+      toast({
+        title: "Fehler",
+        description: "Der Checklistenpunkt konnte nicht hinzugefügt werden",
+        variant: "destructive"
+      });
+    }
   };
 
+  const handleToggleChecklistItem = async (index: number) => {
+    if (!task?.checklist || !onUpdate) return;
+
+    try {
+      const updatedChecklist = task.checklist.map((item, i) =>
+        i === index ? { ...item, checked: !item.checked } : item
+      );
+
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        checklist: updatedChecklist
+      });
+
+      if (!response.ok) throw new Error();
+
+      const result = await response.json();
+      await onUpdate(result);
+    } catch (error) {
+      console.error("Failed to toggle checklist item:", error);
+      toast({
+        title: "Fehler",
+        description: "Der Checklistenpunkt konnte nicht aktualisiert werden",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const form = useForm({
+    resolver: zodResolver(updateTaskSchema),
+    defaultValues: {
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || "todo",
+      priority: task?.priority || "medium",
+      labels: task?.labels || [],
+      boardId: task?.boardId || currentBoard?.id || 0,
+      columnId: task?.columnId || 0,
+      order: task?.order || 0,
+      dueDate: task?.dueDate || null,
+    },
+  });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog 
+      open={open} 
+      onOpenChange={onClose}
+      modal={true}
+    >
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        {task && !isEditing ? (
-          <>
-            <DialogHeader className="flex flex-row items-center justify-between pb-6">
-              <DialogTitle className="text-xl">
-                {task.title}
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsEditing(true)}
-                className="h-8 w-8"
-              >
-                <Edit2 className="h-4 w-4" />
-              </Button>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-sm font-medium mb-1">Status</div>
-                    <Badge variant="outline" className="capitalize">
-                      {statusLabels[task.status]}
-                    </Badge>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-sm font-medium mb-1">Priorität</div>
-                    <Badge variant="outline" className="capitalize">
-                      {priorityLabels[task.priority]}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {task.description && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Beschreibung</h4>
-                  <p className="text-sm text-muted-foreground">{task.description}</p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                {task.dueDate && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
-                  </div>
-                )}
-                {task.assignedUserId && (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback>
-                        <User className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">Zugewiesen an</span>
-                  </div>
-                )}
-              </div>
-
-              {task.labels && task.labels.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Labels</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {task.labels.map((label, i) => (
-                      <Badge key={i} variant="secondary">
-                        {label}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Checklist */}
-              <ChecklistCard task={task} onUpdate={updateTask} />
-
-              <Separator />
-
-              <div>
-                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Kommentare</span>
-                </h4>
-                <CommentList taskId={task.id} />
-              </div>
-            </div>
-          </>
-        ) : (
+        {task ? (
           <Form {...form}>
             <DialogHeader>
               <DialogTitle>
@@ -394,7 +355,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsEditing(false)}
+                    onClick={onClose}
                   >
                     Abbrechen
                   </Button>
@@ -405,6 +366,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               </div>
             </form>
           </Form>
+        ) : (
+          <div>No task provided</div>
         )}
       </DialogContent>
     </Dialog>
