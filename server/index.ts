@@ -75,11 +75,24 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
+    const startServer = (port: number) => {
+      const host = '0.0.0.0';
+      server.on('error', (e: any) => {
+        if (e.code === 'EADDRINUSE') {
+          log(`Port ${port} is already in use, trying ${port + 1}...`);
+          startServer(port + 1);
+        } else {
+          console.error('Server error:', e);
+        }
+      });
+      
+      server.listen(port, host, () => {
+        log(`Server successfully started on ${host}:${port}`);
+      });
+    };
+    
     const port = parseInt(process.env.PORT || "5000", 10);
-    const host = '0.0.0.0';
-    server.listen(port, host, () => {
-      log(`Server successfully started on ${host}:${port}`);
-    });
+    startServer(port);
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
