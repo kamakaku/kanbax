@@ -10,7 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-// useLocation is already imported elsewhere
+import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
@@ -116,10 +116,43 @@ export default function AllTasks() {
 
     const taskId = parseInt(draggableId);
 
-    // Finde die zu bewegende Aufgabe
-    const movedTask = tasks.find(t => t.id === taskId);
-    if (!movedTask) return;
-
+    // Optimistisches Update der UI
+    const updatedTasks = [...tasks];
+    const taskIndex = updatedTasks.findIndex(t => t.id === taskId);
+    
+    if (taskIndex === -1) return;
+    
+    // Kopiere die zu bewegende Aufgabe
+    const movedTask = { ...updatedTasks[taskIndex] };
+    
+    // Aktualisiere den Status der Aufgabe
+    movedTask.status = destination.droppableId;
+    
+    // Entferne die Aufgabe aus ihrer aktuellen Position
+    updatedTasks.splice(taskIndex, 1);
+    
+    // Berechne die neue Position basierend auf der Zielposition
+    let newIndex = 0;
+    
+    const destinationColumnTasks = updatedTasks
+      .filter(t => t.status === destination.droppableId)
+      .sort((a, b) => a.order - b.order);
+    
+    if (destination.index > 0 && destinationColumnTasks.length > 0) {
+      // Finde den Index nach Zielspalte und Zielindex
+      if (destination.index >= destinationColumnTasks.length) {
+        // Am Ende der Liste hinzufügen
+        newIndex = updatedTasks.length;
+      } else {
+        // Finde die Position in der Gesamtliste
+        const targetTask = destinationColumnTasks[destination.index];
+        newIndex = updatedTasks.findIndex(t => t.id === targetTask.id);
+      }
+    }
+    
+    // Füge die Aufgabe an der neuen Position ein
+    updatedTasks.splice(newIndex, 0, movedTask);
+    
     // Hole alle Aufgaben aus der Quellspalte
     let tasksInSrcColumn = [...tasks]
       .filter(t => t.status === source.droppableId)
@@ -145,7 +178,7 @@ export default function AllTasks() {
     if (source.droppableId === destination.droppableId) {
       newSrcTasks.splice(destination.index, 0, movedTask);
     } else {
-      newDestTasks.splice(destination.index, 0, movedTask);
+      newDestTasks.splice(destination.index, 0, { ...movedTask, status: destination.droppableId });
     }
 
     try {
@@ -162,7 +195,15 @@ export default function AllTasks() {
 
         await Promise.all(updates);
       } else {
-        // Aktualisiere Aufgaben in beiden Spalten
+        // Aktualisiere gezielt die verschobene Aufgabe zuerst
+        await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+          order: destination.index,
+          status: destination.droppableId,
+          boardId: movedTask.boardId,
+          columnId: movedTask.columnId
+        });
+        
+        // Dann aktualisiere die anderen Aufgaben in beiden Spalten
         const updates = [
           // Aktualisiere Quellspalte
           ...newSrcTasks.map((task, index) =>
@@ -173,17 +214,19 @@ export default function AllTasks() {
               columnId: task.columnId
             })
           ),
-          // Aktualisiere Zielspalte, einschließlich der verschobenen Aufgabe
-          ...newDestTasks.map((task, index) => {
-            const newStatus = destination.droppableId;
-            return apiRequest("PATCH", `/api/tasks/${task.id}`, {
-              order: index,
-              status: newStatus,
-              boardId: task.boardId,
-              // Die verschobene Aufgabe muss ihren Status aktualisieren
-              ...(task.id === taskId && { status: newStatus })
-            });
-          })
+          // Aktualisiere Zielspalte, aber überspringe die bereits verschobene Aufgabe
+          ...newDestTasks
+            .filter(task => task.id !== taskId)
+            .map((task, index) => {
+              // Berücksichtige die Position der bereits verschobenen Aufgabe
+              const adjustedIndex = index >= destination.index ? index + 1 : index;
+              return apiRequest("PATCH", `/api/tasks/${task.id}`, {
+                order: adjustedIndex,
+                status: destination.droppableId,
+                boardId: task.boardId,
+                columnId: task.columnId
+              });
+            })
         ];
 
         await Promise.all(updates);
