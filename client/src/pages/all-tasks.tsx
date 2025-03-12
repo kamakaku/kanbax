@@ -89,38 +89,36 @@ export default function AllTasks() {
 
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
-      // Find the task to get its current board information
+      // Find the task and its original board
       const task = tasks.find(t => t.id === id);
-      if (!task) return;
+      if (!task) throw new Error("Task not found");
 
-      // Find the corresponding board
       const board = boards.find(b => b.id === task.boardId);
-      if (!board) return;
+      if (!board) throw new Error("Board not found");
 
-      // Fetch columns for the board
+      // Fetch columns for the board to find matching column
       const columnsRes = await fetch(`/api/boards/${task.boardId}/columns`);
-      if (!columnsRes.ok) {
-        throw new Error("Failed to fetch columns");
-      }
-      const columns = await columnsRes.json();
+      if (!columnsRes.ok) throw new Error("Failed to fetch columns");
+
+      const boardColumns = await columnsRes.json();
 
       // Find the column that matches the new status
-      const targetColumn = columns.find((col: any) => col.title?.toLowerCase() === status);
-      if (!targetColumn) {
-        throw new Error("Could not find matching column");
-      }
+      const targetColumn = boardColumns.find((col: any) => col.title === status);
+      if (!targetColumn) throw new Error(`No column found for status: ${status}`);
 
-      // Update both status and columnId
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
-        status, 
+      // Update task with new status and columnId
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
+        status,
         order,
         boardId: task.boardId,
         columnId: targetColumn.id
       });
+
+      if (!res.ok) throw new Error("Failed to update task");
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate both all tasks and specific board tasks
+      // Invalidate queries for both the all-tasks view and specific board views
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
@@ -129,6 +127,7 @@ export default function AllTasks() {
       });
     },
     onError: (error) => {
+      console.error("Update task error:", error);
       toast({
         title: "Failed to update task",
         description: error.message,
@@ -142,7 +141,7 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    const newStatus = destination.droppableId; 
+    const newStatus = destination.droppableId; // This is already the correct status format
     const newOrder = destination.index;
 
     updateTaskStatus.mutate({ 
@@ -215,15 +214,7 @@ export default function AllTasks() {
     task.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const statusColumns = {
-    'backlog': 'Backlog',
-    'todo': 'To Do',
-    'in-progress': 'In Progress',
-    'review': 'Review',
-    'done': 'Done'
-  };
-
-  // Define the fixed columns for all tasks
+  // Define the fixed columns for all tasks - make sure these match exactly with the schema
   const columns = [
     { id: "backlog", title: "backlog" },
     { id: "todo", title: "todo" },
@@ -231,6 +222,14 @@ export default function AllTasks() {
     { id: "review", title: "review" },
     { id: "done", title: "done" }
   ];
+
+  const statusColumns = {
+    'backlog': 'Backlog',
+    'todo': 'To Do',
+    'in-progress': 'In Progress',
+    'review': 'Review',
+    'done': 'Done'
+  };
 
   const form = useForm({
     resolver: zodResolver(insertTaskSchema),
