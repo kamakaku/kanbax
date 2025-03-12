@@ -127,6 +127,7 @@ export default function Board() {
               <ColumnComponent
                 key={column.id}
                 column={column}
+                tasks={tasks.filter(task => task.columnId === column.id)}
               />
             ))}
             <Button

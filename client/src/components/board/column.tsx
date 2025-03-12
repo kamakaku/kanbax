@@ -10,8 +10,12 @@ import { Task as TaskComponent } from "./task";
 import { TaskDialog } from "./task-dialog";
 
 interface ColumnProps {
-  id: string | number;
-  title: string;
+  column: {
+    id: string | number;
+    title?: string;
+    boardId?: number;
+    order?: number;
+  };
   tasks: Task[];
   isAllTasksView?: boolean;
 }
@@ -24,11 +28,14 @@ const statusLabels: Record<string, string> = {
   'done': 'Done'
 };
 
-export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = false }: ColumnProps) {
+export function Column({ column, tasks = [], isAllTasksView = false }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
+
+  // Extrahiere die Werte aus der column Prop
+  const { id, title = 'Untitled' } = column || {};
 
   // Formatiere den Status-Text für die Anzeige
   const displayTitle = typeof title === 'string' && title ? 
@@ -59,7 +66,7 @@ export function Column({ id, title = 'Untitled', tasks = [], isAllTasksView = fa
       </CardHeader>
       <CardContent className="py-2 px-3 flex flex-col gap-3">
         <Droppable 
-          droppableId={(id ?? "").toString()} 
+          droppableId={id?.toString() || ""} 
           type="TASK"
           isDropDisabled={isAllTasksView} 
         >

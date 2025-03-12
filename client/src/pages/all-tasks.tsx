@@ -295,6 +295,7 @@ export default function AllTasks() {
         </TabsList>
 
         <TabsContent value="kanban" className="mt-6">
+          {/* The change is applied here */}
           <div className="grid grid-cols-5 gap-4">
             {Object.entries(statusColumns).map(([status, title]) => (
               <div key={status} className="bg-muted/50 rounded-lg p-4">
