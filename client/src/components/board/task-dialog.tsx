@@ -12,6 +12,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CommentList } from "@/components/comments/comment-list";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TaskDialogProps {
   task: Task & { boardTitle?: string; projectTitle?: string };
@@ -32,6 +34,7 @@ const statusLabels = {
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("details");
 
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
@@ -107,132 +110,143 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         <DialogHeader>
           <DialogTitle>Aufgabe bearbeiten</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="comments">Kommentare</TabsTrigger>
+          </TabsList>
+          <TabsContent value="details">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Titel</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Beschreibung</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[100px]"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Status auswählen" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(statusLabels).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priorität</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Priorität auswählen" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="low">Niedrig</SelectItem>
+                          <SelectItem value="medium">Mittel</SelectItem>
+                          <SelectItem value="high">Hoch</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="labels"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Labels (durch Komma getrennt)</FormLabel>
+                      <FormControl>
+                        <Input
+                          value={field.value?.join(", ") || ""}
+                          onChange={(e) => {
+                            const labels = e.target.value
+                              .split(",")
+                              .map((label) => label.trim())
+                              .filter(Boolean);
+                            field.onChange(labels);
+                          }}
+                          placeholder="bug, feature, UI"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-between gap-2">
+                  <Button 
+                    type="button" 
+                    variant="destructive"
+                    onClick={handleDelete}
                   >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Status auswählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(statusLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priorität</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Priorität auswählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="low">Niedrig</SelectItem>
-                      <SelectItem value="medium">Mittel</SelectItem>
-                      <SelectItem value="high">Hoch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="labels"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Labels (durch Komma getrennt)</FormLabel>
-                  <FormControl>
-                    <Input
-                      value={field.value?.join(", ") || ""}
-                      onChange={(e) => {
-                        const labels = e.target.value
-                          .split(",")
-                          .map((label) => label.trim())
-                          .filter(Boolean);
-                        field.onChange(labels);
-                      }}
-                      placeholder="bug, feature, UI"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-between gap-2">
-              <Button 
-                type="button" 
-                variant="destructive"
-                onClick={handleDelete}
-              >
-                Löschen
-              </Button>
-              <Button type="submit">
-                Speichern
-              </Button>
-            </div>
-          </form>
-        </Form>
+                    Löschen
+                  </Button>
+                  <Button type="submit">
+                    Speichern
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </TabsContent>
+          <TabsContent value="comments" className="pt-4">
+            <CommentList taskId={task.id} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

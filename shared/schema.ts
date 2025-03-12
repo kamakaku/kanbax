@@ -84,12 +84,15 @@ export const checklistItems = pgTable("checklist_items", {
   itemOrder: integer("item_order").notNull(),
 });
 
+// Update the comments table definition to include rich text
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
+  rawContent: text("raw_content").notNull(), // Store raw content for the editor
   taskId: integer("task_id").notNull(),
-  authorName: text("author_name").notNull(),
+  authorId: integer("author_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const activityLogs = pgTable("activity_logs", {
@@ -189,16 +192,19 @@ export const insertChecklistItemSchema = createInsertSchema(checklistItems)
     completed: z.boolean().default(false),
   });
 
+// Update the comment schema
 export const insertCommentSchema = createInsertSchema(comments)
   .pick({
     content: true,
+    rawContent: true,
     taskId: true,
-    authorName: true,
+    authorId: true,
   })
   .extend({
     content: z.string().min(1, "Comment cannot be empty"),
+    rawContent: z.string().min(1, "Raw content cannot be empty"),
     taskId: z.number().int().positive("Task ID is required"),
-    authorName: z.string().min(1, "Author name is required"),
+    authorId: z.number().int().positive("Author ID is required"),
   });
 
 export const insertActivityLogSchema = createInsertSchema(activityLogs)
@@ -255,8 +261,9 @@ export type Task = typeof tasks.$inferSelect & {
 };
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;
-export type InsertComment = z.infer<typeof insertCommentSchema>;
+// Update the comment type
 export type Comment = typeof comments.$inferSelect;
+export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 
