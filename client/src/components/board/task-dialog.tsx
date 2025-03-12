@@ -15,7 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CommentList } from "@/components/comments/comment-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStore } from "@/lib/store";
-import { Clock, Edit2, MessageSquare } from "lucide-react";
+import { Clock, Edit2, MessageSquare, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface TaskDialogProps {
   task?: Task;
@@ -34,10 +36,17 @@ const statusLabels: Record<string, string> = {
   'done': 'Done'
 };
 
-export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab = "edit" }: TaskDialogProps) {
+const priorityLabels: Record<string, string> = {
+  'low': 'Niedrig',
+  'medium': 'Mittel',
+  'high': 'Hoch'
+};
+
+export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab = "info" }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
 
   // Query für Aktivitäten
@@ -101,6 +110,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
         await onUpdate(updatedTask);
       }
 
+      setIsEditing(false);
       toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
       onClose();
     } catch (error) {
@@ -132,70 +142,113 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle>
-            {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+            {task ? "Aufgaben-Details" : "Neue Aufgabe erstellen"}
           </DialogTitle>
+          {task && !isEditing && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsEditing(true)}
+              className="h-8 w-8"
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          )}
         </DialogHeader>
 
-        {task ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="edit" className="flex items-center gap-2">
-                <Edit2 className="h-4 w-4" />
-                <span>Bearbeiten</span>
-              </TabsTrigger>
-              <TabsTrigger value="comments" className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                <span>Kommentare</span>
-              </TabsTrigger>
-              <TabsTrigger value="activities" className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>Aktivitäten</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="edit">
-              <EditForm
-                form={form}
-                onSubmit={handleSubmit}
-                onDelete={handleDelete}
-                task={task}
-              />
-            </TabsContent>
-
-            <TabsContent value="comments" className="pt-4">
-              <CommentList taskId={task.id} />
-            </TabsContent>
-
-            <TabsContent value="activities" className="pt-4">
-              <div className="space-y-4">
-                {activities.map((activity: any) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-3 text-sm text-muted-foreground"
-                  >
-                    <Clock className="h-4 w-4 mt-0.5" />
-                    <div>
-                      <p>{activity.description}</p>
-                      <time className="text-xs">
-                        {new Date(activity.createdAt).toLocaleString()}
-                      </time>
-                    </div>
-                  </div>
-                ))}
-                {activities.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Keine Aktivitäten vorhanden
-                  </p>
+        {task && !isEditing ? (
+          <div className="space-y-6">
+            {/* Task Info */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">{task.title}</h3>
+                {task.description && (
+                  <p className="text-sm text-muted-foreground">{task.description}</p>
                 )}
               </div>
-            </TabsContent>
-          </Tabs>
+
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="capitalize">
+                  Status: {statusLabels[task.status]}
+                </Badge>
+                <Badge variant="outline" className="capitalize">
+                  Priorität: {priorityLabels[task.priority]}
+                </Badge>
+              </div>
+
+              {task.labels && task.labels.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {task.labels.map((label, i) => (
+                    <Badge key={i} variant="secondary">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {task.assignedUserId && (
+                  <div className="flex items-center gap-1">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>Zugewiesen an</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="comments" className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Kommentare</span>
+                </TabsTrigger>
+                <TabsTrigger value="activities" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>Aktivitäten</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="comments" className="pt-4">
+                <CommentList taskId={task.id} />
+              </TabsContent>
+
+              <TabsContent value="activities" className="pt-4">
+                <div className="space-y-4">
+                  {activities.map((activity: any) => (
+                    <div
+                      key={activity.id}
+                      className="flex items-start gap-3 text-sm text-muted-foreground"
+                    >
+                      <Clock className="h-4 w-4 mt-0.5" />
+                      <div>
+                        <p>{activity.description}</p>
+                        <time className="text-xs">
+                          {new Date(activity.createdAt).toLocaleString()}
+                        </time>
+                      </div>
+                    </div>
+                  ))}
+                  {activities.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Keine Aktivitäten vorhanden
+                    </p>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         ) : (
           <EditForm
             form={form}
             onSubmit={handleSubmit}
+            onDelete={handleDelete}
             task={task}
           />
         )}
