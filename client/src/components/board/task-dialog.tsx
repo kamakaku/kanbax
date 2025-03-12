@@ -23,6 +23,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 interface TaskDialogProps {
   task?: Task;
@@ -55,7 +57,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
   const { currentBoard } = useStore();
   const [newChecklistItem, setNewChecklistItem] = useState("");
 
-  // Query für Aktivitäten
   const { data: activities = [] } = useQuery({
     queryKey: [`/api/tasks/${task?.id}/activities`],
     queryFn: async () => {
@@ -109,8 +110,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`]
         })
       ]);
 
@@ -167,8 +168,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle>
+        <DialogHeader className="flex flex-row items-center justify-between pb-6">
+          <DialogTitle className="text-xl">
             {task ? "Aufgaben-Details" : "Neue Aufgabe erstellen"}
           </DialogTitle>
           {task && !isEditing && (
@@ -184,76 +185,97 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
         </DialogHeader>
 
         {task && !isEditing ? (
-          <div className="space-y-6">
-            {/* Task Info */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">{task.title}</h3>
+          <div className="space-y-8">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">{task.title}</h3>
                 {task.description && (
                   <p className="text-sm text-muted-foreground">{task.description}</p>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="capitalize">
-                  Status: {statusLabels[task.status]}
-                </Badge>
-                <Badge variant="outline" className="capitalize">
-                  Priorität: {priorityLabels[task.priority]}
-                </Badge>
-                {task.dueDate && (
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <CalendarIcon className="h-3 w-3" />
-                    {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
-                  </Badge>
-                )}
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Status</div>
+                    <Badge variant="outline" className="capitalize">
+                      {statusLabels[task.status]}
+                    </Badge>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Priorität</div>
+                    <Badge variant="outline" className="capitalize">
+                      {priorityLabels[task.priority]}
+                    </Badge>
+                  </CardContent>
+                </Card>
               </div>
 
-              {task.labels && task.labels.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {task.labels.map((label, i) => (
-                    <Badge key={i} variant="secondary">
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* Checklist */}
-              {task.checklist && task.checklist.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Checkliste</h4>
-                  <div className="space-y-2">
-                    {task.checklist.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Checkbox
-                          checked={item.checked}
-                          onCheckedChange={() => handleToggleChecklistItem(index)}
-                        />
-                        <span className={`text-sm ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
-                          {item.text}
-                        </span>
-                      </div>
-                    ))}
+              <div className="flex items-center justify-between">
+                {task.dueDate && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
                   </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                )}
                 {task.assignedUserId && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <Avatar className="h-6 w-6">
                       <AvatarFallback>
                         <User className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <span>Zugewiesen an</span>
+                    <span className="text-sm">Zugewiesen an</span>
                   </div>
                 )}
               </div>
+
+              {task.labels && task.labels.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Labels</div>
+                  <div className="flex flex-wrap gap-1">
+                    {task.labels.map((label, i) => (
+                      <Badge key={i} variant="secondary">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {task.checklist && task.checklist.length > 0 && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm font-medium">Checkliste</div>
+                      <div className="text-sm text-muted-foreground">
+                        {task.checklist.filter(item => item.checked).length} von {task.checklist.length}
+                      </div>
+                    </div>
+                    <Progress
+                      value={(task.checklist.filter(item => item.checked).length / task.checklist.length) * 100}
+                      className="mb-4"
+                    />
+                    <div className="space-y-2">
+                      {task.checklist.map((item, index) => (
+                        <div key={index} className="flex items-center gap-3 group">
+                          <Checkbox
+                            checked={item.checked}
+                            onCheckedChange={() => handleToggleChecklistItem(index)}
+                          />
+                          <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                            {item.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
-            {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="comments" className="flex items-center gap-2">
@@ -280,7 +302,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
                       <Clock className="h-4 w-4 mt-0.5" />
                       <div>
                         <p>{activity.description}</p>
-                        <time className="text-xs">
+                        <time className="text-xs opacity-70">
                           {new Date(activity.createdAt).toLocaleString()}
                         </time>
                       </div>
@@ -312,10 +334,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultTab
   );
 }
 
-function EditForm({ 
-  form, 
-  onSubmit, 
-  onDelete, 
+function EditForm({
+  form,
+  onSubmit,
+  onDelete,
   task,
   newChecklistItem,
   setNewChecklistItem,
@@ -475,7 +497,6 @@ function EditForm({
           )}
         />
 
-        {/* Checklist */}
         <FormField
           control={form.control}
           name="checklist"
@@ -518,8 +539,8 @@ function EditForm({
 
         <div className="flex justify-between gap-2">
           {task && onDelete && (
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               variant="destructive"
               onClick={onDelete}
             >

@@ -6,8 +6,9 @@ import { TaskDialog } from "./task-dialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, User } from "lucide-react";
+import { CheckSquare, MessageSquare, User } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 
 interface TaskProps {
   task: TaskType & { boardTitle?: string };
@@ -64,6 +65,11 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
+  // Calculate checklist progress
+  const checklistProgress = task.checklist?.length 
+    ? (task.checklist.filter(item => item.checked).length / task.checklist.length) * 100 
+    : 0;
+
   return (
     <>
       <Draggable 
@@ -105,6 +111,21 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
                 {/* Task Title */}
                 <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
 
+                {/* Checklist Progress */}
+                {task.checklist && task.checklist.length > 0 && (
+                  <div className="mb-3 space-y-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <CheckSquare className="h-3 w-3" />
+                        <span>
+                          {task.checklist.filter(item => item.checked).length}/{task.checklist.length}
+                        </span>
+                      </div>
+                    </div>
+                    <Progress value={checklistProgress} className="h-1" />
+                  </div>
+                )}
+
                 {/* Footer Info */}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -142,7 +163,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
         task={task}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
-        defaultTab="comments"
+        defaultTab="info"
       />
     </>
   );
