@@ -21,7 +21,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -48,12 +47,134 @@ const priorityLabels: Record<string, string> = {
   'high': 'Hoch'
 };
 
+function ChecklistSection({ task, onUpdate }: { task: Task; onUpdate: (updatedTask: Task) => Promise<void> }) {
+  const [newItem, setNewItem] = useState("");
+  const { toast } = useToast();
+
+  const handleAddItem = async () => {
+    if (!newItem.trim()) return;
+
+    const updatedChecklist = [
+      ...(task.checklist || []),
+      { text: newItem.trim(), checked: false }
+    ];
+
+    try {
+      const response = await apiRequest(
+        "PATCH",
+        `/api/tasks/${task.id}`,
+        { checklist: updatedChecklist }
+      );
+
+      if (!response.ok) throw new Error("Failed to add checklist item");
+
+      const updatedTask = await response.json();
+      await onUpdate(updatedTask);
+      setNewItem("");
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Der Checklistenpunkt konnte nicht hinzugefügt werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleItem = async (index: number) => {
+    if (!task.checklist) return;
+
+    const updatedChecklist = task.checklist.map((item, i) => 
+      i === index ? { ...item, checked: !item.checked } : item
+    );
+
+    try {
+      const response = await apiRequest(
+        "PATCH",
+        `/api/tasks/${task.id}`,
+        { checklist: updatedChecklist }
+      );
+
+      if (!response.ok) throw new Error("Failed to update checklist item");
+
+      const updatedTask = await response.json();
+      await onUpdate(updatedTask);
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Der Checklistenpunkt konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm font-medium">Checkliste</div>
+          {task.checklist && task.checklist.length > 0 && (
+            <div className="text-sm text-muted-foreground">
+              {task.checklist.filter(item => item.checked).length} von {task.checklist.length}
+            </div>
+          )}
+        </div>
+
+        {task.checklist && task.checklist.length > 0 && (
+          <Progress
+            value={(task.checklist.filter(item => item.checked).length / task.checklist.length) * 100}
+            className="mb-4"
+          />
+        )}
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {task.checklist?.map((item, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={item.checked}
+                  onChange={() => handleToggleItem(index)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                  {item.text}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <Input
+              value={newItem}
+              onChange={(e) => setNewItem(e.target.value)}
+              placeholder="Neuer Checklistenpunkt"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddItem();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleAddItem}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
-  const [newChecklistItem, setNewChecklistItem] = useState("");
 
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
@@ -70,72 +191,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       checklist: task?.checklist || [],
     },
   });
-
-  const addChecklistItem = async () => {
-    if (!newChecklistItem.trim() || !task) return;
-
-    try {
-      const updatedChecklist = [
-        ...(task.checklist || []),
-        { text: newChecklistItem, checked: false }
-      ];
-
-      const response = await apiRequest(
-        "PATCH",
-        `/api/tasks/${task.id}`,
-        { checklist: updatedChecklist }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to add checklist item");
-      }
-
-      const updatedTask = await response.json();
-      if (onUpdate) {
-        await onUpdate(updatedTask);
-      }
-
-      setNewChecklistItem("");
-      toast({ title: "Checklistenpunkt hinzugefügt" });
-    } catch (error) {
-      toast({
-        title: "Fehler",
-        description: "Der Checklistenpunkt konnte nicht hinzugefügt werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const toggleChecklistItem = async (index: number) => {
-    if (!task?.checklist) return;
-
-    try {
-      const updatedChecklist = task.checklist.map((item, i) => 
-        i === index ? { ...item, checked: !item.checked } : item
-      );
-
-      const response = await apiRequest(
-        "PATCH",
-        `/api/tasks/${task.id}`,
-        { checklist: updatedChecklist }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to update checklist item");
-      }
-
-      const updatedTask = await response.json();
-      if (onUpdate) {
-        await onUpdate(updatedTask);
-      }
-    } catch (error) {
-      toast({
-        title: "Fehler",
-        description: "Der Checklistenpunkt konnte nicht aktualisiert werden",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSubmit = async (data: any) => {
     try {
@@ -211,7 +266,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         }
       }}
     >
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         {task && !isEditing ? (
           <>
             <DialogHeader className="flex flex-row items-center justify-between pb-6">
@@ -229,7 +284,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
             </DialogHeader>
 
             <div className="space-y-6">
-              {/* Status and Priority */}
               <div className="grid grid-cols-2 gap-4">
                 <Card>
                   <CardContent className="pt-6">
@@ -249,7 +303,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 </Card>
               </div>
 
-              {/* Description */}
               {task.description && (
                 <div>
                   <h4 className="text-sm font-medium mb-2">Beschreibung</h4>
@@ -257,7 +310,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 </div>
               )}
 
-              {/* Due Date and Assignee */}
               <div className="flex items-center justify-between">
                 {task.dueDate && (
                   <div className="flex items-center gap-2 text-sm">
@@ -277,7 +329,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 )}
               </div>
 
-              {/* Labels */}
               {task.labels && task.labels.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2">Labels</h4>
@@ -291,68 +342,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 </div>
               )}
 
-              {/* Checklist */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm font-medium">Checkliste</div>
-                    {task.checklist && task.checklist.length > 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        {task.checklist.filter(item => item.checked).length} von {task.checklist.length}
-                      </div>
-                    )}
-                  </div>
-
-                  {task.checklist && task.checklist.length > 0 && (
-                    <Progress
-                      value={(task.checklist.filter(item => item.checked).length / task.checklist.length) * 100}
-                      className="mb-4"
-                    />
-                  )}
-
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      {task.checklist?.map((item, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          <Checkbox
-                            checked={item.checked}
-                            onCheckedChange={() => toggleChecklistItem(index)}
-                          />
-                          <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
-                            {item.text}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={newChecklistItem}
-                        onChange={(e) => setNewChecklistItem(e.target.value)}
-                        placeholder="Neuer Checklistenpunkt"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addChecklistItem();
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => addChecklistItem()}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {onUpdate && <ChecklistSection task={task} onUpdate={onUpdate} />}
 
               <Separator />
 
-              {/* Comments */}
               <div>
                 <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
