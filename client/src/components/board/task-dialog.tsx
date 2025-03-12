@@ -14,10 +14,10 @@ import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentList } from "@/components/comments/comment-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PriorityZones } from "./priority-zones";
+import { useStore } from "@/lib/store";
 
 interface TaskDialogProps {
-  task: Task & { boardTitle?: string; projectTitle?: string };
+  task?: Task;
   open: boolean;
   onClose: () => void;
   onUpdate?: (updatedTask: Task) => Promise<void>;
@@ -36,39 +36,52 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("details");
+  const { currentBoard } = useStore();
 
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
     defaultValues: {
-      title: task.title,
-      description: task.description || "",
-      status: task.status,
-      priority: task.priority,
-      labels: task.labels || [],
-      boardId: task.boardId,
-      columnId: task.columnId,
-      order: task.order,
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || "todo",
+      priority: task?.priority || "medium",
+      labels: task?.labels || [],
+      boardId: task?.boardId || currentBoard?.id || 0,
+      columnId: task?.columnId || 0,
+      order: task?.order || 0,
     },
   });
 
-  const handleUpdate = async (data: any) => {
+  const handleSubmit = async (data: any) => {
     try {
-      const res = await apiRequest(
-        "PATCH",
-        `/api/tasks/${task.id}`,
-        data
-      );
+      let response;
 
-      if (!res.ok) {
-        throw new Error("Failed to update task");
+      if (task) {
+        // Update existing task
+        response = await apiRequest(
+          "PATCH",
+          `/api/tasks/${task.id}`,
+          data
+        );
+      } else {
+        // Create new task
+        response = await apiRequest(
+          "POST",
+          `/api/boards/${currentBoard?.id}/tasks`,
+          data
+        );
       }
 
-      const updatedTask = await res.json();
+      if (!response.ok) {
+        throw new Error(task ? "Failed to update task" : "Failed to create task");
+      }
+
+      const updatedTask = await response.json();
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
         queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${task.boardId}/tasks`] 
+          queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`] 
         })
       ]);
 
@@ -76,20 +89,20 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         await onUpdate(updatedTask);
       }
 
-      toast({ title: "Aufgabe erfolgreich aktualisiert" });
+      toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
       onClose();
     } catch (error) {
-      console.error("Task update error:", error);
+      console.error("Task operation error:", error);
       toast({
         title: "Fehler",
-        description: "Die Aufgabe konnte nicht aktualisiert werden",
+        description: task ? "Die Aufgabe konnte nicht aktualisiert werden" : "Die Aufgabe konnte nicht erstellt werden",
         variant: "destructive",
       });
     }
   };
 
   const handleDelete = async () => {
-    if (!onDelete) return;
+    if (!onDelete || !task) return;
 
     try {
       await onDelete(task.id);
@@ -108,123 +121,155 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Aufgabe bearbeiten</DialogTitle>
+          <DialogTitle>
+            {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+          </DialogTitle>
         </DialogHeader>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="priority">Priorität</TabsTrigger>
-            <TabsTrigger value="comments">Kommentare</TabsTrigger>
-          </TabsList>
-          <TabsContent value="details">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Titel</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Beschreibung</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          className="min-h-[100px]"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Status auswählen" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {Object.entries(statusLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="labels"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Labels (durch Komma getrennt)</FormLabel>
-                      <FormControl>
-                        <Input
-                          value={field.value?.join(", ") || ""}
-                          onChange={(e) => {
-                            const labels = e.target.value
-                              .split(",")
-                              .map((label) => label.trim())
-                              .filter(Boolean);
-                            field.onChange(labels);
-                          }}
-                          placeholder="bug, feature, UI"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-between gap-2">
-                  <Button 
-                    type="button" 
-                    variant="destructive"
-                    onClick={handleDelete}
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
                   >
-                    Löschen
-                  </Button>
-                  <Button type="submit">
-                    Speichern
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </TabsContent>
-          <TabsContent value="priority" className="pt-4">
-            <PriorityZones task={task} onUpdate={onUpdate} />
-          </TabsContent>
-          <TabsContent value="comments" className="pt-4">
-            <CommentList taskId={task.id} />
-          </TabsContent>
-        </Tabs>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(statusLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priorität</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Priorität auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="labels"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Labels (durch Komma getrennt)</FormLabel>
+                  <FormControl>
+                    <Input
+                      value={field.value?.join(", ") || ""}
+                      onChange={(e) => {
+                        const labels = e.target.value
+                          .split(",")
+                          .map((label) => label.trim())
+                          .filter(Boolean);
+                        field.onChange(labels);
+                      }}
+                      placeholder="bug, feature, UI"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-between gap-2">
+              {task && onDelete && (
+                <Button 
+                  type="button" 
+                  variant="destructive"
+                  onClick={handleDelete}
+                >
+                  Löschen
+                </Button>
+              )}
+              <Button type="submit" className={task ? "" : "w-full"}>
+                {task ? "Speichern" : "Erstellen"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+
+        {task && (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="comments">Kommentare</TabsTrigger>
+              <TabsTrigger value="activity">Aktivität</TabsTrigger>
+            </TabsList>
+            <TabsContent value="comments" className="pt-4">
+              <CommentList taskId={task.id} />
+            </TabsContent>
+            <TabsContent value="activity" className="pt-4">
+              <p className="text-sm text-muted-foreground">
+                Aktivitätsverlauf wird geladen...
+              </p>
+            </TabsContent>
+          </Tabs>
+        )}
       </DialogContent>
     </Dialog>
   );

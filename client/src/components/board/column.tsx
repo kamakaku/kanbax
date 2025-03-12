@@ -67,6 +67,13 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
     (statusLabels[column.title.toLowerCase()] || column.title) : 
     'Untitled';
 
+  const handleTaskUpdate = async (task: Task) => {
+    if (onUpdate) {
+      await onUpdate(task);
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+  };
+
   return (
     <Card className={`min-w-[260px] max-w-[260px] h-fit ${columnStyle.bg} border-0 shadow-none`}>
       <CardHeader className="p-3 pb-2">
@@ -118,20 +125,11 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         </Droppable>
       </CardContent>
 
-      {!isAllTasksView && (
-        <TaskDialog
-          open={isTaskDialogOpen}
-          onClose={() => setIsTaskDialogOpen(false)}
-          onSubmit={async (task) => {
-            if (onUpdate) {
-              await onUpdate(task);
-            }
-            setIsTaskDialogOpen(false);
-          }}
-          projects={[]}
-          boards={[]}
-        />
-      )}
+      <TaskDialog
+        open={isTaskDialogOpen}
+        onClose={() => setIsTaskDialogOpen(false)}
+        onUpdate={handleTaskUpdate}
+      />
     </Card>
   );
 }
