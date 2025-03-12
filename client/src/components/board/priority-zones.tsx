@@ -1,8 +1,9 @@
-import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import { Task } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface PriorityZonesProps {
   task: Task;
@@ -19,10 +20,7 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const handlePriorityDrop = async (result: any) => {
-    if (!result.destination) return;
-
-    const newPriority = result.destination.droppableId;
+  const handlePriorityChange = async (newPriority: string) => {
     if (newPriority === task.priority) return;
 
     try {
@@ -36,12 +34,8 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
 
       const updatedTask = await res.json();
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${task.boardId}/tasks`] 
-        })
-      ]);
+      // Invalidiere alle relevanten Queries
+      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
 
       if (onUpdate) {
         await onUpdate(updatedTask);
@@ -59,50 +53,23 @@ export function PriorityZones({ task, onUpdate }: PriorityZonesProps) {
   };
 
   return (
-    <DragDropContext onDragEnd={handlePriorityDrop}>
-      <div className="space-y-4">
-        {priorityZones.map((zone) => (
-          <Droppable key={zone.id} droppableId={zone.id}>
-            {(provided, snapshot) => (
-              <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className={`p-4 rounded-lg border-2 transition-colors ${
-                  snapshot.isDraggingOver 
-                    ? "border-primary bg-primary/5" 
-                    : "border-dashed border-muted hover:border-primary/50"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${zone.color}`} />
-                  <span className="font-medium">{zone.label}</span>
-                </div>
-                {zone.id === task.priority && (
-                  <Draggable
-                    draggableId={task.id.toString()}
-                    index={0}
-                  >
-                    {(provided) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className="mt-2 p-3 rounded-lg border border-primary bg-primary/10 cursor-move"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${zone.color}`} />
-                          <span className="font-medium">Aktuelle Aufgabe</span>
-                        </div>
-                      </div>
-                    )}
-                  </Draggable>
-                )}
-                {provided.placeholder}
-              </div>
+    <div className="space-y-4">
+      {priorityZones.map((zone) => (
+        <div key={zone.id} className="flex items-center gap-4">
+          <div className={`w-3 h-3 rounded-full ${zone.color}`} />
+          <Button
+            variant={task.priority === zone.id ? "default" : "outline"}
+            className={cn(
+              "w-full justify-start",
+              task.priority === zone.id && "bg-primary/10 hover:bg-primary/20"
             )}
-          </Droppable>
-        ))}
-      </div>
-    </DragDropContext>
+            onClick={() => handlePriorityChange(zone.id)}
+          >
+            {zone.label}
+            {task.priority === zone.id && " (Aktuell)"}
+          </Button>
+        </div>
+      ))}
+    </div>
   );
 }
