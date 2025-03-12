@@ -3,7 +3,7 @@ import { type Task as TaskType } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, User } from "lucide-react";
@@ -33,6 +33,16 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Query für Kommentare
+  const { data: comments = [] } = useQuery({
+    queryKey: [`/api/tasks/${task.id}/comments`],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/${task.id}/comments`);
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
 
   const handleUpdate = async (updatedTask: TaskType) => {
     await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
@@ -110,7 +120,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
                     {/* Comment Count */}
                     <div className="flex items-center gap-1">
                       <MessageSquare className="h-3 w-3" />
-                      <span>3</span>
+                      <span>{comments.length}</span>
                     </div>
                   </div>
 
@@ -132,6 +142,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
         task={task}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
+        defaultTab="comments"
       />
     </>
   );
