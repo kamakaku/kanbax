@@ -126,6 +126,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     if (onUpdate) await onUpdate(data);
   };
 
+  const stopPropagation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -206,7 +210,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               )}
 
               {/* Checklist */}
-              <ChecklistCard task={task} onUpdate={updateTask} />
+              {task && task.id && (
+                <div onClick={stopPropagation}>
+                  <ChecklistCard
+                    task={task}
+                    onUpdate={updateTask}
+                  />
+                </div>
+              )}
 
               <Separator />
 
