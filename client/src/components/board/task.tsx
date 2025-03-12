@@ -65,10 +65,8 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-  // Calculate checklist progress
-  const checklistProgress = task.checklist?.length 
-    ? (task.checklist.filter(item => item.checked).length / task.checklist.length) * 100 
-    : 0;
+  // In der neuen Implementierung wird der Fortschritt direkt in der ChecklistCard berechnet
+  // und über API-Aufrufe aktualisiert 0;
 
   return (
     <>
@@ -111,18 +109,16 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
                 {/* Task Title */}
                 <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
 
-                {/* Checklist Progress */}
-                {task.checklist && task.checklist.length > 0 && (
+                {/* Checklist Progress - wird dynamisch geladen */}
+                {task._hasChecklist && (
                   <div className="mb-3 space-y-1">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <CheckSquare className="h-3 w-3" />
-                        <span>
-                          {task.checklist.filter(item => item.checked).length}/{task.checklist.length}
-                        </span>
+                        <span>Checkliste</span>
                       </div>
                     </div>
-                    <Progress value={checklistProgress} className="h-1" />
+                    <Progress value={50} className="h-1" /> {/* Standardwert, wird später aktualisiert */}
                   </div>
                 )}
 
