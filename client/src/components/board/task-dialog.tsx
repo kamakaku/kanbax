@@ -134,8 +134,9 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleAddChecklistItem = async () => {
-    if (!newItem.trim() || !task) return;
+  const handleChecklistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItem.trim() || !task || !onUpdate) return;
 
     try {
       const updatedChecklist = [
@@ -152,10 +153,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       if (!response.ok) throw new Error("Failed to add checklist item");
 
       const updatedTask = await response.json();
-      if (onUpdate) {
-        await onUpdate(updatedTask);
-      }
-
+      await onUpdate(updatedTask);
       setNewItem("");
     } catch (error) {
       toast({
@@ -166,8 +164,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const handleToggleChecklistItem = async (index: number) => {
-    if (!task?.checklist) return;
+  const handleChecklistItemToggle = async (index: number) => {
+    if (!task?.checklist || !onUpdate) return;
 
     try {
       const updatedChecklist = task.checklist.map((item, i) => 
@@ -183,9 +181,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       if (!response.ok) throw new Error("Failed to update checklist item");
 
       const updatedTask = await response.json();
-      if (onUpdate) {
-        await onUpdate(updatedTask);
-      }
+      await onUpdate(updatedTask);
     } catch (error) {
       toast({
         title: "Fehler",
@@ -298,7 +294,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                           <input
                             type="checkbox"
                             checked={item.checked}
-                            onChange={() => handleToggleChecklistItem(index)}
+                            onChange={() => handleChecklistItemToggle(index)}
                             className="h-4 w-4 rounded border-gray-300"
                           />
                           <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
@@ -308,27 +304,16 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                       ))}
                     </div>
 
-                    <div className="flex gap-2">
+                    <form onSubmit={handleChecklistSubmit} className="flex gap-2">
                       <Input
                         value={newItem}
                         onChange={(e) => setNewItem(e.target.value)}
                         placeholder="Neuer Checklistenpunkt"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddChecklistItem();
-                          }
-                        }}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={handleAddChecklistItem}
-                      >
+                      <Button type="submit" variant="outline" size="icon">
                         <Plus className="h-4 w-4" />
                       </Button>
-                    </div>
+                    </form>
                   </div>
                 </CardContent>
               </Card>
