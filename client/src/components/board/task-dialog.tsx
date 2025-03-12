@@ -101,8 +101,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     const newPriority = result.destination.droppableId;
 
     try {
+      // Nur die Priorität aktualisieren, andere Werte bleiben unverändert
       const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        priority: newPriority
+        priority: newPriority,
+        status: task.status,
+        boardId: task.boardId,
+        columnId: task.columnId,
+        order: task.order
       });
 
       if (!res.ok) {

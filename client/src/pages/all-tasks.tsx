@@ -104,28 +104,24 @@ export default function AllTasks() {
     enabled: boards.length > 0
   });
 
-  const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
-      // Find the task to get its current board information
-      const task = tasks.find(t => t.id === id);
+  const updateTaskPriority = useMutation({
+    mutationFn: async ({ taskId, newPriority }: { taskId: number; newPriority: string }) => {
+      const task = tasks.find(t => t.id === taskId);
       if (!task) throw new Error("Task not found");
 
-      // Update task with new status while preserving original board and column
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
-        status,
-        order,
+      const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+        priority: newPriority,
+        status: task.status,
         boardId: task.boardId,
-        columnId: task.columnId, // Preserve the original columnId
-        priority: task.priority // Preserve the original priority
+        columnId: task.columnId,
+        order: task.order
       });
 
-      if (!res.ok) throw new Error("Failed to update task");
+      if (!res.ok) throw new Error("Failed to update task priority");
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate queries for both views
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      // Invalidate each board's tasks
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
           queryKey: [`/api/boards/${board.id}/tasks`] 
@@ -133,10 +129,44 @@ export default function AllTasks() {
       });
     },
     onError: (error) => {
-      console.error("Update task error:", error);
+      console.error("Priority update error:", error);
       toast({
-        title: "Failed to update task",
-        description: error.message,
+        title: "Fehler",
+        description: "Die Priorität konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTaskStatus = useMutation({
+    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
+      const task = tasks.find(t => t.id === id);
+      if (!task) throw new Error("Task not found");
+
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
+        status,
+        order,
+        boardId: task.boardId,
+        columnId: task.columnId,
+        priority: task.priority 
+      });
+
+      if (!res.ok) throw new Error("Failed to update task status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      boards.forEach(board => {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/boards/${board.id}/tasks`] 
+        });
+      });
+    },
+    onError: (error) => {
+      console.error("Status update error:", error);
+      toast({
+        title: "Fehler",
+        description: "Der Status konnte nicht aktualisiert werden",
         variant: "destructive",
       });
     },
@@ -169,7 +199,6 @@ export default function AllTasks() {
         throw new Error("Failed to update task");
       }
 
-      // Invalidate queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
@@ -194,7 +223,6 @@ export default function AllTasks() {
         throw new Error("Failed to delete task");
       }
 
-      // Invalidate queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
@@ -219,7 +247,6 @@ export default function AllTasks() {
     task.boardTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
 
   const form = useForm({
     resolver: zodResolver(insertTaskSchema),
