@@ -89,7 +89,7 @@ export default function AllTasks() {
 
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
-      // Find the task to get its current board and column information
+      // Find the task to get its current board information
       const task = tasks.find(t => t.id === id);
       if (!task) return;
 
@@ -97,12 +97,25 @@ export default function AllTasks() {
       const board = boards.find(b => b.id === task.boardId);
       if (!board) return;
 
-      // Update status, keep the original columnId and boardId
+      // Fetch columns for the board
+      const columnsRes = await fetch(`/api/boards/${task.boardId}/columns`);
+      if (!columnsRes.ok) {
+        throw new Error("Failed to fetch columns");
+      }
+      const columns = await columnsRes.json();
+
+      // Find the column that matches the new status
+      const targetColumn = columns.find((col: any) => col.title?.toLowerCase() === status);
+      if (!targetColumn) {
+        throw new Error("Could not find matching column");
+      }
+
+      // Update both status and columnId
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
         status,
         order,
         boardId: task.boardId,
-        columnId: task.columnId // Keep the original columnId
+        columnId: targetColumn.id // Update to the new column ID
       });
       return res.json();
     },
