@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { type Task as TaskType } from "@shared/schema";
-import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Clock, Users } from "lucide-react";
 
 interface TaskProps {
   task: TaskType & { boardTitle?: string };
@@ -12,35 +14,27 @@ interface TaskProps {
   showBoardTitle?: boolean;
 }
 
+const priorityColors = {
+  low: "bg-blue-500",
+  medium: "bg-orange-500", 
+  high: "bg-red-500"
+} as const;
+
 export function Task({ task, index, showBoardTitle = false }: TaskProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const priorityColor = {
-    low: "bg-blue-500",
-    medium: "bg-yellow-500", 
-    high: "bg-red-500"
-  }[task.priority || "medium"] || "bg-blue-500";
-
   const handleUpdate = async (updatedTask: TaskType) => {
-    // Invalidate queries for both the specific board and all tasks
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] })
-    ]);
-    
+    await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
     setIsTaskDialogOpen(false);
     toast({ title: "Aufgabe erfolgreich aktualisiert" });
   };
 
   const handleDelete = async (taskId: number) => {
-    // Invalidate queries for both the specific board and all tasks
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] }),
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] })
-    ]);
-    
+    await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
     setIsTaskDialogOpen(false);
     toast({ title: "Aufgabe erfolgreich gelöscht" });
   };
@@ -52,7 +46,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
         index={index}
         key={task.id}
       >
-        {(provided) => (
+        {(provided, snapshot) => (
           <div
             className="cursor-pointer"
             {...provided.draggableProps}
@@ -60,34 +54,55 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
             ref={provided.innerRef}
             onClick={() => setIsTaskDialogOpen(true)}
           >
-            <Card className="shadow-sm hover:shadow border border-border/40 hover:border-primary/20">
-              <CardContent className="p-3 space-y-2">
+            <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 ${
+              snapshot.isDragging ? "shadow-lg ring-2 ring-primary/20" : "hover:ring-1 hover:ring-primary/10"
+            }`}>
+              <CardContent className="p-4 space-y-3">
+                {/* Priority Indicator */}
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-sm font-medium line-clamp-2">
-                    {task.title}
-                  </CardTitle>
-                  <div className={`w-2 h-2 rounded-full ${priorityColor}`} />
+                  <div className={`h-2 w-2 rounded-full mt-1 ${priorityColors[task.priority || "medium"]}`} />
+                  {task.assignedTeamId && (
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
+
+                {/* Task Title */}
+                <h3 className="font-medium text-sm line-clamp-2">{task.title}</h3>
+
+                {/* Task Description */}
                 {task.description && (
-                  <CardDescription className="text-xs line-clamp-2">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {task.description}
-                  </CardDescription>
+                  </p>
                 )}
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {task.labels && task.labels.length > 0 && 
-                    task.labels.map((label, i) => (
-                      <span
+
+                {/* Labels */}
+                {task.labels && task.labels.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {task.labels.map((label, i) => (
+                      <Badge
                         key={i}
-                        className="px-1.5 py-0.5 text-[10px] rounded-sm bg-primary/10 text-primary font-medium"
+                        variant="secondary"
+                        className="px-2 py-0.5 text-[10px] bg-secondary/20 hover:bg-secondary/30"
                       >
                         {label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* Footer Info */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                  {task.dueDate && (
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        {new Date(task.dueDate).toLocaleDateString()}
                       </span>
-                    ))
-                  }
+                    </div>
+                  )}
                   {showBoardTitle && task.boardTitle && (
-                    <span
-                      className="px-1.5 py-0.5 text-[10px] rounded-sm bg-secondary/30 text-secondary-foreground font-medium"
-                    >
+                    <span className="text-[10px] font-medium text-primary/80">
                       {task.boardTitle}
                     </span>
                   )}
