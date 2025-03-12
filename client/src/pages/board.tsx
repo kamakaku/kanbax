@@ -28,7 +28,15 @@ export default function Board() {
     }
   }, [currentBoard, setLocation, toast]);
 
-  const { data: columns = [], isLoading: columnsLoading } = useQuery<Column[]>({
+  const columns = [
+    { id: "backlog", title: "backlog" },
+    { id: "todo", title: "todo" },
+    { id: "in-progress", title: "in-progress" },
+    { id: "review", title: "review" },
+    { id: "done", title: "done" }
+  ];
+
+  const { data: cols = columns, isLoading: columnsLoading } = useQuery<Column[]>({
     queryKey: ["/api/boards", currentBoard?.id, "columns"],
     queryFn: async () => {
       const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
@@ -56,7 +64,7 @@ export default function Board() {
     mutationFn: async () => {
       if (!currentBoard?.id) return;
 
-      const maxOrder = columns.reduce((max, col) => Math.max(max, col.order), -1);
+      const maxOrder = cols.reduce((max, col) => Math.max(max, col.order), -1);
 
       const res = await apiRequest(
         "POST",
@@ -92,8 +100,8 @@ export default function Board() {
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
         columnId, 
         order, 
-        status,
-        boardId: task.boardId // Keep the original boardId
+        status, 
+        boardId: task.boardId
       });
       return res.json();
     },
@@ -122,11 +130,11 @@ export default function Board() {
     const newOrder = destination.index;
 
     // Find the column to get its status
-    const column = columns.find(col => col.id === newColumnId);
+    const column = cols.find(col => col.id === newColumnId);
     if (!column) return;
 
-    // Get the status from the column title
-    const newStatus = column.title?.toLowerCase() || 'todo';
+    // Use the column's title directly as it's already in the correct format
+    const newStatus = column.title || 'todo';
 
     updateTaskStatus.mutate({ 
       id: taskId, 
@@ -211,7 +219,7 @@ export default function Board() {
       <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
-            {columns.map((column) => (
+            {cols.map((column) => (
               <ColumnComponent
                 key={column.id}
                 column={column}

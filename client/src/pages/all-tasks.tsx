@@ -112,10 +112,10 @@ export default function AllTasks() {
 
       // Update both status and columnId
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
-        status,
+        status, 
         order,
         boardId: task.boardId,
-        columnId: targetColumn.id // Update to the new column ID
+        columnId: targetColumn.id
       });
       return res.json();
     },
@@ -142,7 +142,7 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    const newStatus = destination.droppableId; // The status is the column ID in AllTasks view
+    const newStatus = destination.droppableId; 
     const newOrder = destination.index;
 
     updateTaskStatus.mutate({ 
