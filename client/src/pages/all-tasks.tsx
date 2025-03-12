@@ -108,7 +108,7 @@ export default function AllTasks() {
     mutationFn: async ({ taskId, newPriority }: { taskId: number; newPriority: string }) => {
       // Simplify the API call to only update priority
       const res = await apiRequest(
-        "PATCH", 
+        "PATCH",
         `/api/tasks/${taskId}`,
         { priority: newPriority }
       );
@@ -120,8 +120,8 @@ export default function AllTasks() {
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/boards/${board.id}/tasks`]
         });
       });
       toast({ title: "Priorität erfolgreich aktualisiert" });
@@ -136,59 +136,132 @@ export default function AllTasks() {
     },
   });
 
-  const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
-      const task = tasks.find(t => t.id === id);
+  const updateTaskOrder = useMutation({
+    mutationFn: async ({
+      taskId,
+      newStatus,
+      newOrder,
+      sourceColumnTasks,
+      destinationColumnTasks
+    }: {
+      taskId: number;
+      newStatus: string;
+      newOrder: number;
+      sourceColumnTasks: Task[];
+      destinationColumnTasks: Task[];
+    }) => {
+      const task = tasks.find(t => t.id === taskId);
       if (!task) throw new Error("Task not found");
 
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
-        status,
-        order,
-        boardId: task.boardId,
-        columnId: task.columnId,
-        priority: task.priority 
+      // Prepare updates for all affected tasks
+      const updates = [];
+
+      // Update tasks in source column
+      if (sourceColumnTasks) {
+        updates.push(...sourceColumnTasks.map((t, index) => ({
+          id: t.id,
+          status: t.status,
+          order: index,
+          boardId: t.boardId,
+          columnId: t.columnId
+        })));
+      }
+
+      // Update tasks in destination column
+      if (destinationColumnTasks) {
+        updates.push(...destinationColumnTasks.map((t, index) => ({
+          id: t.id,
+          status: t.status,
+          order: index,
+          boardId: t.boardId,
+          columnId: t.columnId
+        })));
+      }
+
+      // Update the dragged task
+      updates.push({
+        id: taskId,
+        status: newStatus,
+        order: newOrder,
+        boardId: task.boardId, // Preserve original board
+        columnId: task.columnId // Preserve original column
       });
 
-      if (!res.ok) throw new Error("Failed to update task status");
-      return res.json();
+      // Execute all updates
+      const results = await Promise.all(
+        updates.map(update =>
+          apiRequest("PATCH", `/api/tasks/${update.id}`, update)
+        )
+      );
+
+      if (results.some(res => !res.ok)) {
+        throw new Error("Failed to update task order");
+      }
+
+      return results;
     },
     onSuccess: () => {
+      // Invalidate queries for all boards
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/boards/${board.id}/tasks`]
         });
       });
     },
     onError: (error) => {
-      console.error("Status update error:", error);
+      console.error("Order update error:", error);
       toast({
         title: "Fehler",
-        description: "Der Status konnte nicht aktualisiert werden",
+        description: "Die Reihenfolge konnte nicht aktualisiert werden",
         variant: "destructive",
       });
-    },
+    }
   });
+
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
-    const { draggableId, destination } = result;
+    const { source, destination, draggableId } = result;
     const taskId = parseInt(draggableId);
-    const newStatus = destination.droppableId;
-    const newOrder = destination.index;
 
-    updateTaskStatus.mutate({ 
-      id: taskId, 
-      status: newStatus,
-      order: newOrder
+    // Get all tasks in source column
+    const sourceColumnTasks = filteredTasks
+      .filter(t => t.status === source.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Get all tasks in destination column
+    const destinationColumnTasks = filteredTasks
+      .filter(t => t.status === destination.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Remove task from source array
+    const [movedTask] = sourceColumnTasks.splice(source.index, 1);
+
+    // Insert task at new position
+    if (source.droppableId === destination.droppableId) {
+      // Same column
+      sourceColumnTasks.splice(destination.index, 0, movedTask);
+    } else {
+      // Different column
+      destinationColumnTasks.splice(destination.index, 0, movedTask);
+    }
+
+    // Update task order
+    updateTaskOrder.mutate({
+      taskId,
+      newStatus: destination.droppableId,
+      newOrder: destination.index,
+      sourceColumnTasks: source.droppableId === destination.droppableId ? null : sourceColumnTasks,
+      destinationColumnTasks
     });
   };
 
   const handleTaskUpdate = async (updatedTask: Task) => {
     try {
       const res = await apiRequest(
-        "PATCH", 
+        "PATCH",
         `/api/tasks/${updatedTask.id}`,
         updatedTask
       );
@@ -199,17 +272,17 @@ export default function AllTasks() {
 
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/boards/${board.id}/tasks`]
         });
       });
 
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
     } catch (error) {
       console.error("Task update error:", error);
-      toast({ 
-        title: "Fehler beim Aktualisieren der Aufgabe", 
-        variant: "destructive" 
+      toast({
+        title: "Fehler beim Aktualisieren der Aufgabe",
+        variant: "destructive"
       });
     }
   };
@@ -223,8 +296,8 @@ export default function AllTasks() {
 
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/boards/${board.id}/tasks`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/boards/${board.id}/tasks`]
         });
       });
 
@@ -232,9 +305,9 @@ export default function AllTasks() {
       toast({ title: "Aufgabe erfolgreich gelöscht" });
     } catch (error) {
       console.error("Task delete error:", error);
-      toast({ 
-        title: "Fehler beim Löschen der Aufgabe", 
-        variant: "destructive" 
+      toast({
+        title: "Fehler beim Löschen der Aufgabe",
+        variant: "destructive"
       });
     }
   };
