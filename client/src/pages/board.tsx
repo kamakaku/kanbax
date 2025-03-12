@@ -35,18 +35,6 @@ export default function Board() {
     }
   }, [currentBoard, setLocation, toast]);
 
-  const { data: columns = defaultColumns, isLoading: columnsLoading } = useQuery<Column[]>({
-    queryKey: ["/api/boards", currentBoard?.id, "columns"],
-    queryFn: async () => {
-      const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch columns");
-      }
-      return res.json();
-    },
-    enabled: !!currentBoard,
-  });
-
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["/api/boards", currentBoard?.id, "tasks"],
     queryFn: async () => {
@@ -60,20 +48,20 @@ export default function Board() {
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, columnId, order }: { id: number; columnId: number; order: number }) => {
-      // Find the task to get its current board information
-      const task = tasks.find(t => t.id === id);
+    mutationFn: async ({ taskId, newStatus, newOrder }: { taskId: number; newStatus: string; newOrder: number }) => {
+      // Find the existing task
+      const task = tasks.find(t => t.id === taskId);
       if (!task) throw new Error("Task not found");
 
-      // Find the column to get its status
-      const column = columns.find(col => col.id === columnId);
-      if (!column) throw new Error("Column not found");
+      // Find the matching column
+      const targetColumn = defaultColumns.find(col => col.title === newStatus);
+      if (!targetColumn) throw new Error(`Invalid status: ${newStatus}`);
 
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
-        status: column.title,
-        columnId,
-        order,
-        boardId: task.boardId
+      const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+        status: newStatus,
+        order: newOrder,
+        boardId: task.boardId,
+        columnId: task.columnId //Preserving original columnId for now.  Could be removed if the backend doesn't need it.
       });
 
       if (!res.ok) throw new Error("Failed to update task");
@@ -100,14 +88,10 @@ export default function Board() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    const newColumnId = parseInt(destination.droppableId);
+    const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
-    updateTaskStatus.mutate({
-      id: taskId,
-      columnId: newColumnId,
-      order: newOrder
-    });
+    updateTaskStatus.mutate({ taskId, newStatus, newOrder });
   };
 
   const handleTaskUpdate = async (updatedTask: Task) => {
@@ -165,7 +149,7 @@ export default function Board() {
     return null;
   }
 
-  if (columnsLoading || tasksLoading) {
+  if (tasksLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-lg text-muted-foreground">Loading...</p>
@@ -183,11 +167,11 @@ export default function Board() {
       <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
-            {columns.map((column) => (
+            {defaultColumns.map((column) => (
               <ColumnComponent
                 key={column.id}
                 column={column}
-                tasks={tasks.filter(task => task.columnId === column.id)}
+                tasks={tasks.filter(task => task.status === column.title)}
                 onUpdate={handleTaskUpdate}
                 onDelete={handleTaskDelete}
               />

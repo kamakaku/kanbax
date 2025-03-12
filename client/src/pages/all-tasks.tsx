@@ -110,33 +110,19 @@ export default function AllTasks() {
       const task = tasks.find(t => t.id === id);
       if (!task) throw new Error("Task not found");
 
-      // Find the board for this task
-      const board = boards.find(b => b.id === task.boardId);
-      if (!board) throw new Error("Board not found");
-
-      // Fetch columns for the board
-      const columnsRes = await fetch(`/api/boards/${task.boardId}/columns`);
-      if (!columnsRes.ok) throw new Error("Failed to fetch columns");
-
-      const boardColumns = await columnsRes.json();
-
-      // Find the column that matches the new status
-      const targetColumn = boardColumns.find((col: any) => col.title === status);
-      if (!targetColumn) throw new Error(`No column found for status: ${status}`);
-
-      // Update both status and columnId
+      // Update task with new status
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
         status,
         order,
         boardId: task.boardId,
-        columnId: targetColumn.id
+        columnId: task.columnId
       });
 
       if (!res.ok) throw new Error("Failed to update task");
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate queries for both the all-tasks view and specific board views
+      // Invalidate queries for both views
       queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       boards.forEach(board => {
         queryClient.invalidateQueries({ 
@@ -159,12 +145,11 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    // Die destination.droppableId ist der Status aus dem Schema (z.B. "todo")
     const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
-    updateTaskStatus.mutate({
-      id: taskId,
+    updateTaskStatus.mutate({ 
+      id: taskId, 
       status: newStatus,
       order: newOrder
     });
