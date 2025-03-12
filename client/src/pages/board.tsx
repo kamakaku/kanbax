@@ -12,10 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useLocation } from "wouter";
 
+// Definiere die Standard-Spalten mit korrekten Status-Werten
+const defaultColumns = [
+  { id: "backlog", title: "backlog" },
+  { id: "todo", title: "todo" },
+  { id: "in-progress", title: "in-progress" },
+  { id: "review", title: "review" },
+  { id: "done", title: "done" }
+];
+
 export default function Board() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { currentBoard, setCurrentBoard } = useStore();
+  const { currentBoard } = useStore();
 
   // Redirect to projects page if no board is selected
   useEffect(() => {
@@ -28,15 +37,7 @@ export default function Board() {
     }
   }, [currentBoard, setLocation, toast]);
 
-  const columns = [
-    { id: "backlog", title: "backlog" },
-    { id: "todo", title: "todo" },
-    { id: "in-progress", title: "in-progress" },
-    { id: "review", title: "review" },
-    { id: "done", title: "done" }
-  ];
-
-  const { data: cols = columns, isLoading: columnsLoading } = useQuery<Column[]>({
+  const { data: cols = defaultColumns, isLoading: columnsLoading } = useQuery<Column[]>({
     queryKey: ["/api/boards", currentBoard?.id, "columns"],
     queryFn: async () => {
       const res = await fetch(`/api/boards/${currentBoard?.id}/columns`);
@@ -60,48 +61,21 @@ export default function Board() {
     enabled: !!currentBoard,
   });
 
-  const createColumn = useMutation({
-    mutationFn: async () => {
-      if (!currentBoard?.id) return;
-
-      const maxOrder = cols.reduce((max, col) => Math.max(max, col.order), -1);
-
-      const res = await apiRequest(
-        "POST",
-        `/api/boards/${currentBoard.id}/columns`,
-        {
-          title: "New Column",
-          order: maxOrder + 1,
-        }
-      );
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "columns"],
-      });
-      toast({ title: "Column created" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to create column",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, columnId, order, status }: { id: number; columnId: number; order: number; status: string }) => {
+    mutationFn: async ({ id, status, order }: { id: number; status: string; order: number }) => {
       // Find the task to get its current board information
       const task = tasks.find(t => t.id === id);
       if (!task) throw new Error("Task not found");
 
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, { 
-        columnId, 
-        order, 
+      // Find the column that matches the new status
+      const targetColumn = cols.find(col => col.title === status);
+      if (!targetColumn) throw new Error(`No column found for status: ${status}`);
+
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
         status,
-        boardId: task.boardId
+        order,
+        boardId: task.boardId,
+        columnId: targetColumn.id
       });
 
       if (!res.ok) throw new Error("Failed to update task");
@@ -128,18 +102,15 @@ export default function Board() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    const newColumnId = parseInt(destination.droppableId);
-    const newOrder = destination.index;
 
     // Find the column to get its status
-    const column = columns.find(col => col.id === destination.droppableId);
+    const column = cols.find(col => col.id === destination.droppableId);
     if (!column) return;
 
-    updateTaskStatus.mutate({ 
-      id: taskId, 
-      columnId: newColumnId, 
-      order: newOrder,
-      status: column.title 
+    updateTaskStatus.mutate({
+      id: taskId,
+      status: column.title,
+      order: destination.index
     });
   };
 
@@ -155,7 +126,6 @@ export default function Board() {
         throw new Error("Failed to update task");
       }
 
-      // Invalidate both specific board tasks and all tasks
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
@@ -179,7 +149,6 @@ export default function Board() {
         throw new Error("Failed to delete task");
       }
 
-      // Invalidate both specific board tasks and all tasks
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
@@ -197,7 +166,7 @@ export default function Board() {
   };
 
   if (!currentBoard) {
-    return null; // Will redirect via useEffect
+    return null;
   }
 
   if (columnsLoading || tasksLoading) {
@@ -227,14 +196,6 @@ export default function Board() {
                 onDelete={handleTaskDelete}
               />
             ))}
-            <Button
-              onClick={() => createColumn.mutate()}
-              variant="outline"
-              className="h-[500px] w-[280px] border-dashed"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Column
-            </Button>
           </div>
         </DragDropContext>
       </div>

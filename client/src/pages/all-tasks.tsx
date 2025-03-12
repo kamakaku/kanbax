@@ -29,6 +29,23 @@ interface TaskWithDetails extends Task {
   projectId: number;
 }
 
+// Definiere die Standard-Spalten mit korrekten Status-Werten
+const defaultColumns = [
+  { id: "backlog", title: "backlog" },
+  { id: "todo", title: "todo" },
+  { id: "in-progress", title: "in-progress" },
+  { id: "review", title: "review" },
+  { id: "done", title: "done" }
+];
+
+const statusLabels = {
+  'backlog': 'Backlog',
+  'todo': 'To Do',
+  'in-progress': 'In Progress',
+  'review': 'Review',
+  'done': 'Done'
+};
+
 export default function AllTasks() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
@@ -141,12 +158,12 @@ export default function AllTasks() {
 
     const { draggableId, destination } = result;
     const taskId = parseInt(draggableId);
-    // destination.droppableId enthält direkt den korrekten Status-Wert aus dem Schema
+    // Die destination.droppableId entspricht dem Status aus dem Schema
     const newStatus = destination.droppableId;
     const newOrder = destination.index;
 
-    updateTaskStatus.mutate({ 
-      id: taskId, 
+    updateTaskStatus.mutate({
+      id: taskId,
       status: newStatus,
       order: newOrder
     });
@@ -215,22 +232,6 @@ export default function AllTasks() {
     task.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Define the fixed columns for all tasks - make sure these match exactly with the schema
-  const columns = [
-    { id: "backlog", title: "backlog" },
-    { id: "todo", title: "todo" },
-    { id: "in-progress", title: "in-progress" },
-    { id: "review", title: "review" },
-    { id: "done", title: "done" }
-  ];
-
-  const statusLabels = {
-    'backlog': 'Backlog',
-    'todo': 'To Do',
-    'in-progress': 'In Progress',
-    'review': 'Review',
-    'done': 'Done'
-  };
 
   const form = useForm({
     resolver: zodResolver(insertTaskSchema),
@@ -308,11 +309,11 @@ export default function AllTasks() {
       <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
-            {columns.map((column) => (
+            {defaultColumns.map((column) => (
               <ColumnComponent
                 key={column.id}
                 column={column}
-                tasks={filteredTasks.filter(task => task.status === column.id)}
+                tasks={filteredTasks.filter(task => task.status === column.title)}
                 isAllTasksView={true}
                 onUpdate={handleTaskUpdate}
                 onDelete={handleTaskDelete}
