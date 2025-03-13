@@ -7,7 +7,7 @@ channel = "stable-24_05"
 
 [deployment]
 deploymentTarget = "cloudrun"
-run = ["sh", "-c", "npm run dev"]
+run = ["sh", "-c", "npm run start"]
 build = ["sh", "-c", "npm run build"]
 
 [[ports]]
@@ -23,7 +23,7 @@ localPort = 5001
 externalPort = 3001
 
 [workflows]
-runButton = "Run"
+runButton = "Dev Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -51,6 +51,15 @@ waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Run"
+author = 40238057
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Dev Server"
 author = 40238057
 mode = "sequential"
 
