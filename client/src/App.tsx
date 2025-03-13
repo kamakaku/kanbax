@@ -17,8 +17,8 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen">
+    <SidebarProvider defaultOpen={false}> {/* Set to collapsed by default */}
+      <div className="flex min-h-screen bg-slate-50">
         <Sidebar>
           <SidebarContent>
             <SidebarMenu>
@@ -26,6 +26,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 <SidebarMenuButton
                   onClick={() => setLocation("/dashboard")}
                   className="w-full"
+                  tooltip="Dashboard"
                 >
                   <LayoutDashboard className="h-4 w-4" />
                   <span>Dashboard</span>
@@ -35,6 +36,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 <SidebarMenuButton
                   onClick={() => setLocation("/projects")}
                   className="w-full"
+                  tooltip="Projekte"
                 >
                   <Folder className="h-4 w-4" />
                   <span>Projekte</span>
@@ -44,6 +46,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 <SidebarMenuButton
                   onClick={() => setLocation("/boards")}
                   className="w-full"
+                  tooltip="Boards"
                 >
                   <KanbanSquare className="h-4 w-4" />
                   <span>Boards</span>
@@ -52,7 +55,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6 backdrop-blur-sm bg-white/30">{children}</main>
       </div>
     </SidebarProvider>
   );
