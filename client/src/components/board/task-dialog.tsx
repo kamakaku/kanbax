@@ -1,229 +1,137 @@
-
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Task } from "@shared/schema";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useStore } from "@/lib/store";
 
-// Schema für die Formularvalidierung
-const taskSchema = z.object({
+// Task Form Schema
+const taskFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
   priority: z.enum(["low", "medium", "high"]),
-  status: z.enum(["todo", "in-progress", "done"]),
-  boardId: z.number().positive("Board ID ist erforderlich"),
-  columnId: z.number().optional(),
-  labels: z.array(z.string()).optional()
+  status: z.string().default("todo"),
 });
 
-type TaskFormValues = z.infer<typeof taskSchema>;
+type TaskFormValues = z.infer<typeof taskFormSchema>;
 
-type TaskDialogProps = {
-  task?: Task;
-  open: boolean;
-  onClose: () => void;
-  onUpdate?: (task: Task) => void;
-  onDelete?: (taskId: number) => void;
-  defaultBoardId?: number;
-};
-
-export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultBoardId }: TaskDialogProps) {
+export function TaskDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { currentBoard } = useStore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [, navigate] = useLocation();
-  
-  // Abrufen der Boards für die Auswahl
-  const { data: boards = [] } = useQuery({
-    queryKey: ["/api/boards"],
-    queryFn: async () => {
-      const res = await fetch("/api/boards");
-      if (!res.ok) return [];
-      return res.json();
-    }
-  });
 
-  // Form initialisieren
   const form = useForm<TaskFormValues>({
-    resolver: zodResolver(taskSchema),
-    defaultValues: task ? {
-      ...task,
-      labels: task.labels || []
-    } : {
+    resolver: zodResolver(taskFormSchema),
+    defaultValues: {
       title: "",
       description: "",
       priority: "medium",
-      status: "todo",
-      boardId: defaultBoardId || (boards[0]?.id || 0),
-      labels: []
-    }
+      status: "todo"
+    },
   });
 
-  // Task erstellen Mutation
+  // Zurücksetzen des Formulars, wenn der Dialog geöffnet wird
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        title: "",
+        description: "",
+        priority: "medium",
+        status: "todo"
+      });
+    }
+  }, [open, form]);
+
   const createTask = useMutation({
-    mutationFn: async (values: TaskFormValues) => {
-      const response = await fetch(`/api/boards/${values.boardId}/tasks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(values)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Fehler beim Erstellen der Aufgabe");
+    mutationFn: async (data: TaskFormValues) => {
+      if (!currentBoard) {
+        throw new Error("Kein Board ausgewählt");
       }
-      
+
+      // API-Request vorbereiten
+      const taskData = {
+        ...data,
+        boardId: currentBoard.id,
+        order: 0 // Standard-Reihenfolge für neue Aufgaben
+      };
+
+      const response = await fetch(`/api/boards/${currentBoard.id}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(taskData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Fehler beim Erstellen der Aufgabe: ${errorText}`);
+      }
+
       return response.json();
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", data.boardId, "tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+    onSuccess: () => {
+      // Cache aktualisieren und Dialog schließen
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
+      onClose();
       toast({ title: "Aufgabe erfolgreich erstellt" });
-      onClose();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Fehler beim Erstellen der Aufgabe:", error);
-      toast({ 
-        title: "Fehler beim Erstellen der Aufgabe", 
-        description: error instanceof Error ? error.message : "Unbekannter Fehler",
-        variant: "destructive" 
+      toast({
+        title: "Fehler beim Erstellen der Aufgabe",
+        description: error.message,
+        variant: "destructive",
       });
-    }
+    },
   });
 
-  // Task aktualisieren Mutation
-  const updateTask = useMutation({
-    mutationFn: async (values: TaskFormValues) => {
-      if (!task) return null;
-      
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(values)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Fehler beim Aktualisieren der Aufgabe");
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (!data) return;
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", data.boardId, "tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      toast({ title: "Aufgabe erfolgreich aktualisiert" });
-      if (onUpdate) onUpdate(data);
-      onClose();
-    },
-    onError: (error) => {
-      console.error("Fehler beim Aktualisieren der Aufgabe:", error);
-      toast({ 
-        title: "Fehler beim Aktualisieren der Aufgabe", 
-        description: error instanceof Error ? error.message : "Unbekannter Fehler",
-        variant: "destructive" 
-      });
-    }
-  });
-
-  // Task löschen Mutation
-  const deleteTask = useMutation({
-    mutationFn: async () => {
-      if (!task) return null;
-      
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "DELETE"
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Fehler beim Löschen der Aufgabe");
-      }
-      
-      return task.id;
-    },
-    onSuccess: (taskId) => {
-      if (!taskId || !task) return;
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      toast({ title: "Aufgabe erfolgreich gelöscht" });
-      if (onDelete) onDelete(taskId);
-      onClose();
-    },
-    onError: (error) => {
-      console.error("Fehler beim Löschen der Aufgabe:", error);
-      toast({ 
-        title: "Fehler beim Löschen der Aufgabe", 
-        description: error instanceof Error ? error.message : "Unbekannter Fehler",
-        variant: "destructive" 
-      });
-    }
-  });
-
-  // Form-Submit-Handler
-  const onSubmit = (values: TaskFormValues) => {
-    if (task) {
-      updateTask.mutate(values);
-    } else {
-      createTask.mutate(values);
-    }
+  const onSubmit = (data: TaskFormValues) => {
+    createTask.mutate(data);
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>
-            {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
-          </DialogTitle>
+          <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
         </DialogHeader>
-        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Board-Auswahl */}
-            <FormField
-              control={form.control}
-              name="boardId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Board</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(parseInt(value))}
-                    value={field.value?.toString()}
-                    disabled={!!task}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Wählen Sie ein Board" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {boards.map((board) => (
-                        <SelectItem key={board.id} value={board.id.toString()}>
-                          {board.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {/* Titel */}
+            {currentBoard && (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium">Board:</span>
+                <span className="text-sm">{currentBoard.title}</span>
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="title"
@@ -231,14 +139,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultBoa
                 <FormItem>
                   <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <Input placeholder="Aufgabentitel" {...field} />
+                    <Input placeholder="Aufgabentitel eingeben..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
-            {/* Beschreibung */}
+
             <FormField
               control={form.control}
               name="description"
@@ -246,24 +153,29 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultBoa
                 <FormItem>
                   <FormLabel>Beschreibung</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Beschreibung der Aufgabe" {...field} value={field.value || ""} />
+                    <Textarea
+                      placeholder="Beschreiben Sie die Aufgabe..."
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
-            {/* Priorität */}
+
             <FormField
               control={form.control}
               name="priority"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Priorität</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Wählen Sie eine Priorität" />
+                        <SelectValue placeholder="Priorität auswählen" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -276,49 +188,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete, defaultBoa
                 </FormItem>
               )}
             />
-            
-            {/* Status */}
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Wählen Sie einen Status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="todo">Zu erledigen</SelectItem>
-                      <SelectItem value="in-progress">In Bearbeitung</SelectItem>
-                      <SelectItem value="done">Erledigt</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="flex justify-end gap-2 pt-2">
-              {task && (
-                <Button 
-                  type="button" 
-                  variant="destructive" 
-                  onClick={() => deleteTask.mutate()}
-                  disabled={deleteTask.isPending}
-                >
-                  Löschen
-                </Button>
-              )}
-              <Button 
-                type="submit" 
-                disabled={createTask.isPending || updateTask.isPending}
-              >
-                {task ? "Aktualisieren" : "Erstellen"}
-              </Button>
-            </div>
+
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={createTask.isPending}
+            >
+              {createTask.isPending ? "Wird erstellt..." : "Aufgabe erstellen"}
+            </Button>
           </form>
         </Form>
       </DialogContent>
