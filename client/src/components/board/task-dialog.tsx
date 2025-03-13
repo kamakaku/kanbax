@@ -162,6 +162,7 @@ export function TaskDialog({
                   <FormLabel>Spalte</FormLabel>
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
+                    value={field.value?.toString()}
                     defaultValue={field.value?.toString()}
                   >
                     <FormControl>
