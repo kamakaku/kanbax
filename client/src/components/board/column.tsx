@@ -65,17 +65,31 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
 
   const handleTaskUpdate = async (updatedTask: Task) => {
     try {
-      // Stelle sicher, dass die richtigen Felder gesendet werden
-      const taskUpdateData = {
-        ...updatedTask,
-        columnId: updatedTask.columnId || updatedTask.columnId, //Assuming task.columnId is available here otherwise needs adjustment
-        order: updatedTask.order || updatedTask.order //Assuming task.order is available here otherwise needs adjustment
-
-      };
-
-      if (onUpdate) {
-        await onUpdate(taskUpdateData);
+      // Bereinige die Task-Daten vor dem Senden
+      // Entferne assignedTeamId komplett, wenn es nicht gesetzt ist
+      const cleanedTask = { ...updatedTask };
+      if (!cleanedTask.assignedTeamId || cleanedTask.assignedTeamId <= 0) {
+        delete cleanedTask.assignedTeamId;
       }
+
+      console.log("Updating task with data:", cleanedTask);
+
+      // Direkter API-Aufruf für bessere Kontrolle
+      const res = await fetch(`/api/tasks/${updatedTask.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cleanedTask)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("API error:", errorData);
+        throw new Error(errorData.message || "Fehler beim Aktualisieren der Aufgabe");
+      }
+
+      // Ungültigmachen des Caches, um die neuesten Daten zu erhalten
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
     } catch (error) {
       console.error("Failed to update task:", error);

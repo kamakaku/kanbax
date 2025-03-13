@@ -434,15 +434,29 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid task ID" });
     }
 
-    const result = updateTaskSchema.safeParse(req.body);
+    console.log("Updating task:", id, "with data:", req.body);
+    
+    // Entferne assignedTeamId, wenn es 0 oder null ist
+    const requestData = { ...req.body };
+    if (!requestData.assignedTeamId || requestData.assignedTeamId <= 0) {
+      delete requestData.assignedTeamId;
+    }
+    
+    const result = updateTaskSchema.safeParse(requestData);
     if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
+      console.error("Task validation failed:", result.error);
+      return res.status(400).json({ 
+        message: result.error.message,
+        details: result.error.errors 
+      });
     }
 
     try {
       const task = await storage.updateTask(id, result.data);
+      console.log("Task updated successfully:", task);
       res.json(task);
     } catch (error) {
+      console.error("Failed to update task:", error);
       res.status(404).json({ message: (error as Error).message });
     }
   });

@@ -188,7 +188,11 @@ export const insertTaskSchema = createInsertSchema(tasks)
     checklist: z.array(checklistItemSchema).default([]),
     archived: z.boolean().default(false),
     assignedUserIds: z.array(z.number().int().positive()).default([]),
-    assignedTeamId: z.number().int().positive().optional(),
+    // Erlauben Sie null oder eine positive Ganzzahl für assignedTeamId
+    assignedTeamId: z.union([
+      z.number().int().positive("Team ID must be positive if provided"),
+      z.null()
+    ]).optional().nullable(),
   });
 
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)

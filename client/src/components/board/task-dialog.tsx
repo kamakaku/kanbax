@@ -43,6 +43,7 @@ const taskFormSchema = z.object({
   dueDate: z.string().nullable(),
   archived: z.boolean().default(false),
   order: z.number().default(0),
+  assignedTeamId: z.number().nullable().optional()
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -82,6 +83,7 @@ export function TaskDialog({
       dueDate: task?.dueDate || null,
       archived: task?.archived || false,
       order: task?.order || 0,
+      assignedTeamId: task?.assignedTeamId || null,
     },
   });
 
@@ -111,6 +113,7 @@ export function TaskDialog({
           dueDate: task.dueDate || null,
           archived: task.archived || false,
           order: task.order || 0,
+          assignedTeamId: task.assignedTeamId || null,
         });
       } else if (columns.length > 0) {
         const selectedColumnId = defaultColumnId 
@@ -128,6 +131,7 @@ export function TaskDialog({
           dueDate: null,
           archived: false,
           order: 0,
+          assignedTeamId: null
         });
       }
     }
@@ -189,51 +193,75 @@ export function TaskDialog({
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
-      // Bereinige die Daten vor dem Senden
-      const cleanedData = {
-        ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
-        // Wenn assignedTeamId nicht definiert oder 0 ist, setze es auf null
-        assignedTeamId: data.assignedTeamId && data.assignedTeamId > 0 ? data.assignedTeamId : null,
+      console.log("Form data:", data);
+
+      // Grundlegende Datenbereinigung
+      const baseData = {
+        title: data.title,
         description: data.description || "",
+        status: data.status,
+        priority: data.priority,
+        columnId: data.columnId,
         labels: data.labels || [],
         assignedUserIds: data.assignedUserIds || [],
+        archived: data.archived || false,
+        boardId: currentBoard?.id || 0,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null
       };
 
+      // Prüfe explizit auf assignedTeamId
+      // Entferne es vollständig aus dem Objekt, wenn es null oder 0 sein soll
+      const finalData = { ...baseData };
+      if (data.assignedTeamId && data.assignedTeamId > 0) {
+        finalData.assignedTeamId = data.assignedTeamId;
+      }
+
       if (isEditing && task && onUpdate) {
-        // Wir erstellen ein Update-Objekt mit nur den Feldern, die wir aktualisieren wollen
-        const updateData = {
+        // Für die Aktualisierung
+        const updateData: any = {
           id: task.id,
-          title: cleanedData.title,
-          description: cleanedData.description,
-          status: cleanedData.status,
-          priority: cleanedData.priority,
-          columnId: cleanedData.columnId || task.columnId, // Behalte columnId bei, wenn nicht angegeben
-          boardId: task.boardId, // Behalte die ursprüngliche boardId
-          labels: cleanedData.labels,
-          assignedUserIds: cleanedData.assignedUserIds,
-          assignedTeamId: cleanedData.assignedTeamId,
-          dueDate: cleanedData.dueDate,
-          archived: cleanedData.archived || false
+          ...finalData
         };
-        
-        await onUpdate(updateData);
+
+        console.log("Sending update data:", updateData);
+
+        // Direkter API-Aufruf statt über onUpdate
+        const res = await fetch(`/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.error("API error:", errorData);
+          throw new Error(errorData.message || "Fehler beim Aktualisieren der Aufgabe");
+        }
+
+        // Erfolg - Schließe Dialog und aktualisiere Daten
+        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+        toast({
+          title: "Aufgabe aktualisiert",
+          description: "Die Aufgabe wurde erfolgreich aktualisiert.",
+        });
         onClose();
       } else {
-        // Für neue Aufgaben muss columnId definiert sein
-        if (!cleanedData.columnId) {
+        // Für neue Aufgaben
+        if (!finalData.columnId) {
           throw new Error("Spalte muss ausgewählt werden");
         }
-        
-        await createTask.mutateAsync(cleanedData);
+
+        await createTask.mutateAsync(finalData);
         onClose();
       }
     } catch (error) {
       console.error("Form submission error:", error);
       toast({
-        title: "Fehler beim Speichern",
-        description: "Bitte überprüfen Sie Ihre Eingaben und versuchen Sie es erneut.",
-        variant: "destructive",
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler aufgetreten",
+        variant: "destructive"
       });
     }
   };
@@ -352,6 +380,17 @@ export function TaskDialog({
                       <SelectItem value="high">Hoch</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="assignedTeamId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Team</FormLabel>
+                  <Input type="number" placeholder="Team ID" {...field} />
                   <FormMessage />
                 </FormItem>
               )}
