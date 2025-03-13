@@ -9,21 +9,9 @@ import { de } from "date-fns/locale";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar } from "@/components/ui/calendar";
 import { TaskDialog } from "./task-dialog";
 
 interface TaskCardProps {
@@ -38,35 +26,20 @@ const priorityColors = {
 };
 
 export function TaskCard({ task, index }: TaskCardProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // Added state for the dialog
-  const [editedTitle, setEditedTitle] = useState(task.title);
-  const [editedDescription, setEditedDescription] = useState(task.description || "");
-  const [editedPriority, setEditedPriority] = useState(task.priority);
-  const [editedLabels, setEditedLabels] = useState(task.labels || []);
-  const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(
-    task.dueDate ? new Date(task.dueDate) : undefined
-  );
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task.assignedUserIds || []);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentBoard } = useStore();
 
-  // Fetch users for assignment
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    enabled: isEditing || isDialogOpen // Enabled when either editing or dialog is open
-  });
-
   const updateTask = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        title: editedTitle,
-        description: editedDescription,
-        priority: editedPriority,
-        labels: editedLabels,
-        dueDate: editedDueDate?.toISOString(),
-        assignedUserIds: selectedUserIds,
+        title: task.title, 
+        description: task.description,
+        priority: task.priority,
+        labels: task.labels,
+        dueDate: task.dueDate?.toISOString(),
+        assignedUserIds: task.assignedUserIds,
       });
 
       if (!response.ok) {
@@ -81,8 +54,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
       toast({ title: "Task updated successfully" });
-      setIsEditing(false);
-      setIsDialogOpen(false); // Close dialog on success
+      setIsDialogOpen(false); 
     },
     onError: (error) => {
       toast({
@@ -93,15 +65,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
     },
   });
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateTask.mutate();
-  };
-
-  const handleDelete = () => {
-    //Implementation for delete functionality
-    console.log("Delete task:", task.id);
-  };
 
   return (
     <>
@@ -111,12 +74,28 @@ export function TaskCard({ task, index }: TaskCardProps) {
             ref={provided.innerRef}
             {...provided.draggableProps}
             {...provided.dragHandleProps}
-            onClick={() => setIsEditing(true)}
           >
             <Card className="mb-3 cursor-pointer hover:bg-muted/50 transition-colors">
               <CardHeader className="p-3">
-                <h3 className="text-sm font-medium">{task.title}</h3>
-                <div className={`h-1 w-8 rounded ${priorityColors[task.priority as keyof typeof priorityColors]}`} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors]}`}
+                    />
+                    <span className="text-sm font-medium">{task.title}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsDialogOpen(true);
+                    }}
+                    className="h-6 w-6 rounded-full p-0"
+                  >
+                    <PencilIcon className="h-3 w-3" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-3 pt-0">
                 {task.description && (
@@ -163,127 +142,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         )}
       </Draggable>
 
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Title</label>
-              <Input
-                value={editedTitle}
-                onChange={(e) => setEditedTitle(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea
-                value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Priority</label>
-              <Select value={editedPriority} onValueChange={setEditedPriority}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Labels (comma-separated)</label>
-              <Input
-                value={editedLabels.join(", ")}
-                onChange={(e) => {
-                  const labels = e.target.value
-                    .split(",")
-                    .map((label) => label.trim())
-                    .filter(Boolean);
-                  setEditedLabels(labels);
-                }}
-                placeholder="bug, feature, UI"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Due Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={`w-full justify-start text-left font-normal ${
-                      !editedDueDate && "text-muted-foreground"
-                    }`}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {editedDueDate ? (
-                      format(editedDueDate, "dd.MM.yyyy", { locale: de })
-                    ) : (
-                      <span>Datum auswählen</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={editedDueDate}
-                    onSelect={setEditedDueDate}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Zugewiesene Benutzer</label>
-              <div className="flex flex-wrap gap-2">
-                {users.map((user) => (
-                  <Button
-                    key={user.id}
-                    type="button"
-                    variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
-                    className="flex items-center gap-2"
-                    onClick={() => {
-                      setSelectedUserIds(prev =>
-                        prev.includes(user.id)
-                          ? prev.filter(id => id !== user.id)
-                          : [...prev, user.id]
-                      );
-                    }}
-                  >
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={user.avatarUrl || ''} />
-                      <AvatarFallback>
-                        {user.username.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{user.username}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsEditing(false)}
-              >
-                Abbrechenn
-              </Button>
-              <Button type="submit" disabled={updateTask.isPending}>
-                Speichern
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <TaskDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} task={task} users={users} updateTask={updateTask}/> {/* Added TaskDialog */}
+      <TaskDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} task={task} updateTask={updateTask}/>
 
     </>
   );
