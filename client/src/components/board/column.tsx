@@ -94,16 +94,18 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
               size="icon"
               className={`h-6 w-6 hover:bg-white/50 ${columnStyle.text}`}
               onClick={() => {
-                // Create new task for this column
                 setSelectedTask({
-                  id: 0, // Temporary ID
+                  id: 0,
                   title: "",
                   description: "",
                   status: column.title?.toLowerCase() || "todo",
                   boardId: currentBoard?.id || 0,
+                  columnId: 0,
+                  order: 0,
+                  priority: "medium",
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString()
-                } as Task);
+                });
                 setIsTaskDialogOpen(true);
               }}
             >
@@ -123,7 +125,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
               }`}
             >
               {tasks.map((task, index) => (
-                <TaskComponent // Changed component name here
+                <TaskComponent
                   key={task.id} 
                   task={task} 
                   index={index}
@@ -148,37 +150,8 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
           setIsTaskDialogOpen(false);
           setSelectedTask(null);
         }}
-        onUpdate={async (updatedTask) => {
-          try {
-            if (updatedTask.id) {
-              await handleTaskUpdate(updatedTask);
-              // Update selectedTask with the latest data
-              setSelectedTask(updatedTask);
-            } else {
-              // Logic for new tasks
-              const response = await apiRequest(
-                "POST", 
-                `/api/boards/${currentBoard?.id}/tasks`, 
-                updatedTask
-              );
-
-              if (!response.ok) throw new Error("Error creating task");
-
-              const newTask = await response.json();
-              queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-
-              // Do not close the dialog
-              setSelectedTask(newTask);
-            }
-          } catch (error) {
-            console.error("Error updating/creating task:", error);
-            toast({
-              title: "Error",
-              description: "The task could not be saved",
-              variant: "destructive",
-            });
-          }
-        }}
+        onUpdate={handleTaskUpdate}
+        onDelete={onDelete}
       />
     </Card>
   );
