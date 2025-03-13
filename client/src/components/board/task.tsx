@@ -66,24 +66,24 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-  // Checklist-Daten vom Server laden
+  // Fetch checklist items for this task
   const { data: checklistItems = [] } = useQuery<ChecklistItem[]>({
     queryKey: ['/api/tasks', task.id, 'checklist'],
     queryFn: async () => {
-      if (!task._hasChecklist) return [];
       const res = await fetch(`/api/tasks/${task.id}/checklist`);
       if (!res.ok) {
-        throw new Error('Failed to fetch checklist items');
+        return [];
       }
       return res.json();
     },
-    enabled: !!task._hasChecklist,
+    enabled: !!task.id,
   });
 
-  // Checklist Progress Calculation
+  // Calculate checklist progress
   const completedCount = checklistItems.filter(item => item.completed).length;
   const totalCount = checklistItems.length;
-  const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const hasChecklist = totalCount > 0;
 
 
   return (
@@ -139,25 +139,10 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                       {task.description.length > 50 ? "..." : ""}
                     </p>
                   )}
-
-                  {task._hasChecklist && totalCount > 0 && (
-                    <div className="mt-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1">
-                          <CheckSquare className="h-3 w-3" />
-                          <span className="text-xs text-muted-foreground">
-                            {completedCount} von {totalCount} ({percentage}%)
-                          </span>
-                        </div>
-                      </div>
-                      <Progress value={percentage} className="h-1.5" />
-                    </div>
-                  )}
                 </div>
 
-
                 {/* Footer Info */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
                   <div className="flex items-center gap-2">
                     {/* User Avatar */}
                     {task.assignedUserId && (
@@ -181,6 +166,17 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                     </span>
                   )}
                 </div>
+
+                {/* Checklist progress */}
+                {hasChecklist && (
+                  <div className="mt-3">
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      <span>Checklist</span>
+                      <span>{completedCount}/{totalCount}</span>
+                    </div>
+                    <Progress value={completionPercentage} className="h-1.5" />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

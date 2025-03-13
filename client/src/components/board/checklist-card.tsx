@@ -56,13 +56,28 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
         ? Math.max(...items.map(item => item.itemOrder || 0))
         : -1;
 
-      // Optimistisches Update für die UI
-      const newItem = {
-        id: `temp-${Date.now()}`,
+      // Nur die benötigten Felder für ein Checklist-Item senden
+      const checklistItemData = {
         taskId: task.id,
         title: newItemTitle.trim(),
         completed: false,
         itemOrder: maxOrder + 1
+      };
+      
+      const response = await apiRequest(
+        'POST',
+        `/api/tasks/${task.id}/checklist`,
+        checklistItemData
+      );
+      
+      if (response.ok) {
+        const savedItem = await response.json();
+        setItems(prev => [...prev, savedItem]);
+        setNewItemTitle('');
+      }
+    } catch (error) {
+      console.error("Fehler beim Hinzufügen:", error);
+    }
       };
 
       // Lokales State-Update
