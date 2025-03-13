@@ -230,66 +230,44 @@ export class DatabaseStorage implements IStorage {
 
   // Task operations
   async getTasks(boardId: number): Promise<Task[]> {
-    const tasks = await db
+    const result = await db
       .select()
       .from(tasks)
       .where(eq(tasks.boardId, boardId))
       .orderBy(tasks.order);
 
-    // Process tasks to match the expected Task type
-    return tasks.map(task => ({
+    return result.map(task => ({
       ...task,
-      checklist: task.checklist || [],
-      assignedUserIds: task.assignedUserIds || [],
-      assignedUser: undefined,
-      assignedTeam: undefined
+      checklist: Array.isArray(task.checklist) ? task.checklist : [],
+      assignedUserIds: Array.isArray(task.assignedUserIds) ? task.assignedUserIds : [],
     }));
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
-    // First check if the board exists
-    const [board] = await db
-      .select()
-      .from(boards)
-      .where(eq(boards.id, insertTask.boardId));
-
-    if (!board) {
-      throw new Error(`Board ${insertTask.boardId} not found`);
-    }
-
-    console.log("Creating task with data:", insertTask);
-
-    // Convert dueDate string to Date object if it exists
-    const taskData = {
-      ...insertTask,
-      dueDate: insertTask.dueDate ? new Date(insertTask.dueDate) : null,
-    };
-
     const [task] = await db
       .insert(tasks)
-      .values(taskData)
+      .values({
+        ...insertTask,
+        checklist: insertTask.checklist || [],
+        assignedUserIds: insertTask.assignedUserIds || [],
+      })
       .returning();
 
-    console.log("Task created successfully:", task);
     return {
       ...task,
-      checklist: task.checklist || [],
-      assignedUserIds: task.assignedUserIds || [],
-      assignedUser: undefined,
-      assignedTeam: undefined
+      checklist: Array.isArray(task.checklist) ? task.checklist : [],
+      assignedUserIds: Array.isArray(task.assignedUserIds) ? task.assignedUserIds : [],
     };
   }
 
   async updateTask(id: number, updateTask: UpdateTask): Promise<Task> {
-    // Convert dueDate string to Date object if it exists
-    const taskData = {
-      ...updateTask,
-      dueDate: updateTask.dueDate ? new Date(updateTask.dueDate) : null,
-    };
-
     const [task] = await db
       .update(tasks)
-      .set(taskData)
+      .set({
+        ...updateTask,
+        checklist: updateTask.checklist || [],
+        assignedUserIds: updateTask.assignedUserIds || [],
+      })
       .where(eq(tasks.id, id))
       .returning();
 
@@ -299,10 +277,8 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...task,
-      checklist: task.checklist || [],
-      assignedUserIds: task.assignedUserIds || [],
-      assignedUser: undefined,
-      assignedTeam: undefined
+      checklist: Array.isArray(task.checklist) ? task.checklist : [],
+      assignedUserIds: Array.isArray(task.assignedUserIds) ? task.assignedUserIds : [],
     };
   }
 
