@@ -133,7 +133,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: task.boardId,
         columnId: task.columnId,
         order: task.order,
-        dueDate: task.dueDate ? new Date(task.dueDate) : null,
+        dueDate: task.dueDate,
         labels: task.labels || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
@@ -165,16 +165,11 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
 
+      // Prepare the payload without date conversion
       const payload = {
-        title: values.title,
-        description: values.description || "",
-        status: values.status || "todo",
-        priority: values.priority || "medium",
+        ...values,
+        boardId,
         labels: selectedLabels,
-        boardId: boardId,
-        columnId: values.columnId || 0,
-        order: values.order || 0,
-        dueDate: values.dueDate ? format(new Date(values.dueDate), 'yyyy-MM-dd') : null,
         assignedUserIds: selectedUserIds,
       };
 
@@ -441,7 +436,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                       <Calendar
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={field.onChange}
+                        onSelect={(date) => field.onChange(date?.toISOString())}
                         initialFocus
                       />
                     </PopoverContent>
