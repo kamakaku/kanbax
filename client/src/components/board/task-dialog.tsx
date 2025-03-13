@@ -14,7 +14,7 @@ import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentList } from "@/components/comments/comment-list";
 import { useStore } from "@/lib/store";
-import { Calendar as CalendarIcon, Edit2, MessageSquare, User as UserIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Edit2, MessageSquare, User as UserIcon, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
@@ -52,18 +52,12 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
 
   // Fetch users for assignment
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const res = await fetch("/api/users");
-      if (!res.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
-    }
+    enabled: open // Only fetch when dialog is open
   });
 
   const form = useForm({
@@ -78,7 +72,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       columnId: task?.columnId || 0,
       order: task?.order || 0,
       dueDate: task?.dueDate ? new Date(task?.dueDate) : null,
-      assignedUserId: task?.assignedUserId || null,
+      assignedUserIds: task?.assignedUserIds || [],
     },
   });
 
@@ -95,8 +89,9 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         columnId: task.columnId,
         order: task.order,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
-        assignedUserId: task.assignedUserId,
+        assignedUserIds: task.assignedUserIds || [],
       });
+      setSelectedUserIds(task.assignedUserIds || []);
     }
   }, [task, isEditing, form]);
 
@@ -106,6 +101,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       const submissionData = {
         ...data,
         dueDate: data.dueDate ? data.dueDate.toISOString() : null,
+        assignedUserIds: selectedUserIds
       };
 
       if (task) {
@@ -218,17 +214,22 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                     <span>{format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
                   </div>
                 )}
-                {task.assignedUserId && (
+                {task.assignedUserIds && task.assignedUserIds.length > 0 && (
                   <div className="flex items-center gap-2 ml-auto">
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={users.find(u => u.id === task.assignedUserId)?.avatarUrl || ''} />
-                      <AvatarFallback>
-                        <UserIcon className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-muted-foreground">
-                      {users.find(u => u.id === task.assignedUserId)?.username}
-                    </span>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex -space-x-2">
+                      {task.assignedUserIds.map((userId) => {
+                        const user = users.find(u => u.id === userId);
+                        return user ? (
+                          <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
+                            <AvatarImage src={user.avatarUrl || ''} />
+                            <AvatarFallback>
+                              {user.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : null;
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -421,39 +422,35 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
               <FormField
                 control={form.control}
-                name="assignedUserId"
+                name="assignedUserIds"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Zugewiesen an</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        const userId = value === "unassigned" ? null : parseInt(value);
-                        field.onChange(userId);
-                      }}
-                      defaultValue={field.value?.toString() || "unassigned"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Benutzer auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Nicht zugewiesen</SelectItem>
-                        {Array.isArray(users) && users.map((user) => (
-                          <SelectItem key={user.id} value={user.id.toString()}>
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={user.avatarUrl || ''} />
-                                <AvatarFallback>
-                                  <UserIcon className="h-4 w-4" />
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{user.username}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Zugewiesene Benutzer</FormLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {users.map((user) => (
+                        <Button
+                          key={user.id}
+                          type="button"
+                          variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
+                          className="flex items-center gap-2"
+                          onClick={() => {
+                            setSelectedUserIds(prev =>
+                              prev.includes(user.id)
+                                ? prev.filter(id => id !== user.id)
+                                : [...prev, user.id]
+                            );
+                          }}
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={user.avatarUrl || ''} />
+                            <AvatarFallback>
+                              {user.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{user.username}</span>
+                        </Button>
+                      ))}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

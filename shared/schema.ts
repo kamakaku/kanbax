@@ -75,7 +75,7 @@ export const tasks = pgTable("tasks", {
   dueDate: timestamp("due_date"),
   checklist: text("checklist").array(),
   archived: boolean("archived").default(false),
-  assignedUserId: integer("assigned_user_id"),
+  assignedUserIds: integer("assigned_user_ids").array(), // Changed from single ID to array
   assignedTeamId: integer("assigned_team_id"),
   assignedAt: timestamp("assigned_at"),
 });
@@ -174,7 +174,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     dueDate: true,
     checklist: true,
     archived: true,
-    assignedUserId: true,
+    assignedUserIds: true,
     assignedTeamId: true,
   })
   .extend({
@@ -187,7 +187,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     dueDate: z.union([z.date(), z.string(), z.null()]).optional(),
     checklist: z.array(checklistItemSchema).default([]),
     archived: z.boolean().default(false),
-    assignedUserId: z.number().int().positive().optional(),
+    assignedUserIds: z.array(z.number().int().positive()).default([]), // Updated type
     assignedTeamId: z.number().int().positive().optional(),
   });
 
