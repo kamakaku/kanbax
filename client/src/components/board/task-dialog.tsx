@@ -101,22 +101,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const updateTask = useMutation({
     mutationFn: async (values: any) => {
       try {
-        let dueDateString = null;
-        if (values.dueDate) {
-          // Konvertiere das Datum in das Format YYYY-MM-DD
-          const date = new Date(values.dueDate);
-          dueDateString = format(date, "yyyy-MM-dd");
-        }
-
-        const payload = {
+        const formattedData = {
           ...values,
-          dueDate: dueDateString,
+          dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
           assignedUserIds: selectedUserIds
         };
 
-        console.log('Updating task with payload:', payload);
-
-        const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
+        const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, formattedData);
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(errorText || "Failed to update task");
@@ -126,8 +117,28 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         console.error('Error in mutation:', error);
         throw error;
       }
-    },
-    onSuccess: async (updatedTask) => {
+    }
+  });
+
+  const handleSubmit = async (data: any) => {
+    try {
+      // Format the date to YYYY-MM-DD if it exists
+      const formattedData = {
+        ...data,
+        dueDate: data.dueDate ? format(new Date(data.dueDate), "yyyy-MM-dd") : null,
+        assignedUserIds: selectedUserIds
+      };
+
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, formattedData);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to update task");
+      }
+
+      const updatedTask = await response.json();
+
+      // Invalidate queries to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -138,19 +149,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
       setIsEditing(false);
-    },
-    onError: (error: Error) => {
+    } catch (error: any) {
       console.error("Task update error:", error);
       toast({
         title: "Fehler",
         description: error.message || "Die Aufgabe konnte nicht aktualisiert werden",
         variant: "destructive",
       });
-    },
-  });
-
-  const handleSubmit = async (data: any) => {
-    updateTask.mutate(data);
+    }
   };
 
   const handleDelete = async () => {
