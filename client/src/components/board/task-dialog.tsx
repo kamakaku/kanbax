@@ -67,6 +67,7 @@ export function TaskDialog({
   // Spalten für das aktuelle Board abrufen
   const { data: columns = [] } = useQuery({
     queryKey: ["/api/boards", currentBoard?.id, "columns"],
+    queryFn: () => fetch(`/api/boards/${currentBoard?.id}/columns`).then(res => res.json()),
     enabled: !!currentBoard && open
   });
 
@@ -93,13 +94,23 @@ export function TaskDialog({
       if (!currentBoard) {
         throw new Error("Kein Board ausgewählt");
       }
+      
+      // Wenn keine Spalte ausgewählt wurde und Spalten verfügbar sind, verwende die erste
+      let columnId = data.columnId;
+      if (!columnId && columns.length > 0) {
+        columnId = columns[0].id;
+      }
+      
+      if (!columnId) {
+        throw new Error("Keine Spalte verfügbar oder ausgewählt");
+      }
 
       // API-Request vorbereiten
       const taskData = {
         ...data,
         boardId: currentBoard.id,
         order: 0, // Standard-Reihenfolge für neue Aufgaben
-        columnId: data.columnId // Sicherstellen, dass columnId im Request enthalten ist
+        columnId: columnId
       };
 
       const response = await fetch(`/api/boards/${currentBoard.id}/tasks`, {
