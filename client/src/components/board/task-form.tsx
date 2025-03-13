@@ -48,28 +48,28 @@ type TaskFormValues = {
 };
 
 export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTask }: TaskFormProps) {
+  // Fetch users for assignment before form initialization
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: open
+  });
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
       title: existingTask?.title || "",
       description: existingTask?.description || "",
-      status: existingTask?.status || "todo",
-      boardId: existingTask?.boardId,
-      priority: existingTask?.priority || "medium",
+      status: (existingTask?.status || "todo") as "backlog" | "todo" | "in-progress" | "review" | "done",
+      boardId: existingTask?.boardId || undefined,
+      priority: (existingTask?.priority || "medium") as "low" | "medium" | "high",
       labels: existingTask?.labels || [],
       columnId: existingTask?.columnId || 0,
       order: existingTask?.order || 0,
       archived: existingTask?.archived || false,
       assignedUserIds: existingTask?.assignedUserIds || [],
-      checklist: existingTask?.checklist?.map(item => ({ text: item.text, checked: item.checked })) || [],
+      checklist: existingTask?.checklist || [],
       dueDate: existingTask?.dueDate ? new Date(existingTask.dueDate) : null,
     },
-  });
-
-  // Fetch users for assignment
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    enabled: open
   });
 
   const handleSubmit = async (data: TaskFormValues) => {
@@ -90,7 +90,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         labels: data.labels || [],
         dueDate: data.dueDate?.toISOString() || null,
         archived: existingTask?.archived || false,
-        assignedUserIds: data.assignedUserIds || [],
+        assignedUserIds: data.assignedUserIds,
         assignedTeamId: null,
         assignedAt: null,
         checklist: data.checklist || [],
@@ -252,7 +252,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Zugewiesene Benutzer</FormLabel>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 border rounded-md p-2">
                     {users.map((user) => (
                       <Button
                         key={user.id}
