@@ -12,16 +12,18 @@ import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
 import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
+import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
 
   return (
-    <SidebarProvider defaultOpen={false}> {/* Set to collapsed by default */}
+    <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen bg-slate-50">
         <Sidebar>
           <SidebarContent>
-            <SidebarMenu>
+            {/* Reduce initial animation complexity */}
+            <SidebarMenu className="opacity-0 animate-in fade-in duration-500 fill-mode-forwards delay-300">
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setLocation("/dashboard")}
@@ -55,7 +57,16 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
-        <main className="flex-1 p-6 backdrop-blur-sm bg-white/30">{children}</main>
+        <main 
+          className={cn(
+            "flex-1 p-6",
+            "bg-white/30 backdrop-blur-[2px]", // Reduced blur intensity
+            "transition-[padding,margin] duration-300 ease-in-out will-change-[padding,margin]",
+            "group-data-[state=collapsed]:pl-16"
+          )}
+        >
+          {children}
+        </main>
       </div>
     </SidebarProvider>
   );

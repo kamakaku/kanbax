@@ -1,15 +1,11 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft } from "lucide-react"
+import { ChevronsLeft } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +19,39 @@ const SIDEBAR_WIDTH = "14rem"
 const SIDEBAR_WIDTH_MOBILE = "16rem"
 const SIDEBAR_WIDTH_ICON = "3.5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+
+interface SidebarTriggerProps extends React.ComponentProps<typeof Button> {
+  className?: string;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}
+
+const SidebarTrigger = React.forwardRef<HTMLButtonElement, SidebarTriggerProps>(
+  ({ className, onClick, ...props }, ref) => {
+    const { state, toggleSidebar } = useSidebar()
+
+    return (
+      <Button
+        ref={ref}
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "h-7 w-7 transition-transform duration-300 ease-in-out will-change-transform",
+          state === "collapsed" && "rotate-180",
+          className
+        )}
+        onClick={(event) => {
+          onClick?.(event);
+          toggleSidebar()
+        }}
+        {...props}
+      >
+        <ChevronsLeft className="h-4 w-4" />
+        <span className="sr-only">Toggle Sidebar</span>
+      </Button>
+    )
+  }
+)
+SidebarTrigger.displayName = "SidebarTrigger"
 
 type SidebarContext = {
   state: "expanded" | "collapsed"
@@ -215,7 +244,7 @@ const Sidebar = React.forwardRef<
       >
         <div
           className={cn(
-            "duration-300 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-in-out",
+            "duration-300 relative h-svh w-[--sidebar-width] bg-transparent transition-[width,transform] ease-in-out",
             "group-data-[collapsible=offcanvas]:w-0",
             "group-data-[side=right]:rotate-180",
             variant === "floating" || variant === "inset"
@@ -225,7 +254,7 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "duration-300 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-in-out md:flex",
+            "duration-300 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-all ease-in-out md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -238,7 +267,12 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="flex h-full w-full flex-col backdrop-blur-lg bg-white/80 group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-lg"
+            className={cn(
+              "flex h-full w-full flex-col backdrop-blur-lg bg-white/80 transition-transform duration-300 ease-in-out",
+              "group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-lg",
+              "group-data-[collapsible=icon]:overflow-hidden",
+              "group-data-[state=collapsed]:scale-[0.97] group-data-[state=expanded]:scale-100"
+            )}
           >
             {children}
           </div>
@@ -248,32 +282,6 @@ const Sidebar = React.forwardRef<
   }
 )
 Sidebar.displayName = "Sidebar"
-
-const SidebarTrigger = React.forwardRef<
-  React.ElementRef<typeof Button>,
-  React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar } = useSidebar()
-
-  return (
-    <Button
-      ref={ref}
-      data-sidebar="trigger"
-      variant="ghost"
-      size="icon"
-      className={cn("h-7 w-7", className)}
-      onClick={(event) => {
-        onClick?.(event)
-        toggleSidebar()
-      }}
-      {...props}
-    >
-      <PanelLeft />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
-  )
-})
-SidebarTrigger.displayName = "SidebarTrigger"
 
 const SidebarRail = React.forwardRef<
   HTMLButtonElement,
@@ -538,6 +546,7 @@ const SidebarMenuButton = React.forwardRef<
       size = "default",
       tooltip,
       className,
+      children,
       ...props
     },
     ref
@@ -552,21 +561,30 @@ const SidebarMenuButton = React.forwardRef<
         data-size={size}
         data-active={isActive}
         className={cn(
-          "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-white/50 hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-white/50 active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-white/50 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-white/50 data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+          "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-all duration-300 ease-in-out hover:bg-white/50 hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-white/50 active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-white/50 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-white/50 data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+          "group-data-[state=collapsed]:translate-x-0 group-data-[state=expanded]:translate-x-0",
+          "group-data-[state=collapsed]:scale-95 group-data-[state=expanded]:scale-100",
           className
         )}
         {...props}
-      />
+      >
+        {React.Children.map(children, (child) => {
+          if (React.isValidElement(child) && typeof child.type !== "string") {
+            return React.cloneElement(child, {
+              className: cn(
+                child.props.className,
+                "transition-transform duration-300",
+                state === "collapsed" && "scale-110"
+              ),
+            });
+          }
+          return child;
+        })}
+      </Comp>
     )
 
     if (!tooltip) {
       return button
-    }
-
-    if (typeof tooltip === "string") {
-      tooltip = {
-        children: tooltip,
-      }
     }
 
     return (
@@ -576,7 +594,7 @@ const SidebarMenuButton = React.forwardRef<
           side="right"
           align="center"
           hidden={state !== "collapsed" || isMobile}
-          {...tooltip}
+          {...(typeof tooltip === "string" ? { children: tooltip } : tooltip)}
         />
       </Tooltip>
     )
