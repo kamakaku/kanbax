@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 
 interface TaskProps {
-  task: TaskType & { boardTitle?: string; checklist?: { checked: boolean }[] };
+  task: TaskType;
   index: number;
   showBoardTitle?: boolean;
   onClick?: (task: TaskType) => void;
@@ -46,6 +46,16 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     }
   });
 
+  // Query for checklist items
+  const { data: checklistItems = [] } = useQuery({
+    queryKey: [`/api/tasks/${task.id}/checklist`],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/${task.id}/checklist`);
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
   const handleUpdate = async (updatedTask: TaskType) => {
     await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
     await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
@@ -66,10 +76,9 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-
-  // Checklist Progress Calculation
-  const completedCount = task.checklist ? task.checklist.filter(item => item.checked).length : 0;
-  const totalCount = task.checklist ? task.checklist.length : 0;
+  // Calculate checklist progress
+  const completedCount = checklistItems.filter(item => item.completed).length;
+  const totalCount = checklistItems.length;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
@@ -119,14 +128,14 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                   </div>
                 )}
 
-                {/* Checklist Progress Bar */}
-                {task.checklist && task.checklist.length > 0 && (
-                  <div className="mt-2">
+                {/* Checklist Progress Bar - Now more prominent */}
+                {checklistItems.length > 0 && (
+                  <div className="mt-2 mb-3">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1">
-                        <CheckSquare className="h-3 w-3" />
+                        <CheckSquare className="h-3 w-3 text-primary" />
                         <span className="text-xs text-muted-foreground">
-                          {completedCount} von {totalCount}
+                          {completedCount}/{totalCount}
                         </span>
                       </div>
                     </div>
@@ -135,7 +144,7 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                 )}
 
                 {/* Footer Info */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
                     {/* User Avatar */}
                     {task.assignedUserId && (
