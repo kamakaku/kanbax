@@ -58,7 +58,7 @@ const statusLabels: Record<string, string> = {
 
 export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, onDelete }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null); // Initialize to null
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
@@ -162,12 +162,12 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
                 `/api/boards/${currentBoard?.id}/tasks`, 
                 updatedTask
               );
-              
+
               if (!response.ok) throw new Error("Fehler beim Erstellen der Aufgabe");
-              
+
               const newTask = await response.json();
               queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-              
+
               // Dialog nicht schließen
               setSelectedTask(newTask);
             }
