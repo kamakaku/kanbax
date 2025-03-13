@@ -1,31 +1,33 @@
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useParams } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api-request";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { apiRequest } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusIcon } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useStore } from "@/lib/store";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
+// Definiere das Schema für das Formular
 const taskFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().min(1, { message: "Der Titel ist erforderlich" }),
   description: z.string().optional(),
-  priority: z.enum(["low", "medium", "high"]).default("medium"),
-  status: z.string().default("todo"),
+  priority: z.enum(["low", "medium", "high"]),
+  status: z.string()
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 export function TaskDialog() {
-  const params = useParams();
-  const boardId = params.id; // Nehme an, dass die ID im Route-Parameter "id" ist
+  // Hole das aktuelle Board aus dem Store
+  const { currentBoard } = useStore();
+  const boardId = currentBoard?.id;
+  
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const form = useForm<TaskFormValues>({
@@ -40,22 +42,35 @@ export function TaskDialog() {
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: TaskFormValues) => {
-      const response = await apiRequest("POST", `/api/boards/${boardId}/tasks`, data);
+      if (!boardId) {
+        throw new Error("Kein Board ausgewählt");
+      }
+      
+      const response = await apiRequest(
+        "POST", 
+        `/api/boards/${boardId}/tasks`, 
+        data
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to create task");
+      }
+      
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
       toast({
-        title: "Task created",
-        description: "The task has been successfully created.",
+        title: "Aufgabe erstellt",
+        description: "Die Aufgabe wurde erfolgreich erstellt.",
       });
       form.reset();
     },
     onError: (error) => {
       console.error("Fehler beim Erstellen der Aufgabe:", error);
       toast({
-        title: "Error",
-        description: "Failed to create task. Please try again.",
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
         variant: "destructive",
       });
     },
@@ -65,28 +80,23 @@ export function TaskDialog() {
     // Füge zusätzliche Daten hinzu
     const taskData = {
       ...data,
-      boardId: parseInt(boardId || "0"),
+      boardId: boardId,
+      columnId: 1, // Standard-Spalte (todo)
       order: 0, // Die Order wird vom Backend basierend auf der Anzahl der Tasks bestimmt
     };
     
     console.log(taskData);
-    createTaskMutation.mutate(taskData);
+    createTaskMutation.mutate(data);
   };
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full justify-start px-2">
-          <PlusIcon className="mr-2 h-4 w-4" />
-          Aufgabe erstellen
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField
               control={form.control}
               name="title"
@@ -94,7 +104,7 @@ export function TaskDialog() {
                 <FormItem>
                   <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <Input placeholder="Aufgabentitel eingeben" {...field} />
+                    <Input placeholder="Titel der Aufgabe" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -108,8 +118,8 @@ export function TaskDialog() {
                   <FormLabel>Beschreibung</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Beschreibe die Aufgabe (optional)"
-                      className="h-24 resize-none"
+                      placeholder="Beschreiben Sie die Aufgabe"
+                      className="resize-none"
                       {...field}
                     />
                   </FormControl>
@@ -129,26 +139,20 @@ export function TaskDialog() {
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a priority" />
+                        <SelectValue placeholder="Priorität auswählen" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="low">Niedrig</SelectItem>
-                        <SelectItem value="medium">Mittel</SelectItem>
-                        <SelectItem value="high">Hoch</SelectItem>
-                      </SelectGroup>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <DialogFooter>
-              <Button type="submit" disabled={createTaskMutation.isPending}>
-                {createTaskMutation.isPending ? "Erstelle..." : "Erstellen"}
-              </Button>
-            </DialogFooter>
+            <Button type="submit">Aufgabe erstellen</Button>
           </form>
         </Form>
       </DialogContent>
