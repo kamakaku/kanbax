@@ -6,11 +6,13 @@ import { TaskDialog } from "./task-dialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { CheckSquare, MessageSquare, User } from "lucide-react";
+import { CalendarIcon, CheckSquare, MessageSquare, User } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 import { useTooltipContext } from "@/hooks/use-tooltip-context";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 interface TaskProps {
   task: TaskType;
@@ -39,7 +41,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
   const { toast } = useToast();
   const tooltipContext = useTooltipContext("task-edit");
 
-  // Query for comments
   const { data: comments = [] } = useQuery({
     queryKey: [`/api/tasks/${task.id}/comments`],
     queryFn: async () => {
@@ -49,7 +50,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     }
   });
 
-  // Query for checklist items
   const { data: checklistItems = [] } = useQuery({
     queryKey: [`/api/tasks/${task.id}/checklist`],
     queryFn: async () => {
@@ -73,24 +73,18 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     toast({ title: "Aufgabe erfolgreich gelöscht" });
   };
 
-  // Get color for label
   const getLabelColor = (label: string) => {
     const normalizedLabel = label.toLowerCase();
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-  // Calculate checklist progress
   const completedCount = checklistItems.filter(item => item.completed).length;
   const totalCount = checklistItems.length;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
     <>
-      <Draggable
-        draggableId={task.id.toString()}
-        index={index}
-        key={task.id}
-      >
+      <Draggable draggableId={task.id.toString()} index={index} key={task.id}>
         {(provided, snapshot) => (
           <EnhancedTooltip
             content={task.title}
@@ -114,7 +108,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                 <CardContent className="p-3">
                   <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
 
-                  {/* Labels */}
                   {task.labels && task.labels.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">
                       {task.labels.map((label, i) => {
@@ -132,7 +125,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                     </div>
                   )}
 
-                  {/* Checklist Progress Bar */}
                   {checklistItems.length > 0 && (
                     <div className="mt-2 mb-3">
                       <div className="flex items-center gap-2">
@@ -146,10 +138,8 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                     </div>
                   )}
 
-                  {/* Footer Info */}
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <div className="flex items-center gap-2">
-                      {/* User Avatar */}
                       {task.assignedUserId && (
                         <Avatar className="h-5 w-5">
                           <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
@@ -158,11 +148,17 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                         </Avatar>
                       )}
 
-                      {/* Comment Count */}
                       {comments.length > 0 && (
                         <div className="flex items-center gap-1">
                           <MessageSquare className="h-3 w-3" />
                           <span>{comments.length}</span>
+                        </div>
+                      )}
+
+                      {task.dueDate && (
+                        <div className="flex items-center gap-1">
+                          <CalendarIcon className="h-3 w-3" />
+                          <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
                         </div>
                       )}
                     </div>
