@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { type Task } from "@shared/schema";
 import {
   Dialog,
   DialogContent,
@@ -36,31 +37,45 @@ const taskFormSchema = z.object({
   description: z.string().optional(),
   priority: z.enum(["low", "medium", "high"]),
   status: z.string().default("todo"),
+  columnId: z.number(),
+  labels: z.array(z.string()).default([]),
+  assignedUserIds: z.array(z.number()).default([]),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
+interface TaskDialogProps {
+  open: boolean;
+  onClose: () => void;
+  task?: Task;
+  onUpdate?: (task: Task) => Promise<void>;
+  onDelete?: (taskId: number) => Promise<void>;
+  defaultColumnId?: string | number;
+}
+
 export function TaskDialog({ 
   open, 
   onClose, 
+  task,
+  onUpdate,
+  onDelete,
   defaultColumnId 
-}: { 
-  open: boolean; 
-  onClose: () => void; 
-  defaultColumnId?: string | number;
-}) {
+}: TaskDialogProps) {
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isEditing = !!task;
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
-      title: "",
-      description: "",
-      priority: "medium",
-      status: "todo",
-      columnId: 0
+      title: task?.title || "",
+      description: task?.description || "",
+      priority: (task?.priority || "medium") as "low" | "medium" | "high",
+      status: task?.status || "todo",
+      columnId: task?.columnId || 0,
+      labels: task?.labels || [],
+      assignedUserIds: task?.assignedUserIds || [],
     },
   });
 
@@ -73,43 +88,56 @@ export function TaskDialog({
 
   // Zurücksetzen des Formulars, wenn der Dialog geöffnet wird
   useEffect(() => {
-    if (open && columns.length > 0) {
-      // Wenn eine defaultColumnId übergeben wurde, wird diese verwendet, andernfalls die erste Spalte
-      const selectedColumnId = defaultColumnId 
-        ? columns.find(col => col.id === defaultColumnId)?.id || columns[0].id
-        : columns[0].id;
+    if (open) {
+      if (isEditing) {
+        // Wenn ein Task bearbeitet wird, setze die vorhandenen Werte
+        form.reset({
+          title: task!.title,
+          description: task!.description || "",
+          priority: task!.priority as "low" | "medium" | "high",
+          status: task!.status,
+          columnId: task!.columnId,
+          labels: task!.labels || [],
+          assignedUserIds: task!.assignedUserIds || [],
+        });
+      } else if (columns.length > 0) {
+        // Bei neuem Task, setze Standardwerte
+        const selectedColumnId = defaultColumnId 
+          ? columns.find((col: any) => col.id === defaultColumnId)?.id || columns[0].id
+          : columns[0].id;
 
-      form.reset({
-        title: "",
-        description: "",
-        priority: "medium",
-        status: "todo",
-        columnId: selectedColumnId
-      });
+        form.reset({
+          title: "",
+          description: "",
+          priority: "medium",
+          status: "todo",
+          columnId: selectedColumnId,
+          labels: [],
+          assignedUserIds: [],
+        });
+      }
     }
-  }, [open, form, columns, defaultColumnId]);
+  }, [open, form, columns, defaultColumnId, task, isEditing]);
 
   const createTask = useMutation({
     mutationFn: async (data: TaskFormValues) => {
       if (!currentBoard) {
         throw new Error("Kein Board ausgewählt");
       }
-      
-      // Wenn keine Spalte ausgewählt wurde und Spalten verfügbar sind, verwende die erste
+
       let columnId = data.columnId;
       if (!columnId && columns.length > 0) {
         columnId = columns[0].id;
       }
-      
+
       if (!columnId) {
         throw new Error("Keine Spalte verfügbar oder ausgewählt");
       }
 
-      // API-Request vorbereiten
       const taskData = {
         ...data,
         boardId: currentBoard.id,
-        order: 0, // Standard-Reihenfolge für neue Aufgaben
+        order: 0,
         columnId: columnId
       };
 
@@ -129,7 +157,6 @@ export function TaskDialog({
       return response.json();
     },
     onSuccess: () => {
-      // Cache aktualisieren und Dialog schließen
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
@@ -146,15 +173,32 @@ export function TaskDialog({
     },
   });
 
-  const onSubmit = (data: TaskFormValues) => {
-    createTask.mutate(data);
+  const onSubmit = async (data: TaskFormValues) => {
+    if (isEditing && task && onUpdate) {
+      const updatedTask: Task = {
+        ...task,
+        ...data,
+      };
+      await onUpdate(updatedTask);
+    } else {
+      createTask.mutate(data);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (task && onDelete) {
+      await onDelete(task.id);
+      onClose();
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Neue Aufgabe erstellen</DialogTitle>
+          <DialogTitle>
+            {isEditing ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+          </DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -182,7 +226,7 @@ export function TaskDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {columns?.map((column) => (
+                      {columns?.map((column: any) => (
                         <SelectItem key={column.id} value={column.id.toString()}>
                           {column.title}
                         </SelectItem>
@@ -251,13 +295,26 @@ export function TaskDialog({
               )}
             />
 
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={createTask.isPending}
-            >
-              {createTask.isPending ? "Wird erstellt..." : "Aufgabe erstellen"}
-            </Button>
+            <div className="flex justify-between gap-2">
+              <Button 
+                type="submit" 
+                className="flex-1"
+                disabled={createTask.isPending}
+              >
+                {isEditing ? "Speichern" : "Erstellen"}
+              </Button>
+
+              {isEditing && onDelete && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  className="flex-1"
+                >
+                  Löschen
+                </Button>
+              )}
+            </div>
           </form>
         </Form>
       </DialogContent>
