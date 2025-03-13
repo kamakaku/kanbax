@@ -46,6 +46,8 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       order: existingTask?.order || 0,
       archived: existingTask?.archived || false,
       assignedUserIds: existingTask?.assignedUserIds || [],
+      checklist: existingTask?.checklist || [],
+      dueDate: existingTask?.dueDate ? new Date(existingTask.dueDate) : undefined,
     },
   });
 
@@ -65,21 +67,22 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         id: existingTask?.id || 0,
         title: data.title,
         description: data.description || null,
-        status: data.status as Task["status"],
+        status: data.status as "backlog" | "todo" | "in-progress" | "review" | "done",
         order: existingTask?.order || 0,
         boardId: existingTask?.boardId || data.boardId,
         columnId: existingTask?.columnId || 0,
-        priority: data.priority as Task["priority"],
+        priority: data.priority as "low" | "medium" | "high",
         labels: data.labels || [],
-        dueDate: null,
+        dueDate: data.dueDate?.toISOString() || null,
         archived: existingTask?.archived || false,
         assignedUserIds: data.assignedUserIds || [],
         assignedTeamId: null,
         assignedAt: null,
-        checklist: [],
+        checklist: data.checklist || [],
       };
 
       await onSubmit(taskData);
+      onClose();
     } catch (error) {
       console.error("Form submission error:", error);
     }
@@ -148,8 +151,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                     <Textarea
                       placeholder="Beschreiben Sie die Aufgabe..."
                       className="min-h-[100px]"
-                      value={field.value || ""}
-                      onChange={field.onChange}
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -163,7 +165,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Status auswählen" />
@@ -188,7 +190,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Priorität</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Priorität auswählen" />
