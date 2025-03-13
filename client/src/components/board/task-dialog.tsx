@@ -114,12 +114,12 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       title: "",
       description: "",
       status: "todo",
+      priority: "medium",
       boardId: currentBoard?.id || 0,
       columnId: 0,
       order: 0,
-      priority: "medium",
-      labels: [],
       dueDate: null,
+      labels: [],
     },
   });
 
@@ -130,36 +130,40 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         description: task.description || "",
         status: task.status,
         priority: task.priority,
-        labels: task.labels || [],
         boardId: task.boardId,
         columnId: task.columnId,
         order: task.order,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
+        labels: task.labels || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
       setSelectedLabels(task.labels || []);
     } else if (open && currentBoard) {
-      form.setValue("boardId", currentBoard.id);
+      form.reset({
+        title: "",
+        description: "",
+        status: "todo",
+        priority: "medium",
+        boardId: currentBoard.id,
+        columnId: 0,
+        order: 0,
+        dueDate: null,
+        labels: [],
+      });
+      setSelectedUserIds([]);
+      setSelectedLabels([]);
     }
   }, [task, open, form, currentBoard]);
 
   const handleSubmit = async (values: any) => {
     try {
       const boardId = values.boardId || currentBoard?.id;
-
       if (!boardId) {
         throw new Error("Board ID is required");
       }
 
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
-
-      let formattedDate = null;
-      if (values.dueDate) {
-        // Convert to Date object if it's a string
-        const dateObj = typeof values.dueDate === 'string' ? new Date(values.dueDate) : values.dueDate;
-        formattedDate = format(dateObj, 'yyyy-MM-dd');
-      }
 
       const payload = {
         title: values.title,
@@ -170,22 +174,18 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: boardId,
         columnId: values.columnId || 0,
         order: values.order || 0,
-        dueDate: formattedDate,
+        dueDate: values.dueDate ? format(new Date(values.dueDate), 'yyyy-MM-dd') : null,
         assignedUserIds: selectedUserIds,
       };
-
-      console.log("Submitting task with payload:", payload);
 
       const response = await apiRequest(method, endpoint, payload);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("API error:", errorText);
         throw new Error(errorText || "Failed to save task");
       }
 
       const updatedTask = await response.json();
-
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
 
       if (onUpdate) {
@@ -218,6 +218,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {/* Title Field */}
             <FormField
               control={form.control}
               name="title"
@@ -232,6 +233,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
+            {/* Description Field */}
             <FormField
               control={form.control}
               name="description"
@@ -250,6 +252,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
+            {/* Board Field */}
             <FormField
               control={form.control}
               name="boardId"
@@ -257,9 +260,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                 <FormItem>
                   <FormLabel>Board</FormLabel>
                   <Select
-                    onValueChange={(value) => {
-                      field.onChange(parseInt(value));
-                    }}
+                    onValueChange={(value) => field.onChange(parseInt(value))}
                     value={field.value?.toString()}
                     disabled={!!task}
                   >
@@ -281,6 +282,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
+            {/* Status Field */}
             <FormField
               control={form.control}
               name="status"
@@ -309,6 +311,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
+            {/* Priority Field */}
             <FormField
               control={form.control}
               name="priority"
@@ -335,6 +338,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
+            {/* Labels Field */}
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="labels">Labels</Label>
               <DropdownMenu>
@@ -408,6 +412,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             </div>
 
+            {/* Due Date Field */}
             <FormField
               control={form.control}
               name="dueDate"
@@ -425,7 +430,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                           )}
                         >
                           {field.value ? (
-                            format(field.value, "PPP")
+                            format(new Date(field.value), "PPP")
                           ) : (
                             <span>Datum auswählen</span>
                           )}
@@ -437,9 +442,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
                         onSelect={field.onChange}
-                        disabled={(date) =>
-                          date < new Date(new Date().setHours(0, 0, 0, 0))
-                        }
                         initialFocus
                       />
                     </PopoverContent>
@@ -449,6 +451,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
+            {/* Assigned Users Field */}
             <div className="space-y-1.5">
               <Label>Benutzer zuweisen</Label>
               <Popover>
