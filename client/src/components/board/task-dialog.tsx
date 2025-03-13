@@ -1,80 +1,106 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarIcon, MessageSquare, Users } from "lucide-react";
 import { format } from "date-fns";
-import { de } from "date-fns/locale";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { useStore } from "@/lib/store";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { Task, insertTaskSchema, updateTaskSchema, User } from "@shared/schema";
-import { Badge } from "@/components/ui/badge";
+import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
+import { useContext, useEffect, useState } from "react";
+import { Board, Task, User, insertTaskSchema } from "@shared/schema";
+import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
+import { useQuery } from "@tanstack/react-query";
+import { BoardContext } from "@/context/board-context";
+import { apiRequest } from "@/lib/api-request";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { ChecklistCard } from "./checklist-card";
-import { CommentList } from "@/components/comments/comment-list";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 interface TaskDialogProps {
-  task?: Task;
   open: boolean;
   onClose: () => void;
-  onUpdate?: (task: Task) => void;
-  onDelete?: () => void;
+  onUpdate?: (task: Task) => Promise<void>;
+  task?: Task | null;
 }
 
-const statusLabels: Record<string, string> = {
-  'backlog': 'Backlog',
-  'todo': 'Zu erledigen',
-  'in-progress': 'In Bearbeitung',
-  'review': 'Review',
-  'done': 'Erledigt'
-};
-
-const priorityLabels: Record<string, string> = {
-  'low': 'Niedrig',
-  'medium': 'Mittel',
-  'high': 'Hoch'
-};
-
-export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
-  const queryClient = useQueryClient();
+export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
   const { toast } = useToast();
-  const { currentBoard } = useStore();
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task?.assignedUserIds || []);
+  const queryClient = useQueryClient();
+  const { currentBoard } = useContext(BoardContext);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
 
-  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
+  const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const res = await fetch("/api/users");
-      if (!res.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      return res.json();
-    },
-    enabled: open
+    enabled: open,
   });
 
+  const { data: boards = [] } = useQuery<Board[]>({
+    queryKey: ["/api/boards"],
+    enabled: open,
+  });
+
+  // Get available labels from all existing tasks
+  const { data: allTasks = [] } = useQuery<Task[]>({
+    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    enabled: !!currentBoard?.id && open,
+  });
+
+  // Extract unique labels from all tasks
+  const availableLabels = Array.from(
+    new Set(allTasks.flatMap((t) => t.labels || []))
+  );
+
   const form = useForm({
-    resolver: zodResolver(task ? updateTaskSchema : insertTaskSchema),
+    resolver: zodResolver(insertTaskSchema),
     defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: task?.priority || "medium",
-      labels: task?.labels || [],
-      boardId: currentBoard?.id,
-      columnId: task?.columnId || 0,
-      order: task?.order || 0,
-      dueDate: task?.dueDate ? new Date(task.dueDate) : null,
+      title: "",
+      description: "",
+      status: "todo",
+      boardId: currentBoard?.id || 0,
+      columnId: 0,
+      order: 0,
+      priority: "medium",
+      labels: [],
+      dueDate: null,
     },
   });
 
@@ -92,14 +118,20 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
       });
       setSelectedUserIds(task.assignedUserIds || []);
+      setSelectedLabels(task.labels || []);
+    } else if (open && currentBoard) {
+      // Set the default boardId for new tasks
+      form.setValue("boardId", currentBoard.id);
     }
-  }, [task, open, form]);
+  }, [task, open, form, currentBoard]);
 
   const handleSubmit = async (values: any) => {
     try {
-      // Stellen Sie sicher, dass eine gültige boardId vorhanden ist
+      console.log("Submit data:", values);
+      
+      // Ensure we have a valid boardId
       const boardId = values.boardId || currentBoard?.id;
-
+      
       if (!boardId) {
         throw new Error("Board ID is required");
       }
@@ -107,14 +139,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
 
-      // Prepare the payload
+      // Create the payload
       const payload = {
         title: values.title,
-        description: values.description,
-        status: values.status,
-        priority: values.priority,
-        labels: values.labels || [],
-        boardId: boardId, // Verwenden Sie die bestätigte boardId
+        description: values.description || "",
+        status: values.status || "todo",
+        priority: values.priority || "medium",
+        labels: selectedLabels,
+        boardId: boardId,
         columnId: values.columnId || 0,
         order: values.order || 0,
         dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
@@ -123,282 +155,363 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
       console.log("Submitting task with payload:", payload);
 
+      // Send the request
       const response = await apiRequest(method, endpoint, payload);
-
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Server responded with error:", errorData);
-        throw new Error(errorData.message || "Failed to save task");
+        const errorText = await response.text();
+        console.error("API error:", errorText);
+        throw new Error(errorText || "Failed to save task");
       }
 
-      // Refresh task data
+      const updatedTask = await response.json();
+
+      // Update queries
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+      
+      if (onUpdate) {
+        await onUpdate(updatedTask);
+      }
 
-      toast({
-        title: `Task ${task ? "updated" : "created"} successfully`,
+      toast({ 
+        title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt",
+        description: task ? "Die Aufgabe wurde erfolgreich aktualisiert." : "Die Aufgabe wurde erfolgreich erstellt."
       });
-
+      
       onClose();
-    } catch (error) {
-      console.error("Failed to save task:", error);
+    } catch (error: any) {
+      console.error("Task save error:", error);
       toast({
-        title: "Error",
-        description: (error as Error).message || "Failed to save task",
+        title: "Fehler",
+        description: error.message || `Die Aufgabe konnte nicht ${task ? 'aktualisiert' : 'erstellt'} werden`,
         variant: "destructive",
       });
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
-          </DialogTitle>
-        </DialogHeader>
+    <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>
+          {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+        </DialogTitle>
+      </DialogHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Titel</FormLabel>
+                <FormControl>
+                  <Input placeholder="Aufgabentitel eingeben" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Beschreibung</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Beschreibung eingeben..."
+                    className="resize-none"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="boardId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Board</FormLabel>
+                <Select
+                  onValueChange={(value) => {
+                    field.onChange(parseInt(value));
+                  }}
+                  value={field.value?.toString()}
+                  disabled={!!task}
+                >
                   <FormControl>
-                    <Input {...field} />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Board auswählen" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <SelectContent>
+                    {boards.map((board) => (
+                      <SelectItem key={board.id} value={board.id.toString()}>
+                        {board.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
                   <FormControl>
-                    <Textarea {...field} />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Status auswählen" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <SelectContent>
+                    <SelectItem value="backlog">Backlog</SelectItem>
+                    <SelectItem value="todo">Zu erledigen</SelectItem>
+                    <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="done">Erledigt</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Wählen Sie einen Status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(statusLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priorität</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Wählen Sie eine Priorität" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(priorityLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="labels"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Labels (durch Komma getrennt)</FormLabel>
+          <FormField
+            control={form.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Priorität</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
                   <FormControl>
-                    <Input
-                      placeholder="Feature, Bug, UI..."
-                      value={field.value?.join(", ") || ""}
-                      onChange={(e) => {
-                        const labels = e.target.value
-                          .split(",")
-                          .map((label) => label.trim())
-                          .filter(Boolean);
-                        field.onChange(labels);
-                      }}
-                    />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Priorität auswählen" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <SelectContent>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Fälligkeitsdatum</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={`pl-3 text-left font-normal ${
-                            !field.value && "text-muted-foreground"
-                          }`}
-                        >
-                          {field.value ? (
-                            format(field.value, "dd.MM.yyyy", { locale: de })
-                          ) : (
-                            <span>Wähle ein Datum</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value || undefined}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="space-y-2">
-              <FormLabel>Zugewiesene Benutzer</FormLabel>
-              {isLoadingUsers ? (
-                <div className="text-sm text-muted-foreground">
-                  Lade Benutzer...
-                </div>
-              ) : Array.isArray(users) && users.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {users.map((user) => (
-                    <Button
-                      key={user.id}
-                      type="button"
-                      variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
-                      className="flex items-center gap-2"
-                      onClick={() => {
-                        setSelectedUserIds(prev =>
-                          prev.includes(user.id)
-                            ? prev.filter(id => id !== user.id)
-                            : [...prev, user.id]
+          <div className="flex flex-col space-y-1.5">
+            <Label htmlFor="labels">Labels</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="justify-between w-full">
+                  Labels auswählen
+                  <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuLabel>Verfügbare Labels</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {availableLabels.map((label) => (
+                  <DropdownMenuCheckboxItem
+                    key={label}
+                    checked={selectedLabels.includes(label)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedLabels([...selectedLabels, label]);
+                      } else {
+                        setSelectedLabels(
+                          selectedLabels.filter((l) => l !== label)
                         );
-                      }}
-                    >
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={user.avatarUrl || ''} />
-                        <AvatarFallback>
-                          {user.username.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{user.username}</span>
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Keine Benutzer verfügbar.
-                </div>
-              )}
-            </div>
-
-            {/* Nur für existierende Tasks */}
-            {task && (
-              <>
-                <Separator className="my-4" />
-                <div>
-                  <ChecklistCard
-                    task={task}
-                    onUpdate={(updatedTask) => {
-                      if (onUpdate) {
-                        onUpdate(updatedTask);
+                      }
+                    }}
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <div className="p-2">
+                  <Input
+                    placeholder="Neues Label hinzufügen"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const value = e.currentTarget.value.trim();
+                        if (value && !selectedLabels.includes(value)) {
+                          setSelectedLabels([...selectedLabels, value]);
+                          e.currentTarget.value = "";
+                        }
                       }
                     }}
                   />
                 </div>
-
-                <Separator className="my-4" />
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium mb-3">
-                    <MessageSquare className="h-4 w-4" />
-                    <span>Kommentare</span>
-                  </div>
-                  <CommentList taskId={task.id} />
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-between gap-2">
-              {task && onDelete && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={onDelete}
-                >
-                  Löschen
-                </Button>
-              )}
-              <div className="flex gap-2 ml-auto">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                >
-                  Abbrechen
-                </Button>
-                <Button type="submit">
-                  {task ? "Speichern" : "Erstellen"}
-                </Button>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {selectedLabels.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {selectedLabels.map((label) => (
+                  <Badge
+                    key={label}
+                    variant="secondary"
+                    className="px-2 py-0.5 text-xs"
+                  >
+                    {label}
+                    <button
+                      type="button"
+                      className="ml-1 text-xs"
+                      onClick={() => {
+                        setSelectedLabels(
+                          selectedLabels.filter((l) => l !== label)
+                        );
+                      }}
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
               </div>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            )}
+          </div>
+
+          <FormField
+            control={form.control}
+            name="dueDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Fälligkeitsdatum</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value ? (
+                          format(field.value, "PPP")
+                        ) : (
+                          <span>Datum auswählen</span>
+                        )}
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value || undefined}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="space-y-1.5">
+            <Label>Benutzer zuweisen</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="justify-between w-full"
+                >
+                  {selectedUserIds.length > 0
+                    ? `${selectedUserIds.length} Benutzer zugewiesen`
+                    : "Benutzer zuweisen"}
+                  <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-full">
+                <Command>
+                  <CommandInput placeholder="Benutzer suchen..." />
+                  <CommandEmpty>Keine Benutzer gefunden.</CommandEmpty>
+                  <CommandGroup>
+                    {users.map((user) => (
+                      <CommandItem
+                        key={user.id}
+                        value={user.username}
+                        onSelect={() => {
+                          const isSelected = selectedUserIds.includes(user.id);
+                          if (isSelected) {
+                            setSelectedUserIds(
+                              selectedUserIds.filter((id) => id !== user.id)
+                            );
+                          } else {
+                            setSelectedUserIds([...selectedUserIds, user.id]);
+                          }
+                        }}
+                      >
+                        <CheckIcon
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedUserIds.includes(user.id)
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {user.username}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {selectedUserIds.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {selectedUserIds.map((userId) => {
+                  const user = users.find((u) => u.id === userId);
+                  return (
+                    <Badge
+                      key={userId}
+                      variant="secondary"
+                      className="px-2 py-0.5 text-xs"
+                    >
+                      {user?.username || `Benutzer #${userId}`}
+                      <button
+                        type="button"
+                        className="ml-1 text-xs"
+                        onClick={() => {
+                          setSelectedUserIds(
+                            selectedUserIds.filter((id) => id !== userId)
+                          );
+                        }}
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <Button type="submit" className="w-full">
+            {task ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
+          </Button>
+        </form>
+      </Form>
+    </DialogContent>
   );
 }
