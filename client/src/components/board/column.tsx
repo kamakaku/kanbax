@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Task } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { Task as TaskComponent } from "./task";
-import { TaskDialog } from "@/components/dialogs/task-dialog"; 
+import TaskDialog from "./task-dialog"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
