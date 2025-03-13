@@ -88,8 +88,8 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
 
   return (
     <>
-      <Draggable
-        draggableId={task.id.toString()}
+      <Draggable 
+        draggableId={task.id.toString()} 
         index={index}
         key={task.id}
       >
@@ -112,14 +112,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
               snapshot.isDragging ? "shadow-lg ring-1 ring-primary/20" : ""
             }`}>
               <CardContent className="p-3">
-                {/* Title section with emoji */}
-                <div className="flex items-start gap-2 mb-2">
-                  {task.icon && (
-                    <span className="text-xl leading-none mt-0.5">{task.icon}</span>
-                  )}
-                  <h3 className="font-medium text-sm line-clamp-2">{task.title}</h3>
-                </div>
-
                 {/* Labels */}
                 {task.labels && task.labels.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
@@ -138,27 +130,31 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                   </div>
                 )}
 
-                {/* Task Description */}
-                {task.description && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {task.description.substring(0, 50)}
-                    {task.description.length > 50 ? "..." : ""}
-                  </p>
-                )}
+                {/* Task Title */}
+                <div className="flex flex-col gap-1">
+                  <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
+                  {task.description && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {task.description.substring(0, 50)}
+                      {task.description.length > 50 ? "..." : ""}
+                    </p>
+                  )}
 
-                {task._hasChecklist && totalCount > 0 && (
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1">
-                        <CheckSquare className="h-3 w-3" />
-                        <span className="text-xs text-muted-foreground">
-                          {completedCount} von {totalCount} ({percentage}%)
-                        </span>
+                  {task._hasChecklist && totalCount > 0 && (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1">
+                          <CheckSquare className="h-3 w-3" />
+                          <span className="text-xs text-muted-foreground">
+                            {completedCount} von {totalCount} ({percentage}%)
+                          </span>
+                        </div>
                       </div>
+                      <Progress value={percentage} className="h-1.5" />
                     </div>
-                    <Progress value={percentage} className="h-1.5" />
-                  </div>
-                )}
+                  )}
+                </div>
+
 
                 {/* Footer Info */}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
