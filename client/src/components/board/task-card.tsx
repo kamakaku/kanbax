@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Users } from "lucide-react";
+import { CalendarIcon, ExpandIcon, PencilIcon, TrashIcon, Users } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -24,6 +24,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
+import { TaskDialog } from "./task-dialog";
 
 interface TaskCardProps {
   task: Task;
@@ -38,6 +39,7 @@ const priorityColors = {
 
 export function TaskCard({ task, index }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // Added state for the dialog
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || "");
   const [editedPriority, setEditedPriority] = useState(task.priority);
@@ -53,7 +55,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
   // Fetch users for assignment
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    enabled: isEditing
+    enabled: isEditing || isDialogOpen // Enabled when either editing or dialog is open
   });
 
   const updateTask = useMutation({
@@ -80,6 +82,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
       });
       toast({ title: "Task updated successfully" });
       setIsEditing(false);
+      setIsDialogOpen(false); // Close dialog on success
     },
     onError: (error) => {
       toast({
@@ -93,6 +96,11 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateTask.mutate();
+  };
+
+  const handleDelete = () => {
+    //Implementation for delete functionality
+    console.log("Delete task:", task.id);
   };
 
   return (
@@ -260,34 +268,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Zugewiesene Benutzer</label>
-              <div className="flex flex-wrap gap-2">
-                {users.map((user) => (
-                  <Button
-                    key={user.id}
-                    type="button"
-                    variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
-                    className="flex items-center gap-2"
-                    onClick={() => {
-                      setSelectedUserIds(prev =>
-                        prev.includes(user.id)
-                          ? prev.filter(id => id !== user.id)
-                          : [...prev, user.id]
-                      );
-                    }}
-                  >
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={user.avatarUrl || ''} />
-                      <AvatarFallback>
-                        {user.username.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{user.username}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -303,6 +283,8 @@ export function TaskCard({ task, index }: TaskCardProps) {
           </form>
         </DialogContent>
       </Dialog>
+      <TaskDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} task={task} users={users} updateTask={updateTask}/> {/* Added TaskDialog */}
+
     </>
   );
 }
