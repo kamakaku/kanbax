@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-store";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { CommentEditor } from "./comment-editor";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon } from "lucide-react";
 
 interface CommentListProps {
@@ -65,6 +65,7 @@ export function CommentList({ taskId }: CommentListProps) {
           return (
             <div key={comment.id} className="flex gap-3">
               <Avatar className="h-8 w-8">
+                <AvatarImage src={author?.avatarUrl} alt={author?.username} />
                 <AvatarFallback className="bg-primary/10">
                   <UserIcon className="h-4 w-4" />
                 </AvatarFallback>

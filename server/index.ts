@@ -9,6 +9,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // Health check endpoint
 app.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
@@ -77,20 +80,20 @@ app.use((req, res, next) => {
 
     const startServer = (port: number, maxAttempts = 3) => {
       const host = '0.0.0.0';
-      
+
       if (maxAttempts <= 0) {
         log('Exceeded maximum port attempts. Please manually kill the process using port 5000+');
         process.exit(1);
         return;
       }
-      
+
       const handleServer = () => {
         server.listen(port, host, () => {
           log(`Server successfully started on ${host}:${port}`);
           log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
         });
       };
-      
+
       server.once('error', (e: any) => {
         if (e.code === 'EADDRINUSE') {
           log(`Port ${port} is already in use, trying ${port + 1}...`);
@@ -101,10 +104,10 @@ app.use((req, res, next) => {
           process.exit(1);
         }
       });
-      
+
       handleServer();
     };
-    
+
     const port = parseInt(process.env.PORT || "5000", 10);
     startServer(port);
   } catch (error) {

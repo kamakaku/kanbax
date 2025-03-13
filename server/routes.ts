@@ -95,6 +95,23 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Add this route after the authentication routes
+  app.get("/api/users/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    try {
+      const user = await storage.getUser(id);
+      const { passwordHash: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Failed to fetch user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Profile update routes
   app.patch("/api/profile", async (req, res) => {
     try {
