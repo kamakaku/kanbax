@@ -75,7 +75,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       columnId: task?.columnId || 0,
       order: task?.order || 0,
       dueDate: task?.dueDate ? new Date(task.dueDate) : null,
-      assignedUserIds: []
     },
   });
 
@@ -91,33 +90,39 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         columnId: task.columnId,
         order: task.order,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
-        assignedUserIds: task.assignedUserIds || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
     }
   }, [task, open, form]);
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (values: any) => {
     try {
-      const formattedData = {
-        ...data,
-        dueDate: data.dueDate ? format(new Date(data.dueDate), "yyyy-MM-dd") : null,
-        assignedUserIds: selectedUserIds,
-        boardId: currentBoard?.id
-      };
-
-      console.log('Submit data:', formattedData); // Debug log
-
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : "/api/tasks";
 
-      const response = await apiRequest(method, endpoint, formattedData);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Failed to update task");
+      // Format the date if it exists
+      let dueDateString = null;
+      if (values.dueDate) {
+        dueDateString = format(new Date(values.dueDate), "yyyy-MM-dd");
       }
 
+      // Prepare the payload
+      const payload = {
+        title: values.title,
+        description: values.description,
+        status: values.status,
+        priority: values.priority,
+        labels: values.labels || [],
+        boardId: currentBoard?.id,
+        columnId: values.columnId || 0,
+        order: values.order || 0,
+        dueDate: dueDateString,
+        assignedUserIds: selectedUserIds
+      };
+
+      console.log('Submitting task with payload:', payload);
+
+      const response = await apiRequest(method, endpoint, payload);
       const updatedTask = await response.json();
 
       // Invalidate queries to ensure UI updates
