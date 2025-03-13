@@ -474,3 +474,51 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
     </Dialog>
   );
 }
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Task } from "@shared/schema";
+
+interface TaskDialogProps {
+  task: Task | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function TaskDialog({ task, open, onOpenChange }: TaskDialogProps) {
+  if (!task) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>{task.title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-4">
+          <div>
+            <h3 className="font-medium">Description</h3>
+            <p className="text-sm text-muted-foreground">{task.description || "No description provided."}</p>
+          </div>
+          
+          {task.dueDate && (
+            <div>
+              <h3 className="font-medium">Due Date</h3>
+              <p className="text-sm text-muted-foreground">
+                {new Date(task.dueDate).toLocaleDateString()}
+              </p>
+            </div>
+          )}
+          
+          <div>
+            <h3 className="font-medium">Priority</h3>
+            <p className="text-sm text-muted-foreground">{task.priority || "None"}</p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
