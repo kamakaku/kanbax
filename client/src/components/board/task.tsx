@@ -7,7 +7,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, CheckSquare, MessageSquare, User } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 import { useTooltipContext } from "@/hooks/use-tooltip-context";
@@ -82,6 +82,18 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
   const totalCount = checklistItems.length;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  // Query für zugewiesene Benutzer
+  const { data: assignedUser } = useQuery<User>({
+    queryKey: [`/api/users/${task.assignedUserId}`],
+    queryFn: async () => {
+      if (!task.assignedUserId) return null;
+      const res = await fetch(`/api/users/${task.assignedUserId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!task.assignedUserId
+  });
+
   return (
     <>
       <Draggable draggableId={task.id.toString()} index={index} key={task.id}>
@@ -140,8 +152,9 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
 
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <div className="flex items-center gap-2">
-                      {task.assignedUserId && (
+                      {assignedUser && (
                         <Avatar className="h-5 w-5">
+                          <AvatarImage src={assignedUser.avatarUrl || ''} />
                           <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
                             <User className="h-3 w-3" />
                           </AvatarFallback>

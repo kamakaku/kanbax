@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { type Task } from "@shared/schema";
+import { type Task, type User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -14,9 +14,9 @@ import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentList } from "@/components/comments/comment-list";
 import { useStore } from "@/lib/store";
-import { Calendar as CalendarIcon, Edit2, MessageSquare, User } from "lucide-react";
+import { Calendar as CalendarIcon, Edit2, MessageSquare, User as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -53,6 +53,16 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
 
+  // Fetch users for assignment
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
     defaultValues: {
@@ -64,7 +74,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       boardId: task?.boardId || currentBoard?.id || 0,
       columnId: task?.columnId || 0,
       order: task?.order || 0,
-      dueDate: task?.dueDate || null,
+      dueDate: task?.dueDate ? new Date(task?.dueDate) : null,
+      assignedUserId: task?.assignedUserId || null,
     },
   });
 
@@ -81,6 +92,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         columnId: task.columnId,
         order: task.order,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
+        assignedUserId: task.assignedUserId,
       });
     }
   }, [task, isEditing, form]);
@@ -160,7 +172,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose} modal>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         {task && !isEditing ? (
           <>
@@ -206,10 +218,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 {task.assignedUserId && (
                   <div className="flex items-center gap-2 ml-auto">
                     <Avatar className="h-6 w-6">
+                      <AvatarImage src={users.find(u => u.id === task.assignedUserId)?.avatarUrl || ''} />
                       <AvatarFallback>
-                        <User className="h-4 w-4" />
+                        <UserIcon className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
+                    <span className="text-sm text-muted-foreground">
+                      {users.find(u => u.id === task.assignedUserId)?.username}
+                    </span>
                   </div>
                 )}
               </div>
@@ -395,6 +411,43 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                         placeholder="bug, feature, UI"
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="assignedUserId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Zugewiesen an</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                      defaultValue={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Benutzer auswählen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Nicht zugewiesen</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={user.avatarUrl || ''} />
+                                <AvatarFallback>
+                                  <UserIcon className="h-4 w-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>{user.username}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
