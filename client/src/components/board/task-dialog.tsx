@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -124,7 +123,7 @@ export function TaskDialog({
             const checklistData = await checklistResponse.json();
             setChecklist(checklistData);
           }
-          
+
           // Fetch comments
           const commentsResponse = await fetch(`/api/tasks/${task.id}/comments`);
           if (commentsResponse.ok) {
@@ -135,7 +134,7 @@ export function TaskDialog({
           console.error("Error fetching task data:", error);
         }
       };
-      
+
       fetchTaskData();
     }
   }, [task?.id]);
@@ -231,7 +230,7 @@ export function TaskDialog({
             completed: false
           }
         });
-        
+
         setChecklist([...checklist, response]);
         setNewChecklistItem("");
       } catch (error) {
@@ -252,7 +251,7 @@ export function TaskDialog({
           method: "PATCH",
           data: { completed }
         });
-        
+
         setChecklist(
           checklist.map(item => 
             item.id === itemId ? { ...item, completed } : item
@@ -270,7 +269,7 @@ export function TaskDialog({
         await apiRequest(`/api/tasks/${task.id}/checklist/${itemId}`, {
           method: "DELETE"
         });
-        
+
         setChecklist(checklist.filter(item => item.id !== itemId));
       } catch (error) {
         console.error("Error deleting checklist item:", error);
@@ -281,11 +280,10 @@ export function TaskDialog({
   const addComment = async () => {
     if (comment.trim() && task?.id) {
       try {
-        const response = await apiRequest(`/api/tasks/${task.id}/comments`, {
-          method: "POST",
+        const response = await apiRequest("POST", `/api/tasks/${task.id}/comments`, {
           data: { content: comment }
         });
-        
+
         setComments([...comments, response]);
         setComment("");
       } catch (error) {
@@ -327,7 +325,7 @@ export function TaskDialog({
           dueDate: cleanedData.dueDate,
           archived: cleanedData.archived || false
         };
-        
+
         await onUpdate(updateData);
         onClose();
       } else {
@@ -335,7 +333,7 @@ export function TaskDialog({
         if (!cleanedData.columnId) {
           throw new Error("Spalte muss ausgewählt werden");
         }
-        
+
         await createTask.mutateAsync(cleanedData);
         onClose();
       }
