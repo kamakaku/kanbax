@@ -80,7 +80,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         boardId: task.boardId,
         columnId: task.columnId,
         order: task.order,
-        dueDate: task.dueDate,
+        dueDate: task.dueDate ? new Date(task.dueDate) : null,
       });
     }
   }, [task, isEditing, form]);
@@ -90,7 +90,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       let response;
       const submissionData = {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate.toISOString() : null,
       };
 
       if (task) {
