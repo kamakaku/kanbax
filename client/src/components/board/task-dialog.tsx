@@ -98,7 +98,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const handleSubmit = async (values: any) => {
     try {
       const method = task ? "PATCH" : "POST";
-      const endpoint = task ? `/api/tasks/${task.id}` : `/boards/${values.boardId}/tasks`; // Corrected endpoint for new tasks
+      const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${values.boardId}/tasks`;
 
       // Prepare the payload
       const payload = {
