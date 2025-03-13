@@ -51,21 +51,29 @@ export function TaskDialog({ open, onClose }: { open: boolean; onClose: () => vo
       title: "",
       description: "",
       priority: "medium",
-      status: "todo"
+      status: "todo",
+      columnId: 0
     },
+  });
+
+  // Spalten für das aktuelle Board abrufen
+  const { data: columns = [] } = useQuery({
+    queryKey: ["/api/boards", currentBoard?.id, "columns"],
+    enabled: !!currentBoard && open
   });
 
   // Zurücksetzen des Formulars, wenn der Dialog geöffnet wird
   useEffect(() => {
-    if (open) {
+    if (open && columns.length > 0) {
       form.reset({
         title: "",
         description: "",
         priority: "medium",
-        status: "todo"
+        status: "todo",
+        columnId: columns[0].id // Erste Spalte als Standard verwenden
       });
     }
-  }, [open, form]);
+  }, [open, form, columns]);
 
   const createTask = useMutation({
     mutationFn: async (data: TaskFormValues) => {
@@ -77,7 +85,8 @@ export function TaskDialog({ open, onClose }: { open: boolean; onClose: () => vo
       const taskData = {
         ...data,
         boardId: currentBoard.id,
-        order: 0 // Standard-Reihenfolge für neue Aufgaben
+        order: 0, // Standard-Reihenfolge für neue Aufgaben
+        columnId: data.columnId // Sicherstellen, dass columnId im Request enthalten ist
       };
 
       const response = await fetch(`/api/boards/${currentBoard.id}/tasks`, {
@@ -126,11 +135,39 @@ export function TaskDialog({ open, onClose }: { open: boolean; onClose: () => vo
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {currentBoard && (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mb-4">
                 <span className="text-sm font-medium">Board:</span>
                 <span className="text-sm">{currentBoard.title}</span>
               </div>
             )}
+            
+            <FormField
+              control={form.control}
+              name="columnId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Spalte</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    defaultValue={field.value?.toString()}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Spalte auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {columns?.map((column) => (
+                        <SelectItem key={column.id} value={column.id.toString()}>
+                          {column.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
