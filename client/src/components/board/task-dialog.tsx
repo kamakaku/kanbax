@@ -9,7 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/auth"; // Import useAuth hook
+import { useAuth } from "@/lib/auth-store"; // Korrigiert von @/hooks/auth zu @/lib/auth-store
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
