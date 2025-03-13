@@ -211,10 +211,19 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
               {/* Checklist */}
               {task && task.id && (
-                <div onClick={stopPropagation}>
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    stopPropagation(e);
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <ChecklistCard
                     task={task}
-                    onUpdate={updateTask}
+                    onUpdate={(updatedTask) => {
+                      // Stille Aktualisierung ohne Dialog-Schließung
+                      updateTask(updatedTask);
+                    }}
                   />
                 </div>
               )}

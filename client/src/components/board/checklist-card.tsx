@@ -1,6 +1,5 @@
-
 import { ChecklistItem, Task } from "@shared/schema";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Plus } from "lucide-react";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 
 interface ChecklistCardProps {
   task: Task;
@@ -19,6 +20,8 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
   const [loading, setLoading] = useState(true);
   const [newItemTitle, setNewItemTitle] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Lade Checklist-Items beim ersten Rendern
   useEffect(() => {
@@ -41,16 +44,14 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
 
   // Neues Item hinzufügen
   const handleAddItem = async (e: React.FormEvent) => {
-    // Verhindern der Standardaktion des Formulars (wie z.B. ein Neuladen der Seite)
     e.preventDefault();
-    e.stopPropagation(); // Stoppen der Event-Propagation, um zu verhindern, dass das Event zum übergeordneten Dialog gelangt
-    
+    e.stopPropagation();
+
     if (!newItemTitle.trim()) return;
 
     try {
-      // Bestimme die nächste Reihenfolge
-      const maxOrder = items.length > 0 
-        ? Math.max(...items.map(item => item.itemOrder)) 
+      const maxOrder = items.length > 0
+        ? Math.max(...items.map(item => item.itemOrder))
         : -1;
 
       const response = await apiRequest(
@@ -68,11 +69,10 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
       const newItem = await response.json();
       setItems(prev => [...prev, newItem]);
       setNewItemTitle("");
-      
+
       // Aktualisiere die übergeordnete Komponente
       onUpdate({
         ...task,
-        // Aktualisiere die Task mit der Information, dass es Checklist-Items gibt
         _hasChecklist: true
       });
     } catch (error) {
@@ -84,95 +84,130 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
     }
   };
 
-  // Item als erledigt/nicht erledigt markieren
-  const handleToggleItem = async (item: ChecklistItem) => {
-    try {
+  // Mutation für das Umschalten des Completed-Status
+  const toggleItemMutation = useMutation({
+    mutationFn: async (item: ChecklistItem) => {
       const response = await apiRequest(
         "PATCH",
         `/api/checklist/${item.id}`,
-        { 
-          completed: !item.completed 
+        {
+          completed: !item.completed
         }
       );
 
       if (!response.ok) throw new Error("Fehler beim Aktualisieren des Elements");
-
-      const updatedItem = await response.json();
-      
-      setItems(prev => 
-        prev.map(i => i.id === updatedItem.id ? updatedItem : i)
-      );
-    } catch (error) {
+      return response.json();
+    },
+    onSuccess: () => {
+      try {
+        queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/checklist`] });
+      } catch (error) {
+        console.error("Error invalidating queries:", error);
+        toast({
+          title: "Fehler",
+          description: "Daten konnten nicht aktualisiert werden.",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error) => {
+      console.error("Error in toggleItemMutation:", error);
       toast({
         title: "Fehler",
-        description: "Der Checklistenpunkt konnte nicht aktualisiert werden",
+        description: "Der Status konnte nicht geändert werden",
         variant: "destructive",
       });
     }
+  });
+
+  // Handler für das Umschalten des Completed-Status
+  const handleToggleItem = (item: ChecklistItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleItemMutation.mutate(item);
   };
 
   // Berechne den Fortschritt der Checkliste
   const completedCount = items.filter(item => item.completed).length;
-  const progress = items.length ? (completedCount / items.length) * 100 : 0;
+  const percentage = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-sm font-medium mb-4">Checkliste wird geladen...</div>
+      <Card onMouseDown={(e) => e.stopPropagation()}>
+        <CardContent className="pt-6" onClick={(e) => e.stopPropagation()}>
+          <div className="text-sm font-medium mb-4">Checkliste</div>
+          <p className="text-sm text-muted-foreground">Wird geladen...</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
+    <Card onMouseDown={(e) => e.stopPropagation()}>
+      <CardContent className="pt-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm font-medium">Checkliste</div>
           {items.length > 0 && (
-            <div className="text-sm text-muted-foreground">
-              {completedCount} von {items.length}
+            <div className="text-xs text-muted-foreground">
+              {completedCount} von {items.length} erledigt ({percentage}%)
             </div>
           )}
         </div>
 
         {items.length > 0 && (
-          <Progress value={progress} className="mb-4" />
+          <Progress value={percentage} className="h-2 mb-4" />
         )}
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            {items.map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={item.completed}
-                  onChange={() => handleToggleItem(item)}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                <span className={`text-sm flex-1 ${item.completed ? 'line-through text-muted-foreground' : ''}`}>
-                  {item.title}
-                </span>
-              </div>
-            ))}
-          </div>
+        <div className="space-y-2">
+          {items.map((item: ChecklistItem) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-2 p-2 rounded hover:bg-secondary/30"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={item.completed}
+                onChange={(e) => handleToggleItem(item, e)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span
+                className={`text-sm ${item.completed ? 'line-through text-muted-foreground' : ''}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {item.title}
+              </span>
+            </div>
+          ))}
+        </div>
 
+        <div className="mt-4">
           <div className="flex gap-2">
-            <form 
-              className="flex gap-2 w-full" 
+            <form
+              ref={formRef}
+              className="flex gap-2 w-full"
               onSubmit={handleAddItem}
+              onClick={(e) => e.stopPropagation()}
             >
               <Input
                 value={newItemTitle}
                 onChange={(e) => setNewItemTitle(e.target.value)}
-                placeholder="Neuer Checklistenpunkt"
+                placeholder="Neuen Punkt hinzufügen..."
+                className="text-sm"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
               />
-              <Button 
-                type="submit" 
-                variant="outline" 
-                size="icon" 
-                onClick={(e) => e.stopPropagation()} // Verhindert, dass der Klick zum Dialog-Container propagiert
+              <Button
+                type="submit"
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAddItem(e);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
               >
                 <Plus className="h-4 w-4" />
               </Button>
