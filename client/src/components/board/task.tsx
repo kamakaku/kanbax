@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 
 interface TaskProps {
-  task: TaskType & { boardTitle?: string };
+  task: TaskType & { boardTitle?: string; checklist?: { checked: boolean }[] };
   index: number;
   showBoardTitle?: boolean;
   onClick?: (task: TaskType) => void;
@@ -66,23 +66,10 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-  // Checklist data from server
-  const { data: checklistItems = [] } = useQuery({
-    queryKey: ['/api/tasks', task.id, 'checklist'],
-    queryFn: async () => {
-      if (!task._hasChecklist) return [];
-      const res = await fetch(`/api/tasks/${task.id}/checklist`);
-      if (!res.ok) {
-        throw new Error('Failed to fetch checklist items');
-      }
-      return res.json();
-    },
-    enabled: !!task._hasChecklist,
-  });
 
   // Checklist Progress Calculation
-  const completedCount = checklistItems.filter(item => item.completed).length;
-  const totalCount = checklistItems.length;
+  const completedCount = task.checklist ? task.checklist.filter(item => item.checked).length : 0;
+  const totalCount = task.checklist ? task.checklist.length : 0;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
@@ -132,8 +119,8 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                   </div>
                 )}
 
-                {/* Checklist Progress */}
-                {task._hasChecklist && totalCount > 0 && (
+                {/* Checklist Progress Bar */}
+                {task.checklist && task.checklist.length > 0 && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1">
