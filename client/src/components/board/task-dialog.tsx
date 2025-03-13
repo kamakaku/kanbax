@@ -12,7 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -147,9 +153,8 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
   }, [task, open, form, currentBoard, isEditMode, defaultStatus]);
 
   const onSubmit = async (values: any) => {
+    console.log("Form submitted with values:", values);
     try {
-      console.log("Form submitted with values:", values);
-
       if (!currentBoard?.id) {
         throw new Error("Kein aktives Board ausgewählt");
       }
@@ -208,10 +213,15 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
           <DialogTitle>
             {isEditMode ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
           </DialogTitle>
+          <DialogDescription>
+            {isEditMode
+              ? "Bearbeiten Sie die Details der ausgewählten Aufgabe."
+              : "Erstellen Sie eine neue Aufgabe mit den gewünschten Details."}
+          </DialogDescription>
         </DialogHeader>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Title Field */}
             <FormField
               control={form.control}
               name="title"
@@ -226,7 +236,6 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
               )}
             />
 
-            {/* Description Field */}
             <FormField
               control={form.control}
               name="description"
@@ -235,8 +244,8 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
                   <FormLabel>Beschreibung</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Beschreibung eingeben..."
-                      className="resize-none"
+                      placeholder="Beschreibung der Aufgabe..."
+                      className="min-h-[100px]"
                       {...field}
                     />
                   </FormControl>
@@ -245,7 +254,6 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
               )}
             />
 
-            {/* Status Field */}
             <FormField
               control={form.control}
               name="status"
@@ -260,10 +268,10 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="backlog">Backlog</SelectItem>
-                      <SelectItem value="todo">Zu erledigen</SelectItem>
-                      <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
                       <SelectItem value="review">Review</SelectItem>
-                      <SelectItem value="done">Erledigt</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -271,7 +279,6 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
               )}
             />
 
-            {/* Priority Field */}
             <FormField
               control={form.control}
               name="priority"
@@ -295,7 +302,6 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
               )}
             />
 
-            {/* Due Date Field */}
             <FormField
               control={form.control}
               name="dueDate"
@@ -340,7 +346,6 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
               )}
             />
 
-            {/* Assigned Users Field */}
             <div className="space-y-1.5">
               <Label>Benutzer zuweisen</Label>
               <Popover>
@@ -420,7 +425,6 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
               )}
             </div>
 
-            {/* Labels Field */}
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="labels">Labels</Label>
               <DropdownMenu>
