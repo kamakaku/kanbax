@@ -2,7 +2,7 @@ import { Switch, Route, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import { useAuth } from "@/lib/auth-store";
+import { useAuth, AuthProvider } from "@/lib/auth-store";
 import { 
   SidebarProvider, 
   Sidebar, 
@@ -95,7 +95,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
-function Router() {
+function AuthenticatedApp() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
@@ -125,10 +125,12 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthenticatedApp />
+        <Toaster />
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
 
