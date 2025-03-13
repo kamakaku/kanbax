@@ -78,11 +78,11 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const startServer = (port: number, maxAttempts = 5) => {
+    const startServer = (port: number = 5000, maxAttempts = 1) => {
       const host = '0.0.0.0';
 
       if (maxAttempts <= 0) {
-        log('Exceeded maximum port attempts. Please manually kill the process using port 5000+');
+        log('Failed to start server on port 5000');
         process.exit(1);
         return;
       }
@@ -90,7 +90,7 @@ app.use((req, res, next) => {
       try {
         // Force close previous listeners if they exist
         server.close();
-        
+
         server.listen(port, host, () => {
           log(`Server successfully started on ${host}:${port}`);
           log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
@@ -98,9 +98,8 @@ app.use((req, res, next) => {
 
         server.once('error', (e: any) => {
           if (e.code === 'EADDRINUSE') {
-            log(`Port ${port} is already in use, trying ${port + 1}...`);
-            server.removeAllListeners('listening');
-            startServer(port + 1, maxAttempts - 1);
+            log(`Port ${port} is already in use. Please ensure no other server is running on port 5000.`);
+            process.exit(1);
           } else {
             console.error('Server error:', e);
             log(`Server error: ${e.message}`);
@@ -109,13 +108,12 @@ app.use((req, res, next) => {
       } catch (error) {
         console.error('Failed to start server:', error);
         log(`Failed to start server: ${error instanceof Error ? error.message : String(error)}`);
-        // Try another port
-        startServer(port + 1, maxAttempts - 1);
+        process.exit(1);
       }
     };
 
-    // Get port from environment or use default
-    const port = parseInt(process.env.PORT || "3000", 10);
+    // Get port from environment or use 5000 as default
+    const port = parseInt(process.env.PORT || "5000", 10);
     log(`Starting server on port ${port}`);
     startServer(port);
   } catch (error) {
