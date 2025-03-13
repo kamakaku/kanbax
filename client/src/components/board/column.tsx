@@ -63,11 +63,24 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
     (statusLabels[column.title.toLowerCase()] || column.title) : 
     'Untitled';
 
-  const handleTaskUpdate = async (task: Task) => {
-    if (onUpdate) {
-      await onUpdate(task);
+  const handleTaskUpdate = async (updatedTask: Task) => {
+    try {
+      // Stelle sicher, dass die richtigen Felder gesendet werden
+      const taskUpdateData = {
+        ...updatedTask,
+        columnId: updatedTask.columnId || updatedTask.columnId, //Assuming task.columnId is available here otherwise needs adjustment
+        order: updatedTask.order || updatedTask.order //Assuming task.order is available here otherwise needs adjustment
+
+      };
+
+      if (onUpdate) {
+        await onUpdate(taskUpdateData);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      throw error;
     }
-    queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
   };
 
   return (

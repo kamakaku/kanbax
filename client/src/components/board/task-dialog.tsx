@@ -195,30 +195,38 @@ export function TaskDialog({
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
         // Wenn assignedTeamId nicht definiert oder 0 ist, setze es auf null
         assignedTeamId: data.assignedTeamId && data.assignedTeamId > 0 ? data.assignedTeamId : null,
+        description: data.description || "",
+        labels: data.labels || [],
+        assignedUserIds: data.assignedUserIds || [],
       };
 
       if (isEditing && task && onUpdate) {
-        const updatedTask: Task = {
+        // Wir erstellen ein Update-Objekt mit nur den Feldern, die wir aktualisieren wollen
+        const updateData = {
           id: task.id,
-          boardId: task.boardId,
           title: cleanedData.title,
-          description: cleanedData.description || "",
+          description: cleanedData.description,
           status: cleanedData.status,
           priority: cleanedData.priority,
-          columnId: cleanedData.columnId,
-          order: cleanedData.order,
-          labels: cleanedData.labels || [],
-          assignedUserIds: cleanedData.assignedUserIds || [],
-          assignedTeamId: cleanedData.assignedTeamId, 
-          assignedAt: task.assignedAt || null,
+          columnId: cleanedData.columnId || task.columnId, // Behalte columnId bei, wenn nicht angegeben
+          boardId: task.boardId, // Behalte die ursprüngliche boardId
+          labels: cleanedData.labels,
+          assignedUserIds: cleanedData.assignedUserIds,
+          assignedTeamId: cleanedData.assignedTeamId,
           dueDate: cleanedData.dueDate,
-          archived: cleanedData.archived,
-          checklist: task.checklist || []
+          archived: cleanedData.archived || false
         };
-        await onUpdate(updatedTask);
+        
+        await onUpdate(updateData);
         onClose();
       } else {
+        // Für neue Aufgaben muss columnId definiert sein
+        if (!cleanedData.columnId) {
+          throw new Error("Spalte muss ausgewählt werden");
+        }
+        
         await createTask.mutateAsync(cleanedData);
+        onClose();
       }
     } catch (error) {
       console.error("Form submission error:", error);
