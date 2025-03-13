@@ -97,8 +97,15 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
   const handleSubmit = async (values: any) => {
     try {
+      // Stellen Sie sicher, dass eine gültige boardId vorhanden ist
+      const boardId = values.boardId || currentBoard?.id;
+
+      if (!boardId) {
+        throw new Error("Board ID is required");
+      }
+
       const method = task ? "PATCH" : "POST";
-      const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${values.boardId}/tasks`;
+      const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
 
       // Prepare the payload
       const payload = {
@@ -107,40 +114,36 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         status: values.status,
         priority: values.priority,
         labels: values.labels || [],
-        boardId: values.boardId, // Use values.boardId for new tasks
+        boardId: boardId, // Verwenden Sie die bestätigte boardId
         columnId: values.columnId || 0,
         order: values.order || 0,
         dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
-        assignedUserIds: selectedUserIds
+        assignedUserIds: selectedUserIds,
       };
 
-      console.log('Submitting task with payload:', payload);
+      console.log("Submitting task with payload:", payload);
 
       const response = await apiRequest(method, endpoint, payload);
+
       if (!response.ok) {
-        throw new Error(await response.text());
+        const errorData = await response.json();
+        console.error("Server responded with error:", errorData);
+        throw new Error(errorData.message || "Failed to save task");
       }
 
-      const updatedTask = await response.json();
+      // Refresh task data
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
 
-      // Invalidate queries to ensure UI updates
-      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-
-      if (onUpdate) {
-        await onUpdate(updatedTask);
-      }
-
-      toast({ 
-        title: task ? "Aufgabe erfolgreich aktualisiert" : "Aufgabe erfolgreich erstellt" 
-      });
-      onClose();
-    } catch (error: any) {
-      console.error("Task error:", error);
       toast({
-        title: "Fehler",
-        description: error.message || `Die Aufgabe konnte nicht ${task ? 'aktualisiert' : 'erstellt'} werden`,
+        title: `Task ${task ? "updated" : "created"} successfully`,
+      });
+
+      onClose();
+    } catch (error) {
+      console.error("Failed to save task:", error);
+      toast({
+        title: "Error",
+        description: (error as Error).message || "Failed to save task",
         variant: "destructive",
       });
     }
