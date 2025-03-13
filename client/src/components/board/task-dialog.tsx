@@ -1,26 +1,29 @@
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+
+import { useState } from "react";
 import { useParams } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
-const taskSchema = z.object({
-  title: z.string().min(1, "Titel muss mindestens 1 Zeichen lang sein"),
-  description: z.string().optional(),
-  priority: z.enum(["low", "medium", "high"]).default("medium"),
-  columnId: z.number(),
-});
-
-type TaskFormValues = z.infer<typeof taskSchema>;
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TaskDialogProps {
   open: boolean;
@@ -33,51 +36,70 @@ export function TaskDialog({ open, onOpenChange, columnId, columnName }: TaskDia
   const { id: boardId } = useParams<{ id: string }>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const form = useForm<TaskFormValues>({
-    resolver: zodResolver(taskSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      priority: "medium",
-      columnId: columnId,
-    },
-  });
+  
+  // Verwende lokale State-Variablen statt React Hook Form
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState("medium");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createTaskMutation = useMutation({
-    mutationFn: async (data: TaskFormValues) => {
+    mutationFn: async (data: any) => {
       const response = await apiRequest.post(`/api/boards/${boardId}/tasks`, data);
       return response.data;
     },
     onSuccess: () => {
       toast({
-        title: "Task created",
-        description: "Your task has been created successfully",
+        title: "Aufgabe erstellt",
+        description: "Die Aufgabe wurde erfolgreich erstellt",
       });
       queryClient.invalidateQueries({ queryKey: ["board", parseInt(boardId)] });
       onOpenChange(false);
-      form.reset();
+      // Zurücksetzen der Formularfelder
+      setTitle("");
+      setDescription("");
+      setPriority("medium");
+      setIsSubmitting(false);
     },
     onError: (error) => {
-      console.error("Failed to create task:", error);
+      console.error("Fehler beim Erstellen der Aufgabe:", error);
       toast({
-        title: "Failed to create task",
-        description: "An error occurred while creating the task",
+        title: "Fehler beim Erstellen der Aufgabe",
+        description: "Beim Erstellen der Aufgabe ist ein Fehler aufgetreten",
         variant: "destructive",
       });
+      setIsSubmitting(false);
     },
   });
 
-  function onSubmit(data: TaskFormValues) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Einfache manuelle Validierung
+    if (!title.trim()) {
+      toast({
+        title: "Fehler",
+        description: "Bitte geben Sie einen Titel ein",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
     const taskData = {
-      ...data,
+      title,
+      description,
+      priority,
       status: "todo",
-      order: 0, // Will be handled server-side
+      order: 0, // Wird serverseitig behandelt
       boardId: parseInt(boardId),
+      columnId: columnId,
     };
-    console.log("Submitting task:", taskData);
+    
+    console.log("Sende Aufgabe:", taskData);
     createTaskMutation.mutate(taskData);
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -85,70 +107,53 @@ export function TaskDialog({ open, onOpenChange, columnId, columnName }: TaskDia
         <DialogHeader>
           <DialogTitle>Neue Aufgabe in {columnName || "Spalte"}</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Titel der Aufgabe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">Titel</Label>
+            <Input 
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Titel der Aufgabe" 
+              required
             />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Beschreibung der Aufgabe"
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="description">Beschreibung</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Beschreibung der Aufgabe"
+              className="resize-none"
             />
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priorität</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Priorität wählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="low">Niedrig</SelectItem>
-                      <SelectItem value="medium">Mittel</SelectItem>
-                      <SelectItem value="high">Hoch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="submit" disabled={createTaskMutation.isPending}>
-                {createTaskMutation.isPending ? "Erstelle..." : "Aufgabe erstellen"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="priority">Priorität</Label>
+            <Select
+              value={priority}
+              onValueChange={setPriority}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Priorität wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Niedrig</SelectItem>
+                <SelectItem value="medium">Mittel</SelectItem>
+                <SelectItem value="high">Hoch</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <DialogFooter>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Erstelle..." : "Aufgabe erstellen"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
