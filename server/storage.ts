@@ -230,40 +230,20 @@ export class DatabaseStorage implements IStorage {
 
   // Task operations
   async getTasks(boardId: number): Promise<Task[]> {
-    const result = await db
-      .select({
-        id: tasks.id,
-        title: tasks.title,
-        description: tasks.description,
-        status: tasks.status,
-        order: tasks.order,
-        boardId: tasks.boardId,
-        columnId: tasks.columnId,
-        priority: tasks.priority,
-        labels: tasks.labels,
-        dueDate: tasks.dueDate,
-        archived: tasks.archived,
-        assignedUserId: tasks.assignedUserId,
-        assignedTeamId: tasks.assignedTeamId,
-        assignedAt: tasks.assignedAt,
-        assignedUser: {
-          id: users.id,
-          username: users.username,
-          email: users.email
-        },
-        assignedTeam: {
-          id: teams.id,
-          name: teams.name,
-          description: teams.description
-        }
-      })
+    const tasks = await db
+      .select()
       .from(tasks)
-      .leftJoin(users, eq(tasks.assignedUserId, users.id))
-      .leftJoin(teams, eq(tasks.assignedTeamId, teams.id))
       .where(eq(tasks.boardId, boardId))
       .orderBy(tasks.order);
 
-    return result;
+    // Process tasks to match the expected Task type
+    return tasks.map(task => ({
+      ...task,
+      checklist: task.checklist || [],
+      assignedUserIds: task.assignedUserIds || [],
+      assignedUser: undefined,
+      assignedTeam: undefined
+    }));
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
@@ -291,7 +271,13 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     console.log("Task created successfully:", task);
-    return task;
+    return {
+      ...task,
+      checklist: task.checklist || [],
+      assignedUserIds: task.assignedUserIds || [],
+      assignedUser: undefined,
+      assignedTeam: undefined
+    };
   }
 
   async updateTask(id: number, updateTask: UpdateTask): Promise<Task> {
@@ -311,7 +297,13 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Task ${id} not found`);
     }
 
-    return task;
+    return {
+      ...task,
+      checklist: task.checklist || [],
+      assignedUserIds: task.assignedUserIds || [],
+      assignedUser: undefined,
+      assignedTeam: undefined
+    };
   }
 
   async deleteTask(id: number): Promise<void> {
