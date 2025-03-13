@@ -24,26 +24,30 @@ export function AvatarCropDialog({
 }: AvatarCropDialogProps) {
   const [crop, setCrop] = useState<Crop>({
     unit: '%',
-    width: 100,
-    height: 100,
-    x: 0,
-    y: 0,
+    width: 90,
+    height: 90,
+    x: 5,
+    y: 5,
     aspect: 1
   });
 
-  const onCropChange = (newCrop: Crop) => {
-    setCrop(newCrop);
-  };
-
-  const getCroppedImg = async (
+  const getCroppedImg = (
     image: HTMLImageElement,
     crop: Crop
   ): Promise<Blob> => {
     const canvas = document.createElement('canvas');
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
-    canvas.width = crop.width;
-    canvas.height = crop.height;
+
+    const pixelCrop = {
+      x: crop.x * (image.width / 100),
+      y: crop.y * (image.height / 100),
+      width: crop.width * (image.width / 100),
+      height: crop.height * (image.height / 100),
+    };
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
@@ -52,14 +56,14 @@ export function AvatarCropDialog({
 
     ctx.drawImage(
       image,
-      crop.x * scaleX,
-      crop.y * scaleY,
-      crop.width * scaleX,
-      crop.height * scaleY,
+      pixelCrop.x * scaleX,
+      pixelCrop.y * scaleY,
+      pixelCrop.width * scaleX,
+      pixelCrop.height * scaleY,
       0,
       0,
-      crop.width,
-      crop.height
+      pixelCrop.width,
+      pixelCrop.height
     );
 
     return new Promise((resolve, reject) => {
@@ -69,15 +73,18 @@ export function AvatarCropDialog({
           return;
         }
         resolve(blob);
-      }, 'image/jpeg');
+      }, 'image/jpeg', 1);
     });
   };
 
   const handleComplete = async () => {
-    const image = document.querySelector('.ReactCrop__image') as HTMLImageElement;
-    if (!image) return;
-
     try {
+      const image = document.querySelector<HTMLImageElement>('.ReactCrop__image');
+      if (!image || !image.complete) {
+        console.error('Image not loaded');
+        return;
+      }
+
       const croppedImage = await getCroppedImg(image, crop);
       onCropComplete(croppedImage);
       onOpenChange(false);
@@ -95,11 +102,15 @@ export function AvatarCropDialog({
         <div className="mt-4">
           <ReactCrop
             crop={crop}
-            onChange={onCropChange}
+            onChange={(_, percentCrop) => setCrop(percentCrop)}
             aspect={1}
             className="max-h-[60vh]"
           >
-            <img src={imageSrc} alt="Zu bearbeitendes Profilbild" />
+            <img 
+              src={imageSrc} 
+              alt="Zu bearbeitendes Profilbild"
+              style={{ maxWidth: '100%', maxHeight: '60vh' }}
+            />
           </ReactCrop>
         </div>
         <div className="mt-4 flex justify-end gap-3">
