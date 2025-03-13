@@ -555,7 +555,10 @@ export function TaskDialog({
                   <FormLabel>Checkliste</FormLabel>
                   <div className="space-y-2">
                     {checklist.map((item) => (
-                      <div key={item.id || item.title} className="flex items-center gap-2">
+                      <div 
+                        key={item.id || `item-${Date.now()}-${Math.random()}`} 
+                        className="flex items-center gap-2"
+                      >
                         <input
                           type="checkbox"
                           checked={item.completed}
@@ -602,7 +605,10 @@ export function TaskDialog({
                   <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
                     {comments.length > 0 ? (
                       comments.map((comment) => (
-                        <div key={comment.id} className="text-sm border-b pb-2 last:border-0">
+                        <div 
+                          key={comment.id || `comment-${Date.now()}-${Math.random()}`} 
+                          className="text-sm border-b pb-2 last:border-0"
+                        >
                           <div className="flex justify-between text-xs text-muted-foreground mb-1">
                             <span>Benutzer #{comment.userId}</span>
                             <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
