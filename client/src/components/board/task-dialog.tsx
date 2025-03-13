@@ -12,12 +12,18 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { CommentList } from "@/components/comments/comment-list";
+import { useStore } from "@/lib/store";
+import { Calendar as CalendarIcon, Edit2, MessageSquare, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { useStore } from "@/lib/store";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { ChecklistCard } from "@/components/board/checklist-card";
 
 interface TaskDialogProps {
   task?: Task | null;
@@ -44,6 +50,7 @@ const priorityLabels: Record<string, string> = {
 export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
 
   const form = useForm({
@@ -84,8 +91,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         await onUpdate(updatedTask);
       }
 
+      setIsEditing(false);
       toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
-      onClose();
     } catch (error) {
       console.error("Task operation error:", error);
       toast({
@@ -112,194 +119,308 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
+  const updateTask = async (updateData: Task) => {
+    if (!task || !onUpdate) return;
+
+    try {
+      await onUpdate(updateData);
+      toast({
+        title: "Aufgabe aktualisiert",
+        description: "Die Änderungen wurden erfolgreich gespeichert.",
+      });
+    } catch (error) {
+      console.error("Task update error:", error);
+      toast({
+        title: "Aktualisierung fehlgeschlagen",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose} modal>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <Form {...form}>
-          <DialogHeader>
-            <DialogTitle>
-              {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
-            </DialogTitle>
-          </DialogHeader>
+        {task && !isEditing ? (
+          <>
+            <DialogHeader className="flex flex-row items-center justify-between pb-6">
+              <DialogTitle className="text-xl">
+                {task.title}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditing(true)}
+                className="h-8 w-8"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            </DialogHeader>
 
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Status</div>
+                    <Badge variant="outline" className="capitalize">
+                      {statusLabels[task.status]}
+                    </Badge>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Priorität</div>
+                    <Badge variant="outline" className="capitalize">
+                      {priorityLabels[task.priority]}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {task.description && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Beschreibung</h4>
+                  <p className="text-sm text-muted-foreground">{task.description}</p>
+                </div>
               )}
-            />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Status auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(statusLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+              <div className="flex items-center justify-between">
+                {task.dueDate && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
+                  </div>
                 )}
-              />
-
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priorität</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Priorität auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(priorityLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+                {task.assignedUserId && (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">Zugewiesen an</span>
+                  </div>
                 )}
-              />
-            </div>
+              </div>
 
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fälligkeitsdatum</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={`w-full justify-start text-left font-normal ${
-                            !field.value && "text-muted-foreground"
-                          }`}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? (
-                            format(new Date(field.value), "PPP", { locale: de })
-                          ) : (
-                            <span>Datum auswählen</span>
-                          )}
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
+              {task.labels && task.labels.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Labels</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {task.labels.map((label, i) => (
+                      <Badge key={i} variant="secondary">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               )}
-            />
 
-            <FormField
-              control={form.control}
-              name="labels"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Labels (durch Komma getrennt)</FormLabel>
-                  <FormControl>
-                    <Input
-                      value={field.value?.join(", ") || ""}
-                      onChange={(e) => {
-                        const labels = e.target.value
-                          .split(",")
-                          .map((label) => label.trim())
-                          .filter(Boolean);
-                        field.onChange(labels);
-                      }}
-                      placeholder="bug, feature, UI"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              {/* Checklist */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <ChecklistCard
+                  task={task}
+                  onUpdate={updateTask}
+                />
+              </div>
 
-            <div className="flex justify-between gap-2">
-              {task && onDelete && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={handleDelete}
-                >
-                  Löschen
-                </Button>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                >
-                  Abbrechen
-                </Button>
-                <Button type="submit">
-                  {task ? "Speichern" : "Erstellen"}
-                </Button>
+              <Separator />
+
+              <div>
+                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Kommentare</span>
+                </h4>
+                <CommentList taskId={task.id} />
               </div>
             </div>
-          </form>
-        </Form>
+          </>
+        ) : (
+          <Form {...form}>
+            <DialogHeader>
+              <DialogTitle>
+                {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titel</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beschreibung</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        className="min-h-[100px]"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Status auswählen" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(statusLabels).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priorität</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Priorität auswählen" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(priorityLabels).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fälligkeitsdatum</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start text-left font-normal ${
+                              !field.value && "text-muted-foreground"
+                            }`}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? (
+                              format(new Date(field.value), "PPP", { locale: de })
+                            ) : (
+                              <span>Datum auswählen</span>
+                            )}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="labels"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Labels (durch Komma getrennt)</FormLabel>
+                    <FormControl>
+                      <Input
+                        value={field.value?.join(", ") || ""}
+                        onChange={(e) => {
+                          const labels = e.target.value
+                            .split(",")
+                            .map((label) => label.trim())
+                            .filter(Boolean);
+                          field.onChange(labels);
+                        }}
+                        placeholder="bug, feature, UI"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-between gap-2">
+                {task && onDelete && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleDelete}
+                  >
+                    Löschen
+                  </Button>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button type="submit">
+                    {task ? "Speichern" : "Erstellen"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </Form>
+        )}
       </DialogContent>
     </Dialog>
   );
