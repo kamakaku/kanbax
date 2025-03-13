@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Task } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { Task as TaskComponent } from "./task";
-import { TaskDialog } from "./task-dialog"; // Assuming this file exists and contains the TaskDialog component
+import { TaskDialog } from "@/components/dialogs/task-dialog"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
@@ -133,7 +133,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
                   onUpdate={handleTaskUpdate}
                   onDelete={onDelete}
                   onClick={() => {
-                    setSelectedTask(task); // Corrected task selection
+                    setSelectedTask(task); 
                     setIsTaskDialogOpen(true);
                   }}
                 />
