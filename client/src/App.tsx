@@ -66,10 +66,10 @@ function MainLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <main 
           className={cn(
-            "flex-1 p-6 ml-[--sidebar-width]",
+            "flex-1 p-6",
             "bg-white/30 backdrop-blur-[2px]",
             "transition-all duration-300 ease-in-out",
-            "group-data-[state=collapsed]:ml-[--sidebar-width-icon]"
+            "ml-[calc(var(--sidebar-width))] group-data-[state=collapsed]:ml-[calc(var(--sidebar-width-icon))]"
           )}
         >
           {children}
