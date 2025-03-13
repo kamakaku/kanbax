@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarIcon, Edit2, MessageSquare, Users } from "lucide-react";
+import { CalendarIcon, MessageSquare, Users } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
-import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Task, insertTaskSchema, updateTaskSchema, User } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import { CommentList } from "@/components/comments/comment-list";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface TaskDialogProps {
-  task?: Task; // Optional, da wir auch neue Tasks erstellen können
+  task?: Task;
   open: boolean;
   onClose: () => void;
   onUpdate?: (task: Task) => void;
@@ -51,7 +51,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { currentBoard } = useStore();
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task?.assignedUserIds || []);
 
-  // Fetch users for assignment
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -72,15 +71,14 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       status: task?.status || "todo",
       priority: task?.priority || "medium",
       labels: task?.labels || [],
-      boardId: task?.boardId || currentBoard?.id || 0,
+      boardId: currentBoard?.id,
       columnId: task?.columnId || 0,
       order: task?.order || 0,
       dueDate: task?.dueDate ? new Date(task.dueDate) : null,
-      assignedUserIds: task?.assignedUserIds || [],
+      assignedUserIds: []
     },
   });
 
-  // Update form values when task changes
   useEffect(() => {
     if (task && open) {
       form.reset({
@@ -107,6 +105,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         assignedUserIds: selectedUserIds,
         boardId: currentBoard?.id
       };
+
+      console.log('Submit data:', formattedData); // Debug log
 
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : "/api/tasks";
@@ -246,7 +246,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               />
             </div>
 
-            {/* Labels input */}
             <FormField
               control={form.control}
               name="labels"
@@ -271,7 +270,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               )}
             />
 
-            {/* Due date */}
             <FormField
               control={form.control}
               name="dueDate"
@@ -310,7 +308,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               )}
             />
 
-            {/* Assigned Users section */}
             <div className="space-y-2">
               <FormLabel>Zugewiesene Benutzer</FormLabel>
               {isLoadingUsers ? (
@@ -350,7 +347,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               )}
             </div>
 
-            {/* Checklist section - only show for existing tasks */}
+            {/* Checklist and Comments sections - only show for existing tasks */}
             {task && (
               <>
                 <Separator className="my-4" />
@@ -364,12 +361,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                     }}
                   />
                 </div>
-              </>
-            )}
 
-            {/* Comments section - only show for existing tasks */}
-            {task && (
-              <>
                 <Separator className="my-4" />
                 <div>
                   <div className="flex items-center gap-2 text-sm font-medium mb-3">
