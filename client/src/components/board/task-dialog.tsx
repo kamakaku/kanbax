@@ -63,13 +63,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     enabled: open // Always fetch when dialog is open
   });
 
-  // Parse the dueDate string into a Date object if it exists
-  const parseDueDate = (dateString: string | null | undefined): Date | null => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    return isNaN(date.getTime()) ? null : date;
-  };
-
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
     defaultValues: {
@@ -81,7 +74,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       boardId: task?.boardId || currentBoard?.id || 0,
       columnId: task?.columnId || 0,
       order: task?.order || 0,
-      dueDate: parseDueDate(task?.dueDate),
+      dueDate: task?.dueDate ? new Date(task.dueDate) : null,
       assignedUserIds: task?.assignedUserIds || [],
     },
   });
@@ -98,7 +91,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         boardId: task.boardId,
         columnId: task.columnId,
         order: task.order,
-        dueDate: parseDueDate(task.dueDate),
+        dueDate: task.dueDate ? new Date(task.dueDate) : null,
         assignedUserIds: task.assignedUserIds || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
@@ -106,43 +99,26 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   }, [task, open, form]);
 
   const updateTask = useMutation({
-    mutationFn: async () => {
-      const values = form.getValues();
+    mutationFn: async (values: any) => {
+      try {
+        // Validate date and create payload
+        const payload = {
+          ...values,
+          dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
+          assignedUserIds: selectedUserIds
+        };
 
-      // Ensure proper date handling
-      let formattedDueDate: string | null = null;
-      if (values.dueDate instanceof Date && !isNaN(values.dueDate.getTime())) {
-        formattedDueDate = values.dueDate.toISOString();
+        console.log('Updating task with payload:', payload);
+
+        const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error in mutation:', error);
+        throw error;
       }
-
-      // Construct the payload with proper typing
-      const payload = {
-        title: values.title,
-        description: values.description,
-        status: values.status,
-        priority: values.priority,
-        labels: values.labels,
-        boardId: values.boardId,
-        columnId: values.columnId,
-        order: values.order,
-        dueDate: formattedDueDate,
-        assignedUserIds: selectedUserIds
-      };
-
-      console.log('Updating task with payload:', payload); // Debug log
-
-      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Task update error response:', errorText); // Debug log
-        throw new Error(errorText || "Failed to update task");
-      }
-
-      return response.json();
     },
     onSuccess: async (updatedTask) => {
-      // Invalidate queries to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -155,7 +131,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       setIsEditing(false);
     },
     onError: (error: Error) => {
-      console.error("Task update error:", error); // Debug log
+      console.error("Task update error:", error);
       toast({
         title: "Fehler",
         description: error.message || "Die Aufgabe konnte nicht aktualisiert werden",
@@ -165,9 +141,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   });
 
   const handleSubmit = async (data: any) => {
-    // Set the assignedUserIds before submitting
-    form.setValue("assignedUserIds", selectedUserIds);
-    updateTask.mutate();
+    updateTask.mutate(data);
   };
 
   const handleDelete = async () => {
