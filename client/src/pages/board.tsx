@@ -120,7 +120,7 @@ export default function Board() {
       taskId,
       newStatus: destination.droppableId,
       newOrder: destination.index,
-      sourceColumnTasks: source.droppableId !== destination.droppableId ? sourceColumnTasks : null,
+      sourceColumnTasks: source.droppableId !== destination.droppableId ? sourceColumnTasks : undefined,
       destinationColumnTasks: source.droppableId !== destination.droppableId ? destinationColumnTasks : sourceColumnTasks
     });
   };
