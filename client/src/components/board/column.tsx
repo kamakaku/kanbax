@@ -58,7 +58,7 @@ const statusLabels: Record<string, string> = {
 
 export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, onDelete }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null); // Initialize to null
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
@@ -94,15 +94,13 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
               size="icon"
               className={`h-6 w-6 hover:bg-white/50 ${columnStyle.text}`}
               onClick={() => {
+                // Neuen Task für diese Spalte erstellen
                 setSelectedTask({
-                  id: 0,
+                  id: 0, // Temporäre ID
                   title: "",
                   description: "",
                   status: column.title?.toLowerCase() || "todo",
                   boardId: currentBoard?.id || 0,
-                  columnId: 0,
-                  order: 0,
-                  priority: "medium",
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString()
                 });
@@ -151,9 +149,189 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
           setIsTaskDialogOpen(false);
           setSelectedTask(null);
         }}
-        onUpdate={handleTaskUpdate}
-        onDelete={onDelete}
+        onUpdate={async (updatedTask) => {
+          try {
+            if (updatedTask.id) {
+              await handleTaskUpdate(updatedTask);
+              // Aktualisiere selectedTask mit den neuesten Daten
+              setSelectedTask(updatedTask);
+            } else {
+              // Logik für neue Tasks
+              const response = await apiRequest(
+                "POST", 
+                `/api/boards/${currentBoard?.id}/tasks`, 
+                updatedTask
+              );
+
+              if (!response.ok) throw new Error("Fehler beim Erstellen der Aufgabe");
+
+              const newTask = await response.json();
+              queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+
+              // Dialog nicht schließen
+              setSelectedTask(newTask);
+            }
+          } catch (error) {
+            console.error("Fehler beim Aktualisieren/Erstellen der Aufgabe:", error);
+            toast({
+              title: "Fehler",
+              description: "Die Aufgabe konnte nicht gespeichert werden",
+              variant: "destructive",
+            });
+          }
+        }}
       />
     </Card>
   );
 }
+import React, { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../ui/card';
+import { Button } from '../ui/button';
+import { PlusCircle } from 'lucide-react';
+import { Droppable } from 'react-beautiful-dnd';
+import Task from './task';
+import { useForm } from 'react-hook-form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const taskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+});
+
+type TaskFormValues = z.infer<typeof taskSchema>;
+
+interface ColumnProps {
+  id: string;
+  title: string;
+  description?: string;
+  index: number;
+  tasks: Array<{
+    id: string;
+    title: string;
+    description?: string;
+  }>;
+  onAddTask: (columnId: string, task: { title: string; description?: string }) => void;
+}
+
+const Column: React.FC<ColumnProps> = ({ id, title, description, tasks, onAddTask }) => {
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [taskBeingEdited, setTaskBeingEdited] = useState<string | null>(null);
+  
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<TaskFormValues>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      title: '',
+      description: ''
+    }
+  });
+  
+  const onSubmit = (data: TaskFormValues) => {
+    onAddTask(id, {
+      title: data.title,
+      description: data.description
+    });
+    reset();
+    setIsAddingTask(false);
+  };
+
+  return (
+    <Card className="w-[300px] mx-2 h-full flex flex-col">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <Droppable droppableId={id}>
+        {(provided) => (
+          <CardContent 
+            className="flex-grow overflow-y-auto"
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+          >
+            {tasks.map((task, index) => (
+              <Task 
+                key={task.id}
+                id={task.id}
+                title={task.title}
+                description={task.description}
+                index={index}
+                onEdit={() => setTaskBeingEdited(task.id)}
+              />
+            ))}
+            {provided.placeholder}
+          </CardContent>
+        )}
+      </Droppable>
+      <CardFooter className="border-t p-2">
+        <Button
+          variant="ghost"
+          className="w-full justify-start pl-2"
+          onClick={() => setIsAddingTask(true)}
+        >
+          <PlusCircle className="h-4 w-4 mr-2" />
+          Add task
+        </Button>
+      </CardFooter>
+
+      <Dialog open={isAddingTask} onOpenChange={setIsAddingTask}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add new task</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  placeholder="Enter task title"
+                  {...register('title')}
+                />
+                {errors.title && (
+                  <p className="text-sm text-red-500">{errors.title.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Enter task description"
+                  {...register('description')}
+                />
+              </div>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button type="submit">Create task</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {taskBeingEdited && (
+        <Dialog 
+          open={!!taskBeingEdited} 
+          onOpenChange={(open) => {
+            if (!open) setTaskBeingEdited(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit task</DialogTitle>
+            </DialogHeader>
+            {/* Edit form would go here */}
+            <p>Edit functionality to be implemented</p>
+            <DialogFooter>
+              <Button onClick={() => setTaskBeingEdited(null)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </Card>
+  );
+};
+
+export default Column;
