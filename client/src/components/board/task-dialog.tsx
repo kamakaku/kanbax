@@ -1,4 +1,3 @@
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -53,6 +52,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { CalendarIcon, ExpandIcon, PencilIcon, TrashIcon, Users } from "lucide-react";
+import * as RadixIcons from "@radix-ui/react-icons";
 
 interface TaskDialogProps {
   open: boolean;
@@ -128,10 +129,10 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
   const handleSubmit = async (values: any) => {
     try {
       console.log("Submit data:", values);
-      
+
       // Ensure we have a valid boardId
       const boardId = values.boardId || currentBoard?.id;
-      
+
       if (!boardId) {
         throw new Error("Board ID is required");
       }
@@ -157,7 +158,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
 
       // Send the request
       const response = await apiRequest(method, endpoint, payload);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error("API error:", errorText);
@@ -168,7 +169,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
 
       // Update queries
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      
+
       if (onUpdate) {
         await onUpdate(updatedTask);
       }
@@ -177,7 +178,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt",
         description: task ? "Die Aufgabe wurde erfolgreich aktualisiert." : "Die Aufgabe wurde erfolgreich erstellt."
       });
-      
+
       onClose();
     } catch (error: any) {
       console.error("Task save error:", error);
