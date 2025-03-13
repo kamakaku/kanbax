@@ -1,44 +1,41 @@
+
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { type Task, type User } from "@shared/schema";
-import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateTaskSchema } from "@shared/schema";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CommentList } from "@/components/comments/comment-list";
-import { useStore } from "@/lib/store";
-import { Calendar as CalendarIcon, Edit2, MessageSquare, User as UserIcon, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon, Edit2, MessageSquare, Users } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { Card, CardContent } from "@/components/ui/card";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useStore } from "@/lib/store";
+import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import { Task, updateTaskSchema, User } from "@shared/schema";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ChecklistCard } from "./checklist-card";
 import { Separator } from "@/components/ui/separator";
-import { ChecklistCard } from "@/components/board/checklist-card";
+import { CommentList } from "./comment-list";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface TaskDialogProps {
-  task?: Task | null;
+  task: Task;
   open: boolean;
   onClose: () => void;
   onUpdate?: (task: Task) => Promise<void>;
-  onDelete?: (taskId: number) => Promise<void>;
+  onDelete?: () => void;
 }
 
 const statusLabels: Record<string, string> = {
-  'backlog': 'Backlog',
-  'todo': 'To Do',
-  'in-progress': 'In Progress',
-  'review': 'Review',
-  'done': 'Done'
+  'todo': 'Zu erledigen',
+  'in-progress': 'In Bearbeitung',
+  'done': 'Erledigt'
 };
 
 const priorityLabels: Record<string, string> = {
@@ -52,7 +49,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task?.assignedUserIds || []);
 
   // Fetch users for assignment
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
@@ -78,7 +75,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
   // Update form values when task changes
   useEffect(() => {
-    if (task && isEditing) {
+    if (task && open) {
       form.reset({
         title: task.title,
         description: task.description || "",
@@ -93,85 +90,67 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       });
       setSelectedUserIds(task.assignedUserIds || []);
     }
-  }, [task, isEditing, form]);
+  }, [task, open, form]);
 
-  const handleSubmit = async (data: any) => {
-    try {
-      let response;
-      const submissionData = {
-        ...data,
-        dueDate: data.dueDate ? data.dueDate.toISOString() : null,
-        assignedUserIds: selectedUserIds
-      };
-
-      if (task) {
-        response = await apiRequest("PATCH", `/api/tasks/${task.id}`, submissionData);
-      } else {
-        response = await apiRequest("POST", `/api/boards/${currentBoard?.id}/tasks`, submissionData);
-      }
-
-      if (!response.ok) {
-        throw new Error(task ? "Failed to update task" : "Failed to create task");
-      }
-
-      const updatedTask = await response.json();
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      queryClient.invalidateQueries({
-        queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`]
+  const updateTask = useMutation({
+    mutationFn: async () => {
+      const values = form.getValues();
+      
+      // Update form with selected user IDs
+      values.assignedUserIds = selectedUserIds;
+      
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+        ...values,
+        dueDate: values.dueDate ? values.dueDate.toISOString() : null,
       });
 
+      if (!response.ok) {
+        throw new Error("Failed to update task");
+      }
+
+      return await response.json();
+    },
+    onSuccess: async (updatedTask) => {
+      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      
       if (onUpdate) {
         await onUpdate(updatedTask);
       }
-
+      
+      toast({ title: "Aufgabe erfolgreich aktualisiert" });
       setIsEditing(false);
-      toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
-    } catch (error) {
-      console.error("Task operation error:", error);
+    },
+    onError: (error) => {
       toast({
         title: "Fehler",
-        description: task ? "Die Aufgabe konnte nicht aktualisiert werden" : "Die Aufgabe konnte nicht erstellt werden",
+        description: "Die Aufgabe konnte nicht aktualisiert werden",
         variant: "destructive",
       });
-    }
+      console.error("Task update error:", error);
+    },
+  });
+
+  const handleSubmit = async (data: any) => {
+    // Set the assignedUserIds before submitting
+    form.setValue("assignedUserIds", selectedUserIds);
+    updateTask.mutate();
   };
 
   const handleDelete = async () => {
-    if (!task || !onDelete) return;
-
-    try {
-      await onDelete(task.id);
-      onClose();
-    } catch (error) {
-      console.error("Task delete error:", error);
-      toast({
-        title: "Fehler",
-        description: "Die Aufgabe konnte nicht gelöscht werden",
-        variant: "destructive",
-      });
+    if (onDelete) {
+      onDelete();
     }
   };
 
-  const updateTask = async (updateData: Task) => {
-    if (!task || !onUpdate) return;
-
-    try {
-      await onUpdate(updateData);
-      toast({
-        title: "Aufgabe aktualisiert",
-        description: "Die Änderungen wurden erfolgreich gespeichert.",
-      });
-    } catch (error) {
-      console.error("Task update error:", error);
-      toast({
-        title: "Aktualisierung fehlgeschlagen",
-        variant: "destructive",
-      });
+  const onOpenChange = (open: boolean) => {
+    if (!open) {
+      setIsEditing(false);
+      onClose();
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         {task && !isEditing ? (
           <>
@@ -289,11 +268,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                   <FormItem>
                     <FormLabel>Beschreibung</FormLabel>
                     <FormControl>
-                      <Textarea
-                        className="min-h-[100px]"
-                        {...field}
-                        value={field.value || ""}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -313,15 +288,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Status auswählen" />
+                            <SelectValue placeholder="Wählen Sie einen Status" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.entries(statusLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="todo">Zu erledigen</SelectItem>
+                          <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                          <SelectItem value="done">Erledigt</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -341,15 +314,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Priorität auswählen" />
+                            <SelectValue placeholder="Wählen Sie eine Priorität" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.entries(priorityLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="low">Niedrig</SelectItem>
+                          <SelectItem value="medium">Mittel</SelectItem>
+                          <SelectItem value="high">Hoch</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -358,34 +329,60 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 />
               </div>
 
+              {/* Labels input */}
+              <FormField
+                control={form.control}
+                name="labels"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Labels (durch Komma getrennt)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Feature, Bug, UI..."
+                        value={field.value?.join(", ") || ""}
+                        onChange={(e) => {
+                          const labels = e.target.value
+                            .split(",")
+                            .map((label) => label.trim())
+                            .filter(Boolean);
+                          field.onChange(labels);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Due date */}
               <FormField
                 control={form.control}
                 name="dueDate"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Fälligkeitsdatum</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
-                            variant="outline"
-                            className={`w-full justify-start text-left font-normal ${
+                            variant={"outline"}
+                            className={`pl-3 text-left font-normal ${
                               !field.value && "text-muted-foreground"
                             }`}
                           >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
                             {field.value ? (
-                              format(new Date(field.value), "PPP", { locale: de })
+                              format(field.value, "dd.MM.yyyy", { locale: de })
                             ) : (
-                              <span>Datum auswählen</span>
+                              <span>Wähle ein Datum</span>
                             )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
+                          selected={field.value || undefined}
                           onSelect={field.onChange}
                           initialFocus
                         />
@@ -396,65 +393,35 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="labels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Labels (durch Komma getrennt)</FormLabel>
-                    <FormControl>
-                      <Input
-                        value={field.value?.join(", ") || ""}
-                        onChange={(e) => {
-                          const labels = e.target.value
-                            .split(",")
-                            .map((label) => label.trim())
-                            .filter(Boolean);
-                          field.onChange(labels);
-                        }}
-                        placeholder="bug, feature, UI"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="assignedUserIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Zugewiesene Benutzer</FormLabel>
-                    <div className="flex flex-wrap gap-2">
-                      {users.map((user) => (
-                        <Button
-                          key={user.id}
-                          type="button"
-                          variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
-                          className="flex items-center gap-2"
-                          onClick={() => {
-                            setSelectedUserIds(prev =>
-                              prev.includes(user.id)
-                                ? prev.filter(id => id !== user.id)
-                                : [...prev, user.id]
-                            );
-                          }}
-                        >
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={user.avatarUrl || ''} />
-                            <AvatarFallback>
-                              {user.username.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{user.username}</span>
-                        </Button>
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Assigned Users section */}
+              <div className="space-y-2">
+                <FormLabel>Zugewiesene Benutzer</FormLabel>
+                <div className="flex flex-wrap gap-2">
+                  {users.map((user) => (
+                    <Button
+                      key={user.id}
+                      type="button"
+                      variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
+                      className="flex items-center gap-2"
+                      onClick={() => {
+                        setSelectedUserIds(prev =>
+                          prev.includes(user.id)
+                            ? prev.filter(id => id !== user.id)
+                            : [...prev, user.id]
+                        );
+                      }}
+                    >
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={user.avatarUrl || ''} />
+                        <AvatarFallback>
+                          {user.username.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{user.username}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
               <div className="flex justify-between gap-2">
                 {task && onDelete && (
