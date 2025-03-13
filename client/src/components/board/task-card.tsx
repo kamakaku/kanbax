@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Users } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
+import { de } from "date-fns/locale";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -57,7 +58,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
 
   const updateTask = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
         title: editedTitle,
         description: editedDescription,
         priority: editedPriority,
@@ -66,12 +67,12 @@ export function TaskCard({ task, index }: TaskCardProps) {
         assignedUserIds: selectedUserIds,
       });
 
-      if (!res.ok) {
-        const error = await res.text();
+      if (!response.ok) {
+        const error = await response.text();
         throw new Error(`Failed to update task: ${error}`);
       }
 
-      return res.json();
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -126,7 +127,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
                   {task.dueDate && (
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <CalendarIcon className="h-4 w-4" />
-                      {format(new Date(task.dueDate), "PPP")}
+                      {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
                     </div>
                   )}
                   {task.assignedUserIds && task.assignedUserIds.length > 0 && (
@@ -215,9 +216,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {editedDueDate ? (
-                      format(editedDueDate, "PPP")
+                      format(editedDueDate, "dd.MM.yyyy", { locale: de })
                     ) : (
-                      <span>Pick a date</span>
+                      <span>Datum auswählen</span>
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -232,7 +233,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
               </Popover>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Assigned Users</label>
+              <label className="text-sm font-medium">Zugewiesene Benutzer</label>
               <div className="flex flex-wrap gap-2">
                 {users.map((user) => (
                   <Button
@@ -265,10 +266,10 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 variant="outline"
                 onClick={() => setIsEditing(false)}
               >
-                Cancel
+                Abbrechen
               </Button>
               <Button type="submit" disabled={updateTask.isPending}>
-                Save Changes
+                Speichern
               </Button>
             </div>
           </form>

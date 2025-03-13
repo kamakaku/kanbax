@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema, type InsertTask, type Project, type Board, type Task } from "@shared/schema";
+import { insertTaskSchema, type InsertTask, type Project, type Board, type Task, type User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useQuery } from "@tanstack/react-query";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface TaskFormProps {
   open: boolean;
@@ -47,6 +49,12 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
     },
   });
 
+  // Fetch users for assignment
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: open
+  });
+
   const handleSubmit = async (data: InsertTask) => {
     try {
       if (!data.boardId || !data.title) {
@@ -57,11 +65,11 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         id: existingTask?.id || 0,
         title: data.title,
         description: data.description || null,
-        status: data.status,
+        status: data.status as Task["status"],
         order: existingTask?.order || 0,
         boardId: existingTask?.boardId || data.boardId,
         columnId: existingTask?.columnId || 0,
-        priority: data.priority,
+        priority: data.priority as Task["priority"],
         labels: data.labels || [],
         dueDate: null,
         archived: existingTask?.archived || false,
@@ -216,6 +224,43 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                       placeholder="bug, feature, UI"
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="assignedUserIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Zugewiesene Benutzer</FormLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {users.map((user) => (
+                      <Button
+                        key={user.id}
+                        type="button"
+                        variant={field.value?.includes(user.id) ? "default" : "outline"}
+                        className="flex items-center gap-2"
+                        onClick={() => {
+                          const currentValue = field.value || [];
+                          field.onChange(
+                            currentValue.includes(user.id)
+                              ? currentValue.filter(id => id !== user.id)
+                              : [...currentValue, user.id]
+                          );
+                        }}
+                      >
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={user.avatarUrl || ''} />
+                          <AvatarFallback>
+                            {user.username.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{user.username}</span>
+                      </Button>
+                    ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
