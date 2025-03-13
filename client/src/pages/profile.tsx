@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User } from "lucide-react";
+import { Camera, User } from "lucide-react";
 
 const profileSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -48,6 +48,7 @@ export default function Profile() {
   const { user, setUser } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -80,7 +81,7 @@ export default function Profile() {
       const updatedUser = await res.json();
       setUser(updatedUser);
       toast({ title: "Profile updated successfully" });
-      
+
       // Reset password fields
       form.reset({
         ...data,
@@ -99,6 +100,37 @@ export default function Profile() {
     }
   };
 
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      formData.append('userId', user?.id?.toString() || '');
+
+      const res = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message);
+      }
+
+      const updatedUser = await res.json();
+      setUser(updatedUser);
+      toast({ title: "Avatar updated successfully" });
+    } catch (error) {
+      toast({
+        title: "Failed to update avatar",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container max-w-2xl py-10">
       <Card>
@@ -107,13 +139,30 @@ export default function Profile() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-6 mb-8">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={user?.avatarUrl} />
-              <AvatarFallback className="bg-primary/10">
-                <User className="h-10 w-10" />
-              </AvatarFallback>
-            </Avatar>
-            <Button variant="outline">Change Avatar</Button>
+            <div className="relative">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={user?.avatarUrl} />
+                <AvatarFallback className="bg-primary/10">
+                  <User className="h-10 w-10" />
+                </AvatarFallback>
+              </Avatar>
+              <Button
+                size="icon"
+                variant="outline"
+                className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+            </div>
+            
           </div>
 
           <Form {...form}>
@@ -148,7 +197,7 @@ export default function Profile() {
 
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Change Password</h3>
-                
+
                 <FormField
                   control={form.control}
                   name="currentPassword"

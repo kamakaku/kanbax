@@ -3,7 +3,37 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertWikiArticleSchema, updateWikiArticleSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
-import type { User } from "@shared/types";
+import type { User } from "@shared/schema";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for avatar uploads
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: './uploads/avatars',
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
+
+// Ensure upload directory exists
+if (!fs.existsSync('./uploads/avatars')) {
+  fs.mkdirSync('./uploads/avatars', { recursive: true });
+}
 
 export async function registerRoutes(app: Express) {
   // Authentication routes
@@ -718,6 +748,30 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Failed to delete wiki article:", error);
       res.status(500).json({ message: "Failed to delete wiki article" });
+    }
+  });
+
+  // Avatar upload route
+  app.post("/api/profile/avatar", upload.single('avatar'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const userId = parseInt(req.body.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+      const updatedUser = await storage.updateUser(userId, { avatarUrl });
+      const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Failed to upload avatar:", error);
+      res.status(500).json({ message: "Failed to upload avatar" });
     }
   });
 
