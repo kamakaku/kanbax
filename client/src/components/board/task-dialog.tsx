@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
-import { insertTaskSchema, type Task } from "@shared/schema";
+import { type Task, type User } from "@shared/schema";
 import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import { BoardContext } from "@/context/board-context";
@@ -43,6 +43,15 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 interface TaskDialogProps {
   open: boolean;
@@ -59,6 +68,33 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const isEditMode = !!task;
+
+  // Fetch users for assignment
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
+    enabled: open
+  });
+
+  // Fetch existing tasks for labels
+  const { data: allTasks = [] } = useQuery<Task[]>({
+    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    queryFn: async () => {
+      if (!currentBoard?.id) return [];
+      const res = await fetch(`/api/boards/${currentBoard.id}/tasks`);
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      return res.json();
+    },
+    enabled: !!currentBoard?.id && open
+  });
+
+  const availableLabels = Array.from(
+    new Set(allTasks.flatMap((t) => t.labels || []))
+  );
 
   const form = useForm({
     resolver: zodResolver(insertTaskSchema),
@@ -146,8 +182,8 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
 
       toast({
         title: isEditMode ? "Aufgabe aktualisiert" : "Aufgabe erstellt",
-        description: isEditMode 
-          ? "Die Aufgabe wurde erfolgreich aktualisiert." 
+        description: isEditMode
+          ? "Die Aufgabe wurde erfolgreich aktualisiert."
           : "Die Aufgabe wurde erfolgreich erstellt."
       });
 
