@@ -89,18 +89,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
               size="icon"
               className={`h-6 w-6 hover:bg-slate-50 ${columnStyle.text}`}
               onClick={() => {
-                setSelectedTask({
-                  id: 0,
-                  title: "",
-                  description: "",
-                  status: column.title?.toLowerCase() || "todo",
-                  boardId: currentBoard?.id || 0,
-                  columnId: 0,
-                  order: 0,
-                  priority: "medium",
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                } as Task);
+                setSelectedTask(null);
                 setIsTaskDialogOpen(true);
               }}
             >
