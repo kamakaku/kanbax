@@ -107,7 +107,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
               snapshot.isDragging ? "shadow-lg ring-1 ring-primary/20" : ""
             }`}>
               <CardContent className="p-3">
-                {/* Title */}
                 <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
 
                 {/* Labels */}
@@ -128,18 +127,17 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                   </div>
                 )}
 
-                {/* Checklist Progress Bar - Now more prominent */}
+                {/* Checklist Progress Bar - Simplified */}
                 {checklistItems.length > 0 && (
                   <div className="mt-2 mb-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1">
-                        <CheckSquare className="h-3 w-3 text-primary" />
-                        <span className="text-xs text-muted-foreground">
-                          {completedCount}/{totalCount}
-                        </span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1">
+                        <Progress value={percentage} className="h-1.5" />
                       </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {percentage}%
+                      </span>
                     </div>
-                    <Progress value={percentage} className="h-1.5" />
                   </div>
                 )}
 
