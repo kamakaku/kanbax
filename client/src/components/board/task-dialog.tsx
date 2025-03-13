@@ -112,7 +112,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         boardId: values.boardId,
         columnId: values.columnId,
         order: values.order,
-        dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+        dueDate: values.dueDate instanceof Date ? values.dueDate.toISOString() : null,
         assignedUserIds: selectedUserIds // Use the state variable directly
       };
 
