@@ -1,37 +1,36 @@
-import React, { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { type Task } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Edit2, MessageSquare } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-import { Task } from "@shared/schema";
-import { Form, FormField, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChecklistCard } from "@/components/board/checklist-card";
 import { CommentList } from "@/components/comments/comment-list";
+import { useStore } from "@/lib/store";
+import { Calendar as CalendarIcon, Edit2, MessageSquare, Plus, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import {ChecklistCard} from "@/components/board/checklist-card";
 import { EmojiPicker } from "./emoji-picker";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar as CalendarIcon, User } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { useStore } from "@/lib/store";
-
 
 interface TaskDialogProps {
   task?: Task | null;
   open: boolean;
-  onOpenChange?: (open: boolean) => void;
-  onClose?: (isOpen?: boolean) => void;
+  onClose: (isOpen?: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
 }
@@ -50,52 +49,103 @@ const priorityLabels: Record<string, string> = {
   'high': 'Hoch'
 };
 
-export function TaskDialog({ 
-  task, 
-  open, 
-  onOpenChange, 
-  onClose,
-  onUpdate,
-  onDelete 
-}: TaskDialogProps) {
+export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
+  const [task, setTask] = useState<Task | null>(initialTask || null);
 
-  if (!task) return null;
+  useEffect(() => {
+    if (initialTask) {
+      setTask(initialTask);
+    } else if (!open) {
+      setTask(null);
+    }
+  }, [open, initialTask]);
+
+  const form = useForm({
+    resolver: zodResolver(updateTaskSchema),
+    defaultValues: {
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || "todo",
+      priority: task?.priority || "medium",
+      labels: task?.labels || [],
+      boardId: task?.boardId || currentBoard?.id || 0,
+      columnId: task?.columnId || 0,
+      order: task?.order || 0,
+      dueDate: task?.dueDate || null,
+      icon: task?.icon || null, // Added icon to defaultValues
+    },
+  });
+
+  const handleSubmit = async (data: any) => {
+    try {
+      let response;
+      if (task) {
+        response = await apiRequest("PATCH", `/api/tasks/${task.id}`, data);
+      } else {
+        response = await apiRequest("POST", `/api/boards/${currentBoard?.id}/tasks`, data);
+      }
+
+      if (!response.ok) {
+        throw new Error(task ? "Failed to update task" : "Failed to create task");
+      }
+
+      const updatedTask = await response.json();
+      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      await queryClient.invalidateQueries({
+        queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`]
+      });
+
+      if (onUpdate) {
+        await onUpdate(updatedTask);
+      }
+
+      setIsEditing(false);
+      toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
+      onClose(false);
+    } catch (error) {
+      console.error("Task operation error:", error);
+      toast({
+        title: "Fehler",
+        description: task ? "Die Aufgabe konnte nicht aktualisiert werden" : "Die Aufgabe konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleDelete = async () => {
     if (!task || !onDelete) return;
 
     try {
       await onDelete(task.id);
-      if (onClose) {
-        onClose(false);
-      } else if (onOpenChange) {
-        onOpenChange(false);
-      }
-      toast({
-        title: "Aufgabe gelöscht",
-        description: "Die Aufgabe wurde erfolgreich gelöscht.",
-      });
+      onClose(false);
     } catch (error) {
       console.error("Task delete error:", error);
       toast({
-        title: "Löschen fehlgeschlagen",
+        title: "Fehler",
+        description: "Die Aufgabe konnte nicht gelöscht werden",
         variant: "destructive",
       });
     }
   };
 
-  const updateTask = async (updatedTask: Task) => {
-    if (!onUpdate) return;
+  const updateTask = async (updateData: Task) => {
+    if (!task || !task.id) return;
 
     try {
-      await onUpdate(updatedTask);
-      toast({
-        title: "Aufgabe aktualisiert",
-        description: "Die Änderungen wurden erfolgreich gespeichert.",
-      });
+      if (onUpdate) {
+        // Verhindere, dass der Dialog geschlossen wird während des Updates
+        await onUpdate(updateData);
+
+        // Wichtig: KEIN onClose aufrufen nach der Aktualisierung!
+        toast({
+          title: "Aufgabe aktualisiert",
+          description: "Die Änderungen wurden erfolgreich gespeichert.",
+        });
+      }
     } catch (error) {
       console.error("Task update error:", error);
       toast({
@@ -109,14 +159,13 @@ export function TaskDialog({
     e.stopPropagation();
   };
 
+  // Funktion, die verhindert, dass der Dialog bei bestimmten Updates geschlossen wird
   const handleOpenChange = (isOpen: boolean) => {
+    // Wenn der Benutzer den Dialog explizit schließt, rufen wir onClose auf
     if (!isOpen) {
-      if (onClose) {
-        onClose(isOpen);
-      } else if (onOpenChange) {
-        onOpenChange(isOpen);
-      }
+      onClose(isOpen);
     }
+    // Andernfalls ignorieren wir den Versuch, den Zustand zu ändern
   };
 
   return (
@@ -138,28 +187,66 @@ export function TaskDialog({
               </Button>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium">Description</h3>
-                <p className="text-sm text-muted-foreground mt-1">{task.description || "No description provided."}</p>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Status</div>
+                    <Badge variant="outline" className="capitalize">
+                      {statusLabels[task.status]}
+                    </Badge>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm font-medium mb-1">Priorität</div>
+                    <Badge variant="outline" className="capitalize">
+                      {priorityLabels[task.priority]}
+                    </Badge>
+                  </CardContent>
+                </Card>
               </div>
 
-              {task.dueDate && (
+              {task.description && (
                 <div>
-                  <h3 className="text-sm font-medium">Due Date</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
-                  </p>
+                  <h4 className="text-sm font-medium mb-2">Beschreibung</h4>
+                  <p className="text-sm text-muted-foreground">{task.description}</p>
                 </div>
               )}
 
-              {task.priority && (
+              <div className="flex items-center justify-between">
+                {task.dueDate && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
+                  </div>
+                )}
+                {task.assignedUserId && (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">Zugewiesen an</span>
+                  </div>
+                )}
+              </div>
+
+              {task.labels && task.labels.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium">Priority</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{priorityLabels[task.priority]}</p>
+                  <h4 className="text-sm font-medium mb-2">Labels</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {task.labels.map((label, i) => (
+                      <Badge key={i} variant="secondary">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               )}
 
+              {/* Checklist */}
               {task && task.id && (
                 <div 
                   onClick={(e) => {
@@ -170,7 +257,10 @@ export function TaskDialog({
                 >
                   <ChecklistCard
                     task={task}
-                    onUpdate={updateTask}
+                    onUpdate={(updatedTask) => {
+                      // Stille Aktualisierung ohne Dialog-Schließung
+                      updateTask(updatedTask);
+                    }}
                   />
                 </div>
               )}
@@ -184,41 +274,29 @@ export function TaskDialog({
                 </h4>
                 <CommentList taskId={task.id} />
               </div>
-
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={() => {
-                  if (onClose) {
-                    onClose(false);
-                  } else if (onOpenChange) {
-                    onOpenChange(false);
-                  }
-                }}>
-                  Close
-                </Button>
-              </div>
             </div>
           </>
         ) : (
-          <Form>
+          <Form {...form}>
             <DialogHeader>
               <DialogTitle>
                 {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
               </DialogTitle>
             </DialogHeader>
 
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              setIsEditing(false);
-              // Add form submission logic here if needed
-            }} 
-            className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
               <div className="flex items-center gap-2">
-                <EmojiPicker />
+                <EmojiPicker
+                  onEmojiSelect={(emoji) => {
+                    form.setValue("icon", emoji);
+                  }}
+                  currentEmoji={form.getValues("icon")}
+                />
                 <FormField
-                  control={{}}
+                  control={form.control}
                   name="title"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex-1">
                       <FormLabel>Titel</FormLabel>
                       <FormControl>
                         <Input {...field} />
@@ -229,21 +307,26 @@ export function TaskDialog({
                 />
               </div>
               <FormField
-                control={{}}
+                control={form.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Beschreibung</FormLabel>
                     <FormControl>
-                      <Textarea {...field} />
+                      <Textarea
+                        className="min-h-[100px]"
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
-                  control={{}}
+                  control={form.control}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
@@ -269,8 +352,9 @@ export function TaskDialog({
                     </FormItem>
                   )}
                 />
+
                 <FormField
-                  control={{}}
+                  control={form.control}
                   name="priority"
                   render={({ field }) => (
                     <FormItem>
@@ -297,25 +381,63 @@ export function TaskDialog({
                   )}
                 />
               </div>
+
               <FormField
-                control={{}}
+                control={form.control}
                 name="dueDate"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Fälligkeitsdatum</FormLabel>
-                    <Calendar/>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start text-left font-normal ${
+                              !field.value && "text-muted-foreground"
+                            }`}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? (
+                              format(new Date(field.value), "PPP", { locale: de })
+                            ) : (
+                              <span>Datum auswählen</span>
+                            )}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
-                control={{}}
+                control={form.control}
                 name="labels"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Labels (durch Komma getrennt)</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="bug, feature, UI" />
+                      <Input
+                        value={field.value?.join(", ") || ""}
+                        onChange={(e) => {
+                          const labels = e.target.value
+                            .split(",")
+                            .map((label) => label.trim())
+                            .filter(Boolean);
+                          field.onChange(labels);
+                        }}
+                        placeholder="bug, feature, UI"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
