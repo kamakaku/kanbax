@@ -27,7 +27,7 @@ interface TaskDialogProps {
   task: Task;
   open: boolean;
   onClose: () => void;
-  onUpdate?: (task: Task) => Promise<void>;
+  onUpdate?: (task: Task) => void;
   onDelete?: () => void;
 }
 
@@ -132,6 +132,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       // Invalidate both queries to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] }); // Also refresh users data
 
       if (onUpdate) {
         await onUpdate(updatedTask);
@@ -263,7 +264,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               <div onClick={(e) => e.stopPropagation()}>
                 <ChecklistCard
                   task={task}
-                  onUpdate={updateTask}
+                  onUpdate={updateTask.mutate}
                 />
               </div>
 

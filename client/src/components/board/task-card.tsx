@@ -31,6 +31,18 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const queryClient = useQueryClient();
   const { currentBoard } = useStore();
 
+  // Fetch users data for assignments
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) {
+        throw new Error("Failed to fetch users");
+      }
+      return res.json();
+    },
+  });
+
   const updateTask = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
@@ -65,6 +77,32 @@ export function TaskCard({ task, index }: TaskCardProps) {
     },
   });
 
+  const renderAssignedUsers = () => {
+    if (isLoadingUsers || !task.assignedUserIds || task.assignedUserIds.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-muted-foreground" />
+        <div className="flex -space-x-2">
+          {task.assignedUserIds.map((userId) => {
+            const user = Array.isArray(users) ? users.find(u => u.id === userId) : null;
+            if (!user) return null;
+
+            return (
+              <Avatar key={userId} className="h-6 w-6 border-2 border-background">
+                <AvatarImage src={user.avatarUrl || ''} />
+                <AvatarFallback>
+                  {user.username.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -117,24 +155,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
                       {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
                     </div>
                   )}
-                  {task.assignedUserIds && task.assignedUserIds.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <div className="flex -space-x-2">
-                        {task.assignedUserIds.map((userId) => {
-                          const user = users.find(u => u.id === userId);
-                          return user ? (
-                            <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
-                              <AvatarImage src={user.avatarUrl || ''} />
-                              <AvatarFallback>
-                                {user.username.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  {renderAssignedUsers()}
                 </div>
               </CardContent>
             </Card>
@@ -142,8 +163,15 @@ export function TaskCard({ task, index }: TaskCardProps) {
         )}
       </Draggable>
 
-      <TaskDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} task={task} updateTask={updateTask}/>
-
+      <TaskDialog 
+        task={task}
+        open={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onUpdate={updateTask.mutate}
+        onDelete={() => {
+          // Handle delete if needed
+        }}
+      />
     </>
   );
 }
