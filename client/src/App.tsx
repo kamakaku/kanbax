@@ -77,11 +77,10 @@ function MainLayout({ children }: { children: React.ReactNode }) {
         <div className="relative flex-1 overflow-x-auto">
           <main 
             className={cn(
-              "min-h-screen w-[calc(100vw-var(--sidebar-width)-3rem)]",
+              "min-h-screen w-full",
               "px-6 py-6 mr-12",
               "bg-white/30 backdrop-blur-[2px]",
-              "transition-[width] duration-300 ease-in-out",
-              "group-data-[state=collapsed]:w-[calc(100vw-var(--sidebar-width-icon)-3rem)]"
+              "transition-[width] duration-300 ease-in-out"
             )}
           >
             {children}
