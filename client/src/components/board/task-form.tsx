@@ -29,11 +29,26 @@ interface TaskFormProps {
   onSubmit: (task: Task) => Promise<void>;
   projects: Project[];
   boards: Board[];
-  existingTask?: Task;
+  existingTask?: Task | null;
 }
 
+type TaskFormValues = {
+  title: string;
+  description: string;
+  status: "backlog" | "todo" | "in-progress" | "review" | "done";
+  boardId: number;
+  priority: "low" | "medium" | "high";
+  labels: string[];
+  columnId: number;
+  order: number;
+  dueDate?: Date | null;
+  archived: boolean;
+  assignedUserIds: number[];
+  checklist: { text: string; checked: boolean; }[];
+};
+
 export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTask }: TaskFormProps) {
-  const form = useForm<InsertTask>({
+  const form = useForm<TaskFormValues>({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
       title: existingTask?.title || "",
@@ -46,8 +61,8 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       order: existingTask?.order || 0,
       archived: existingTask?.archived || false,
       assignedUserIds: existingTask?.assignedUserIds || [],
-      checklist: existingTask?.checklist || [],
-      dueDate: existingTask?.dueDate ? new Date(existingTask.dueDate) : undefined,
+      checklist: existingTask?.checklist?.map(item => ({ text: item.text, checked: item.checked })) || [],
+      dueDate: existingTask?.dueDate ? new Date(existingTask.dueDate) : null,
     },
   });
 
@@ -57,7 +72,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
     enabled: open
   });
 
-  const handleSubmit = async (data: InsertTask) => {
+  const handleSubmit = async (data: TaskFormValues) => {
     try {
       if (!data.boardId || !data.title) {
         return;
@@ -66,12 +81,12 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       const taskData: Task = {
         id: existingTask?.id || 0,
         title: data.title,
-        description: data.description || null,
-        status: data.status as "backlog" | "todo" | "in-progress" | "review" | "done",
+        description: data.description || "",
+        status: data.status,
         order: existingTask?.order || 0,
         boardId: existingTask?.boardId || data.boardId,
         columnId: existingTask?.columnId || 0,
-        priority: data.priority as "low" | "medium" | "high",
+        priority: data.priority,
         labels: data.labels || [],
         dueDate: data.dueDate?.toISOString() || null,
         archived: existingTask?.archived || false,
@@ -106,7 +121,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
                   <FormLabel>Board</FormLabel>
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    defaultValue={field.value?.toString()}
+                    value={field.value?.toString()}
                     disabled={!!existingTask}
                   >
                     <FormControl>
