@@ -1,11 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { type Comment, type User } from "@shared/schema";
-import { useAuth } from "@/lib/auth-store";
+
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CommentEditor } from "./comment-editor";
+import { UserIcon } from "lucide-react";
+import { useAuth } from "@/lib/auth-store";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User as UserIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { type Comment, type User } from "@shared/schema";
 
 interface CommentListProps {
   taskId: number;
@@ -58,85 +62,63 @@ export function CommentList({ taskId }: CommentListProps) {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="space-y-4 max-h-40 overflow-y-auto">
-        {comments.map((comment) => {
-          const authorId = comment.authorId || comment.userId;
-          const author = authorId ? users[authorId] : null;
+  if (comments.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Keine Kommentare vorhanden.
+      </div>
+    );
+  }
 
-          return (
-            <div key={comment.id} className="flex gap-3">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={author?.avatarUrl} alt={author?.username} />
-                <AvatarFallback className="bg-primary/10">
-                  <UserIcon className="h-4 w-4" />
-                </AvatarFallback>
+  return (
+    <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+      {comments.map((comment) => {
+        const userId = comment.authorId || comment.userId;
+        const author = users[userId];
+        const commentDate = new Date(comment.createdAt);
+        const formattedDate = format(commentDate, "dd.MM.yyyy HH:mm", { locale: de });
+
+        return (
+          <div key={comment.id} className="border-b pb-3 last:border-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Avatar className="h-6 w-6">
+                {author?.avatar ? (
+                  <AvatarImage src={author.avatar} alt={author?.name || `User #${userId}`} />
+                ) : (
+                  <AvatarFallback>
+                    <UserIcon className="h-4 w-4" />
+                  </AvatarFallback>
+                )}
               </Avatar>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">
-                    {author?.username || 'Unbekannter Benutzer'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {comment.createdAt 
-                      ? format(new Date(comment.createdAt), "dd. MMM yyyy, HH:mm", { locale: de })
-                      : 'Unbekannt'}
-                  </span>
-                </div>
-                <div 
-                  className="prose prose-sm dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: comment.content }}
-                />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">
+                  {author?.name || `Benutzer #${userId}`}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formattedDate}
+                </span>
               </div>
             </div>
-          );
-        })}
-        {comments.length === 0 && (
-          <div className="text-sm text-muted-foreground">
-            Noch keine Kommentare vorhanden.
+            <div className="text-sm pl-8">
+              {comment.content}
+            </div>
           </div>
-        )}
-      </div>
-      {user && <CommentEditor taskId={taskId} />}
+        );
+      })}
     </div>
   );
 }
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
-import { UserIcon } from "lucide-react";
-import { useAuth } from "@/lib/auth-store";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useToast } from "@/hooks/use-toast";
-
-interface Comment {
-  id: number;
-  taskId: number;
-  authorId: number;
-  userId?: number;  // Für Abwärtskompatibilität
-  content: string;
-  createdAt: string;
-}
-
-interface User {
-  id: number;
-  username: string;
-  avatarUrl?: string;
-}
-
 interface CommentEditorProps {
   taskId: number;
+  onCommentAdded?: () => void;
 }
 
-function CommentEditor({ taskId }: CommentEditorProps) {
+export function CommentEditor({ taskId, onCommentAdded }: CommentEditorProps) {
   const [content, setContent] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const addComment = useMutation({
     mutationFn: async () => {
@@ -145,7 +127,10 @@ function CommentEditor({ taskId }: CommentEditorProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ 
+          content,
+          authorId: user?.id
+        }),
       });
 
       if (!res.ok) {
@@ -162,6 +147,10 @@ function CommentEditor({ taskId }: CommentEditorProps) {
         title: "Kommentar hinzugefügt",
         description: "Dein Kommentar wurde erfolgreich hinzugefügt.",
       });
+      
+      if (onCommentAdded) {
+        onCommentAdded();
+      }
     },
     onError: (error) => {
       toast({
@@ -169,23 +158,23 @@ function CommentEditor({ taskId }: CommentEditorProps) {
         description: `Fehler beim Hinzufügen des Kommentars: ${error}`,
         variant: "destructive",
       });
-    },
+    }
   });
 
   return (
-    <div className="mt-4 space-y-2">
+    <div className="mt-4">
       <Textarea
-        placeholder="Neuer Kommentar..."
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        rows={2}
+        placeholder="Kommentar schreiben..."
+        className="mb-2 min-h-[80px]"
       />
-      <Button
-        type="button"
+      <Button 
         onClick={() => addComment.mutate()}
-        disabled={!content.trim() || addComment.isLoading}
+        disabled={!content.trim() || addComment.isPending}
+        size="sm"
       >
-        {addComment.isLoading ? "Wird hinzugefügt..." : "Kommentar hinzufügen"}
+        {addComment.isPending ? "Wird gesendet..." : "Kommentar senden"}
       </Button>
     </div>
   );
