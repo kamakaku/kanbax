@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, User } from "lucide-react";
+import { AvatarCropDialog } from "@/components/ui/avatar-crop-dialog";
 
 const profileSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -49,6 +50,8 @@ export default function Profile() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string>();
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -100,13 +103,22 @@ export default function Profile() {
     }
   };
 
-  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSelectedImage(reader.result as string);
+        setIsCropOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
+  const handleCropComplete = async (croppedImage: Blob) => {
     try {
       const formData = new FormData();
-      formData.append('avatar', file);
+      formData.append('avatar', croppedImage, 'avatar.jpg');
       formData.append('userId', user?.id?.toString() || '');
 
       const res = await fetch('/api/profile/avatar', {
@@ -159,10 +171,9 @@ export default function Profile() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={handleAvatarChange}
+                onChange={handleFileSelect}
               />
             </div>
-            
           </div>
 
           <Form {...form}>
@@ -248,6 +259,13 @@ export default function Profile() {
           </Form>
         </CardContent>
       </Card>
+
+      <AvatarCropDialog
+        open={isCropOpen}
+        onOpenChange={setIsCropOpen}
+        imageSrc={selectedImage || ''}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 }
