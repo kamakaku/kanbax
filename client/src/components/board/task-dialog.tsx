@@ -147,7 +147,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         description: "",
         status: "todo",
         priority: "medium",
-        boardId: currentBoard.id,
+        boardId: currentBoard.id, // Always use current board ID
         columnId: 0,
         order: 0,
         dueDate: null,
@@ -248,35 +248,37 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
-            {/* Board Field */}
-            <FormField
-              control={form.control}
-              name="boardId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Board</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(parseInt(value))}
-                    value={field.value?.toString()}
-                    disabled={isEditMode}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Board auswählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {boards.map((board) => (
-                        <SelectItem key={board.id} value={board.id.toString()}>
-                          {board.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Board Field - Only show when editing existing task */}
+            {isEditMode && (
+              <FormField
+                control={form.control}
+                name="boardId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Board</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString()}
+                      disabled={true}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Board auswählen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {boards.map((board) => (
+                          <SelectItem key={board.id} value={board.id.toString()}>
+                            {board.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Status Field */}
             <FormField
