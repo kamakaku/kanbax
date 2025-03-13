@@ -1,16 +1,14 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { useContext, useEffect, useState } from "react";
-import { insertTaskSchema, type Task, type User } from "@shared/schema";
-import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useContext } from "react";
+import { insertTaskSchema, type Task } from "@shared/schema";
 import { BoardContext } from "@/context/board-context";
 import { apiRequest } from "@/lib/api-request";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -33,23 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 interface TaskDialogProps {
   open: boolean;
@@ -64,92 +46,43 @@ export function TaskDialog({
   onClose,
   onUpdate,
   task,
-  defaultStatus = "todo",
+  defaultStatus = "todo"
 }: TaskDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentBoard } = useContext(BoardContext);
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const isEditMode = !!task;
-
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const res = await fetch("/api/users");
-      if (!res.ok) throw new Error("Failed to fetch users");
-      return res.json();
-    },
-    enabled: open,
-  });
 
   const form = useForm({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
-      title: "",
-      description: "",
-      status: defaultStatus,
-      priority: "medium",
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || defaultStatus,
+      priority: task?.priority || "medium",
       boardId: currentBoard?.id || 0,
-      columnId: 0,
-      order: 0,
-      labels: [],
-      dueDate: null,
-      assignedUserIds: [],
+      columnId: task?.columnId || 0,
+      order: task?.order || 0,
+      labels: task?.labels || [],
+      assignedUserIds: task?.assignedUserIds || [],
     },
   });
 
-  useEffect(() => {
-    if (isEditMode && task && open) {
-      form.reset({
-        title: task.title,
-        description: task.description || "",
-        status: task.status,
-        priority: task.priority,
-        boardId: task.boardId,
-        columnId: task.columnId,
-        order: task.order,
-        dueDate: task.dueDate,
-        labels: task.labels || [],
-        assignedUserIds: task.assignedUserIds || [],
-      });
-      setSelectedUserIds(task.assignedUserIds || []);
-      setSelectedLabels(task.labels || []);
-    } else if (open && currentBoard) {
-      form.reset({
-        title: "",
-        description: "",
-        status: defaultStatus,
-        priority: "medium",
-        boardId: currentBoard.id,
-        columnId: 0,
-        order: 0,
-        dueDate: null,
-        labels: [],
-        assignedUserIds: [],
-      });
-      setSelectedUserIds([]);
-      setSelectedLabels([]);
-    }
-  }, [task, open, form, currentBoard, isEditMode, defaultStatus]);
-
-  const handleSubmit = async (values: any) => {
+  const onSubmit = async (values: any) => {
     try {
       if (!currentBoard?.id) {
         throw new Error("Kein aktives Board ausgewählt");
       }
 
       const method = isEditMode ? "PATCH" : "POST";
-      const endpoint = isEditMode ? `/api/tasks/${task.id}` : `/api/boards/${currentBoard.id}/tasks`;
+      const endpoint = isEditMode 
+        ? `/api/tasks/${task.id}` 
+        : `/api/boards/${currentBoard.id}/tasks`;
 
-      const payload = {
+      const response = await apiRequest(method, endpoint, {
         ...values,
         boardId: currentBoard.id,
-        labels: selectedLabels,
-        assignedUserIds: selectedUserIds,
-      };
-
-      const response = await apiRequest(method, endpoint, payload);
+      });
 
       if (!response.ok) {
         throw new Error("Failed to save task");
@@ -174,7 +107,6 @@ export function TaskDialog({
 
       onClose();
     } catch (error: any) {
-      console.error("Form submission error:", error);
       toast({
         title: "Fehler",
         description: error.message || "Die Aufgabe konnte nicht gespeichert werden",
@@ -185,7 +117,7 @@ export function TaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
@@ -197,251 +129,93 @@ export function TaskDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Titel</FormLabel>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Aufgabentitel" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Beschreibung der Aufgabe..."
+                      className="min-h-[100px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <Input placeholder="Aufgabentitel" {...field} />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status auswählen" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    <SelectContent>
+                      <SelectItem value="backlog">Backlog</SelectItem>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="review">Review</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beschreibung</FormLabel>
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priorität</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <Textarea
-                        placeholder="Beschreibung der Aufgabe..."
-                        className="min-h-[100px]"
-                        {...field}
-                      />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Priorität auswählen" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    <SelectContent>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Status auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="backlog">Backlog</SelectItem>
-                        <SelectItem value="todo">To Do</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="review">Review</SelectItem>
-                        <SelectItem value="done">Done</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priorität</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Priorität auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="low">Niedrig</SelectItem>
-                        <SelectItem value="medium">Mittel</SelectItem>
-                        <SelectItem value="high">Hoch</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Fälligkeitsdatum</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "PPP")
-                            ) : (
-                              <span>Datum auswählen</span>
-                            )}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              field.onChange(date.toISOString().split('T')[0]);
-                            } else {
-                              field.onChange(null);
-                            }
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-1.5">
-                <Label>Benutzer zuweisen</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="justify-between w-full"
-                    >
-                      {selectedUserIds.length > 0
-                        ? `${selectedUserIds.length} Benutzer zugewiesen`
-                        : "Benutzer zuweisen"}
-                      <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0">
-                    <Command>
-                      <CommandInput placeholder="Benutzer suchen..." />
-                      <CommandEmpty>Keine Benutzer gefunden.</CommandEmpty>
-                      <CommandGroup>
-                        {users.map((user) => (
-                          <CommandItem
-                            key={user.id}
-                            value={user.username}
-                            onSelect={() => {
-                              const isSelected = selectedUserIds.includes(user.id);
-                              if (isSelected) {
-                                setSelectedUserIds(
-                                  selectedUserIds.filter((id) => id !== user.id)
-                                );
-                              } else {
-                                setSelectedUserIds([...selectedUserIds, user.id]);
-                              }
-                            }}
-                          >
-                            <CheckIcon
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedUserIds.includes(user.id)
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            {user.username}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedUserIds.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {selectedUserIds.map((userId) => {
-                      const user = users.find((u) => u.id === userId);
-                      return (
-                        <Badge
-                          key={userId}
-                          variant="secondary"
-                          className="px-2 py-0.5 text-xs"
-                        >
-                          {user?.username || `Benutzer #${userId}`}
-                          <button
-                            type="button"
-                            className="ml-1 text-xs"
-                            onClick={() => {
-                              setSelectedUserIds(
-                                selectedUserIds.filter((id) => id !== userId)
-                              );
-                            }}
-                          >
-                            ×
-                          </button>
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="labels">Labels</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {selectedLabels.map((label) => (
-                    <Badge
-                      key={label}
-                      variant="secondary"
-                      className="gap-1 cursor-pointer"
-                      onClick={() => {
-                        setSelectedLabels(selectedLabels.filter((l) => l !== label));
-                      }}
-                    >
-                      {label}
-                      <span>×</span>
-                    </Badge>
-                  ))}
-                </div>
-                <Input
-                  id="labels"
-                  placeholder="Label hinzufügen (Enter drücken)"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const value = e.currentTarget.value.trim();
-                      if (value && !selectedLabels.includes(value)) {
-                        setSelectedLabels([...selectedLabels, value]);
-                        e.currentTarget.value = "";
-                      }
-                    }
-                  }}
-                />
-              </div>
-
-              <Button type="submit" className="w-full">
-                {isEditMode ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
-              </Button>
-            </form>
-          </Form>
-        </div>
+            <Button type="submit" className="w-full">
+              {isEditMode ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
