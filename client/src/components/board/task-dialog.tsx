@@ -66,6 +66,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
   const { currentBoard } = useContext(BoardContext);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const isEditMode = !!task;
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -118,13 +119,14 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       boardId: currentBoard?.id || 0,
       columnId: 0,
       order: 0,
-      dueDate: null,
       labels: [],
+      dueDate: null,
     },
   });
 
   useEffect(() => {
-    if (task && open) {
+    if (isEditMode && task && open) {
+      // If editing an existing task
       form.reset({
         title: task.title,
         description: task.description || "",
@@ -133,12 +135,13 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: task.boardId,
         columnId: task.columnId,
         order: task.order,
-        dueDate: task.dueDate || null,
+        dueDate: task.dueDate,
         labels: task.labels || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
       setSelectedLabels(task.labels || []);
     } else if (open && currentBoard) {
+      // If creating a new task
       form.reset({
         title: "",
         description: "",
@@ -153,7 +156,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       setSelectedUserIds([]);
       setSelectedLabels([]);
     }
-  }, [task, open, form, currentBoard]);
+  }, [task, open, form, currentBoard, isEditMode]);
 
   const handleSubmit = async (values: any) => {
     try {
@@ -162,8 +165,8 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         throw new Error("Board ID is required");
       }
 
-      const method = task ? "PATCH" : "POST";
-      const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
+      const method = isEditMode ? "PATCH" : "POST";
+      const endpoint = isEditMode ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
 
       const payload = {
         ...values,
@@ -186,8 +189,8 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       }
 
       toast({
-        title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt",
-        description: task ? "Die Aufgabe wurde erfolgreich aktualisiert." : "Die Aufgabe wurde erfolgreich erstellt."
+        title: isEditMode ? "Aufgabe aktualisiert" : "Aufgabe erstellt",
+        description: isEditMode ? "Die Aufgabe wurde erfolgreich aktualisiert." : "Die Aufgabe wurde erfolgreich erstellt."
       });
 
       onClose();
@@ -206,7 +209,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+            {isEditMode ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
@@ -255,7 +258,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
                     value={field.value?.toString()}
-                    disabled={!!task}
+                    disabled={isEditMode}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -436,9 +439,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                         selected={field.value ? new Date(field.value) : undefined}
                         onSelect={(date) => {
                           if (date) {
-                            // Format the date as YYYY-MM-DD
-                            const dateString = date.toISOString().split('T')[0];
-                            field.onChange(dateString);
+                            field.onChange(date.toISOString().split('T')[0]);
                           } else {
                             field.onChange(null);
                           }
@@ -533,7 +534,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
             </div>
 
             <Button type="submit" className="w-full">
-              {task ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
+              {isEditMode ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
             </Button>
           </form>
         </Form>
