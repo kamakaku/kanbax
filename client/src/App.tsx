@@ -64,15 +64,19 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
-        <main 
-          className={cn(
-            "grow w-full min-h-screen p-6",
-            "bg-white/30 backdrop-blur-[2px]",
-            "transition-all duration-300 ease-in-out"
-          )}
-        >
-          {children}
-        </main>
+        <div className="relative flex-1 overflow-x-auto">
+          <main 
+            className={cn(
+              "min-h-screen w-[calc(100vw-var(--sidebar-width)-3rem)]",
+              "px-6 py-6 mr-12",
+              "bg-white/30 backdrop-blur-[2px]",
+              "transition-[width] duration-300 ease-in-out",
+              "group-data-[state=collapsed]:w-[calc(100vw-var(--sidebar-width-icon)-3rem)]"
+            )}
+          >
+            {children}
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );
