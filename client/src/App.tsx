@@ -3,8 +3,16 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/lib/auth-store";
-import { SidebarProvider, Sidebar, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { Folder, LayoutDashboard, KanbanSquare } from "lucide-react";
+import { 
+  SidebarProvider, 
+  Sidebar, 
+  SidebarContent, 
+  SidebarMenu, 
+  SidebarMenuItem, 
+  SidebarMenuButton,
+  SidebarTrigger 
+} from "@/components/ui/sidebar";
+import { LayoutDashboard, Folder, KanbanSquare } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
@@ -21,13 +29,14 @@ function MainLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen bg-slate-50">
         <Sidebar>
+          <div className="flex items-center justify-end px-2 h-12">
+            <SidebarTrigger />
+          </div>
           <SidebarContent>
-            {/* Reduce initial animation complexity */}
-            <SidebarMenu className="opacity-0 animate-in fade-in duration-500 fill-mode-forwards delay-300">
+            <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setLocation("/dashboard")}
-                  className="w-full"
                   tooltip="Dashboard"
                 >
                   <LayoutDashboard className="h-4 w-4" />
@@ -37,7 +46,6 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setLocation("/projects")}
-                  className="w-full"
                   tooltip="Projekte"
                 >
                   <Folder className="h-4 w-4" />
@@ -47,7 +55,6 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setLocation("/boards")}
-                  className="w-full"
                   tooltip="Boards"
                 >
                   <KanbanSquare className="h-4 w-4" />
@@ -59,10 +66,10 @@ function MainLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <main 
           className={cn(
-            "flex-1 p-6",
-            "bg-white/30 backdrop-blur-[2px]", // Reduced blur intensity
-            "transition-[padding,margin] duration-300 ease-in-out will-change-[padding,margin]",
-            "group-data-[state=collapsed]:pl-16"
+            "flex-1 p-6 ml-[--sidebar-width]",
+            "bg-white/30 backdrop-blur-[2px]",
+            "transition-all duration-300 ease-in-out",
+            "group-data-[state=collapsed]:ml-[--sidebar-width-icon]"
           )}
         >
           {children}
@@ -92,13 +99,11 @@ function Router() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect to dashboard if logged in and at root
   if (user && window.location.pathname === "/") {
     setLocation("/dashboard");
     return null;
   }
 
-  // Redirect to auth if not logged in and not on auth page
   if (!user && window.location.pathname !== "/auth") {
     setLocation("/auth");
     return null;
