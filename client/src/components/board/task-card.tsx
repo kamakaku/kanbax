@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users } from "lucide-react";
+import { CalendarIcon, Users } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -20,9 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Calendar } from "@/components/ui/calendar";
 
 interface TaskCardProps {
   task: Task;
@@ -41,7 +41,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const [editedDescription, setEditedDescription] = useState(task.description || "");
   const [editedPriority, setEditedPriority] = useState(task.priority);
   const [editedLabels, setEditedLabels] = useState(task.labels || []);
-  const [editedDueDate, setEditedDueDate] = useState(task.dueDate);
+  const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(
+    task.dueDate ? new Date(task.dueDate) : undefined
+  );
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task.assignedUserIds || []);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -60,7 +62,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         description: editedDescription,
         priority: editedPriority,
         labels: editedLabels,
-        dueDate: editedDueDate,
+        dueDate: editedDueDate?.toISOString(),
         assignedUserIds: selectedUserIds,
       });
 
@@ -123,7 +125,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 <div className="flex items-center justify-between">
                   {task.dueDate && (
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
+                      <CalendarIcon className="h-4 w-4" />
                       {format(new Date(task.dueDate), "PPP")}
                     </div>
                   )}
@@ -213,7 +215,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {editedDueDate ? (
-                      format(new Date(editedDueDate), "PPP")
+                      format(editedDueDate, "PPP")
                     ) : (
                       <span>Pick a date</span>
                     )}
@@ -222,10 +224,8 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={editedDueDate ? new Date(editedDueDate) : undefined}
-                    onSelect={(date) =>
-                      setEditedDueDate(date ? date.toISOString() : null)
-                    }
+                    selected={editedDueDate}
+                    onSelect={setEditedDueDate}
                     initialFocus
                   />
                 </PopoverContent>
