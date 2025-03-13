@@ -94,6 +94,14 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
   // Get available labels from all existing tasks
   const { data: allTasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    queryFn: async () => {
+      if (!currentBoard?.id) return [];
+      const res = await fetch(`/api/boards/${currentBoard.id}/tasks`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch tasks");
+      }
+      return res.json();
+    },
     enabled: !!currentBoard?.id && open,
   });
 
@@ -133,15 +141,12 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       setSelectedUserIds(task.assignedUserIds || []);
       setSelectedLabels(task.labels || []);
     } else if (open && currentBoard) {
-      // Set the default boardId for new tasks
       form.setValue("boardId", currentBoard.id);
     }
   }, [task, open, form, currentBoard]);
 
   const handleSubmit = async (values: any) => {
     try {
-      console.log("Submit data:", values);
-
       // Ensure we have a valid boardId
       const boardId = values.boardId || currentBoard?.id;
 
@@ -162,8 +167,8 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: boardId,
         columnId: values.columnId || 0,
         order: values.order || 0,
-        // Convert the date to ISO string if it exists
-        dueDate: values.dueDate ? values.dueDate.toISOString().split('T')[0] : null,
+        // Ensure the date is properly formatted as YYYY-MM-DD
+        dueDate: values.dueDate instanceof Date ? format(values.dueDate, "yyyy-MM-dd") : null,
         assignedUserIds: selectedUserIds,
       };
 
@@ -430,7 +435,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={field.value || undefined}
+                        selected={field.value}
                         onSelect={(date) => {
                           field.onChange(date);
                         }}
