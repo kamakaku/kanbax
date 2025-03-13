@@ -142,69 +142,20 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         {task && !isEditing ? (
           <>
-            <DialogHeader className="flex flex-row items-center justify-between pb-6">
-              <DialogTitle className="text-xl">
-                {task.title}
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsEditing(true)}
-                className="h-8 w-8"
-              >
-                <Edit2 className="h-4 w-4" />
-              </Button>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-sm font-medium mb-1">Status</div>
-                    <Badge variant="outline" className="capitalize">
-                      {statusLabels[task.status]}
-                    </Badge>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-sm font-medium mb-1">Priorität</div>
-                    <Badge variant="outline" className="capitalize">
-                      {priorityLabels[task.priority]}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {task.description && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Beschreibung</h4>
-                  <p className="text-sm text-muted-foreground">{task.description}</p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                {task.dueDate && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
-                  </div>
-                )}
-                {task.assignedUserId && (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback>
-                        <User className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">Zugewiesen an</span>
-                  </div>
-                )}
-              </div>
-
-              {task.labels && task.labels.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Labels</h4>
+            <DialogHeader className="pb-4">
+              <div className="space-y-2">
+                <DialogTitle className="text-xl">
+                  {task.title}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsEditing(true)}
+                    className="h-8 w-8 float-right -mt-1"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                </DialogTitle>
+                {task.labels && task.labels.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {task.labels.map((label, i) => (
                       <Badge key={i} variant="secondary">
@@ -212,6 +163,38 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                       </Badge>
                     ))}
                   </div>
+                )}
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="capitalize">
+                  {statusLabels[task.status]}
+                </Badge>
+                <Badge variant="outline" className="capitalize">
+                  {priorityLabels[task.priority]}
+                </Badge>
+                {task.dueDate && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>{format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
+                  </div>
+                )}
+                {task.assignedUserId && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                )}
+              </div>
+
+              {task.description && (
+                <div className="text-sm text-muted-foreground">
+                  {task.description}
                 </div>
               )}
 
@@ -223,13 +206,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 />
               </div>
 
-              <Separator />
+              <Separator className="my-4" />
 
               <div>
-                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                <div className="flex items-center gap-2 text-sm font-medium mb-3">
                   <MessageSquare className="h-4 w-4" />
                   <span>Kommentare</span>
-                </h4>
+                </div>
                 <CommentList taskId={task.id} />
               </div>
             </div>
