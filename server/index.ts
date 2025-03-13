@@ -108,7 +108,9 @@ app.use((req, res, next) => {
       handleServer();
     };
 
-    const port = parseInt(process.env.PORT || "5000", 10);
+    // Get port from environment or use default
+    const port = parseInt(process.env.PORT || "3000", 10);
+    log(`Starting server on port ${port}`);
     startServer(port);
   } catch (error) {
     console.error("Failed to start server:", error);
