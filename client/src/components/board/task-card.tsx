@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { type Task } from "@shared/schema";
+import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "lucide-react";
+import { Calendar, Users } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface TaskCardProps {
   task: Task;
@@ -41,9 +42,16 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const [editedPriority, setEditedPriority] = useState(task.priority);
   const [editedLabels, setEditedLabels] = useState(task.labels || []);
   const [editedDueDate, setEditedDueDate] = useState(task.dueDate);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task.assignedUserIds || []);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentBoard } = useStore();
+
+  // Fetch users for assignment
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: isEditing
+  });
 
   const updateTask = useMutation({
     mutationFn: async () => {
@@ -53,6 +61,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         priority: editedPriority,
         labels: editedLabels,
         dueDate: editedDueDate,
+        assignedUserIds: selectedUserIds,
       });
 
       if (!res.ok) {
@@ -96,7 +105,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
             <Card className="mb-3 cursor-pointer hover:bg-muted/50 transition-colors">
               <CardHeader className="p-3">
                 <h3 className="text-sm font-medium">{task.title}</h3>
-                <div className={`h-1 w-8 rounded ${priorityColors[task.priority]}`} />
+                <div className={`h-1 w-8 rounded ${priorityColors[task.priority as keyof typeof priorityColors]}`} />
               </CardHeader>
               <CardContent className="p-3 pt-0">
                 {task.description && (
@@ -111,12 +120,32 @@ export function TaskCard({ task, index }: TaskCardProps) {
                     ))}
                   </div>
                 )}
-                {task.dueDate && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    {format(new Date(task.dueDate), "PPP")}
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  {task.dueDate && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      {format(new Date(task.dueDate), "PPP")}
+                    </div>
+                  )}
+                  {task.assignedUserIds && task.assignedUserIds.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex -space-x-2">
+                        {task.assignedUserIds.map((userId) => {
+                          const user = users.find(u => u.id === userId);
+                          return user ? (
+                            <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
+                              <AvatarImage src={user.avatarUrl || ''} />
+                              <AvatarFallback>
+                                {user.username.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -195,12 +224,40 @@ export function TaskCard({ task, index }: TaskCardProps) {
                     mode="single"
                     selected={editedDueDate ? new Date(editedDueDate) : undefined}
                     onSelect={(date) =>
-                      setEditedDueDate(date?.toISOString())
+                      setEditedDueDate(date ? date.toISOString() : null)
                     }
                     initialFocus
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assigned Users</label>
+              <div className="flex flex-wrap gap-2">
+                {users.map((user) => (
+                  <Button
+                    key={user.id}
+                    type="button"
+                    variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
+                    className="flex items-center gap-2"
+                    onClick={() => {
+                      setSelectedUserIds(prev =>
+                        prev.includes(user.id)
+                          ? prev.filter(id => id !== user.id)
+                          : [...prev, user.id]
+                      );
+                    }}
+                  >
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={user.avatarUrl || ''} />
+                      <AvatarFallback>
+                        {user.username.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{user.username}</span>
+                  </Button>
+                ))}
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button

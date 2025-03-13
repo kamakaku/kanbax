@@ -43,6 +43,7 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
       columnId: existingTask?.columnId || 0,
       order: existingTask?.order || 0,
       archived: existingTask?.archived || false,
+      assignedUserIds: existingTask?.assignedUserIds || [],
     },
   });
 
@@ -64,9 +65,10 @@ export function TaskForm({ open, onClose, onSubmit, projects, boards, existingTa
         labels: data.labels || [],
         dueDate: null,
         archived: existingTask?.archived || false,
-        assignedUserId: existingTask?.assignedUserId || null,
-        assignedTeamId: existingTask?.assignedTeamId || null,
-        assignedAt: existingTask?.assignedAt || null,
+        assignedUserIds: data.assignedUserIds || [],
+        assignedTeamId: null,
+        assignedAt: null,
+        checklist: [],
       };
 
       await onSubmit(taskData);
