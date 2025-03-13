@@ -1,0 +1,44 @@
+["/api/boards",6,"columns"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function Error Component Stack
+    at TaskDialog (task-dialog.tsx:44:3)
+    at div (<anonymous>)
+    at _c (card.tsx:8:6)
+    at Column (column.tsx:54:26)
+    at div (<anonymous>)
+    at Provider (react-beautiful-dnd.js?v=bc4e950e:1738:20)
+    at App (react-beautiful-dnd.js?v=bc4e950e:8281:25)
+    at ErrorBoundary2 (react-beautiful-dnd.js?v=bc4e950e:2778:35)
+    at DragDropContext (react-beautiful-dnd.js?v=bc4e950e:8401:19)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Board (board.tsx:23:21)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Provider (chunk-JJS7DLG7.js?v=bc4e950e:38:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=bc4e950e:60:5)
+    at sidebar.tsx:85:7
+    at MainLayout (App.tsx:26:23)
+    at ProtectedRoute (App.tsx:94:38)
+    at component (<anonymous>)
+    at Route (wouter.js?v=bc4e950e:206:16)
+    at Switch (wouter.js?v=bc4e950e:262:17)
+    at AuthenticatedApp (App.tsx:111:20)
+    at QueryClientProvider (@tanstack_react-query.js?v=bc4e950e:2848:3)
+    at AuthProvider (auth-store.tsx:51:32)
+    at App (<anonymous>)
+overrideMethod @ hook.js:608
+useBaseQuery @ @tanstack_react-query.js?v=bc4e950e:3054
+useQuery @ @tanstack_react-query.js?v=bc4e950e:3122
+TaskDialog @ task-dialog.tsx:68
+renderWithHooks @ chunk-RPCDYKBN.js?v=bc4e950e:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=bc4e950e:14582
+beginWork @ chunk-RPCDYKBN.js?v=bc4e950e:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=bc4e950e:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=bc4e950e:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=bc4e950e:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=bc4e950e:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=bc4e950e:18678
+workLoop @ chunk-RPCDYKBN.js?v=bc4e950e:197
+flushWork @ chunk-RPCDYKBN.js?v=bc4e950e:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=bc4e950e:384
