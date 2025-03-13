@@ -78,7 +78,7 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const startServer = (port: number, maxAttempts = 3) => {
+    const startServer = (port: number, maxAttempts = 5) => {
       const host = '0.0.0.0';
 
       if (maxAttempts <= 0) {
@@ -88,6 +88,9 @@ app.use((req, res, next) => {
       }
 
       try {
+        // Force close previous listeners if they exist
+        server.close();
+        
         server.listen(port, host, () => {
           log(`Server successfully started on ${host}:${port}`);
           log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
@@ -101,7 +104,6 @@ app.use((req, res, next) => {
           } else {
             console.error('Server error:', e);
             log(`Server error: ${e.message}`);
-            // Don't exit, just log the error
           }
         });
       } catch (error) {
