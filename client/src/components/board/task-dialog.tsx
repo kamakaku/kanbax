@@ -102,23 +102,34 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     mutationFn: async () => {
       const values = form.getValues();
 
-      // Make sure we're sending the correct data structure
+      // Ensure we have all required fields and correct data types
       const payload = {
-        ...values,
-        assignedUserIds: selectedUserIds,
+        title: values.title,
+        description: values.description,
+        status: values.status,
+        priority: values.priority,
+        labels: values.labels,
+        boardId: values.boardId,
+        columnId: values.columnId,
+        order: values.order,
         dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+        assignedUserIds: selectedUserIds // Use the state variable directly
       };
+
+      console.log('Updating task with payload:', payload); // Debug log
 
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('Task update error response:', errorText); // Debug log
         throw new Error(errorText || "Failed to update task");
       }
 
       return response.json();
     },
     onSuccess: async (updatedTask) => {
+      // Invalidate both queries to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
 
@@ -129,13 +140,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
       setIsEditing(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Task update error:", error); // Debug log
       toast({
         title: "Fehler",
-        description: "Die Aufgabe konnte nicht aktualisiert werden",
+        description: error.message || "Die Aufgabe konnte nicht aktualisiert werden",
         variant: "destructive",
       });
-      console.error("Task update error:", error);
     },
   });
 
