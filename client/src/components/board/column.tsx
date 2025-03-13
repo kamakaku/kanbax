@@ -134,6 +134,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         }}
         onUpdate={handleTaskUpdate}
         defaultStatus={column.title?.toLowerCase() || "todo"}
+        defaultColumnId={column.id}
       />
     </Card>
   );

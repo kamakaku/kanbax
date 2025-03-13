@@ -40,7 +40,15 @@ const taskFormSchema = z.object({
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
-export function TaskDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function TaskDialog({ 
+  open, 
+  onClose, 
+  defaultColumnId 
+}: { 
+  open: boolean; 
+  onClose: () => void; 
+  defaultColumnId?: string | number;
+}) {
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -65,15 +73,20 @@ export function TaskDialog({ open, onClose }: { open: boolean; onClose: () => vo
   // Zurücksetzen des Formulars, wenn der Dialog geöffnet wird
   useEffect(() => {
     if (open && columns.length > 0) {
+      // Wenn eine defaultColumnId übergeben wurde, wird diese verwendet, andernfalls die erste Spalte
+      const selectedColumnId = defaultColumnId 
+        ? columns.find(col => col.id === defaultColumnId)?.id || columns[0].id
+        : columns[0].id;
+
       form.reset({
         title: "",
         description: "",
         priority: "medium",
         status: "todo",
-        columnId: columns[0].id // Erste Spalte als Standard verwenden
+        columnId: selectedColumnId
       });
     }
-  }, [open, form, columns]);
+  }, [open, form, columns, defaultColumnId]);
 
   const createTask = useMutation({
     mutationFn: async (data: TaskFormValues) => {
