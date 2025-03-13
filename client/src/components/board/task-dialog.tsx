@@ -426,8 +426,11 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                   <FormItem>
                     <FormLabel>Zugewiesen an</FormLabel>
                     <Select
-                      onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                      defaultValue={field.value?.toString()}
+                      onValueChange={(value) => {
+                        const userId = value === "unassigned" ? null : parseInt(value);
+                        field.onChange(userId);
+                      }}
+                      defaultValue={field.value?.toString() || "unassigned"}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -435,7 +438,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Nicht zugewiesen</SelectItem>
+                        <SelectItem value="unassigned">Nicht zugewiesen</SelectItem>
                         {Array.isArray(users) && users.map((user) => (
                           <SelectItem key={user.id} value={user.id.toString()}>
                             <div className="flex items-center gap-2">
