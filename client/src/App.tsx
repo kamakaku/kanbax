@@ -27,8 +27,8 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="flex min-h-screen bg-slate-50">
-        <Sidebar className="shrink-0">
+      <div className="flex min-h-screen w-full overflow-hidden bg-slate-50">
+        <Sidebar className="shrink-0 z-30">
           <div className="flex items-center justify-end px-2 h-12">
             <SidebarTrigger />
           </div>
@@ -66,7 +66,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <main 
           className={cn(
-            "grow p-6",
+            "grow w-full min-h-screen p-6",
             "bg-white/30 backdrop-blur-[2px]",
             "transition-all duration-300 ease-in-out"
           )}
