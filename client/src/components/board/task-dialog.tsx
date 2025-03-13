@@ -18,8 +18,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ChecklistCard } from "./checklist-card";
 import { Separator } from "@/components/ui/separator";
+import { ChecklistCard } from "./checklist-card";
 import { CommentList } from "@/components/comments/comment-list";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -100,12 +100,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : "/api/tasks";
 
-      // Format the date if it exists
-      let dueDateString = null;
-      if (values.dueDate) {
-        dueDateString = format(new Date(values.dueDate), "yyyy-MM-dd");
-      }
-
       // Prepare the payload
       const payload = {
         title: values.title,
@@ -116,13 +110,17 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         boardId: currentBoard?.id,
         columnId: values.columnId || 0,
         order: values.order || 0,
-        dueDate: dueDateString,
+        dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
         assignedUserIds: selectedUserIds
       };
 
       console.log('Submitting task with payload:', payload);
 
       const response = await apiRequest(method, endpoint, payload);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
       const updatedTask = await response.json();
 
       // Invalidate queries to ensure UI updates
@@ -145,12 +143,6 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         description: error.message || `Die Aufgabe konnte nicht ${task ? 'aktualisiert' : 'erstellt'} werden`,
         variant: "destructive",
       });
-    }
-  };
-
-  const handleDelete = async () => {
-    if (onDelete) {
-      onDelete();
     }
   };
 
@@ -352,11 +344,11 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               )}
             </div>
 
-            {/* Checklist and Comments sections - only show for existing tasks */}
+            {/* Nur für existierende Tasks */}
             {task && (
               <>
                 <Separator className="my-4" />
-                <div onClick={(e) => e.stopPropagation()}>
+                <div>
                   <ChecklistCard
                     task={task}
                     onUpdate={(updatedTask) => {
@@ -383,7 +375,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                 <Button
                   type="button"
                   variant="destructive"
-                  onClick={handleDelete}
+                  onClick={onDelete}
                 >
                   Löschen
                 </Button>
