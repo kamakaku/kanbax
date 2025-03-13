@@ -87,25 +87,29 @@ app.use((req, res, next) => {
         return;
       }
 
-      const handleServer = () => {
+      try {
         server.listen(port, host, () => {
           log(`Server successfully started on ${host}:${port}`);
           log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
         });
-      };
 
-      server.once('error', (e: any) => {
-        if (e.code === 'EADDRINUSE') {
-          log(`Port ${port} is already in use, trying ${port + 1}...`);
-          server.removeAllListeners('listening');
-          startServer(port + 1, maxAttempts - 1);
-        } else {
-          console.error('Server error:', e);
-          process.exit(1);
-        }
-      });
-
-      handleServer();
+        server.once('error', (e: any) => {
+          if (e.code === 'EADDRINUSE') {
+            log(`Port ${port} is already in use, trying ${port + 1}...`);
+            server.removeAllListeners('listening');
+            startServer(port + 1, maxAttempts - 1);
+          } else {
+            console.error('Server error:', e);
+            log(`Server error: ${e.message}`);
+            // Don't exit, just log the error
+          }
+        });
+      } catch (error) {
+        console.error('Failed to start server:', error);
+        log(`Failed to start server: ${error instanceof Error ? error.message : String(error)}`);
+        // Try another port
+        startServer(port + 1, maxAttempts - 1);
+      }
     };
 
     // Get port from environment or use default
