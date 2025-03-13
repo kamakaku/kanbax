@@ -3,7 +3,6 @@ import { type Task as TaskType, ChecklistItem } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
-import { useQuery } from "@tanstack/react-query";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -89,8 +88,8 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
 
   return (
     <>
-      <Draggable 
-        draggableId={task.id.toString()} 
+      <Draggable
+        draggableId={task.id.toString()}
         index={index}
         key={task.id}
       >
