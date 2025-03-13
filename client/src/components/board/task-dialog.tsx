@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useParams } from "wouter"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast";
 import { z } from "zod"
 import { useForm, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
