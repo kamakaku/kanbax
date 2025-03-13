@@ -102,22 +102,25 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     mutationFn: async () => {
       const values = form.getValues();
 
-      // Update form with selected user IDs
-      values.assignedUserIds = selectedUserIds;
-
-      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
+      // Make sure we're sending the correct data structure
+      const payload = {
         ...values,
+        assignedUserIds: selectedUserIds,
         dueDate: values.dueDate ? values.dueDate.toISOString() : null,
-      });
+      };
+
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
 
       if (!response.ok) {
-        throw new Error("Failed to update task");
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to update task");
       }
 
-      return await response.json();
+      return response.json();
     },
     onSuccess: async (updatedTask) => {
       await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
 
       if (onUpdate) {
         await onUpdate(updatedTask);
