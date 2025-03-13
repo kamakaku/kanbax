@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Task } from "@shared/schema";
 import { useStore } from "@/lib/store";
-import { TaskComponent } from "./task";
+import { Task as TaskComponent } from "./task"; // Changed import here
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
@@ -122,7 +122,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
               }`}
             >
               {tasks.map((task, index) => (
-                <TaskComponent 
+                <TaskComponent // Changed component name here
                   key={task.id} 
                   task={task} 
                   index={index}
