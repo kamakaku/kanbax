@@ -70,7 +70,6 @@ export const tasks = pgTable("tasks", {
   columnId: integer("column_id").notNull(),
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
-  icon: text("icon"), // Add new icon field
   dueDate: timestamp("due_date"),
   checklist: text("checklist").array(),
   archived: boolean("archived").default(false),
@@ -170,7 +169,6 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: true,
     priority: true,
     labels: true,
-    icon: true, // Add icon to schema
     dueDate: true,
     checklist: true,
     archived: true,
@@ -184,7 +182,6 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: z.number().int(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    icon: z.string().optional(), // Add icon validation
     dueDate: z.string().nullable().optional(),
     checklist: z.array(checklistItemSchema).default([]),
     archived: z.boolean().default(false),

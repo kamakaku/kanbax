@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { type Task as TaskType, ChecklistItem } from "@shared/schema";
+import { useState } from "react";
+import { type Task as TaskType } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
@@ -36,7 +36,7 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Query für Kommentare
+  // Query for comments
   const { data: comments = [] } = useQuery({
     queryKey: [`/api/tasks/${task.id}/comments`],
     queryFn: async () => {
@@ -66,8 +66,8 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-  // Checklist-Daten vom Server laden
-  const { data: checklistItems = [] } = useQuery<ChecklistItem[]>({
+  // Checklist data from server
+  const { data: checklistItems = [] } = useQuery({
     queryKey: ['/api/tasks', task.id, 'checklist'],
     queryFn: async () => {
       if (!task._hasChecklist) return [];
@@ -84,7 +84,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
   const completedCount = checklistItems.filter(item => item.completed).length;
   const totalCount = checklistItems.length;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
 
   return (
     <>
@@ -108,17 +107,12 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
             }}
           >
             <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 
-              border-t-2 border-slate-200 ${priorityColors[task.priority || "medium"]} ${
+              border-t-2 border-slate-200 ${priorityColors[task.priority]} ${
               snapshot.isDragging ? "shadow-lg ring-1 ring-primary/20" : ""
             }`}>
               <CardContent className="p-3">
-                {/* Title section with emoji */}
-                <div className="flex items-start gap-2 mb-2">
-                  {task.icon && (
-                    <span className="text-xl leading-none mt-0.5">{task.icon}</span>
-                  )}
-                  <h3 className="font-medium text-sm line-clamp-2">{task.title}</h3>
-                </div>
+                {/* Title */}
+                <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
 
                 {/* Labels */}
                 {task.labels && task.labels.length > 0 && (
@@ -197,7 +191,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
         task={task}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
-        defaultTab="info"
       />
     </>
   );
