@@ -63,6 +63,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     enabled: open // Always fetch when dialog is open
   });
 
+  // Parse the dueDate string into a Date object if it exists
+  const parseDueDate = (dateString: string | null | undefined): Date | null => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),
     defaultValues: {
@@ -74,7 +81,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       boardId: task?.boardId || currentBoard?.id || 0,
       columnId: task?.columnId || 0,
       order: task?.order || 0,
-      dueDate: task?.dueDate ? new Date(task?.dueDate) : null,
+      dueDate: parseDueDate(task?.dueDate),
       assignedUserIds: task?.assignedUserIds || [],
     },
   });
@@ -91,7 +98,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         boardId: task.boardId,
         columnId: task.columnId,
         order: task.order,
-        dueDate: task.dueDate ? new Date(task.dueDate) : null,
+        dueDate: parseDueDate(task.dueDate),
         assignedUserIds: task.assignedUserIds || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
@@ -102,7 +109,13 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     mutationFn: async () => {
       const values = form.getValues();
 
-      // Ensure we have all required fields and correct data types
+      // Ensure proper date handling
+      let formattedDueDate: string | null = null;
+      if (values.dueDate instanceof Date && !isNaN(values.dueDate.getTime())) {
+        formattedDueDate = values.dueDate.toISOString();
+      }
+
+      // Construct the payload with proper typing
       const payload = {
         title: values.title,
         description: values.description,
@@ -112,8 +125,8 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         boardId: values.boardId,
         columnId: values.columnId,
         order: values.order,
-        dueDate: values.dueDate instanceof Date ? values.dueDate.toISOString() : null,
-        assignedUserIds: selectedUserIds // Use the state variable directly
+        dueDate: formattedDueDate,
+        assignedUserIds: selectedUserIds
       };
 
       console.log('Updating task with payload:', payload); // Debug log
@@ -129,10 +142,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       return response.json();
     },
     onSuccess: async (updatedTask) => {
-      // Invalidate both queries to ensure UI updates
+      // Invalidate queries to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/boards", task.boardId, "tasks"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] }); // Also refresh users data
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
 
       if (onUpdate) {
         await onUpdate(updatedTask);
