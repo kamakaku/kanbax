@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -191,328 +191,330 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
   };
 
   return (
-    <DialogContent className="max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>
-          {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
-        </DialogTitle>
-      </DialogHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Titel</FormLabel>
-                <FormControl>
-                  <Input placeholder="Aufgabentitel eingeben" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Beschreibung</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Beschreibung eingeben..."
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="boardId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Board</FormLabel>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange(parseInt(value));
-                  }}
-                  value={field.value?.toString()}
-                  disabled={!!task}
-                >
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
+          </DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Board auswählen" />
-                    </SelectTrigger>
+                    <Input placeholder="Aufgabentitel eingeben" {...field} />
                   </FormControl>
-                  <SelectContent>
-                    {boards.map((board) => (
-                      <SelectItem key={board.id} value={board.id.toString()}>
-                        {board.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status auswählen" />
-                    </SelectTrigger>
+                    <Textarea
+                      placeholder="Beschreibung eingeben..."
+                      className="resize-none"
+                      {...field}
+                    />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="backlog">Backlog</SelectItem>
-                    <SelectItem value="todo">Zu erledigen</SelectItem>
-                    <SelectItem value="in-progress">In Bearbeitung</SelectItem>
-                    <SelectItem value="review">Review</SelectItem>
-                    <SelectItem value="done">Erledigt</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="priority"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Priorität</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Priorität auswählen" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="low">Niedrig</SelectItem>
-                    <SelectItem value="medium">Mittel</SelectItem>
-                    <SelectItem value="high">Hoch</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="flex flex-col space-y-1.5">
-            <Label htmlFor="labels">Labels</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="justify-between w-full">
-                  Labels auswählen
-                  <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuLabel>Verfügbare Labels</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {availableLabels.map((label) => (
-                  <DropdownMenuCheckboxItem
-                    key={label}
-                    checked={selectedLabels.includes(label)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedLabels([...selectedLabels, label]);
-                      } else {
-                        setSelectedLabels(
-                          selectedLabels.filter((l) => l !== label)
-                        );
-                      }
+            <FormField
+              control={form.control}
+              name="boardId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Board</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(parseInt(value));
                     }}
+                    value={field.value?.toString()}
+                    disabled={!!task}
                   >
-                    {label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-                <DropdownMenuSeparator />
-                <div className="p-2">
-                  <Input
-                    placeholder="Neues Label hinzufügen"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const value = e.currentTarget.value.trim();
-                        if (value && !selectedLabels.includes(value)) {
-                          setSelectedLabels([...selectedLabels, value]);
-                          e.currentTarget.value = "";
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Board auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {boards.map((board) => (
+                        <SelectItem key={board.id} value={board.id.toString()}>
+                          {board.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="backlog">Backlog</SelectItem>
+                      <SelectItem value="todo">Zu erledigen</SelectItem>
+                      <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                      <SelectItem value="review">Review</SelectItem>
+                      <SelectItem value="done">Erledigt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priorität</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Priorität auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="labels">Labels</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="justify-between w-full">
+                    Labels auswählen
+                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuLabel>Verfügbare Labels</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {availableLabels.map((label) => (
+                    <DropdownMenuCheckboxItem
+                      key={label}
+                      checked={selectedLabels.includes(label)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedLabels([...selectedLabels, label]);
+                        } else {
+                          setSelectedLabels(
+                            selectedLabels.filter((l) => l !== label)
+                          );
                         }
-                      }
-                    }}
-                  />
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {selectedLabels.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedLabels.map((label) => (
-                  <Badge
-                    key={label}
-                    variant="secondary"
-                    className="px-2 py-0.5 text-xs"
-                  >
-                    {label}
-                    <button
-                      type="button"
-                      className="ml-1 text-xs"
-                      onClick={() => {
-                        setSelectedLabels(
-                          selectedLabels.filter((l) => l !== label)
-                        );
                       }}
                     >
-                      ×
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <FormField
-            control={form.control}
-            name="dueDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Fälligkeitsdatum</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Datum auswählen</span>
-                        )}
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value || undefined}
-                      onSelect={(date) => {
-                        field.onChange(date);
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="space-y-1.5">
-            <Label>Benutzer zuweisen</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="justify-between w-full"
-                >
-                  {selectedUserIds.length > 0
-                    ? `${selectedUserIds.length} Benutzer zugewiesen`
-                    : "Benutzer zuweisen"}
-                  <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 w-full">
-                <Command>
-                  <CommandInput placeholder="Benutzer suchen..." />
-                  <CommandEmpty>Keine Benutzer gefunden.</CommandEmpty>
-                  <CommandGroup>
-                    {users.map((user) => (
-                      <CommandItem
-                        key={user.id}
-                        value={user.username}
-                        onSelect={() => {
-                          const isSelected = selectedUserIds.includes(user.id);
-                          if (isSelected) {
-                            setSelectedUserIds(
-                              selectedUserIds.filter((id) => id !== user.id)
-                            );
-                          } else {
-                            setSelectedUserIds([...selectedUserIds, user.id]);
+                      {label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <div className="p-2">
+                    <Input
+                      placeholder="Neues Label hinzufügen"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const value = e.currentTarget.value.trim();
+                          if (value && !selectedLabels.includes(value)) {
+                            setSelectedLabels([...selectedLabels, value]);
+                            e.currentTarget.value = "";
                           }
-                        }}
-                      >
-                        <CheckIcon
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedUserIds.includes(user.id)
-                              ? "opacity-100"
-                              : "opacity-0"
-                          )}
-                        />
-                        {user.username}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {selectedUserIds.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedUserIds.map((userId) => {
-                  const user = users.find((u) => u.id === userId);
-                  return (
+                        }
+                      }}
+                    />
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {selectedLabels.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedLabels.map((label) => (
                     <Badge
-                      key={userId}
+                      key={label}
                       variant="secondary"
                       className="px-2 py-0.5 text-xs"
                     >
-                      {user?.username || `Benutzer #${userId}`}
+                      {label}
                       <button
                         type="button"
                         className="ml-1 text-xs"
                         onClick={() => {
-                          setSelectedUserIds(
-                            selectedUserIds.filter((id) => id !== userId)
+                          setSelectedLabels(
+                            selectedLabels.filter((l) => l !== label)
                           );
                         }}
                       >
                         ×
                       </button>
                     </Badge>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          <Button type="submit" className="w-full">
-            {task ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
-          </Button>
-        </form>
-      </Form>
-    </DialogContent>
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fälligkeitsdatum</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Datum auswählen</span>
+                          )}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value || undefined}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-1.5">
+              <Label>Benutzer zuweisen</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="justify-between w-full"
+                  >
+                    {selectedUserIds.length > 0
+                      ? `${selectedUserIds.length} Benutzer zugewiesen`
+                      : "Benutzer zuweisen"}
+                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-full">
+                  <Command>
+                    <CommandInput placeholder="Benutzer suchen..." />
+                    <CommandEmpty>Keine Benutzer gefunden.</CommandEmpty>
+                    <CommandGroup>
+                      {users.map((user) => (
+                        <CommandItem
+                          key={user.id}
+                          value={user.username}
+                          onSelect={() => {
+                            const isSelected = selectedUserIds.includes(user.id);
+                            if (isSelected) {
+                              setSelectedUserIds(
+                                selectedUserIds.filter((id) => id !== user.id)
+                              );
+                            } else {
+                              setSelectedUserIds([...selectedUserIds, user.id]);
+                            }
+                          }}
+                        >
+                          <CheckIcon
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedUserIds.includes(user.id)
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {user.username}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {selectedUserIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedUserIds.map((userId) => {
+                    const user = users.find((u) => u.id === userId);
+                    return (
+                      <Badge
+                        key={userId}
+                        variant="secondary"
+                        className="px-2 py-0.5 text-xs"
+                      >
+                        {user?.username || `Benutzer #${userId}`}
+                        <button
+                          type="button"
+                          className="ml-1 text-xs"
+                          onClick={() => {
+                            setSelectedUserIds(
+                              selectedUserIds.filter((id) => id !== userId)
+                            );
+                          }}
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full">
+              {task ? "Aufgabe aktualisieren" : "Aufgabe erstellen"}
+            </Button>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
