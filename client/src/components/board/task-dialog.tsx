@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useParams } from "wouter"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { apiClient } from "@/lib/api-client"
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/components/ui/use-toast"
 import { z } from "zod"
 import { useForm, FormProvider } from "react-hook-form"
@@ -68,7 +68,7 @@ export function TaskDialog({ open, onOpenChange, columnId, columnName }: TaskDia
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: TaskFormValues) => {
-      const response = await apiClient.post(`/api/boards/${boardId}/tasks`, data);
+      const response = await apiRequest.post(`/api/boards/${boardId}/tasks`, data);
       return response.data;
     },
     onSuccess: () => {
