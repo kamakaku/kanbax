@@ -40,6 +40,10 @@ const taskFormSchema = z.object({
   columnId: z.number(),
   labels: z.array(z.string()).default([]),
   assignedUserIds: z.array(z.number()).default([]),
+  assignedTeamId: z.number().optional().nullable(),
+  dueDate: z.string().optional().nullable(),
+  archived: z.boolean().default(false),
+  order: z.number().default(0),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -76,32 +80,42 @@ export function TaskDialog({
       columnId: task?.columnId || 0,
       labels: task?.labels || [],
       assignedUserIds: task?.assignedUserIds || [],
+      assignedTeamId: task?.assignedTeamId || null,
+      dueDate: task?.dueDate || null,
+      archived: task?.archived || false,
+      order: task?.order || 0,
     },
   });
 
   // Spalten für das aktuelle Board abrufen
   const { data: columns = [] } = useQuery({
     queryKey: ["/api/boards", currentBoard?.id, "columns"],
-    queryFn: () => fetch(`/api/boards/${currentBoard?.id}/columns`).then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/boards/${currentBoard?.id}/columns`);
+      if (!response.ok) throw new Error("Failed to fetch columns");
+      return response.json();
+    },
     enabled: !!currentBoard && open
   });
 
   // Zurücksetzen des Formulars, wenn der Dialog geöffnet wird
   useEffect(() => {
     if (open) {
-      if (isEditing) {
-        // Wenn ein Task bearbeitet wird, setze die vorhandenen Werte
+      if (isEditing && task) {
         form.reset({
-          title: task!.title,
-          description: task!.description || "",
-          priority: task!.priority as "low" | "medium" | "high",
-          status: task!.status,
-          columnId: task!.columnId,
-          labels: task!.labels || [],
-          assignedUserIds: task!.assignedUserIds || [],
+          title: task.title,
+          description: task.description || "",
+          priority: task.priority as "low" | "medium" | "high",
+          status: task.status,
+          columnId: task.columnId,
+          labels: task.labels || [],
+          assignedUserIds: task.assignedUserIds || [],
+          assignedTeamId: task.assignedTeamId || null,
+          dueDate: task.dueDate || null,
+          archived: task.archived || false,
+          order: task.order || 0,
         });
       } else if (columns.length > 0) {
-        // Bei neuem Task, setze Standardwerte
         const selectedColumnId = defaultColumnId 
           ? columns.find((col: any) => col.id === defaultColumnId)?.id || columns[0].id
           : columns[0].id;
@@ -114,6 +128,10 @@ export function TaskDialog({
           columnId: selectedColumnId,
           labels: [],
           assignedUserIds: [],
+          assignedTeamId: null,
+          dueDate: null,
+          archived: false,
+          order: 0,
         });
       }
     }
@@ -174,21 +192,53 @@ export function TaskDialog({
   });
 
   const onSubmit = async (data: TaskFormValues) => {
-    if (isEditing && task && onUpdate) {
-      const updatedTask: Task = {
-        ...task,
-        ...data,
-      };
-      await onUpdate(updatedTask);
-    } else {
-      createTask.mutate(data);
+    try {
+      if (isEditing && task && onUpdate) {
+        const updatedTask: Task = {
+          id: task.id,
+          boardId: task.boardId,
+          title: data.title,
+          description: data.description || "",
+          status: data.status,
+          priority: data.priority,
+          columnId: data.columnId,
+          order: data.order,
+          labels: data.labels,
+          assignedUserIds: data.assignedUserIds,
+          assignedTeamId: data.assignedTeamId,
+          assignedAt: task.assignedAt,
+          dueDate: data.dueDate,
+          archived: data.archived,
+          checklist: task.checklist || []
+        };
+        await onUpdate(updatedTask);
+        onClose();
+      } else {
+        await createTask.mutateAsync(data);
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
+      toast({
+        title: "Fehler beim Speichern",
+        description: "Bitte überprüfen Sie Ihre Eingaben und versuchen Sie es erneut.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDelete = async () => {
     if (task && onDelete) {
-      await onDelete(task.id);
-      onClose();
+      try {
+        await onDelete(task.id);
+        onClose();
+      } catch (error) {
+        console.error("Delete error:", error);
+        toast({
+          title: "Fehler beim Löschen",
+          description: "Die Aufgabe konnte nicht gelöscht werden.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
