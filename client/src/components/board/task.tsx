@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type Task as TaskType } from "@shared/schema";
+import { type Task as TaskType, ChecklistItem } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
@@ -66,8 +66,11 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-  // In der neuen Implementierung wird der Fortschritt direkt in der ChecklistCard berechnet
-  // und über API-Aufrufe aktualisiert 0;
+  //Checklist Progress Calculation
+  const completedCount = task.checklist?.filter((item: ChecklistItem) => item.completed).length || 0;
+  const totalCount = task.checklist?.length || 0;
+  const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
 
   return (
     <>
@@ -114,20 +117,27 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                 )}
 
                 {/* Task Title */}
-                <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
+                <div className="flex flex-col gap-1">
+                  <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
+                  {task.description && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {task.description.substring(0, 50)}
+                      {task.description.length > 50 ? "..." : ""}
+                    </p>
+                  )}
 
-                {/* Checklist Progress - wird dynamisch geladen */}
-                {task._hasChecklist && (
-                  <div className="mb-3 space-y-1">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <CheckSquare className="h-3 w-3" />
-                        <span>Checkliste</span>
+                  {task._hasChecklist && totalCount > 0 && (
+                    <div className="mt-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-muted-foreground">
+                          {completedCount} von {totalCount} ({percentage}%)
+                        </span>
                       </div>
+                      <Progress value={percentage} className="h-1.5" />
                     </div>
-                    <Progress value={50} className="h-1" /> {/* Standardwert, wird später aktualisiert */}
-                  </div>
-                )}
+                  )}
+                </div>
+
 
                 {/* Footer Info */}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
