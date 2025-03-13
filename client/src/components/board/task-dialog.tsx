@@ -54,12 +54,15 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { currentBoard } = useStore();
 
   // Fetch users for assignment
-  const { data: users = [] } = useQuery<User[]>({
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const res = await fetch("/api/users");
-      if (!res.ok) return [];
-      return res.json();
+      if (!res.ok) {
+        throw new Error("Failed to fetch users");
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     }
   });
 
@@ -433,7 +436,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="">Nicht zugewiesen</SelectItem>
-                        {users.map((user) => (
+                        {Array.isArray(users) && users.map((user) => (
                           <SelectItem key={user.id} value={user.id.toString()}>
                             <div className="flex items-center gap-2">
                               <Avatar className="h-6 w-6">
