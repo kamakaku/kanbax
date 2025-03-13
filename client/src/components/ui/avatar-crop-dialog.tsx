@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactCrop, { type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import {
@@ -30,6 +30,13 @@ export function AvatarCropDialog({
     y: 5,
     aspect: 1
   });
+
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [isImgLoaded, setIsImgLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsImgLoaded(false);
+  }, [imageSrc]);
 
   const getCroppedImg = (
     image: HTMLImageElement,
@@ -79,13 +86,12 @@ export function AvatarCropDialog({
 
   const handleComplete = async () => {
     try {
-      const image = document.querySelector<HTMLImageElement>('.ReactCrop__image');
-      if (!image || !image.complete) {
-        console.error('Image not loaded');
+      if (!imgRef.current || !isImgLoaded) {
+        console.error('Image reference not available or image not loaded');
         return;
       }
 
-      const croppedImage = await getCroppedImg(image, crop);
+      const croppedImage = await getCroppedImg(imgRef.current, crop);
       onCropComplete(croppedImage);
       onOpenChange(false);
     } catch (error) {
@@ -107,9 +113,11 @@ export function AvatarCropDialog({
             className="max-h-[60vh]"
           >
             <img 
+              ref={imgRef}
               src={imageSrc} 
               alt="Zu bearbeitendes Profilbild"
               style={{ maxWidth: '100%', maxHeight: '60vh' }}
+              onLoad={() => setIsImgLoaded(true)}
             />
           </ReactCrop>
         </div>
@@ -117,7 +125,7 @@ export function AvatarCropDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Abbrechen
           </Button>
-          <Button onClick={handleComplete}>
+          <Button onClick={handleComplete} disabled={!isImgLoaded}>
             Auswahl übernehmen
           </Button>
         </div>
