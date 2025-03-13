@@ -50,7 +50,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { currentBoard } = useStore();
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task?.assignedUserIds || []);
 
-  // Updated users query
+  // Updated users query - enable it always when dialog is open
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -60,7 +60,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       }
       return res.json();
     },
-    enabled: open // Only fetch when dialog is open
+    enabled: open // Always fetch when dialog is open
   });
 
   const form = useForm({
@@ -169,6 +169,43 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
+  // Helper function to render assigned users
+  const renderAssignedUsers = () => {
+    if (isLoadingUsers) {
+      return (
+        <div className="text-sm text-muted-foreground">
+          Lade Benutzer...
+        </div>
+      );
+    }
+
+    if (!task.assignedUserIds || task.assignedUserIds.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="flex items-center gap-2 ml-auto">
+        <Users className="h-4 w-4 text-muted-foreground" />
+        <div className="flex -space-x-2">
+          {task.assignedUserIds.map((userId) => {
+            // Find user in the users array
+            const user = Array.isArray(users) ? users.find(u => u.id === userId) : null;
+            if (!user) return null;
+
+            return (
+              <Avatar key={userId} className="h-6 w-6 border-2 border-background">
+                <AvatarImage src={user.avatarUrl || ''} />
+                <AvatarFallback>
+                  {user.username.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -213,24 +250,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                     <span>{format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
                   </div>
                 )}
-                {task.assignedUserIds && task.assignedUserIds.length > 0 && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex -space-x-2">
-                      {task.assignedUserIds.map((userId) => {
-                        const user = users.find(u => u.id === userId);
-                        return user ? (
-                          <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
-                            <AvatarImage src={user.avatarUrl || ''} />
-                            <AvatarFallback>
-                              {user.username.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : null;
-                      })}
-                    </div>
-                  </div>
-                )}
+                {renderAssignedUsers()}
               </div>
 
               {task.description && (
@@ -421,7 +441,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
                     <div className="text-sm text-muted-foreground">
                       Lade Benutzer...
                     </div>
-                  ) : users && users.length > 0 ? (
+                  ) : Array.isArray(users) && users.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {users.map((user) => (
                         <Button
