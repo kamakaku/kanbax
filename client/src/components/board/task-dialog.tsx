@@ -52,8 +52,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, ExpandIcon, PencilIcon, TrashIcon, Users } from "lucide-react";
-import * as RadixIcons from "@radix-ui/react-icons";
 
 interface TaskDialogProps {
   open: boolean;
@@ -164,8 +162,8 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: boardId,
         columnId: values.columnId || 0,
         order: values.order || 0,
-        dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
-        assignedUserIds: selectedUserIds, // Make sure this is included in the payload
+        dueDate: values.dueDate ? format(values.dueDate, "yyyy-MM-dd") : null,
+        assignedUserIds: selectedUserIds,
       };
 
       console.log("Submitting task with payload:", payload);
