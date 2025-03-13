@@ -9,7 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/lib/auth-store"; // Korrigiert von @/hooks/auth zu @/lib/auth-store
+import { useAuth } from "@/lib/auth-store"; 
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -70,7 +70,7 @@ const FormSchema = z.object({
 });
 
 interface TaskDialogProps {
-  mode?: "create" | "edit"; // Added mode prop
+  mode?: "create" | "edit"; 
   task?: Task;
   open: boolean;
   onClose: () => void;
@@ -86,7 +86,7 @@ export function TaskDialog({
   onUpdate,
   onDelete,
 }: TaskDialogProps) {
-  const { user } = useAuth(); // Get user object from useAuth hook
+  const { user } = useAuth(); 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -116,19 +116,16 @@ export function TaskDialog({
     },
   });
 
-  // Fetch checklist and comments when editing an existing task
   useEffect(() => {
     if (task?.id) {
       const fetchTaskData = async () => {
         try {
-          // Fetch checklist items
           const checklistResponse = await fetch(`/api/tasks/${task.id}/checklist`);
           if (checklistResponse.ok) {
             const checklistData = await checklistResponse.json();
             setChecklist(checklistData);
           }
 
-          // Fetch comments
           const commentsResponse = await fetch(`/api/tasks/${task.id}/comments`);
           if (commentsResponse.ok) {
             const commentsData = await commentsResponse.json();
@@ -143,7 +140,6 @@ export function TaskDialog({
     }
   }, [task?.id]);
 
-  // Reset form when dialog opens or task changes
   useEffect(() => {
     if (open) {
       if (task) {
@@ -286,13 +282,16 @@ export function TaskDialog({
       try {
         const response = await apiRequest("POST", `/api/tasks/${task.id}/comments`, {
           content: comment,
-          rawContent: comment, // Für einfache Kommentare setzen wir rawContent = content
+          rawContent: comment, 
           authorId: user.id,
           taskId: task.id
         });
 
         setComments([...comments, response]);
         setComment("");
+        queryClient.invalidateQueries({
+          queryKey: ['/api/tasks', task.id, 'comments'],
+        });
       } catch (error) {
         console.error("Error adding comment:", error);
         toast({
@@ -317,15 +316,14 @@ export function TaskDialog({
       };
 
       if (isEditing && task && onUpdate) {
-        // Wir erstellen ein Update-Objekt mit nur den Feldern, die wir aktualisieren wollen
         const updateData = {
           id: task.id,
           title: cleanedData.title,
           description: cleanedData.description,
           status: cleanedData.status,
           priority: cleanedData.priority,
-          columnId: cleanedData.columnId || task.columnId, // Behalte columnId bei, wenn nicht angegeben
-          boardId: task.boardId, // Behalte die ursprüngliche boardId
+          columnId: cleanedData.columnId || task.columnId, 
+          boardId: task.boardId, 
           labels: cleanedData.labels,
           assignedUserIds: cleanedData.assignedUserIds,
           assignedTeamId: cleanedData.assignedTeamId,
@@ -336,7 +334,6 @@ export function TaskDialog({
         await onUpdate(updateData);
         onClose();
       } else {
-        // Für neue Aufgaben muss columnId definiert sein
         if (!cleanedData.columnId) {
           throw new Error("Spalte muss ausgewählt werden");
         }
@@ -374,7 +371,6 @@ export function TaskDialog({
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-              {/* Title Field */}
               <FormField
                 control={form.control}
                 name="title"
@@ -389,7 +385,6 @@ export function TaskDialog({
                 )}
               />
 
-              {/* Description Field */}
               <FormField
                 control={form.control}
                 name="description"
@@ -408,7 +403,6 @@ export function TaskDialog({
                 )}
               />
 
-              {/* Status Field */}
               <FormField
                 control={form.control}
                 name="status"
@@ -436,7 +430,6 @@ export function TaskDialog({
                 )}
               />
 
-              {/* Priority Field */}
               <FormField
                 control={form.control}
                 name="priority"
@@ -463,7 +456,6 @@ export function TaskDialog({
                 )}
               />
 
-              {/* Due Date Field */}
               <FormField
                 control={form.control}
                 name="dueDate"
@@ -503,7 +495,6 @@ export function TaskDialog({
                 )}
               />
 
-              {/* Labels Section */}
               <div className="space-y-2">
                 <FormLabel>Labels</FormLabel>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -541,7 +532,6 @@ export function TaskDialog({
                 </div>
               </div>
 
-              {/* User Assignment Field - PLACEHOLDER */}
               <div className="space-y-2">
                 <FormLabel>Benutzer zuweisen</FormLabel>
                 <p className="text-sm text-muted-foreground">
@@ -549,7 +539,6 @@ export function TaskDialog({
                 </p>
               </div>
 
-              {/* Checklist Section - Only visible when editing */}
               {isEditing && (
                 <div className="space-y-2">
                   <FormLabel>Checkliste</FormLabel>
@@ -598,7 +587,6 @@ export function TaskDialog({
                 </div>
               )}
 
-              {/* Comments Section - Only visible when editing */}
               {isEditing && (
                 <div className="space-y-2">
                   <FormLabel>Kommentare</FormLabel>
@@ -660,7 +648,6 @@ export function TaskDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
