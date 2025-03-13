@@ -1,36 +1,37 @@
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { type Task } from "@shared/schema";
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Edit2, MessageSquare } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Task } from "@shared/schema";
+import { Form, FormField, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { updateTaskSchema } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChecklistCard } from "@/components/board/checklist-card";
 import { CommentList } from "@/components/comments/comment-list";
-import { useStore } from "@/lib/store";
-import { Calendar as CalendarIcon, Edit2, MessageSquare, Plus, User } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import {ChecklistCard} from "@/components/board/checklist-card";
 import { EmojiPicker } from "./emoji-picker";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Calendar as CalendarIcon, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useStore } from "@/lib/store";
+
 
 interface TaskDialogProps {
   task?: Task | null;
   open: boolean;
-  onClose: (isOpen?: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: (isOpen?: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
 }
@@ -49,103 +50,52 @@ const priorityLabels: Record<string, string> = {
   'high': 'Hoch'
 };
 
-export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
-  const queryClient = useQueryClient();
+export function TaskDialog({ 
+  task, 
+  open, 
+  onOpenChange, 
+  onClose,
+  onUpdate,
+  onDelete 
+}: TaskDialogProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
-  const [task, setTask] = useState<Task | null>(initialTask || null);
 
-  useEffect(() => {
-    if (initialTask) {
-      setTask(initialTask);
-    } else if (!open) {
-      setTask(null);
-    }
-  }, [open, initialTask]);
-
-  const form = useForm({
-    resolver: zodResolver(updateTaskSchema),
-    defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: task?.priority || "medium",
-      labels: task?.labels || [],
-      boardId: task?.boardId || currentBoard?.id || 0,
-      columnId: task?.columnId || 0,
-      order: task?.order || 0,
-      dueDate: task?.dueDate || null,
-      icon: task?.icon || null, // Added icon to defaultValues
-    },
-  });
-
-  const handleSubmit = async (data: any) => {
-    try {
-      let response;
-      if (task) {
-        response = await apiRequest("PATCH", `/api/tasks/${task.id}`, data);
-      } else {
-        response = await apiRequest("POST", `/api/boards/${currentBoard?.id}/tasks`, data);
-      }
-
-      if (!response.ok) {
-        throw new Error(task ? "Failed to update task" : "Failed to create task");
-      }
-
-      const updatedTask = await response.json();
-      await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      await queryClient.invalidateQueries({
-        queryKey: [`/api/boards/${task?.boardId || currentBoard?.id}/tasks`]
-      });
-
-      if (onUpdate) {
-        await onUpdate(updatedTask);
-      }
-
-      setIsEditing(false);
-      toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
-      onClose(false);
-    } catch (error) {
-      console.error("Task operation error:", error);
-      toast({
-        title: "Fehler",
-        description: task ? "Die Aufgabe konnte nicht aktualisiert werden" : "Die Aufgabe konnte nicht erstellt werden",
-        variant: "destructive",
-      });
-    }
-  };
+  if (!task) return null;
 
   const handleDelete = async () => {
     if (!task || !onDelete) return;
 
     try {
       await onDelete(task.id);
-      onClose(false);
+      if (onClose) {
+        onClose(false);
+      } else if (onOpenChange) {
+        onOpenChange(false);
+      }
+      toast({
+        title: "Aufgabe gelöscht",
+        description: "Die Aufgabe wurde erfolgreich gelöscht.",
+      });
     } catch (error) {
       console.error("Task delete error:", error);
       toast({
-        title: "Fehler",
-        description: "Die Aufgabe konnte nicht gelöscht werden",
+        title: "Löschen fehlgeschlagen",
         variant: "destructive",
       });
     }
   };
 
-  const updateTask = async (updateData: Task) => {
-    if (!task || !task.id) return;
+  const updateTask = async (updatedTask: Task) => {
+    if (!onUpdate) return;
 
     try {
-      if (onUpdate) {
-        // Verhindere, dass der Dialog geschlossen wird während des Updates
-        await onUpdate(updateData);
-
-        // Wichtig: KEIN onClose aufrufen nach der Aktualisierung!
-        toast({
-          title: "Aufgabe aktualisiert",
-          description: "Die Änderungen wurden erfolgreich gespeichert.",
-        });
-      }
+      await onUpdate(updatedTask);
+      toast({
+        title: "Aufgabe aktualisiert",
+        description: "Die Änderungen wurden erfolgreich gespeichert.",
+      });
     } catch (error) {
       console.error("Task update error:", error);
       toast({
@@ -159,13 +109,14 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
     e.stopPropagation();
   };
 
-  // Funktion, die verhindert, dass der Dialog bei bestimmten Updates geschlossen wird
   const handleOpenChange = (isOpen: boolean) => {
-    // Wenn der Benutzer den Dialog explizit schließt, rufen wir onClose auf
     if (!isOpen) {
-      onClose(isOpen);
+      if (onClose) {
+        onClose(isOpen);
+      } else if (onOpenChange) {
+        onOpenChange(isOpen);
+      }
     }
-    // Andernfalls ignorieren wir den Versuch, den Zustand zu ändern
   };
 
   return (
@@ -187,66 +138,28 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
               </Button>
             </DialogHeader>
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-sm font-medium mb-1">Status</div>
-                    <Badge variant="outline" className="capitalize">
-                      {statusLabels[task.status]}
-                    </Badge>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-sm font-medium mb-1">Priorität</div>
-                    <Badge variant="outline" className="capitalize">
-                      {priorityLabels[task.priority]}
-                    </Badge>
-                  </CardContent>
-                </Card>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium">Description</h3>
+                <p className="text-sm text-muted-foreground mt-1">{task.description || "No description provided."}</p>
               </div>
 
-              {task.description && (
+              {task.dueDate && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Beschreibung</h4>
-                  <p className="text-sm text-muted-foreground">{task.description}</p>
+                  <h3 className="text-sm font-medium">Due Date</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
+                  </p>
                 </div>
               )}
 
-              <div className="flex items-center justify-between">
-                {task.dueDate && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>Fällig am {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}</span>
-                  </div>
-                )}
-                {task.assignedUserId && (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback>
-                        <User className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">Zugewiesen an</span>
-                  </div>
-                )}
-              </div>
-
-              {task.labels && task.labels.length > 0 && (
+              {task.priority && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Labels</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {task.labels.map((label, i) => (
-                      <Badge key={i} variant="secondary">
-                        {label}
-                      </Badge>
-                    ))}
-                  </div>
+                  <h3 className="text-sm font-medium">Priority</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{priorityLabels[task.priority]}</p>
                 </div>
               )}
 
-              {/* Checklist */}
               {task && task.id && (
                 <div 
                   onClick={(e) => {
@@ -257,10 +170,7 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
                 >
                   <ChecklistCard
                     task={task}
-                    onUpdate={(updatedTask) => {
-                      // Stille Aktualisierung ohne Dialog-Schließung
-                      updateTask(updatedTask);
-                    }}
+                    onUpdate={updateTask}
                   />
                 </div>
               )}
@@ -274,29 +184,41 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
                 </h4>
                 <CommentList taskId={task.id} />
               </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => {
+                  if (onClose) {
+                    onClose(false);
+                  } else if (onOpenChange) {
+                    onOpenChange(false);
+                  }
+                }}>
+                  Close
+                </Button>
+              </div>
             </div>
           </>
         ) : (
-          <Form {...form}>
+          <Form>
             <DialogHeader>
               <DialogTitle>
                 {task ? "Aufgabe bearbeiten" : "Neue Aufgabe erstellen"}
               </DialogTitle>
             </DialogHeader>
 
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              setIsEditing(false);
+              // Add form submission logic here if needed
+            }} 
+            className="space-y-4">
               <div className="flex items-center gap-2">
-                <EmojiPicker
-                  onEmojiSelect={(emoji) => {
-                    form.setValue("icon", emoji);
-                  }}
-                  currentEmoji={form.getValues("icon")}
-                />
+                <EmojiPicker />
                 <FormField
-                  control={form.control}
+                  control={{}}
                   name="title"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem>
                       <FormLabel>Titel</FormLabel>
                       <FormControl>
                         <Input {...field} />
@@ -307,26 +229,21 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
                 />
               </div>
               <FormField
-                control={form.control}
+                control={{}}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Beschreibung</FormLabel>
                     <FormControl>
-                      <Textarea
-                        className="min-h-[100px]"
-                        {...field}
-                        value={field.value || ""}
-                      />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <div className="grid grid-cols-2 gap-4">
                 <FormField
-                  control={form.control}
+                  control={{}}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
@@ -352,9 +269,8 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
                     </FormItem>
                   )}
                 />
-
                 <FormField
-                  control={form.control}
+                  control={{}}
                   name="priority"
                   render={({ field }) => (
                     <FormItem>
@@ -381,63 +297,25 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
                   )}
                 />
               </div>
-
               <FormField
-                control={form.control}
+                control={{}}
                 name="dueDate"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Fälligkeitsdatum</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={`w-full justify-start text-left font-normal ${
-                              !field.value && "text-muted-foreground"
-                            }`}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? (
-                              format(new Date(field.value), "PPP", { locale: de })
-                            ) : (
-                              <span>Datum auswählen</span>
-                            )}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Calendar/>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
-                control={form.control}
+                control={{}}
                 name="labels"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Labels (durch Komma getrennt)</FormLabel>
                     <FormControl>
-                      <Input
-                        value={field.value?.join(", ") || ""}
-                        onChange={(e) => {
-                          const labels = e.target.value
-                            .split(",")
-                            .map((label) => label.trim())
-                            .filter(Boolean);
-                          field.onChange(labels);
-                        }}
-                        placeholder="bug, feature, UI"
-                      />
+                      <Input {...field} placeholder="bug, feature, UI" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -470,191 +348,6 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
             </form>
           </Form>
         )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-import React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Task } from "@shared/schema";
-
-interface TaskDialogProps {
-  task: Task | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function TaskDialog({ task, open, onOpenChange }: TaskDialogProps) {
-  if (!task) return null;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>{task.title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 mt-4">
-          <div>
-            <h3 className="font-medium">Description</h3>
-            <p className="text-sm text-muted-foreground">{task.description || "No description provided."}</p>
-          </div>
-          
-          {task.dueDate && (
-            <div>
-              <h3 className="font-medium">Due Date</h3>
-              <p className="text-sm text-muted-foreground">
-                {new Date(task.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-          )}
-          
-          <div>
-            <h3 className="font-medium">Priority</h3>
-            <p className="text-sm text-muted-foreground">{task.priority || "None"}</p>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-import React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
-
-interface TaskDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (taskData: { title: string; description: string }) => void;
-  initialData?: {
-    title: string;
-    description: string;
-  };
-  mode: "add" | "edit";
-}
-
-export default function TaskDialog({
-  isOpen,
-  onClose,
-  onSave,
-  initialData = { title: "", description: "" },
-  mode,
-}: TaskDialogProps) {
-  const [title, setTitle] = useState(initialData.title);
-  const [description, setDescription] = useState(initialData.description);
-
-  const handleSave = () => {
-    if (!title.trim()) return;
-    
-    onSave({
-      title: title.trim(),
-      description: description.trim(),
-    });
-    
-    onClose();
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "add" ? "Add New Task" : "Edit Task"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right">
-              Title
-            </Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="col-span-3"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="col-span-3"
-              rows={3}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="submit" onClick={handleSave}>
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-import React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Task } from "@shared/schema";
-
-interface TaskDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  task: Task | null;
-}
-
-export function TaskDialog({ isOpen, onClose, task }: TaskDialogProps) {
-  if (!task) return null;
-
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{task.title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-medium">Description</h3>
-            <p className="text-sm text-muted-foreground mt-1">{task.description || "No description provided."}</p>
-          </div>
-          
-          {task.dueDate && (
-            <div>
-              <h3 className="text-sm font-medium">Due Date</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {new Date(task.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-          )}
-          
-          {task.priority && (
-            <div>
-              <h3 className="text-sm font-medium">Priority</h3>
-              <p className="text-sm text-muted-foreground mt-1">{task.priority}</p>
-            </div>
-          )}
-        </div>
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-        </div>
       </DialogContent>
     </Dialog>
   );
