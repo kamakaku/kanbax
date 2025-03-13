@@ -132,21 +132,14 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                   </div>
                 )}
 
-                {/* Task Description */}
-                {task.description && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {task.description.substring(0, 50)}
-                    {task.description.length > 50 ? "..." : ""}
-                  </p>
-                )}
-
+                {/* Checklist Progress */}
                 {task._hasChecklist && totalCount > 0 && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1">
                         <CheckSquare className="h-3 w-3" />
                         <span className="text-xs text-muted-foreground">
-                          {completedCount} von {totalCount} ({percentage}%)
+                          {completedCount} von {totalCount}
                         </span>
                       </div>
                     </div>
@@ -155,7 +148,7 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                 )}
 
                 {/* Footer Info */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
                   <div className="flex items-center gap-2">
                     {/* User Avatar */}
                     {task.assignedUserId && (
@@ -186,9 +179,9 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
       </Draggable>
 
       <TaskDialog
+        task={task}
         open={isTaskDialogOpen}
         onClose={() => setIsTaskDialogOpen(false)}
-        task={task}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
       />
