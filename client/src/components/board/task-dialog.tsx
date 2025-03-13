@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/auth"; // Import useAuth hook
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -69,6 +70,7 @@ const FormSchema = z.object({
 });
 
 interface TaskDialogProps {
+  mode?: "create" | "edit"; // Added mode prop
   task?: Task;
   open: boolean;
   onClose: () => void;
@@ -77,12 +79,14 @@ interface TaskDialogProps {
 }
 
 export function TaskDialog({
+  mode = "edit",
   task,
   open,
   onClose,
   onUpdate,
   onDelete,
 }: TaskDialogProps) {
+  const { user } = useAuth(); // Get user object from useAuth hook
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -278,10 +282,13 @@ export function TaskDialog({
   };
 
   const addComment = async () => {
-    if (comment.trim() && task?.id) {
+    if (comment.trim() && task?.id && user?.id) {
       try {
         const response = await apiRequest("POST", `/api/tasks/${task.id}/comments`, {
-          data: { content: comment }
+          content: comment,
+          rawContent: comment, // Für einfache Kommentare setzen wir rawContent = content
+          authorId: user.id,
+          taskId: task.id
         });
 
         setComments([...comments, response]);
