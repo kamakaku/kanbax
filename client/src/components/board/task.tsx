@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type Task as TaskType, ChecklistItem } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
 import { TaskDialog } from "./task-dialog";
+import { useQuery } from "@tanstack/react-query";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -66,9 +67,23 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
     return labelColors[normalizedLabel] || labelColors.default;
   };
 
-  //Checklist Progress Calculation
-  const completedCount = task.checklist?.filter((item: ChecklistItem) => item.completed).length || 0;
-  const totalCount = task.checklist?.length || 0;
+  // Checklist-Daten vom Server laden
+  const { data: checklistItems = [] } = useQuery<ChecklistItem[]>({
+    queryKey: ['/api/tasks', task.id, 'checklist'],
+    queryFn: async () => {
+      if (!task._hasChecklist) return [];
+      const res = await fetch(`/api/tasks/${task.id}/checklist`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch checklist items');
+      }
+      return res.json();
+    },
+    enabled: !!task._hasChecklist,
+  });
+
+  // Checklist Progress Calculation
+  const completedCount = checklistItems.filter(item => item.completed).length;
+  const totalCount = checklistItems.length;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
 
@@ -128,10 +143,13 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
 
                   {task._hasChecklist && totalCount > 0 && (
                     <div className="mt-2">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-muted-foreground">
-                          {completedCount} von {totalCount} ({percentage}%)
-                        </span>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1">
+                          <CheckSquare className="h-3 w-3" />
+                          <span className="text-xs text-muted-foreground">
+                            {completedCount} von {totalCount} ({percentage}%)
+                          </span>
+                        </div>
                       </div>
                       <Progress value={percentage} className="h-1.5" />
                     </div>
