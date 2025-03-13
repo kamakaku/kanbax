@@ -146,8 +146,10 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
     }
   }, [task, open, form, currentBoard, isEditMode, defaultStatus]);
 
-  const handleSubmit = async (values: any) => {
+  const onSubmit = async (values: any) => {
     try {
+      console.log("Form submitted with values:", values);
+
       if (!currentBoard?.id) {
         throw new Error("Kein aktives Board ausgewählt");
       }
@@ -162,7 +164,7 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
         assignedUserIds: selectedUserIds,
       };
 
-      console.log("Submitting task:", payload);
+      console.log("Submitting task with payload:", payload);
 
       const response = await apiRequest(method, endpoint, payload);
 
@@ -172,6 +174,7 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
       }
 
       const updatedTask = await response.json();
+      console.log("Task created/updated successfully:", updatedTask);
 
       // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
@@ -207,7 +210,7 @@ export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "tod
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Title Field */}
             <FormField
               control={form.control}
