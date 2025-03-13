@@ -10,9 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/lib/auth-store"; // Korrigiert von @/hooks/auth zu @/lib/auth-store
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { UserIcon } from "lucide-react";
+import { useAuth } from "@/lib/auth-store";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -56,6 +54,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { UserIcon } from "lucide-react";
+import { CommentList } from "@/components/comments/comment-list";
 
 const FormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
@@ -301,7 +302,7 @@ export function TaskDialog({
         }
 
         setComment("");
-        
+
       } catch (error) {
         console.error("Error adding comment:", error);
         toast({
@@ -598,66 +599,12 @@ export function TaskDialog({
               )}
 
               {isEditing && (
-                <div className="space-y-2">
+                <FormItem>
                   <FormLabel>Kommentare</FormLabel>
-                  <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                    {comments.length > 0 ? (
-                      comments.map((comment) => {
-                        // Benutzerinformationen abrufen
-                        const userId = comment.authorId || comment.userId;
-                        const { data: author } = useQuery({
-                          queryKey: [`/api/users/${userId}`],
-                          queryFn: async () => {
-                            if (!userId) return null;
-                            const res = await fetch(`/api/users/${userId}`);
-                            if (!res.ok) return null;
-                            return res.json();
-                          },
-                          enabled: !!userId
-                        });
-
-                        return (
-                          <div 
-                            key={comment.id || `comment-${Date.now()}-${Math.random()}`} 
-                            className="text-sm border-b pb-2 last:border-0"
-                          >
-                            <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                              <div className="flex items-center gap-1">
-                                {author && (
-                                  <>
-                                    <Avatar className="h-5 w-5">
-                                      <AvatarImage src={author.avatarUrl} alt={author.username} />
-                                      <AvatarFallback>{author.username?.charAt(0) || "U"}</AvatarFallback>
-                                    </Avatar>
-                                    <span>{author.username || `Benutzer #${userId}`}</span>
-                                  </>
-                                )}
-                                {!author && <span>Benutzer #{userId}</span>}
-                              </div>
-                              <span>
-                                {comment.createdAt ? format(new Date(comment.createdAt), "dd.MM.yyyy, HH:mm", { locale: de }) : "Gerade eben"}
-                              </span>
-                            </div>
-                            <div dangerouslySetInnerHTML={{ __html: comment.content }} />
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-sm text-muted-foreground">Keine Kommentare vorhanden.</div>
-                    )}
+                  <div className="border rounded-md p-2">
+                    <CommentList taskId={task.id} />
                   </div>
-                  <div className="flex gap-2">
-                    <Textarea
-                      placeholder="Kommentar hinzufügen"
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      className="min-h-20"
-                    />
-                  </div>
-                  <Button type="button" onClick={addComment} size="sm" className="w-full">
-                    Kommentar hinzufügen
-                  </Button>
-                </div>
+                </FormItem>
               )}
 
               <DialogFooter className="flex justify-between items-center">
