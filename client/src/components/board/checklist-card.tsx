@@ -148,9 +148,18 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
     }
   });
 
-  // Handler für das Umschalten des Completed-Status
+  // Handler für das Umschalten des Completed-Status mit optimistischem UI-Update
   const handleToggleItem = (item: ChecklistItem, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Optimistisches UI-Update (sofortige Anzeige)
+    setItems(prevItems => 
+      prevItems.map(i => 
+        i.id === item.id ? { ...i, completed: !i.completed } : i
+      )
+    );
+    
+    // Server-Update im Hintergrund
     toggleItemMutation.mutate(item);
   };
 
