@@ -59,6 +59,7 @@ export const columns = pgTable("columns", {
   order: integer("order").notNull(),
 });
 
+// Update tasks table
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -69,8 +70,9 @@ export const tasks = pgTable("tasks", {
   columnId: integer("column_id").notNull(),
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
+  icon: text("icon"), // Add new icon field
   dueDate: timestamp("due_date"),
-  checklist: text("checklist").array(), // Array of JSON strings
+  checklist: text("checklist").array(),
   archived: boolean("archived").default(false),
   assignedUserId: integer("assigned_user_id"),
   assignedTeamId: integer("assigned_team_id"),
@@ -157,6 +159,7 @@ export const insertColumnSchema = createInsertSchema(columns)
     boardId: z.number().int().positive("Board ID is required"),
   });
 
+// Update insert task schema
 export const insertTaskSchema = createInsertSchema(tasks)
   .pick({
     title: true,
@@ -167,6 +170,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: true,
     priority: true,
     labels: true,
+    icon: true, // Add icon to schema
     dueDate: true,
     checklist: true,
     archived: true,
@@ -180,6 +184,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: z.number().int(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
+    icon: z.string().optional(), // Add icon validation
     dueDate: z.string().nullable().optional(),
     checklist: z.array(checklistItemSchema).default([]),
     archived: z.boolean().default(false),

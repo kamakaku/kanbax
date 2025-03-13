@@ -25,6 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {ChecklistCard} from "@/components/board/checklist-card";
+import { EmojiPicker } from "./emoji-picker";
 
 interface TaskDialogProps {
   task?: Task | null;
@@ -75,7 +76,7 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
       columnId: task?.columnId || 0,
       order: task?.order || 0,
       dueDate: task?.dueDate || null,
-      // checklist: task?.checklist || [], // Removed checklist from defaultValues
+      icon: task?.icon || null, // Added icon to defaultValues
     },
   });
 
@@ -284,20 +285,27 @@ export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelet
             </DialogHeader>
 
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Titel</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+              <div className="flex items-center gap-2">
+                <EmojiPicker
+                  onEmojiSelect={(emoji) => {
+                    form.setValue("icon", emoji);
+                  }}
+                  currentEmoji={form.getValues("icon")}
+                />
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Titel</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
                 control={form.control}
                 name="description"
