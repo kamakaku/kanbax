@@ -50,9 +50,16 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const { currentBoard } = useStore();
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>(task?.assignedUserIds || []);
 
-  // Fetch users for assignment
+  // Updated users query
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) {
+        throw new Error("Failed to fetch users");
+      }
+      return res.json();
+    },
     enabled: open // Only fetch when dialog is open
   });
 
@@ -94,10 +101,10 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const updateTask = useMutation({
     mutationFn: async () => {
       const values = form.getValues();
-      
+
       // Update form with selected user IDs
       values.assignedUserIds = selectedUserIds;
-      
+
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
         ...values,
         dueDate: values.dueDate ? values.dueDate.toISOString() : null,
@@ -111,11 +118,11 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     },
     onSuccess: async (updatedTask) => {
       await queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
-      
+
       if (onUpdate) {
         await onUpdate(updatedTask);
       }
-      
+
       toast({ title: "Aufgabe erfolgreich aktualisiert" });
       setIsEditing(false);
     },
