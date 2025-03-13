@@ -414,34 +414,46 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
               />
 
               {/* Assigned Users section */}
-              <div className="space-y-2">
-                <FormLabel>Zugewiesene Benutzer</FormLabel>
-                <div className="flex flex-wrap gap-2">
-                  {users.map((user) => (
-                    <Button
-                      key={user.id}
-                      type="button"
-                      variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
-                      className="flex items-center gap-2"
-                      onClick={() => {
-                        setSelectedUserIds(prev =>
-                          prev.includes(user.id)
-                            ? prev.filter(id => id !== user.id)
-                            : [...prev, user.id]
-                        );
-                      }}
-                    >
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={user.avatarUrl || ''} />
-                        <AvatarFallback>
-                          {user.username.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{user.username}</span>
-                    </Button>
-                  ))}
+              {isEditing && (
+                <div className="space-y-2">
+                  <FormLabel>Zugewiesene Benutzer</FormLabel>
+                  {isLoadingUsers ? (
+                    <div className="text-sm text-muted-foreground">
+                      Lade Benutzer...
+                    </div>
+                  ) : users && users.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {users.map((user) => (
+                        <Button
+                          key={user.id}
+                          type="button"
+                          variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
+                          className="flex items-center gap-2"
+                          onClick={() => {
+                            setSelectedUserIds(prev =>
+                              prev.includes(user.id)
+                                ? prev.filter(id => id !== user.id)
+                                : [...prev, user.id]
+                            );
+                          }}
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={user.avatarUrl || ''} />
+                            <AvatarFallback>
+                              {user.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{user.username}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Keine Benutzer verfügbar.
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-between gap-2">
                 {task && onDelete && (
