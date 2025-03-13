@@ -101,18 +101,27 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const updateTask = useMutation({
     mutationFn: async (values: any) => {
       try {
-        // Validate date and create payload
+        let dueDateString = null;
+        if (values.dueDate) {
+          // Konvertiere das Datum in das Format YYYY-MM-DD
+          const date = new Date(values.dueDate);
+          dueDateString = format(date, "yyyy-MM-dd");
+        }
+
         const payload = {
           ...values,
-          dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
+          dueDate: dueDateString,
           assignedUserIds: selectedUserIds
         };
 
         console.log('Updating task with payload:', payload);
 
         const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
-        const data = await response.json();
-        return data;
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Failed to update task");
+        }
+        return response.json();
       } catch (error) {
         console.error('Error in mutation:', error);
         throw error;
