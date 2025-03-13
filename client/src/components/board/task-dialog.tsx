@@ -162,7 +162,8 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: boardId,
         columnId: values.columnId || 0,
         order: values.order || 0,
-        dueDate: values.dueDate ? format(values.dueDate, "yyyy-MM-dd") : null,
+        // Convert the date to ISO string if it exists
+        dueDate: values.dueDate ? values.dueDate.toISOString().split('T')[0] : null,
         assignedUserIds: selectedUserIds,
       };
 
