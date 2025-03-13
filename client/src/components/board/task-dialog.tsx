@@ -91,7 +91,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
     enabled: open,
   });
 
-  // Get available labels from all existing tasks
   const { data: allTasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/boards", currentBoard?.id, "tasks"],
     queryFn: async () => {
@@ -105,7 +104,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
     enabled: !!currentBoard?.id && open,
   });
 
-  // Extract unique labels from all tasks
   const availableLabels = Array.from(
     new Set(allTasks.flatMap((t) => t.labels || []))
   );
@@ -147,7 +145,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
 
   const handleSubmit = async (values: any) => {
     try {
-      // Ensure we have a valid boardId
       const boardId = values.boardId || currentBoard?.id;
 
       if (!boardId) {
@@ -157,7 +154,13 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
 
-      // Create the payload with assigned users
+      let formattedDate = null;
+      if (values.dueDate) {
+        // Convert to Date object if it's a string
+        const dateObj = typeof values.dueDate === 'string' ? new Date(values.dueDate) : values.dueDate;
+        formattedDate = format(dateObj, 'yyyy-MM-dd');
+      }
+
       const payload = {
         title: values.title,
         description: values.description || "",
@@ -167,14 +170,12 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: boardId,
         columnId: values.columnId || 0,
         order: values.order || 0,
-        // Ensure the date is properly formatted as YYYY-MM-DD
-        dueDate: values.dueDate instanceof Date ? format(values.dueDate, "yyyy-MM-dd") : null,
+        dueDate: formattedDate,
         assignedUserIds: selectedUserIds,
       };
 
       console.log("Submitting task with payload:", payload);
 
-      // Send the request
       const response = await apiRequest(method, endpoint, payload);
 
       if (!response.ok) {
@@ -185,7 +186,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
 
       const updatedTask = await response.json();
 
-      // Update queries
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
 
       if (onUpdate) {
@@ -435,10 +435,11 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={field.value}
-                        onSelect={(date) => {
-                          field.onChange(date);
-                        }}
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
                         initialFocus
                       />
                     </PopoverContent>
