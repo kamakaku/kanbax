@@ -189,28 +189,36 @@ export function TaskDialog({
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
+      // Bereinige die Daten vor dem Senden
+      const cleanedData = {
+        ...data,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        // Wenn assignedTeamId nicht definiert oder 0 ist, setze es auf null
+        assignedTeamId: data.assignedTeamId && data.assignedTeamId > 0 ? data.assignedTeamId : null,
+      };
+
       if (isEditing && task && onUpdate) {
         const updatedTask: Task = {
           id: task.id,
           boardId: task.boardId,
-          title: data.title,
-          description: data.description || "",
-          status: data.status,
-          priority: data.priority,
-          columnId: data.columnId,
-          order: data.order,
-          labels: data.labels || [],
-          assignedUserIds: data.assignedUserIds || [],
-          assignedTeamId: task.assignedTeamId, // Keep existing assignedTeamId
+          title: cleanedData.title,
+          description: cleanedData.description || "",
+          status: cleanedData.status,
+          priority: cleanedData.priority,
+          columnId: cleanedData.columnId,
+          order: cleanedData.order,
+          labels: cleanedData.labels || [],
+          assignedUserIds: cleanedData.assignedUserIds || [],
+          assignedTeamId: cleanedData.assignedTeamId, 
           assignedAt: task.assignedAt || null,
-          dueDate: data.dueDate,
-          archived: data.archived,
+          dueDate: cleanedData.dueDate,
+          archived: cleanedData.archived,
           checklist: task.checklist || []
         };
         await onUpdate(updatedTask);
         onClose();
       } else {
-        await createTask.mutateAsync(data);
+        await createTask.mutateAsync(cleanedData);
       }
     } catch (error) {
       console.error("Form submission error:", error);
