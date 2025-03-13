@@ -18,17 +18,17 @@ interface TaskProps {
 }
 
 const priorityColors = {
-  low: "border-t-blue-400",
-  medium: "border-t-orange-400",
-  high: "border-t-red-400"
+  low: "border-l-blue-400",
+  medium: "border-l-orange-400",
+  high: "border-l-red-400"
 } as const;
 
 const labelColors: Record<string, { bg: string, text: string }> = {
-  bug: { bg: "bg-red-100", text: "text-red-700" },
-  feature: { bg: "bg-green-100", text: "text-green-700" },
-  ui: { bg: "bg-purple-100", text: "text-purple-700" },
-  docs: { bg: "bg-blue-100", text: "text-blue-700" },
-  default: { bg: "bg-gray-100", text: "text-gray-700" }
+  bug: { bg: "bg-red-50", text: "text-red-700" },
+  feature: { bg: "bg-emerald-50", text: "text-emerald-700" },
+  ui: { bg: "bg-violet-50", text: "text-violet-700" },
+  docs: { bg: "bg-blue-50", text: "text-blue-700" },
+  default: { bg: "bg-slate-50", text: "text-slate-700" }
 };
 
 export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps) {
@@ -103,11 +103,11 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
             }}
           >
             <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 
-              border-t-2 border-slate-200 ${priorityColors[task.priority]} ${
+              border-l-2 ${priorityColors[task.priority]} ${
               snapshot.isDragging ? "shadow-lg ring-1 ring-primary/20" : ""
             }`}>
               <CardContent className="p-3">
-                <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h3>
+                <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
 
                 {/* Labels */}
                 {task.labels && task.labels.length > 0 && (
@@ -118,7 +118,7 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                         <Badge
                           key={i}
                           variant="secondary"
-                          className={`px-1.5 py-0.5 text-[10px] ${color.bg} ${color.text} hover:${color.bg}`}
+                          className={`px-1.5 py-0.5 text-[10px] ${color.bg} ${color.text} border-none`}
                         >
                           {label}
                         </Badge>
@@ -127,14 +127,14 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                   </div>
                 )}
 
-                {/* Checklist Progress Bar - Simplified */}
+                {/* Checklist Progress Bar */}
                 {checklistItems.length > 0 && (
                   <div className="mt-2 mb-3">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <Progress value={percentage} className="h-1.5" />
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-slate-500 whitespace-nowrap">
                         {percentage}%
                       </span>
                     </div>
@@ -142,26 +142,28 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                 )}
 
                 {/* Footer Info */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center justify-between text-xs text-slate-500">
                   <div className="flex items-center gap-2">
                     {/* User Avatar */}
                     {task.assignedUserId && (
                       <Avatar className="h-5 w-5">
-                        <AvatarFallback className="text-[10px]">
+                        <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
                           <User className="h-3 w-3" />
                         </AvatarFallback>
                       </Avatar>
                     )}
 
                     {/* Comment Count */}
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" />
-                      <span>{comments.length}</span>
-                    </div>
+                    {comments.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <MessageSquare className="h-3 w-3" />
+                        <span>{comments.length}</span>
+                      </div>
+                    )}
                   </div>
 
                   {showBoardTitle && task.boardTitle && (
-                    <span className="text-[10px] font-medium text-primary/80">
+                    <span className="text-[10px] font-medium text-slate-600">
                       {task.boardTitle}
                     </span>
                   )}
