@@ -98,7 +98,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const handleSubmit = async (values: any) => {
     try {
       const method = task ? "PATCH" : "POST";
-      const endpoint = task ? `/api/tasks/${task.id}` : "/api/tasks";
+      const endpoint = task ? `/api/tasks/${task.id}` : `/boards/${values.boardId}/tasks`; // Corrected endpoint for new tasks
 
       // Prepare the payload
       const payload = {
@@ -107,7 +107,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
         status: values.status,
         priority: values.priority,
         labels: values.labels || [],
-        boardId: currentBoard?.id,
+        boardId: values.boardId, // Use values.boardId for new tasks
         columnId: values.columnId || 0,
         order: values.order || 0,
         dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
