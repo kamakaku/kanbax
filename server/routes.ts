@@ -95,7 +95,17 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Add this route after the authentication routes
+  // Add new route to get all users
+  app.get("/api/users", async (_req, res) => {
+    try {
+      const users = await storage.getUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
   app.get("/api/users/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {

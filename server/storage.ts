@@ -65,6 +65,8 @@ export interface IStorage {
   updateUser(id: number, data: Partial<User>): Promise<User>;
   updateUserPassword(id: number, passwordHash: string): Promise<void>;
   updateUserEmail(id: number, email: string): Promise<User>;
+  // Add new method to get all users
+  getUsers(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -570,6 +572,15 @@ export class DatabaseStorage implements IStorage {
     }
 
     return user;
+  }
+  // Add implementation of getUsers
+  async getUsers(): Promise<User[]> {
+    const allUsers = await db.select().from(users);
+    // Remove password hashes from response
+    return allUsers.map(user => {
+      const { passwordHash: _, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
   }
 }
 
