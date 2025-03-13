@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
-import { type Task, type User } from "@shared/schema";
+import { type Task, type User, insertTaskSchema } from "@shared/schema";
 import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import { BoardContext } from "@/context/board-context";
