@@ -24,7 +24,8 @@ const taskFormSchema = z.object({
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 export function TaskDialog() {
-  const [boardId] = useParams();
+  const params = useParams();
+  const boardId = params.id; // Nehme an, dass die ID im Route-Parameter "id" ist
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const form = useForm<TaskFormValues>({
