@@ -71,11 +71,25 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) {
+        throw new Error("Failed to fetch users");
+      }
+      return res.json();
+    },
     enabled: open,
   });
 
   const { data: boards = [] } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
+    queryFn: async () => {
+      const res = await fetch("/api/boards");
+      if (!res.ok) {
+        throw new Error("Failed to fetch boards");
+      }
+      return res.json();
+    },
     enabled: open,
   });
 
@@ -140,7 +154,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
 
-      // Create the payload
+      // Create the payload with assigned users
       const payload = {
         title: values.title,
         description: values.description || "",
@@ -151,7 +165,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         columnId: values.columnId || 0,
         order: values.order || 0,
         dueDate: values.dueDate ? format(new Date(values.dueDate), "yyyy-MM-dd") : null,
-        assignedUserIds: selectedUserIds,
+        assignedUserIds: selectedUserIds, // Make sure this is included in the payload
       };
 
       console.log("Submitting task with payload:", payload);
