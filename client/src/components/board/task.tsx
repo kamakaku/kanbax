@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { type Task as TaskType, ChecklistItem } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Draggable } from "react-beautiful-dnd";
-import { TaskDialog } from "./task-dialog";
+import { TaskDialog } from "./task-dialog"; // Added import statement
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ interface TaskProps {
   task: TaskType & { boardTitle?: string };
   index: number;
   showBoardTitle?: boolean;
+  onClick?: () => void; // Added onClick prop
 }
 
 const priorityColors = {
@@ -30,7 +31,7 @@ const labelColors: Record<string, { bg: string, text: string }> = {
   default: { bg: "bg-gray-100", text: "text-gray-700" }
 };
 
-export function Task({ task, index, showBoardTitle = false }: TaskProps) {
+export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps) { // Added onClick prop
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -98,7 +99,7 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             ref={provided.innerRef}
-            onClick={() => setIsTaskDialogOpen(true)} // Directly opens the dialog on click
+            onClick={onClick || (() => setIsTaskDialogOpen(true))} // Use onClick prop or default behavior
           >
             <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 
               border-t-2 border-slate-200 ${priorityColors[task.priority || "medium"]} ${

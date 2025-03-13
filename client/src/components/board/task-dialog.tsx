@@ -610,3 +610,52 @@ export default function TaskDialog({
     </Dialog>
   );
 }
+import React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Task } from "@shared/schema";
+
+interface TaskDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: Task | null;
+}
+
+export function TaskDialog({ isOpen, onClose, task }: TaskDialogProps) {
+  if (!task) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{task.title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-medium">Description</h3>
+            <p className="text-sm text-muted-foreground mt-1">{task.description || "No description provided."}</p>
+          </div>
+          
+          {task.dueDate && (
+            <div>
+              <h3 className="text-sm font-medium">Due Date</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {new Date(task.dueDate).toLocaleDateString()}
+              </p>
+            </div>
+          )}
+          
+          {task.priority && (
+            <div>
+              <h3 className="text-sm font-medium">Priority</h3>
+              <p className="text-sm text-muted-foreground mt-1">{task.priority}</p>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

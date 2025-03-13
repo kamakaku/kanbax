@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Task } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { Task as TaskComponent } from "./task";
-import TaskDialog from "./task-dialog"; 
+import { TaskDialog } from "./task-dialog"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
@@ -75,6 +75,16 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
     queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
   };
 
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsTaskDialogOpen(true);
+  };
+
+  const handleTaskDialogClose = () => {
+    setIsTaskDialogOpen(false);
+    setSelectedTask(null);
+  };
+
   return (
     <Card className={`min-w-[260px] max-w-[260px] h-fit ${columnStyle.bg} border-0 shadow-none`}>
       <CardHeader className="p-3 pb-2">
@@ -132,10 +142,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
                   showBoardTitle={isAllTasksView}
                   onUpdate={handleTaskUpdate}
                   onDelete={onDelete}
-                  onClick={() => {
-                    setSelectedTask(task); 
-                    setIsTaskDialogOpen(true);
-                  }}
+                  onClick={() => handleTaskClick(task)}
                 />
               ))}
               {provided.placeholder}
@@ -144,12 +151,9 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         </Droppable>
       </CardContent>
       <TaskDialog
-        task={selectedTask}
         open={isTaskDialogOpen}
-        onClose={() => {
-          setIsTaskDialogOpen(false);
-          setSelectedTask(null);
-        }}
+        onClose={handleTaskDialogClose}
+        task={selectedTask}
         onUpdate={handleTaskUpdate}
         onDelete={onDelete}
       />
