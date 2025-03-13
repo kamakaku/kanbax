@@ -68,8 +68,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
           className={cn(
             "flex-1 p-6",
             "bg-white/30 backdrop-blur-[2px]",
-            "transition-all duration-300 ease-in-out",
-            "ml-[calc(var(--sidebar-width))] group-data-[state=collapsed]:ml-[calc(var(--sidebar-width-icon))]"
+            "transition-all duration-300 ease-in-out"
           )}
         >
           {children}

@@ -194,10 +194,10 @@ const Sidebar = React.forwardRef<
         ref={ref}
         data-state={state}
         className={cn(
-          "fixed inset-y-0 z-30 flex w-[--sidebar-width] flex-col backdrop-blur-lg bg-white/80",
+          "flex w-[--sidebar-width] flex-col backdrop-blur-lg bg-white/80",
           "transition-all duration-300 ease-in-out will-change-[width,transform]",
           state === "collapsed" && "w-[--sidebar-width-icon]",
-          side === "left" ? "left-0" : "right-0",
+          side === "left" ? "border-r" : "border-l",
           className
         )}
         {...props}
@@ -207,6 +207,7 @@ const Sidebar = React.forwardRef<
     )
   }
 )
+
 Sidebar.displayName = "Sidebar"
 
 const SidebarContent = React.forwardRef<
