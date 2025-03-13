@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
-import { Board, Task, User, insertTaskSchema } from "@shared/schema";
+import { insertTaskSchema, type Task } from "@shared/schema";
 import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import { BoardContext } from "@/context/board-context";
@@ -43,24 +43,16 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 
 interface TaskDialogProps {
   open: boolean;
   onClose: () => void;
   onUpdate?: (task: Task) => Promise<void>;
   task?: Task | null;
+  defaultStatus?: string;
 }
 
-export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
+export function TaskDialog({ open, onClose, onUpdate, task, defaultStatus = "todo" }: TaskDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentBoard } = useContext(BoardContext);
@@ -68,65 +60,24 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const isEditMode = !!task;
 
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const res = await fetch("/api/users");
-      if (!res.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      return res.json();
-    },
-    enabled: open,
-  });
-
-  const { data: boards = [] } = useQuery<Board[]>({
-    queryKey: ["/api/boards"],
-    queryFn: async () => {
-      const res = await fetch("/api/boards");
-      if (!res.ok) {
-        throw new Error("Failed to fetch boards");
-      }
-      return res.json();
-    },
-    enabled: open,
-  });
-
-  const { data: allTasks = [] } = useQuery<Task[]>({
-    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
-    queryFn: async () => {
-      if (!currentBoard?.id) return [];
-      const res = await fetch(`/api/boards/${currentBoard.id}/tasks`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch tasks");
-      }
-      return res.json();
-    },
-    enabled: !!currentBoard?.id && open,
-  });
-
-  const availableLabels = Array.from(
-    new Set(allTasks.flatMap((t) => t.labels || []))
-  );
-
   const form = useForm({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
       title: "",
       description: "",
-      status: "todo",
+      status: defaultStatus,
       priority: "medium",
       boardId: currentBoard?.id || 0,
       columnId: 0,
       order: 0,
       labels: [],
       dueDate: null,
+      assignedUserIds: [],
     },
   });
 
   useEffect(() => {
     if (isEditMode && task && open) {
-      // If editing an existing task
       form.reset({
         title: task.title,
         description: task.description || "",
@@ -137,52 +88,57 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         order: task.order,
         dueDate: task.dueDate,
         labels: task.labels || [],
+        assignedUserIds: task.assignedUserIds || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
       setSelectedLabels(task.labels || []);
     } else if (open && currentBoard) {
-      // If creating a new task
       form.reset({
         title: "",
         description: "",
-        status: "todo",
+        status: defaultStatus,
         priority: "medium",
-        boardId: currentBoard.id, // Always use current board ID
+        boardId: currentBoard.id,
         columnId: 0,
         order: 0,
         dueDate: null,
         labels: [],
+        assignedUserIds: [],
       });
       setSelectedUserIds([]);
       setSelectedLabels([]);
     }
-  }, [task, open, form, currentBoard, isEditMode]);
+  }, [task, open, form, currentBoard, isEditMode, defaultStatus]);
 
   const handleSubmit = async (values: any) => {
     try {
-      const boardId = values.boardId || currentBoard?.id;
-      if (!boardId) {
-        throw new Error("Board ID is required");
+      if (!currentBoard?.id) {
+        throw new Error("Kein aktives Board ausgewählt");
       }
 
       const method = isEditMode ? "PATCH" : "POST";
-      const endpoint = isEditMode ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
+      const endpoint = isEditMode ? `/api/tasks/${task.id}` : `/api/boards/${currentBoard.id}/tasks`;
 
       const payload = {
         ...values,
-        boardId,
+        boardId: currentBoard.id,
         labels: selectedLabels,
         assignedUserIds: selectedUserIds,
       };
 
+      console.log("Submitting task:", payload);
+
       const response = await apiRequest(method, endpoint, payload);
+
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || "Failed to save task");
+        throw new Error(errorText || "Fehler beim Speichern der Aufgabe");
       }
 
       const updatedTask = await response.json();
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+
+      // Invalidate queries
+      await queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
 
       if (onUpdate) {
         await onUpdate(updatedTask);
@@ -190,7 +146,9 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
 
       toast({
         title: isEditMode ? "Aufgabe aktualisiert" : "Aufgabe erstellt",
-        description: isEditMode ? "Die Aufgabe wurde erfolgreich aktualisiert." : "Die Aufgabe wurde erfolgreich erstellt."
+        description: isEditMode 
+          ? "Die Aufgabe wurde erfolgreich aktualisiert." 
+          : "Die Aufgabe wurde erfolgreich erstellt."
       });
 
       onClose();
@@ -222,7 +180,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                 <FormItem>
                   <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <Input placeholder="Aufgabentitel eingeben" {...field} />
+                    <Input placeholder="Aufgabentitel" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -248,38 +206,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               )}
             />
 
-            {/* Board Field - Only show when editing existing task */}
-            {isEditMode && (
-              <FormField
-                control={form.control}
-                name="boardId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Board</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(parseInt(value))}
-                      value={field.value?.toString()}
-                      disabled={true}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Board auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {boards.map((board) => (
-                          <SelectItem key={board.id} value={board.id.toString()}>
-                            {board.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
             {/* Status Field */}
             <FormField
               control={form.control}
@@ -287,10 +213,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Status auswählen" />
@@ -316,10 +239,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Priorität</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Priorität auswählen" />
@@ -335,80 +255,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                 </FormItem>
               )}
             />
-
-            {/* Labels Field */}
-            <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="labels">Labels</Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="justify-between w-full">
-                    Labels auswählen
-                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56">
-                  <DropdownMenuLabel>Verfügbare Labels</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {availableLabels.map((label) => (
-                    <DropdownMenuCheckboxItem
-                      key={label}
-                      checked={selectedLabels.includes(label)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedLabels([...selectedLabels, label]);
-                        } else {
-                          setSelectedLabels(
-                            selectedLabels.filter((l) => l !== label)
-                          );
-                        }
-                      }}
-                    >
-                      {label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <div className="p-2">
-                    <Input
-                      placeholder="Neues Label hinzufügen"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          const value = e.currentTarget.value.trim();
-                          if (value && !selectedLabels.includes(value)) {
-                            setSelectedLabels([...selectedLabels, value]);
-                            e.currentTarget.value = "";
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {selectedLabels.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {selectedLabels.map((label) => (
-                    <Badge
-                      key={label}
-                      variant="secondary"
-                      className="px-2 py-0.5 text-xs"
-                    >
-                      {label}
-                      <button
-                        type="button"
-                        className="ml-1 text-xs"
-                        onClick={() => {
-                          setSelectedLabels(
-                            selectedLabels.filter((l) => l !== label)
-                          );
-                        }}
-                      >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
 
             {/* Due Date Field */}
             <FormField
@@ -531,6 +377,80 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                       </Badge>
                     );
                   })}
+                </div>
+              )}
+            </div>
+
+            {/* Labels Field */}
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="labels">Labels</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="justify-between w-full">
+                    Labels auswählen
+                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuLabel>Verfügbare Labels</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {availableLabels.map((label) => (
+                    <DropdownMenuCheckboxItem
+                      key={label}
+                      checked={selectedLabels.includes(label)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedLabels([...selectedLabels, label]);
+                        } else {
+                          setSelectedLabels(
+                            selectedLabels.filter((l) => l !== label)
+                          );
+                        }
+                      }}
+                    >
+                      {label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <div className="p-2">
+                    <Input
+                      placeholder="Neues Label hinzufügen"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const value = e.currentTarget.value.trim();
+                          if (value && !selectedLabels.includes(value)) {
+                            setSelectedLabels([...selectedLabels, value]);
+                            e.currentTarget.value = "";
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {selectedLabels.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedLabels.map((label) => (
+                    <Badge
+                      key={label}
+                      variant="secondary"
+                      className="px-2 py-0.5 text-xs"
+                    >
+                      {label}
+                      <button
+                        type="button"
+                        className="ml-1 text-xs"
+                        onClick={() => {
+                          setSelectedLabels(
+                            selectedLabels.filter((l) => l !== label)
+                          );
+                        }}
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
                 </div>
               )}
             </div>

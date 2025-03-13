@@ -114,8 +114,6 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
                   task={task} 
                   index={index}
                   showBoardTitle={isAllTasksView}
-                  onUpdate={handleTaskUpdate}
-                  onDelete={onDelete}
                   onClick={(clickedTask) => {
                     setSelectedTask(clickedTask);
                     setIsTaskDialogOpen(true);
@@ -135,7 +133,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
           setSelectedTask(null);
         }}
         onUpdate={handleTaskUpdate}
-        onDelete={onDelete}
+        defaultStatus={column.title?.toLowerCase() || "todo"}
       />
     </Card>
   );
