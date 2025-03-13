@@ -58,6 +58,7 @@ const statusLabels: Record<string, string> = {
 
 export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, onDelete }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
@@ -92,7 +93,19 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
               variant="ghost"
               size="icon"
               className={`h-6 w-6 hover:bg-white/50 ${columnStyle.text}`}
-              onClick={() => setIsTaskDialogOpen(true)}
+              onClick={() => {
+                // Neuen Task für diese Spalte erstellen
+                setSelectedTask({
+                  id: 0, // Temporäre ID
+                  title: "",
+                  description: "",
+                  status: column.title?.toLowerCase() || "todo",
+                  boardId: currentBoard?.id || 0,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                });
+                setIsTaskDialogOpen(true);
+              }}
             >
               <Plus className="h-3 w-3" />
             </Button>
