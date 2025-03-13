@@ -260,13 +260,41 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 ))}
               </div>
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Zugewiesene Benutzer</label>
+              <div className="flex flex-wrap gap-2">
+                {users.map((user) => (
+                  <Button
+                    key={user.id}
+                    type="button"
+                    variant={selectedUserIds.includes(user.id) ? "default" : "outline"}
+                    className="flex items-center gap-2"
+                    onClick={() => {
+                      setSelectedUserIds(prev =>
+                        prev.includes(user.id)
+                          ? prev.filter(id => id !== user.id)
+                          : [...prev, user.id]
+                      );
+                    }}
+                  >
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={user.avatarUrl || ''} />
+                      <AvatarFallback>
+                        {user.username.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{user.username}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsEditing(false)}
               >
-                Abbrechen
+                Abbrechenn
               </Button>
               <Button type="submit" disabled={updateTask.isPending}>
                 Speichern
