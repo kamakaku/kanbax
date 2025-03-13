@@ -88,10 +88,15 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
   const handleSubmit = async (data: any) => {
     try {
       let response;
+      const submissionData = {
+        ...data,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+      };
+
       if (task) {
-        response = await apiRequest("PATCH", `/api/tasks/${task.id}`, data);
+        response = await apiRequest("PATCH", `/api/tasks/${task.id}`, submissionData);
       } else {
-        response = await apiRequest("POST", `/api/boards/${currentBoard?.id}/tasks`, data);
+        response = await apiRequest("POST", `/api/boards/${currentBoard?.id}/tasks`, submissionData);
       }
 
       if (!response.ok) {
