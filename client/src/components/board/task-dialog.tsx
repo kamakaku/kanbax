@@ -29,7 +29,7 @@ import {ChecklistCard} from "@/components/board/checklist-card";
 interface TaskDialogProps {
   task?: Task;
   open: boolean;
-  onClose: () => void;
+  onClose: (isOpen: boolean) => void;
   onUpdate?: (updatedTask: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
 }
@@ -95,7 +95,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
       setIsEditing(false);
       toast({ title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt" });
-      onClose();
+      onClose(false);
     } catch (error) {
       console.error("Task operation error:", error);
       toast({
@@ -111,7 +111,7 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
 
     try {
       await onDelete(task.id);
-      onClose();
+      onClose(false);
     } catch (error) {
       console.error("Task delete error:", error);
       toast({
@@ -130,9 +130,17 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     e.stopPropagation();
   };
 
+  // Funktion, die verhindert, dass der Dialog bei bestimmten Updates geschlossen wird
+  const handleOpenChange = (isOpen: boolean) => {
+    // Wenn der Benutzer den Dialog explizit schließt, rufen wir onClose auf
+    if (!isOpen) {
+      onClose(isOpen);
+    }
+    // Andernfalls ignorieren wir den Versuch, den Zustand zu ändern
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         {task && !isEditing ? (
           <>

@@ -186,7 +186,17 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
             <form
               ref={formRef}
               className="flex gap-2 w-full"
-              onSubmit={handleAddItem}
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Ereignis vollständig abfangen
+                if (e.nativeEvent) {
+                  e.nativeEvent.stopImmediatePropagation();
+                }
+                handleAddItem(e);
+                // Verhindern Sie jede weitere Verarbeitung
+                return false;
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <Input
