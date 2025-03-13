@@ -46,41 +46,69 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
   const handleAddItem = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
-      // Stoppt die Propagation um zu verhindern, dass der Dialog geschlossen wird
       e.stopPropagation();
     }
 
-    if (newItemTitle.trim()) {
-      try {
-        const updatedChecklist = [...(task.checklist || [])];
+    if (!newItemTitle.trim()) return;
 
-        updatedChecklist.push({
-          id: Date.now(),
+    try {
+      const maxOrder = items.length > 0
+        ? Math.max(...items.map(item => item.itemOrder || 0))
+        : -1;
+
+      // Optimistisches Update für die UI
+      const newItem = {
+        id: `temp-${Date.now()}`,
+        taskId: task.id,
+        title: newItemTitle.trim(),
+        completed: false,
+        itemOrder: maxOrder + 1
+      };
+
+      // Lokales State-Update
+      setItems(prev => [...prev, newItem]);
+      setNewItemTitle("");
+      
+      if (formRef.current) {
+        formRef.current.reset();
+      }
+
+      // API-Anfrage
+      const response = await apiRequest(
+        "POST",
+        `/api/tasks/${task.id}/checklist`,
+        {
           title: newItemTitle.trim(),
           completed: false,
-        });
+          itemOrder: maxOrder + 1
+        }
+      );
 
-        const updatedTask = {
+      if (!response.ok) throw new Error("Fehler beim Hinzufügen des Elements");
+
+      // Lokale Checklist aktualisieren mit der Serverantwort
+      const serverItem = await response.json();
+      setItems(prev => prev.map(item => 
+        item.id === newItem.id ? serverItem : item
+      ));
+
+      // Aktualisiere die übergeordnete Komponente ohne Dialog zu schließen
+      if (onUpdate) {
+        onUpdate({
           ...task,
-          checklist: updatedChecklist,
-        };
-
-        // Der folgende Code verhindert das Schließen
-        if (onUpdate) {
-          // Aktualisierung verzögern, um Timing-Probleme zu vermeiden
-          setTimeout(async () => {
-            await onUpdate(updatedTask);
-          }, 10);
-        }
-
-        setNewItemTitle("");
-
-        if (formRef.current) {
-          formRef.current.reset();
-        }
-      } catch (error) {
-        console.error("Failed to add checklist item:", error);
+          _hasChecklist: true
+        });
       }
+    } catch (error) {
+      console.error("Fehler beim Hinzufügen:", error);
+      // Fehlgeschlagenes Item entfernen
+      setItems(prev => prev.filter(item => !item.id.toString().startsWith('temp-')));
+      
+      toast({
+        title: "Fehler",
+        description: "Der Checklistenpunkt konnte nicht hinzugefügt werden",
+        variant: "destructive",
+      });
     }
   };
 

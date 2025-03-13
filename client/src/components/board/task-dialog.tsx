@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type Task } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,10 @@ import { Separator } from "@/components/ui/separator";
 import {ChecklistCard} from "@/components/board/checklist-card";
 
 interface TaskDialogProps {
-  task?: Task;
+  task?: Task | null;
   open: boolean;
-  onClose: (isOpen: boolean) => void;
-  onUpdate?: (updatedTask: Task) => Promise<void>;
+  onClose: (isOpen?: boolean) => void;
+  onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
 }
 
@@ -48,11 +48,20 @@ const priorityLabels: Record<string, string> = {
   'high': 'Hoch'
 };
 
-export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
+export function TaskDialog({ task: initialTask, open, onClose, onUpdate, onDelete }: TaskDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { currentBoard } = useStore();
+  const [task, setTask] = useState<Task | null>(initialTask || null);
+
+  useEffect(() => {
+    if (initialTask) {
+      setTask(initialTask);
+    } else if (!open) {
+      setTask(null);
+    }
+  }, [open, initialTask]);
 
   const form = useForm({
     resolver: zodResolver(updateTaskSchema),

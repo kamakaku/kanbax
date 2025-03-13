@@ -14,6 +14,7 @@ interface TaskProps {
   task: TaskType & { boardTitle?: string };
   index: number;
   showBoardTitle?: boolean;
+  onClick?: (task: TaskType) => void;
 }
 
 const priorityColors = {
@@ -30,7 +31,7 @@ const labelColors: Record<string, { bg: string, text: string }> = {
   default: { bg: "bg-gray-100", text: "text-gray-700" }
 };
 
-export function Task({ task, index, showBoardTitle = false }: TaskProps) {
+export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -81,7 +82,13 @@ export function Task({ task, index, showBoardTitle = false }: TaskProps) {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             ref={provided.innerRef}
-            onClick={() => setIsTaskDialogOpen(true)}
+            onClick={() => {
+              if (onClick) {
+                onClick(task);
+              } else {
+                setIsTaskDialogOpen(true);
+              }
+            }}
           >
             <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 
               border-t-2 border-slate-200 ${priorityColors[task.priority || "medium"]} ${

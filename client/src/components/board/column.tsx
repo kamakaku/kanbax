@@ -128,8 +128,12 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
                   task={task} 
                   index={index}
                   showBoardTitle={isAllTasksView}
-                  onUpdate={onUpdate}
+                  onUpdate={handleTaskUpdate}
                   onDelete={onDelete}
+                  onClick={(clickedTask) => {
+                    setSelectedTask(clickedTask);
+                    setIsTaskDialogOpen(true);
+                  }}
                 />
               ))}
               {provided.placeholder}
@@ -141,21 +145,39 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
       <TaskDialog
         task={selectedTask}
         open={isTaskDialogOpen}
-        onClose={(isOpen) => {
-          // Nur schließen, wenn isOpen explizit false ist
-          if (isOpen === false) {
-            setIsTaskDialogOpen(false);
-          }
+        onClose={() => {
+          setIsTaskDialogOpen(false);
+          setSelectedTask(null);
         }}
         onUpdate={async (updatedTask) => {
           try {
-            // Task aktualisieren ohne Dialog zu schließen
-            await handleTaskUpdate(updatedTask);
-            // Dialog bewusst nicht schließen, wenn die Aktualisierung erfolgreich war
+            if (updatedTask.id) {
+              await handleTaskUpdate(updatedTask);
+              // Aktualisiere selectedTask mit den neuesten Daten
+              setSelectedTask(updatedTask);
+            } else {
+              // Logik für neue Tasks
+              const response = await apiRequest(
+                "POST", 
+                `/api/boards/${currentBoard?.id}/tasks`, 
+                updatedTask
+              );
+              
+              if (!response.ok) throw new Error("Fehler beim Erstellen der Aufgabe");
+              
+              const newTask = await response.json();
+              queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+              
+              // Dialog nicht schließen
+              setSelectedTask(newTask);
+            }
           } catch (error) {
-            console.error("Fehler beim Aktualisieren der Aufgabe:", error);
-            // Bei Fehler Dialog schließen
-            setIsTaskDialogOpen(false);
+            console.error("Fehler beim Aktualisieren/Erstellen der Aufgabe:", error);
+            toast({
+              title: "Fehler",
+              description: "Die Aufgabe konnte nicht gespeichert werden",
+              variant: "destructive",
+            });
           }
         }}
       />
