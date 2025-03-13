@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
 
@@ -140,7 +140,7 @@ export function TaskDialog({ open, onClose }: { open: boolean; onClose: () => vo
                 <span className="text-sm">{currentBoard.title}</span>
               </div>
             )}
-            
+
             <FormField
               control={form.control}
               name="columnId"
