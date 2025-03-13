@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type Task } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,23 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
       dueDate: task?.dueDate || null,
     },
   });
+
+  // Update form values when task changes
+  useEffect(() => {
+    if (task && isEditing) {
+      form.reset({
+        title: task.title,
+        description: task.description || "",
+        status: task.status,
+        priority: task.priority,
+        labels: task.labels || [],
+        boardId: task.boardId,
+        columnId: task.columnId,
+        order: task.order,
+        dueDate: task.dueDate,
+      });
+    }
+  }, [task, isEditing, form]);
 
   const handleSubmit = async (data: any) => {
     try {
