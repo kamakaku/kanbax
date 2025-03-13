@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { z } from "zod";
 import { format } from "date-fns";
+import { de } from "date-fns/locale";
 import { CalendarIcon, PlusCircle, Trash } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Task, taskSchema } from "@shared/schema";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/lib/auth-store"; 
+import { useAuth } from "@/lib/auth-store"; // Korrigiert von @/hooks/auth zu @/lib/auth-store
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { UserIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -92,7 +95,7 @@ export function TaskDialog({
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [comment, setComment] = useState("");
   const [checklist, setChecklist] = useState<{ id?: number; title: string; completed: boolean }[]>([]);
-  const [comments, setComments] = useState<{ id?: number; content: string; userId: number; createdAt: string }[]>([]);
+  const [comments, setComments] = useState<{ id?: number; content: string; userId: number; createdAt: string; authorId: number }[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -287,11 +290,18 @@ export function TaskDialog({
           taskId: task.id
         });
 
-        setComments([...comments, response]);
+        // Alle Kommentare neu laden, um korrekte Benutzerdaten zu erhalten
+        await queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task?.id}/comments`] });
+
+        // Kommentare neu laden
+        const commentsResponse = await fetch(`/api/tasks/${task?.id}/comments`);
+        if (commentsResponse.ok) {
+          const updatedComments = await commentsResponse.json();
+          setComments(updatedComments);
+        }
+
         setComment("");
-        queryClient.invalidateQueries({
-          queryKey: ['/api/tasks', task.id, 'comments'],
-        });
+        
       } catch (error) {
         console.error("Error adding comment:", error);
         toast({
@@ -592,22 +602,48 @@ export function TaskDialog({
                   <FormLabel>Kommentare</FormLabel>
                   <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
                     {comments.length > 0 ? (
-                      comments.map((comment) => (
-                        <div 
-                          key={comment.id || `comment-${Date.now()}-${Math.random()}`} 
-                          className="text-sm border-b pb-2 last:border-0"
-                        >
-                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                            <span>Benutzer #{comment.userId}</span>
-                            <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
+                      comments.map((comment) => {
+                        // Benutzerinformationen abrufen
+                        const userId = comment.authorId || comment.userId;
+                        const { data: author } = useQuery({
+                          queryKey: [`/api/users/${userId}`],
+                          queryFn: async () => {
+                            if (!userId) return null;
+                            const res = await fetch(`/api/users/${userId}`);
+                            if (!res.ok) return null;
+                            return res.json();
+                          },
+                          enabled: !!userId
+                        });
+
+                        return (
+                          <div 
+                            key={comment.id || `comment-${Date.now()}-${Math.random()}`} 
+                            className="text-sm border-b pb-2 last:border-0"
+                          >
+                            <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                              <div className="flex items-center gap-1">
+                                {author && (
+                                  <>
+                                    <Avatar className="h-5 w-5">
+                                      <AvatarImage src={author.avatarUrl} alt={author.username} />
+                                      <AvatarFallback>{author.username?.charAt(0) || "U"}</AvatarFallback>
+                                    </Avatar>
+                                    <span>{author.username || `Benutzer #${userId}`}</span>
+                                  </>
+                                )}
+                                {!author && <span>Benutzer #{userId}</span>}
+                              </div>
+                              <span>
+                                {comment.createdAt ? format(new Date(comment.createdAt), "dd.MM.yyyy, HH:mm", { locale: de }) : "Gerade eben"}
+                              </span>
+                            </div>
+                            <div dangerouslySetInnerHTML={{ __html: comment.content }} />
                           </div>
-                          <div dangerouslySetInnerHTML={{ __html: comment.content }} />
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <p className="text-sm text-muted-foreground text-center py-2">
-                        Keine Kommentare vorhanden
-                      </p>
+                      <div className="text-sm text-muted-foreground">Keine Kommentare vorhanden.</div>
                     )}
                   </div>
                   <div className="flex gap-2">
