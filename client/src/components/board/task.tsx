@@ -106,8 +106,6 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
             >
               <Card className={`bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-l-2 ${priorityColors[task.priority]} ${snapshot.isDragging ? "shadow-lg ring-1 ring-primary/20" : ""}`}>
                 <CardContent className="p-3">
-                  <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
-
                   {task.labels && task.labels.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">
                       {task.labels.map((label, i) => {
@@ -124,6 +122,8 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                       })}
                     </div>
                   )}
+
+                  <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
 
                   {checklistItems.length > 0 && (
                     <div className="mt-2 mb-3">
