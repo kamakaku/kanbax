@@ -184,10 +184,10 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: z.number().int(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    dueDate: z.union([z.date(), z.string(), z.null()]).optional(),
+    dueDate: z.string().nullable().optional(),
     checklist: z.array(checklistItemSchema).default([]),
     archived: z.boolean().default(false),
-    assignedUserIds: z.array(z.number().int().positive()).default([]), // Updated type
+    assignedUserIds: z.array(z.number().int().positive()).default([]),
     assignedTeamId: z.number().int().positive().optional(),
   });
 

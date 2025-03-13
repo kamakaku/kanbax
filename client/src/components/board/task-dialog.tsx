@@ -133,7 +133,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         boardId: task.boardId,
         columnId: task.columnId,
         order: task.order,
-        dueDate: task.dueDate,
+        dueDate: task.dueDate || null,
         labels: task.labels || [],
       });
       setSelectedUserIds(task.assignedUserIds || []);
@@ -165,7 +165,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       const method = task ? "PATCH" : "POST";
       const endpoint = task ? `/api/tasks/${task.id}` : `/api/boards/${boardId}/tasks`;
 
-      // Prepare the payload without date conversion
       const payload = {
         ...values,
         boardId,
@@ -174,7 +173,6 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       };
 
       const response = await apiRequest(method, endpoint, payload);
-
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || "Failed to save task");
@@ -187,7 +185,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
         await onUpdate(updatedTask);
       }
 
-      toast({ 
+      toast({
         title: task ? "Aufgabe aktualisiert" : "Aufgabe erstellt",
         description: task ? "Die Aufgabe wurde erfolgreich aktualisiert." : "Die Aufgabe wurde erfolgreich erstellt."
       });
@@ -197,7 +195,7 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
       console.error("Task save error:", error);
       toast({
         title: "Fehler",
-        description: error.message || `Die Aufgabe konnte nicht ${task ? 'aktualisiert' : 'erstellt'} werden`,
+        description: error.message || "Die Aufgabe konnte nicht gespeichert werden",
         variant: "destructive",
       });
     }
@@ -436,7 +434,15 @@ export function TaskDialog({ open, onClose, onUpdate, task }: TaskDialogProps) {
                       <Calendar
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => field.onChange(date?.toISOString())}
+                        onSelect={(date) => {
+                          if (date) {
+                            // Format the date as YYYY-MM-DD
+                            const dateString = date.toISOString().split('T')[0];
+                            field.onChange(dateString);
+                          } else {
+                            field.onChange(null);
+                          }
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
