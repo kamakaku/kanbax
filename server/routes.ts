@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertWikiArticleSchema, updateWikiArticleSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
+import type { User } from "@shared/types";
 
 export async function registerRoutes(app: Express) {
   // Authentication routes
@@ -61,6 +62,56 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Failed to login:", error);
       res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  // Profile update routes
+  app.patch("/api/profile", async (req, res) => {
+    try {
+      const userId = req.body.userId; // We'll need to add proper auth middleware later
+      const { username, email, currentPassword, newPassword } = req.body;
+
+      // If updating password, verify current password first
+      if (currentPassword && newPassword) {
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isValid) {
+          return res.status(400).json({ message: "Current password is incorrect" });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(newPassword, salt);
+        await storage.updateUserPassword(userId, passwordHash);
+      }
+
+      // Update other user data if provided
+      if (username || email) {
+        const updateData: Partial<User> = {};
+        if (username) updateData.username = username;
+        if (email) {
+          try {
+            await storage.updateUserEmail(userId, email);
+          } catch (error) {
+            return res.status(400).json({ message: (error as Error).message });
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          const updatedUser = await storage.updateUser(userId, updateData);
+          const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+          return res.json(userWithoutPassword);
+        }
+      }
+
+      res.json({ message: "Profile updated successfully" });
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
     }
   });
 

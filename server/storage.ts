@@ -60,6 +60,11 @@ export interface IStorage {
   createWikiArticle(article: InsertWikiArticle): Promise<WikiArticle>;
   updateWikiArticle(id: number, article: UpdateWikiArticle): Promise<WikiArticle>;
   deleteWikiArticle(id: number): Promise<void>;
+
+  // Add new user methods
+  updateUser(id: number, data: Partial<User>): Promise<User>;
+  updateUserPassword(id: number, passwordHash: string): Promise<void>;
+  updateUserEmail(id: number, email: string): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -519,6 +524,52 @@ export class DatabaseStorage implements IStorage {
     if (!article) {
       throw new Error(`Wiki article ${id} not found`);
     }
+  }
+
+  async updateUser(id: number, data: Partial<User>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!user) {
+      throw new Error(`User ${id} not found`);
+    }
+
+    return user;
+  }
+
+  async updateUserPassword(id: number, passwordHash: string): Promise<void> {
+    const [user] = await db
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!user) {
+      throw new Error(`User ${id} not found`);
+    }
+  }
+
+  async updateUserEmail(id: number, email: string): Promise<User> {
+    // First check if email is already taken
+    const existingUser = await this.getUserByEmail(email);
+    if (existingUser && existingUser.id !== id) {
+      throw new Error('Email is already taken');
+    }
+
+    const [user] = await db
+      .update(users)
+      .set({ email })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!user) {
+      throw new Error(`User ${id} not found`);
+    }
+
+    return user;
   }
 }
 

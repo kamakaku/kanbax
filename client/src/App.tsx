@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarTrigger 
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Folder, KanbanSquare } from "lucide-react";
+import { LayoutDashboard, Folder, KanbanSquare, UserCircle } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
@@ -20,6 +20,7 @@ import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
 import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
+import Profile from "@/pages/profile";
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -59,6 +60,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 >
                   <KanbanSquare className="h-4 w-4" />
                   <span>Boards</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setLocation("/profile")}
+                  tooltip="Profil"
+                >
+                  <UserCircle className="h-4 w-4" />
+                  <span>Profil</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -120,6 +130,7 @@ function AuthenticatedApp() {
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
+      <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />
     </Switch>
