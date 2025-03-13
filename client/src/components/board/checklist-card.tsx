@@ -43,44 +43,44 @@ export function ChecklistCard({ task, onUpdate }: ChecklistCardProps) {
   }, [task.id]);
 
   // Neues Item hinzufügen
-  const handleAddItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddItem = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      // Stoppt die Propagation um zu verhindern, dass der Dialog geschlossen wird
+      e.stopPropagation();
+    }
 
-    if (!newItemTitle.trim()) return;
+    if (newItemTitle.trim()) {
+      try {
+        const updatedChecklist = [...(task.checklist || [])];
 
-    try {
-      const maxOrder = items.length > 0
-        ? Math.max(...items.map(item => item.itemOrder))
-        : -1;
-
-      const response = await apiRequest(
-        "POST",
-        `/api/tasks/${task.id}/checklist`,
-        {
+        updatedChecklist.push({
+          id: Date.now(),
           title: newItemTitle.trim(),
           completed: false,
-          itemOrder: maxOrder + 1
+        });
+
+        const updatedTask = {
+          ...task,
+          checklist: updatedChecklist,
+        };
+
+        // Der folgende Code verhindert das Schließen
+        if (onUpdate) {
+          // Aktualisierung verzögern, um Timing-Probleme zu vermeiden
+          setTimeout(async () => {
+            await onUpdate(updatedTask);
+          }, 10);
         }
-      );
 
-      if (!response.ok) throw new Error("Fehler beim Hinzufügen des Elements");
+        setNewItemTitle("");
 
-      const newItem = await response.json();
-      setItems(prev => [...prev, newItem]);
-      setNewItemTitle("");
-
-      // Aktualisiere die übergeordnete Komponente
-      onUpdate({
-        ...task,
-        _hasChecklist: true
-      });
-    } catch (error) {
-      toast({
-        title: "Fehler",
-        description: "Der Checklistenpunkt konnte nicht hinzugefügt werden",
-        variant: "destructive",
-      });
+        if (formRef.current) {
+          formRef.current.reset();
+        }
+      } catch (error) {
+        console.error("Failed to add checklist item:", error);
+      }
     }
   };
 

@@ -126,9 +126,25 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
       </CardContent>
 
       <TaskDialog
+        task={selectedTask}
         open={isTaskDialogOpen}
-        onClose={() => setIsTaskDialogOpen(false)}
-        onUpdate={handleTaskUpdate}
+        onClose={(isOpen) => {
+          // Nur schließen, wenn isOpen explizit false ist
+          if (isOpen === false) {
+            setIsTaskDialogOpen(false);
+          }
+        }}
+        onUpdate={async (updatedTask) => {
+          try {
+            // Task aktualisieren ohne Dialog zu schließen
+            await handleTaskUpdate(updatedTask);
+            // Dialog bewusst nicht schließen, wenn die Aktualisierung erfolgreich war
+          } catch (error) {
+            console.error("Fehler beim Aktualisieren der Aufgabe:", error);
+            // Bei Fehler Dialog schließen
+            setIsTaskDialogOpen(false);
+          }
+        }}
       />
     </Card>
   );

@@ -122,8 +122,27 @@ export function TaskDialog({ task, open, onClose, onUpdate, onDelete }: TaskDial
     }
   };
 
-  const updateTask = async (data: Task) => {
-    if (onUpdate) await onUpdate(data);
+  const updateTask = async (updateData: Task) => {
+    if (!task || !task.id) return;
+
+    try {
+      if (onUpdate) {
+        // Verhindere, dass der Dialog geschlossen wird während des Updates
+        await onUpdate(updateData);
+
+        // Wichtig: KEIN onClose aufrufen nach der Aktualisierung!
+        toast({
+          title: "Aufgabe aktualisiert",
+          description: "Die Änderungen wurden erfolgreich gespeichert.",
+        });
+      }
+    } catch (error) {
+      console.error("Task update error:", error);
+      toast({
+        title: "Aktualisierung fehlgeschlagen",
+        variant: "destructive",
+      });
+    }
   };
 
   const stopPropagation = (e: React.MouseEvent) => {
