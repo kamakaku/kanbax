@@ -87,6 +87,7 @@ app.use((req, res, next) => {
       const handleServer = () => {
         server.listen(port, host, () => {
           log(`Server successfully started on ${host}:${port}`);
+          log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
         });
       };
       
