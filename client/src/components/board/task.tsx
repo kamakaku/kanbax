@@ -78,17 +78,15 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
               </span>
             </div>
           )}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              {task.dueDate && (
-                <div className="flex items-center gap-1">
-                  <CalendarIcon className="h-4 w-4" />
-                  <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center justify-between mt-2">
+            {task.dueDate && (
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <CalendarIcon className="h-4 w-4" />
+                <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
+              </div>
+            )}
             {task.assignedUserIds && task.assignedUserIds.length > 0 && (
-              <div className="flex justify-end -space-x-2">
+              <div className="flex -space-x-2">
                 {task.assignedUserIds.map((userId) => {
                   const user = users.find((u) => u.id === userId);
                   return user ? (
