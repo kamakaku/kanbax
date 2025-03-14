@@ -93,6 +93,13 @@ export function TaskDialog({
   // Fetch users data
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
     enabled: open,
   });
 
