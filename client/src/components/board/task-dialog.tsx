@@ -6,15 +6,14 @@ import { type Task } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -26,17 +25,17 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { CommentList } from "@/components/comments/comment-list";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -52,8 +51,7 @@ const taskFormSchema = z.object({
   columnId: z.number(),
   labels: z.array(z.string()).default([]),
   assignedUserIds: z.array(z.number()).default([]),
-  assignedTeamId: z.number().nullable().optional(),
-  dueDate: z.string().nullable().optional(),
+  dueDate: z.string().nullable(),
   archived: z.boolean().default(false),
   order: z.number().default(0),
 });
@@ -88,75 +86,51 @@ export function TaskDialog({
   const queryClient = useQueryClient();
   const isEditing = !!task;
 
-  // Form initialization with proper default values
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
-      title: "",
-      description: "",
-      status: "todo",
-      priority: "medium",
-      columnId: 0,
-      labels: [],
-      assignedUserIds: [],
-      assignedTeamId: null,
-      dueDate: null,
-      archived: false,
-      order: 0,
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || "todo",
+      priority: task?.priority || "medium",
+      columnId: task?.columnId || 0,
+      labels: task?.labels || [],
+      assignedUserIds: task?.assignedUserIds || [],
+      dueDate: task?.dueDate || null,
+      archived: task?.archived || false,
+      order: task?.order || 0,
     },
   });
 
-  // Reset form when task changes or dialog opens/closes
+  // Reset form and fetch checklist when dialog opens
   useEffect(() => {
-    if (open && task) {
-      form.reset({
-        title: task.title,
-        description: task.description || "",
-        status: task.status,
-        priority: task.priority,
-        columnId: task.columnId,
-        labels: task.labels || [],
-        assignedUserIds: task.assignedUserIds || [],
-        assignedTeamId: task.assignedTeamId,
-        dueDate: task.dueDate,
-        archived: task.archived || false,
-        order: task.order || 0,
-      });
-    } else if (open) {
-      form.reset({
-        title: "",
-        description: "",
-        status: "todo",
-        priority: "medium",
-        columnId: 0,
-        labels: [],
-        assignedUserIds: [],
-        assignedTeamId: null,
-        dueDate: null,
-        archived: false,
-        order: 0,
-      });
-    }
-  }, [open, task, form]);
-
-  // Fetch checklist items when task changes
-  useEffect(() => {
-    if (task?.id) {
-      const fetchChecklist = async () => {
-        try {
-          const response = await fetch(`/api/tasks/${task.id}/checklist`);
-          if (response.ok) {
-            const items = await response.json();
-            setChecklist(items.sort((a: any, b: any) => a.itemOrder - b.itemOrder));
-          }
-        } catch (error) {
-          console.error("Error fetching checklist:", error);
-        }
+    if (open) {
+      // Reset form with task data or default values
+      const formData = {
+        title: task?.title || "",
+        description: task?.description || "",
+        status: task?.status || "todo",
+        priority: task?.priority || "medium",
+        columnId: task?.columnId || 0,
+        labels: task?.labels || [],
+        assignedUserIds: task?.assignedUserIds || [],
+        dueDate: task?.dueDate || null,
+        archived: task?.archived || false,
+        order: task?.order || 0,
       };
 
-      fetchChecklist();
+      form.reset(formData);
+
+      // Reset checklist and fetch if editing
+      setChecklist([]);
+      if (task?.id) {
+        fetch(`/api/tasks/${task.id}/checklist`)
+          .then(response => response.ok ? response.json() : [])
+          .then(items => setChecklist(items.sort((a, b) => a.itemOrder - b.itemOrder)))
+          .catch(error => console.error("Error fetching checklist:", error));
+      }
     }
-  }, [task?.id]);
+  }, [open, task]);
 
   const addChecklistItem = async () => {
     if (!newChecklistItem.trim() || !task?.id) return;
@@ -216,13 +190,12 @@ export function TaskDialog({
       const response = await apiRequest("DELETE", `/api/tasks/${task.id}/checklist/${itemId}`);
 
       if (response.ok) {
-        // Update local state first
         const updatedChecklist = checklist
           .filter(item => item.id !== itemId)
           .map((item, index) => ({ ...item, itemOrder: index }));
+
         setChecklist(updatedChecklist);
 
-        // Update order on server in parallel
         await Promise.all(
           updatedChecklist.map(item =>
             apiRequest("PATCH", `/api/tasks/${task.id}/checklist/${item.id}`, {
@@ -255,7 +228,7 @@ export function TaskDialog({
           order: data.order,
           labels: data.labels || [],
           assignedUserIds: data.assignedUserIds || [],
-          assignedTeamId: data.assignedTeamId,
+          assignedTeamId: task.assignedTeamId,
           assignedAt: task.assignedAt,
           dueDate: data.dueDate,
           archived: data.archived,
