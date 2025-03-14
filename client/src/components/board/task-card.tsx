@@ -32,7 +32,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const queryClient = useQueryClient();
   const { currentBoard } = useStore();
 
-  // Fetch users data for assignments
+  // Fetch users data
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -81,31 +81,24 @@ export function TaskCard({ task, index }: TaskCardProps) {
   // Calculate checklist progress
   const calculateChecklistProgress = () => {
     if (!task.checklist || task.checklist.length === 0) {
-      console.log(`Task ${task.id}: No checklist items`);
       return 0;
     }
 
-    console.log(`Task ${task.id} checklist:`, task.checklist);
-
     let completed = 0;
-    let total = 0;
+    let total = task.checklist.length;
 
     for (const item of task.checklist) {
       try {
-        const parsedItem = JSON.parse(item);
-        if (parsedItem && parsedItem.checked !== undefined) {
-          total++;
-          if (parsedItem.checked) {
-            completed++;
-          }
+        const parsedItem = JSON.parse(typeof item === 'string' ? item : JSON.stringify(item));
+        if (parsedItem && parsedItem.checked) {
+          completed++;
         }
       } catch (e) {
-        console.log(`Task ${task.id}: Failed to parse checklist item:`, item);
+        console.error(`Error parsing checklist item for task ${task.id}:`, e);
       }
     }
 
-    console.log(`Task ${task.id}: Completed ${completed} of ${total} items`);
-    return total > 0 ? Math.round((completed / total) * 100) : 0;
+    return Math.round((completed / total) * 100);
   };
 
   const renderAssignedUsers = () => {
@@ -208,7 +201,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         )}
       </Draggable>
 
-      <TaskDialog 
+      <TaskDialog
         task={task}
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
