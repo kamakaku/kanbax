@@ -42,6 +42,8 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { CalendarIcon, PlusCircle, X, Tag, UserPlus, Pencil } from "lucide-react";
 import { CommentList } from "@/components/comments/comment-list";
+import classnames from 'classnames';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface ChecklistItem {
   text: string;
@@ -75,7 +77,7 @@ export function TaskDialog({
   open,
   onOpenChange,
   onUpdate,
-  mode = "details", // Default to details mode
+  mode = "details",
   initialColumnId,
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
@@ -87,7 +89,6 @@ export function TaskDialog({
   const queryClient = useQueryClient();
   const isEditing = !!task;
 
-  // Reset edit mode when dialog opens/closes
   useEffect(() => {
     if (open) {
       setIsEditMode(mode === "edit");
@@ -163,7 +164,7 @@ export function TaskDialog({
           boardId: currentBoard.id,
         };
         await onUpdate(updatedTask);
-        setIsEditMode(false); // Return to detail view after saving
+        setIsEditMode(false);
       } else {
         const response = await apiRequest(
           "POST",
@@ -228,99 +229,112 @@ export function TaskDialog({
     );
   };
 
-  // Component to render the detail view of a task
-  const renderDetailView = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-muted-foreground">Titel</div>
+  const renderDetailView = () => {
+    const priorityConfig = {
+      high: {
+        color: "text-red-600",
+        bg: "bg-red-50",
+        border: "border-red-200",
+        label: "Hoch",
+        dot: "bg-red-600"
+      },
+      medium: {
+        color: "text-yellow-600",
+        bg: "bg-yellow-50",
+        border: "border-yellow-200",
+        label: "Mittel",
+        dot: "bg-yellow-600"
+      },
+      low: {
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        border: "border-blue-200",
+        label: "Niedrig",
+        dot: "bg-blue-600"
+      }
+    };
+
+    const priority = task?.priority ? priorityConfig[task.priority as keyof typeof priorityConfig] : priorityConfig.medium;
+
+    return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className={classnames(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
+              "border border-current/20",
+              priority.color,
+            )}>
+              <div className={classnames("w-1.5 h-1.5 rounded-full", priority.dot)} />
+              <span className="text-xs font-medium">{priority.label}</span>
+            </div>
+
+            {task?.labels && task.labels.map((label, index) => (
+              <div
+                key={index}
+                className={classnames(
+                  "px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600",
+                  "transition-colors hover:bg-slate-200"
+                )}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
+
           <div className="text-lg font-medium">{task?.title}</div>
-        </div>
 
-        {task?.description && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Beschreibung</div>
-            <div className="text-sm whitespace-pre-wrap">{task.description}</div>
-          </div>
-        )}
+          {task?.description && (
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {task.description}
+            </div>
+          )}
 
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="text-sm font-medium text-muted-foreground">Status</div>
-            <div className="text-sm capitalize">{task?.status}</div>
-          </div>
-          <div>
-            <div className="text-sm font-medium text-muted-foreground">Priorität</div>
-            <div className="text-sm capitalize">{task?.priority}</div>
-          </div>
-        </div>
-
-        {task?.dueDate && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Fälligkeitsdatum</div>
-            <div className="text-sm flex items-center gap-2">
+          {task?.dueDate && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CalendarIcon className="h-4 w-4" />
               {format(new Date(task.dueDate), "PPP", { locale: de })}
             </div>
-          </div>
-        )}
+          )}
 
-        {task?.labels && task.labels.length > 0 && (
+          {task?.assignedUserIds && task.assignedUserIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-2">
+                {task.assignedUserIds.map((userId) => {
+                  const user = users.find((u) => u.id === userId);
+                  return user ? (
+                    <Avatar
+                      key={userId}
+                      className="h-6 w-6 border-2 border-background"
+                    >
+                      <AvatarImage src={user.avatarUrl || ""} />
+                      <AvatarFallback>
+                        {user.username.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Labels</div>
-            <div className="flex flex-wrap gap-2">
-              {task.labels.map((label, index) => (
+            <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
+            <div className="space-y-2">
+              {checklist.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                  className="flex items-center gap-2"
                 >
-                  <Tag className="h-3 w-3" />
-                  <span className="text-sm">{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {task?.assignedUserIds && task.assignedUserIds.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
-            <div className="flex flex-wrap gap-2">
-              {task.assignedUserIds.map((userId) => {
-                const user = users.find((u) => u.id === userId);
-                return user ? (
-                  <div
-                    key={userId}
-                    className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
-                  >
-                    <UserPlus className="h-3 w-3" />
-                    <span className="text-sm">{user.username}</span>
-                  </div>
-                ) : null;
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
-          <div className="space-y-2">
-            {checklist.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-2"
-              >
-                <input
-                  type="checkbox"
-                  checked={item.checked}
-                  onChange={() => toggleChecklistItem(index)}
-                  className="h-4 w-4"
-                  disabled={!isEditMode}
-                />
-                <span className={item.checked ? "line-through text-muted-foreground" : ""}>
-                  {item.text}
-                </span>
-                {isEditMode && (
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={() => toggleChecklistItem(index)}
+                    className="h-4 w-4"
+                  />
+                  <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                    {item.text}
+                  </span>
                   <button
                     type="button"
                     onClick={() => deleteChecklistItem(index)}
@@ -328,11 +342,9 @@ export function TaskDialog({
                   >
                     <X className="h-4 w-4" />
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {isEditMode && (
+                </div>
+              ))}
+            </div>
             <div className="flex gap-2">
               <Input
                 placeholder="Neues Checklist-Element"
@@ -350,35 +362,35 @@ export function TaskDialog({
                 Hinzufügen
               </Button>
             </div>
+          </div>
+
+          {task && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+              <CommentList taskId={task.id} />
+            </div>
           )}
         </div>
 
-        {task && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
-            <CommentList taskId={task.id} />
-          </div>
-        )}
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsEditMode(true)}
+            className="gap-2"
+          >
+            <Pencil className="h-4 w-4" />
+            Bearbeiten
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Schließen
+          </Button>
+        </DialogFooter>
       </div>
-
-      <DialogFooter>
-        <Button
-          variant="outline"
-          onClick={() => setIsEditMode(true)}
-          className="gap-2"
-        >
-          <Pencil className="h-4 w-4" />
-          Bearbeiten
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => onOpenChange(false)}
-        >
-          Schließen
-        </Button>
-      </DialogFooter>
-    </div>
-  );
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
