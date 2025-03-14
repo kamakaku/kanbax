@@ -57,12 +57,25 @@ interface TaskDialogProps {
   initialColumnId?: number;
 }
 
+const taskFormSchema = z.object({
+  title: z.string().min(1, "Titel ist erforderlich"),
+  description: z.string().optional(),
+  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
+  priority: z.enum(["low", "medium", "high"]),
+  columnId: z.number(),
+  labels: z.array(z.string()).default([]),
+  assignedUserIds: z.array(z.number()).default([]),
+  dueDate: z.string().nullable(),
+  archived: z.boolean().default(false),
+  order: z.number().default(0),
+});
+
 export function TaskDialog({
   task,
   open,
   onOpenChange,
   onUpdate,
-  mode = "edit",
+  mode = "details", // Default to details mode
   initialColumnId,
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
@@ -74,47 +87,16 @@ export function TaskDialog({
   const queryClient = useQueryClient();
   const isEditing = !!task;
 
+  // Reset edit mode when dialog opens/closes
   useEffect(() => {
-    // Setze den Edit-Modus basierend auf dem mode-Parameter, wenn sich der Dialog öffnet
     if (open) {
       setIsEditMode(mode === "edit");
     }
   }, [open, mode]);
 
-  const form = useForm<z.infer<typeof taskFormSchema>>({
-    resolver: zodResolver(taskFormSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      status: "todo",
-      priority: "medium",
-      columnId: initialColumnId || 0,
-      labels: [],
-      assignedUserIds: [],
-      dueDate: null,
-      archived: false,
-      order: 0,
-    },
-  });
-
   useEffect(() => {
     if (!open) return;
 
-    // Reset form with task data or default values
-    form.reset({
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: task?.priority || "medium",
-      columnId: task?.columnId || initialColumnId || 0,
-      labels: task?.labels || [],
-      assignedUserIds: task?.assignedUserIds || [],
-      dueDate: task?.dueDate || null,
-      archived: task?.archived || false,
-      order: task?.order || 0,
-    });
-
-    // Parse checklist items
     if (task?.checklist) {
       try {
         const parsedChecklist = task.checklist.map(item => {
@@ -131,7 +113,34 @@ export function TaskDialog({
     } else {
       setChecklist([]);
     }
-  }, [open, task, initialColumnId, form]);
+  }, [open, task]);
+
+  const form = useForm<z.infer<typeof taskFormSchema>>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues: {
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || "todo",
+      priority: task?.priority || "medium",
+      columnId: task?.columnId || initialColumnId || 0,
+      labels: task?.labels || [],
+      assignedUserIds: task?.assignedUserIds || [],
+      dueDate: task?.dueDate || null,
+      archived: task?.archived || false,
+      order: task?.order || 0,
+    },
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
 
   const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
     if (!currentBoard?.id) {
@@ -154,7 +163,7 @@ export function TaskDialog({
           boardId: currentBoard.id,
         };
         await onUpdate(updatedTask);
-        onOpenChange(false);
+        setIsEditMode(false); // Return to detail view after saving
       } else {
         const response = await apiRequest(
           "POST",
@@ -219,16 +228,7 @@ export function TaskDialog({
     );
   };
 
-  const renderField = (label: string, value: string | null | undefined) => {
-    if (!value) return null;
-    return (
-      <div className="space-y-1.5">
-        <div className="text-sm font-medium text-muted-foreground">{label}</div>
-        <div className="text-sm">{value}</div>
-      </div>
-    );
-  };
-
+  // Component to render the detail view of a task
   const renderDetailView = () => (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -247,11 +247,11 @@ export function TaskDialog({
         <div className="flex items-center gap-4">
           <div>
             <div className="text-sm font-medium text-muted-foreground">Status</div>
-            <div className="text-sm">{task?.status}</div>
+            <div className="text-sm capitalize">{task?.status}</div>
           </div>
           <div>
             <div className="text-sm font-medium text-muted-foreground">Priorität</div>
-            <div className="text-sm">{task?.priority}</div>
+            <div className="text-sm capitalize">{task?.priority}</div>
           </div>
         </div>
 
@@ -278,6 +278,26 @@ export function TaskDialog({
                   <span className="text-sm">{label}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {task?.assignedUserIds && task.assignedUserIds.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
+            <div className="flex flex-wrap gap-2">
+              {task.assignedUserIds.map((userId) => {
+                const user = users.find((u) => u.id === userId);
+                return user ? (
+                  <div
+                    key={userId}
+                    className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                  >
+                    <UserPlus className="h-3 w-3" />
+                    <span className="text-sm">{user.username}</span>
+                  </div>
+                ) : null;
+              })}
             </div>
           </div>
         )}
@@ -359,17 +379,6 @@ export function TaskDialog({
       </DialogFooter>
     </div>
   );
-
-  const { data: users = [] } = useQuery({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
-  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -675,16 +684,3 @@ export function TaskDialog({
     </Dialog>
   );
 }
-
-const taskFormSchema = z.object({
-  title: z.string().min(1, "Titel ist erforderlich"),
-  description: z.string().optional(),
-  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
-  priority: z.enum(["low", "medium", "high"]),
-  columnId: z.number(),
-  labels: z.array(z.string()).default([]),
-  assignedUserIds: z.array(z.number()).default([]),
-  dueDate: z.string().nullable(),
-  archived: z.boolean().default(false),
-  order: z.number().default(0),
-});
