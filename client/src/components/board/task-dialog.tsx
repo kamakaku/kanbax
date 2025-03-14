@@ -1,15 +1,11 @@
-import { useState, useEffect } from "react";
-import { z } from "zod";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
-import { CalendarIcon, PlusCircle, Trash } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Task } from "@shared/schema";
+import { z } from "zod";
+import { type Task } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/lib/auth-store";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -44,6 +40,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { CommentList } from "@/components/comments/comment-list";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { CalendarIcon, PlusCircle, Trash } from "lucide-react";
 
 const taskFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
@@ -89,23 +88,58 @@ export function TaskDialog({
   const queryClient = useQueryClient();
   const isEditing = !!task;
 
+  // Form initialization with proper default values
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: (task?.priority || "medium") as "low" | "medium" | "high",
-      columnId: task?.columnId || 0,
-      labels: task?.labels || [],
-      assignedUserIds: task?.assignedUserIds || [],
-      assignedTeamId: task?.assignedTeamId,
-      dueDate: task?.dueDate,
-      archived: task?.archived || false,
-      order: task?.order || 0,
+      title: "",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      columnId: 0,
+      labels: [],
+      assignedUserIds: [],
+      assignedTeamId: null,
+      dueDate: null,
+      archived: false,
+      order: 0,
     },
   });
 
+  // Reset form when task changes or dialog opens/closes
+  useEffect(() => {
+    if (open && task) {
+      form.reset({
+        title: task.title,
+        description: task.description || "",
+        status: task.status,
+        priority: task.priority,
+        columnId: task.columnId,
+        labels: task.labels || [],
+        assignedUserIds: task.assignedUserIds || [],
+        assignedTeamId: task.assignedTeamId,
+        dueDate: task.dueDate,
+        archived: task.archived || false,
+        order: task.order || 0,
+      });
+    } else if (open) {
+      form.reset({
+        title: "",
+        description: "",
+        status: "todo",
+        priority: "medium",
+        columnId: 0,
+        labels: [],
+        assignedUserIds: [],
+        assignedTeamId: null,
+        dueDate: null,
+        archived: false,
+        order: 0,
+      });
+    }
+  }, [open, task, form]);
+
+  // Fetch checklist items when task changes
   useEffect(() => {
     if (task?.id) {
       const fetchChecklist = async () => {
@@ -223,7 +257,7 @@ export function TaskDialog({
           assignedUserIds: data.assignedUserIds || [],
           assignedTeamId: data.assignedTeamId,
           assignedAt: task.assignedAt,
-          dueDate: data.dueDate || null,
+          dueDate: data.dueDate,
           archived: data.archived,
           checklist: task.checklist || [],
         };
