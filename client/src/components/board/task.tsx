@@ -34,28 +34,38 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            "bg-white rounded-lg border border-slate-200 shadow-sm p-3 cursor-pointer",
-            "hover:border-slate-300 transition-all duration-200 ease-in-out",
-            "transform-gpu", 
+            "bg-white rounded-lg border border-slate-200 p-3 cursor-pointer",
+            "transition-all duration-300 ease-out transform-gpu will-change-transform",
+            "hover:border-slate-300 hover:shadow-md hover:scale-[1.01]",
             snapshot.isDragging && [
-              "shadow-lg scale-[1.02] rotate-1",
+              "shadow-xl scale-[1.02]",
+              "rotate-[1deg]",
               "border-2 border-primary/50",
-              "opacity-90",
+              "!bg-white/95",
               "z-50"
             ],
-            task.priority === "high" && "border-t-[3px] border-t-red-500",
-            task.priority === "medium" && "border-t-[3px] border-t-yellow-500",
-            task.priority === "low" && "border-t-[3px] border-t-blue-500"
+            task.priority === "high" && "border-l-4 border-l-red-500",
+            task.priority === "medium" && "border-l-4 border-l-yellow-500",
+            task.priority === "low" && "border-l-4 border-l-blue-500"
           )}
           style={{
             ...provided.draggableProps.style,
-            transformOrigin: snapshot.isDragging ? "center center" : "50% 50%"
+            transformOrigin: "center center",
+            transition: snapshot.isDragging 
+              ? undefined 
+              : "all 0.2s cubic-bezier(0.2, 0, 0, 1)"
           }}
         >
-          {task.labels.length > 0 && (
+          {task.labels && task.labels.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
               {task.labels.map((label) => (
-                <span key={label} className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600">{label}</span>
+                <span 
+                  key={label} 
+                  className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600 
+                           transition-colors hover:bg-slate-200"
+                >
+                  {label}
+                </span>
               ))}
             </div>
           )}
@@ -89,6 +99,7 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
               </span>
             </div>
           )}
+
           <div className="flex items-center justify-between mt-2">
             {task.dueDate && (
               <div className="flex items-center gap-1 text-xs text-slate-500">
@@ -96,12 +107,17 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
                 <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
               </div>
             )}
+
             {task.assignedUserIds && task.assignedUserIds.length > 0 && (
               <div className="flex -space-x-2">
                 {task.assignedUserIds.map((userId) => {
                   const user = users.find((u) => u.id === userId);
                   return user ? (
-                    <Avatar key={userId} className="h-5 w-5 border-2 border-background">
+                    <Avatar 
+                      key={userId} 
+                      className="h-5 w-5 border-2 border-background 
+                               transition-transform hover:scale-110 hover:z-10"
+                    >
                       <AvatarImage src={user.avatarUrl || ""} />
                       <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
                         {user.username.substring(0, 2).toUpperCase()}
@@ -110,10 +126,6 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
                   ) : null;
                 })}
               </div>
-            )}
-
-            {showBoardTitle && task.boardTitle && (
-              <span className="text-xs text-slate-400">{task.boardTitle}</span>
             )}
           </div>
         </div>
