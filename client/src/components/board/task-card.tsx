@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, PencilIcon, CheckSquare, Eye } from "lucide-react";
+import { CalendarIcon, PencilIcon } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -21,8 +21,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, index }: TaskCardProps) {
-  const [isViewMode, setIsViewMode] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const currentBoard = useStore((state) => state.currentBoard);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -38,6 +37,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const updateTask = useMutation({
     mutationFn: async (updatedTask: Task) => {
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, updatedTask);
+      if (!response.ok) {
+        throw new Error("Fehler beim Aktualisieren des Tasks");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -45,7 +47,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
       toast({ title: "Task updated successfully" });
-      setIsEditMode(false);
+      setIsDialogOpen(false);
     },
     onError: (error) => {
       toast({
@@ -60,7 +62,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
     if (!task.assignedUserIds || task.assignedUserIds.length === 0) return null;
 
     const assignedUsers = users.filter(user => 
-      task.assignedUserIds.includes(user.id)
+      task.assignedUserIds!.includes(user.id)
     );
 
     return (
@@ -86,29 +88,13 @@ export function TaskCard({ task, index }: TaskCardProps) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
+          onClick={() => setIsDialogOpen(true)}
+          className="cursor-pointer"
         >
-          <Card className="mb-2">
+          <Card className="mb-2 hover:shadow-md transition-shadow">
             <CardHeader className="p-3">
               <div className="flex items-start justify-between">
                 <h3 className="text-sm font-medium">{task.title}</h3>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4"
-                    onClick={() => setIsViewMode(true)}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4"
-                    onClick={() => setIsEditMode(true)}
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
             </CardHeader>
             <CardContent className="p-3 pt-0">
@@ -122,6 +108,24 @@ export function TaskCard({ task, index }: TaskCardProps) {
                 </div>
               )}
 
+              {hasChecklist && (
+                <div className="mb-2">
+                  <Progress 
+                    value={
+                      (task.checklist.filter(item => {
+                        try {
+                          const parsed = JSON.parse(item);
+                          return parsed.checked;
+                        } catch {
+                          return false;
+                        }
+                      }).length / task.checklist.length) * 100
+                    } 
+                    className="h-1"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {task.dueDate && (
@@ -130,38 +134,18 @@ export function TaskCard({ task, index }: TaskCardProps) {
                       {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
                     </div>
                   )}
-                  {task.assignedUserIds && task.assignedUserIds.length > 0 && (
-                    <div className="flex -space-x-2">
-                      {task.assignedUserIds.map((userId) => {
-                        const user = users.find((u) => u.id === userId);
-                        return user ? (
-                          <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
-                            <AvatarImage src={user.avatarUrl || ""} />
-                            <AvatarFallback>
-                              {user.username.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
+                  {renderAssignedUsers()}
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <TaskDialog
-            open={isViewMode}
-            onOpenChange={setIsViewMode}
-            task={task}
-            mode="view"
-          />
-
-          <TaskDialog
-            open={isEditMode}
-            onOpenChange={setIsEditMode}
+            open={isDialogOpen}
+            onOpenChange={setIsDialogOpen}
             task={task}
             onUpdate={(updatedTask) => updateTask.mutate(updatedTask)}
+            mode="details"
           />
         </div>
       )}

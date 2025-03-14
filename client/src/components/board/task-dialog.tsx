@@ -61,7 +61,7 @@ interface TaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;
-  mode?: "edit" | "view"; // Neuer mode Parameter
+  mode?: "edit" | "details";
   initialColumnId?: number;
 }
 
@@ -75,12 +75,13 @@ export function TaskDialog({
   open,
   onOpenChange,
   onUpdate,
-  mode = "edit", // Standardmäßig im Bearbeitungsmodus
+  mode = "edit",
   initialColumnId,
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [isEditMode, setIsEditMode] = useState(true); // Added state for edit mode
   const { toast } = useToast();
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
@@ -236,9 +237,8 @@ export function TaskDialog({
     );
   };
 
-  const isViewMode = mode === "view";
+  const isDetailsMode = mode === "details";
 
-  // Render die Formulare als readonly im View-Modus
   const renderField = (label: string, value: string | null | undefined) => {
     if (!value) return null;
     return (
@@ -254,12 +254,11 @@ export function TaskDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isViewMode ? "Aufgabendetails" : (task ? "Aufgabe bearbeiten" : "Neue Aufgabe")}
+            {isDetailsMode ? "Aufgabendetails" : (task ? "Aufgabe bearbeiten" : "Neue Aufgabe")}
           </DialogTitle>
         </DialogHeader>
 
-        {isViewMode ? (
-          // View Mode
+        {isDetailsMode ? (
           <div className="space-y-6">
             <div className="space-y-4">
               {renderField("Titel", task?.title)}
@@ -293,29 +292,51 @@ export function TaskDialog({
                 </div>
               )}
 
-              {checklist.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
-                  <div className="space-y-2">
-                    {checklist.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2"
+                  {checklist.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        onChange={() => toggleChecklistItem(index)}
+                        className="h-4 w-4"
+                      />
+                      <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                        {item.text}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => deleteChecklistItem(index)}
+                        className="ml-auto text-destructive hover:text-destructive/80"
                       >
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          readOnly
-                          className="h-4 w-4"
-                        />
-                        <span className={item.checked ? "line-through text-muted-foreground" : ""}>
-                          {item.text}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Neues Checklist-Element"
+                    value={newChecklistItem}
+                    onChange={(e) => setNewChecklistItem(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addChecklistItem();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={addChecklistItem} size="sm">
+                    <PlusCircle className="h-4 w-4 mr-1" />
+                    Hinzufügen
+                  </Button>
+                </div>
+              </div>
 
               {task && (
                 <div className="space-y-2">
@@ -328,6 +349,12 @@ export function TaskDialog({
             <DialogFooter>
               <Button
                 variant="outline"
+                onClick={() => setIsEditMode(true)}
+              >
+                Bearbeiten
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => onOpenChange(false)}
               >
                 Schließen
@@ -335,7 +362,6 @@ export function TaskDialog({
             </DialogFooter>
           </div>
         ) : (
-          // Edit Mode - Vorheriges Formular bleibt unverändert
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
