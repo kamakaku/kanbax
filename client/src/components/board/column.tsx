@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 import { Task as TaskComponent } from "./task";
 import { TaskDialog } from "./task-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 
 interface ColumnProps {
   column: {
@@ -57,7 +57,6 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Ensure columnId is a number
   const columnId = typeof column.id === 'string' ? parseInt(column.id) : column.id;
   const columnStyle = statusColors[column.title?.toLowerCase() || 'backlog'] || statusColors.backlog;
   const displayTitle = typeof column.title === 'string' ? 
@@ -83,7 +82,6 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         throw new Error(errorData.message || "Fehler beim Aktualisieren der Aufgabe");
       }
 
-      // Invalidate cache to refresh the board
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -92,8 +90,8 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
   };
 
   return (
-    <Card className={`min-w-[280px] max-w-[280px] h-fit bg-white shadow-sm border border-slate-200 rounded-lg`}>
-      <CardHeader className="p-3 pb-2">
+    <div className="min-w-[280px] max-w-[280px] flex flex-col bg-white rounded-lg border border-slate-200">
+      <div className="p-3 pb-2">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className={`h-2 w-2 rounded-full ${columnStyle.text.replace('text-', 'bg-')}`} />
@@ -118,46 +116,42 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
             </Button>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="p-2">
-        <Droppable droppableId={columnId.toString()} type="TASK">
-          {(provided, snapshot) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className={`flex flex-col gap-2 min-h-[50px] transition-colors rounded-md p-1 ${
-                snapshot.isDraggingOver ? 'bg-slate-50' : ''
-              }`}
-              style={{ overflow: 'visible' }}
-            >
-              {tasks.map((task, index) => (
-                <TaskComponent
-                  key={task.id} 
-                  task={task} 
-                  index={index}
-                  showBoardTitle={isAllTasksView}
-                  onClick={(clickedTask) => {
-                    setSelectedTask(clickedTask);
-                    setIsTaskDialogOpen(true);
-                  }}
-                />
-              ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </CardContent>
+      </div>
+
+      <Droppable droppableId={column.title || 'untitled'}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={`flex-1 p-2 space-y-2 min-h-[150px] ${
+              snapshot.isDraggingOver ? 'bg-slate-50/80' : ''
+            }`}
+          >
+            {tasks.map((task, index) => (
+              <TaskComponent
+                key={task.id}
+                task={task}
+                index={index}
+                showBoardTitle={isAllTasksView}
+                onClick={(clickedTask) => {
+                  setSelectedTask(clickedTask);
+                  setIsTaskDialogOpen(true);
+                }}
+              />
+            ))}
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+
       <TaskDialog
-        task={selectedTask}
         open={isTaskDialogOpen}
-        onClose={() => {
-          setIsTaskDialogOpen(false);
-          setSelectedTask(null);
-        }}
+        onOpenChange={setIsTaskDialogOpen}
+        task={selectedTask}
         onUpdate={handleTaskUpdate}
         onDelete={onDelete}
         initialColumnId={columnId}
       />
-    </Card>
+    </div>
   );
 }
