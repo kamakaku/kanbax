@@ -89,6 +89,28 @@ export function TaskDialog({
   const isEditing = !!task;
   const { currentBoard } = useStore();
 
+  const createTaskMutation = useMutation({
+    mutationFn: async (newTask: Partial<Task>) => {
+      const response = await apiRequest("POST", "/api/tasks", newTask);
+      return response.json();
+    },
+    onSuccess: () => {
+      if (currentBoard?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
+      }
+      onClose();
+      toast({ title: "Aufgabe erfolgreich erstellt" });
+    },
+    onError: (error) => {
+      console.error("Error creating task:", error);
+      toast({
+        title: "Fehler beim Speichern",
+        description: "Die Aufgabe konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -129,41 +151,6 @@ export function TaskDialog({
         .catch(error => console.error("Error fetching checklist:", error));
     }
   }, [open, task, initialColumnId]);
-
-  const createTaskMutation = useMutation({
-    mutationFn: async (newTask: Partial<Task>) => {
-      const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(newTask)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server response:", errorText);
-        throw new Error(errorText);
-      }
-
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (currentBoard?.id) {
-        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
-      }
-      onClose();
-      toast({ title: "Aufgabe erfolgreich erstellt" });
-    },
-    onError: (error) => {
-      console.error("Mutation error:", error);
-      toast({
-        title: "Fehler beim Speichern",
-        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
-        variant: "destructive",
-      });
-    },
-  });
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
