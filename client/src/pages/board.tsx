@@ -89,65 +89,55 @@ export default function Board() {
     const { source, destination, draggableId } = result;
     const taskId = parseInt(draggableId);
 
-    // No change
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      return;
-    }
-
-    // Get all tasks in source column
-    const sourceColumnTasks = tasks
-      .filter(t => t.status === source.droppableId)
-      .sort((a, b) => a.order - b.order);
-
-    // Remove task from source array
-    const [movedTask] = sourceColumnTasks.splice(source.index, 1);
-
-    // Get all tasks in destination column
-    const destinationColumnTasks = tasks
-      .filter(t => t.status === destination.droppableId)
-      .sort((a, b) => a.order - b.order);
-
-    // Insert task at new position
-    if (source.droppableId !== destination.droppableId) {
-      destinationColumnTasks.splice(destination.index, 0, {
-        ...movedTask,
-        status: destination.droppableId
-      });
-    } else {
-      sourceColumnTasks.splice(destination.index, 0, movedTask);
-    }
-
-    // Update task orders
-    const tasksToUpdate = source.droppableId !== destination.droppableId 
-      ? destinationColumnTasks 
-      : sourceColumnTasks;
-    
-    tasksToUpdate.forEach((task, index) => {
-      task.order = index;
-    });
+    // Find the task that was dragged
+    const draggedTask = tasks.find(t => t.id === taskId);
+    if (!draggedTask) return;
 
     try {
+      // Create new array of tasks
+      const newTasks = [...tasks];
+      const updatedTask = {
+        ...draggedTask,
+        status: destination.droppableId,
+        order: destination.index
+      };
+
+      // Remove task from old position
+      const taskIndex = newTasks.findIndex(t => t.id === taskId);
+      if (taskIndex !== -1) {
+        newTasks.splice(taskIndex, 1);
+      }
+
+      // Insert task at new position
+      const insertIndex = newTasks.findIndex(t => 
+        t.status === destination.droppableId && 
+        t.order >= destination.index
+      );
+
+      if (insertIndex === -1) {
+        newTasks.push(updatedTask);
+      } else {
+        newTasks.splice(insertIndex, 0, updatedTask);
+      }
+
+      // Update orders for all tasks in the destination column
+      const tasksInDestColumn = newTasks.filter(t => t.status === destination.droppableId);
+      tasksInDestColumn.forEach((task, index) => {
+        task.order = index;
+      });
+
+      // Optimistic update
+      queryClient.setQueryData(["/api/boards", currentBoard?.id, "tasks"], newTasks);
+
+      // Update in backend
       await updateTaskStatus.mutateAsync({
         taskId,
         status: destination.droppableId,
         order: destination.index
       });
-
-      // Optimistic update
-      const newTasks = tasks.map(t => {
-        if (t.id === taskId) {
-          return {
-            ...t,
-            status: destination.droppableId,
-            order: destination.index
-          };
-        }
-        return t;
-      });
-
-      queryClient.setQueryData(["/api/boards", currentBoard?.id, "tasks"], newTasks);
     } catch (error) {
       console.error("Failed to update task status:", error);
+      // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
     }
   };
