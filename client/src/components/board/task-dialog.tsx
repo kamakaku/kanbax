@@ -43,6 +43,7 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { CalendarIcon, PlusCircle, X, Tag, UserPlus } from "lucide-react";
 
+// Schema unverändert...
 const taskFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
@@ -68,8 +69,8 @@ interface TaskDialogProps {
 }
 
 interface ChecklistItem {
-  text: string;
-  checked: boolean;
+  title: string;
+  completed: boolean;
 }
 
 export function TaskDialog({
@@ -103,28 +104,31 @@ export function TaskDialog({
       }
 
       try {
-        // Convert checklist items to string array for storage
+        // Formatiere die Checkliste als String-Array
         const formattedTask = {
           ...newTask,
-          checklist: checklist.map(item => item.text)
+          boardId: currentBoard.id,
+          checklist: checklist.map(item => item.title)
         };
 
-        console.log("Sending task data:", formattedTask);
+        console.log("Sending task:", formattedTask);
 
         const response = await apiRequest(
-          "POST", 
-          `/api/boards/${currentBoard.id}/tasks`, 
+          "POST",
+          `/api/boards/${currentBoard.id}/tasks`,
           formattedTask
         );
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to create task: ${errorText}`);
+          console.error("Server response:", errorText);
+          throw new Error(errorText);
         }
 
-        return response.json();
+        const data = await response.json();
+        return data;
       } catch (error) {
-        console.error("Mutation error:", error);
+        console.error("Task creation error:", error);
         throw error;
       }
     },
@@ -174,11 +178,11 @@ export function TaskDialog({
       order: task?.order || 0,
     });
 
-    // Initialize checklist from task's string array
+    // Initialisiere die Checkliste aus dem Task-Objekt
     setChecklist(
       (task?.checklist || []).map(text => ({
-        text,
-        checked: false
+        title: text,
+        completed: false
       }))
     );
   }, [open, task, initialColumnId, form]);
@@ -198,7 +202,7 @@ export function TaskDialog({
         const updatedTask: Task = {
           ...task,
           ...data,
-          checklist: checklist.map(item => item.text) // Convert to string array for storage
+          checklist: checklist.map(item => item.title) // Konvertiere zu String-Array
         };
 
         await onUpdate(updatedTask);
@@ -207,7 +211,7 @@ export function TaskDialog({
         const newTaskData = {
           ...data,
           boardId: currentBoard.id,
-          checklist: checklist.map(item => item.text) // Convert to string array for storage
+          checklist: checklist.map(item => item.title) // Konvertiere zu String-Array
         };
 
         await createTaskMutation.mutateAsync(newTaskData);
@@ -226,8 +230,8 @@ export function TaskDialog({
     if (!newChecklistItem.trim()) return;
 
     const newItem = {
-      text: newChecklistItem,
-      checked: false
+      title: newChecklistItem,
+      completed: false
     };
 
     setChecklist(prev => [...prev, newItem]);
@@ -237,7 +241,7 @@ export function TaskDialog({
   const toggleChecklistItem = (index: number) => {
     setChecklist(prev =>
       prev.map((item, i) =>
-        i === index ? { ...item, checked: !item.checked } : item
+        i === index ? { ...item, completed: !item.completed } : item
       )
     );
   };
@@ -516,12 +520,12 @@ export function TaskDialog({
                   >
                     <input
                       type="checkbox"
-                      checked={item.checked}
+                      checked={item.completed}
                       onChange={() => toggleChecklistItem(index)}
                       className="h-4 w-4"
                     />
-                    <span className={item.checked ? "line-through text-muted-foreground" : ""}>
-                      {item.text}
+                    <span className={item.completed ? "line-through text-muted-foreground" : ""}>
+                      {item.title}
                     </span>
                     <button
                       type="button"
