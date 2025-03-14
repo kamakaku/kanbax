@@ -91,8 +91,18 @@ export function TaskDialog({
 
   const createTaskMutation = useMutation({
     mutationFn: async (newTask: Partial<Task>) => {
-      const response = await apiRequest("POST", "/api/tasks", newTask);
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/tasks", newTask);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Server response:", errorText);
+          throw new Error(`Failed to create task: ${errorText}`);
+        }
+        return response.json();
+      } catch (error) {
+        console.error("Mutation error:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       if (currentBoard?.id) {
@@ -102,10 +112,10 @@ export function TaskDialog({
       toast({ title: "Aufgabe erfolgreich erstellt" });
     },
     onError: (error) => {
-      console.error("Error creating task:", error);
+      console.error("Task creation error:", error);
       toast({
         title: "Fehler beim Speichern",
-        description: "Die Aufgabe konnte nicht erstellt werden",
+        description: "Die Aufgabe konnte nicht erstellt werden. Bitte überprüfen Sie Ihre Eingaben.",
         variant: "destructive",
       });
     },
