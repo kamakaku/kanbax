@@ -82,29 +82,28 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const calculateChecklistProgress = () => {
     if (!task.checklist || task.checklist.length === 0) return 0;
 
-    const completedItems = task.checklist.reduce((count, item) => {
+    let completedItems = 0;
+    let totalItems = 0;
+
+    task.checklist.forEach(item => {
       try {
-        // Try to parse the item if it's a JSON string
-        let parsedItem;
-        if (typeof item === 'string') {
-          try {
-            parsedItem = JSON.parse(item);
-            return count + (parsedItem.checked ? 1 : 0);
-          } catch {
-            // If parsing fails, assume it's a legacy format or plain text
-            return count;
+        // Try to parse if it's a JSON string
+        const parsedItem = typeof item === 'string' ? JSON.parse(item) : item;
+
+        // Check if the parsed item has the expected structure
+        if (parsedItem && typeof parsedItem === 'object' && 'checked' in parsedItem) {
+          totalItems++;
+          if (parsedItem.checked) {
+            completedItems++;
           }
-        } else {
-          // If it's already an object
-          return count + (item.checked ? 1 : 0);
         }
       } catch (e) {
-        console.error('Error processing checklist item:', e);
-        return count;
+        // If parsing fails, we skip this item
+        console.log('Could not parse checklist item:', item);
       }
-    }, 0);
+    });
 
-    return Math.round((completedItems / task.checklist.length) * 100);
+    return totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
   };
 
   const renderAssignedUsers = () => {
