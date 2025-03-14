@@ -4,6 +4,7 @@ import { Draggable } from "react-beautiful-dnd";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { CalendarIcon, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface TaskProps {
@@ -23,14 +24,23 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            "bg-white rounded-lg border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-slate-300 transition-colors",
-            snapshot.isDragging && "shadow-lg"
+            "bg-white rounded-lg border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-slate-300 transition-colors relative",
+            snapshot.isDragging && "shadow-lg",
+            task.priority === "high" && "border-t-[5px] border-t-red-500",
+            task.priority === "medium" && "border-t-[5px] border-t-yellow-500",
+            task.priority === "low" && "border-t-[5px] border-t-blue-500"
           )}
         >
           <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
           
           <div className="flex items-center justify-between text-xs text-slate-500">
             <div className="flex items-center gap-2">
+              {task.dueDate && (
+                <div className="flex items-center gap-1">
+                  <CalendarIcon className="h-4 w-4" />
+                  <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
+                </div>
+              )}
               {task.labels.map((label) => (
                 <span key={label} className="px-1.5 py-0.5 bg-slate-100 rounded">{label}</span>
               ))}
