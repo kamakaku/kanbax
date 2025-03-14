@@ -20,46 +20,23 @@ interface TaskCardProps {
   index: number;
 }
 
-const priorityColors = {
-  high: "bg-red-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
-};
-
 export function TaskCard({ task, index }: TaskCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const currentBoard = useStore((state) => state.currentBoard);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { currentBoard } = useStore();
 
-  // Fetch users data
-  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
+  const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
       return response.json();
     },
   });
 
   const updateTask = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        labels: task.labels,
-        dueDate: task.dueDate,
-        assignedUserIds: task.assignedUserIds,
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to update task: ${error}`);
-      }
-
+    mutationFn: async (updatedTask: Task) => {
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, updatedTask);
       return response.json();
     },
     onSuccess: () => {
@@ -78,7 +55,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
     },
   });
 
-  // Calculate checklist progress
   const calculateChecklistProgress = () => {
     if (!task.checklist || task.checklist.length === 0) {
       return 0;
@@ -102,7 +78,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
   };
 
   const renderAssignedUsers = () => {
-    if (isLoadingUsers || !task.assignedUserIds || task.assignedUserIds.length === 0) {
+    if (!task.assignedUserIds || task.assignedUserIds.length === 0) {
       return null;
     }
 
@@ -132,81 +108,67 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const hasChecklist = task.checklist && task.checklist.length > 0;
 
   return (
-    <>
-      <Draggable draggableId={task.id.toString()} index={index}>
-        {(provided) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            {...provided.dragHandleProps}
-          >
-            <Card className="mb-3 cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardHeader className="p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-2 w-2 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors]}`}
-                    />
-                    <span className="text-sm font-medium">{task.title}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsDialogOpen(true);
-                    }}
-                    className="h-6 w-6 rounded-full p-0"
-                  >
-                    <PencilIcon className="h-3 w-3" />
-                  </Button>
+    <Draggable draggableId={`task-${task.id}`} index={index}>
+      {(provided) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+        >
+          <Card className="mb-2">
+            <CardHeader className="p-3">
+              <div className="flex items-start justify-between">
+                <h3 className="text-sm font-medium">{task.title}</h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-4 w-4"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              {task.labels && task.labels.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {task.labels.map((label) => (
+                    <Badge key={label} variant="secondary">
+                      {label}
+                    </Badge>
+                  ))}
                 </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                {task.description && (
-                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{task.description}</p>
-                )}
-                {task.labels && task.labels.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {task.labels.map((label) => (
-                      <Badge key={label} variant="secondary">
-                        {label}
-                      </Badge>
-                    ))}
+              )}
+              {hasChecklist && (
+                <div className="mb-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                    <span>Progress</span>
+                    <span>{progress}%</span>
                   </div>
-                )}
-                {hasChecklist && (
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                      <span>Fortschritt</span>
-                      <span>{progress}%</span>
+                  <Progress value={progress} className="h-1" />
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {task.dueDate && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <CalendarIcon className="h-4 w-4" />
+                      {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
                     </div>
-                    <Progress value={progress} className="h-1" />
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {task.dueDate && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <CalendarIcon className="h-4 w-4" />
-                        {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
-                      </div>
-                    )}
-                  </div>
-                  {renderAssignedUsers()}
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </Draggable>
-
-      <TaskDialog
-        task={task}
-        open={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onUpdate={updateTask.mutate}
-      />
-    </>
+                {renderAssignedUsers()}
+              </div>
+            </CardContent>
+          </Card>
+          <TaskDialog
+            open={isDialogOpen}
+            onOpenChange={setIsDialogOpen}
+            task={task}
+            onUpdate={(updatedTask) => updateTask.mutate(updatedTask)}
+          />
+        </div>
+      )}
+    </Draggable>
   );
 }
