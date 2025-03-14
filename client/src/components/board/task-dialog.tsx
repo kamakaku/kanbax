@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, PlusCircle, X, Tag, UserPlus, Pencil } from "lucide-react";
-import { CommentList } from "@/components/comments/comment-list";
+import { CommentList, CommentEditor } from "@/components/comments/comment-list";
 import classnames from 'classnames';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
@@ -306,6 +306,14 @@ export function TaskDialog({
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
               <CommentList taskId={task.id} />
+              <CommentEditor 
+                taskId={task.id}
+                onCommentAdded={() => {
+                  queryClient.invalidateQueries({ 
+                    queryKey: [`/api/tasks/${task.id}/comments`] 
+                  });
+                }}
+              />
             </div>
           )}
         </div>
@@ -681,6 +689,9 @@ export function TaskDialog({
                 <div className="space-y-2">
                   <FormLabel>Kommentare</FormLabel>
                   <CommentList taskId={task.id} />
+                  <CommentEditor taskId={task.id} onCommentAdded={() => {
+                    queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/comments`] });
+                  }} />
                 </div>
               )}
 
