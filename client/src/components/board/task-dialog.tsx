@@ -64,7 +64,6 @@ interface TaskDialogProps {
   onClose: () => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
-  boardId: number; // Add boardId prop
 }
 
 export function TaskDialog({
@@ -73,7 +72,6 @@ export function TaskDialog({
   onClose,
   onUpdate,
   onDelete,
-  boardId, // Use boardId from props
 }: TaskDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -87,6 +85,7 @@ export function TaskDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = !!task;
+  const { currentBoard } = useStore(); // Verwende currentBoard statt board
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -129,81 +128,9 @@ export function TaskDialog({
     }
   }, [open, task]);
 
-  const addChecklistItem = async () => {
-    if (!newChecklistItem.trim() || !task?.id) return;
-
-    try {
-      const response = await apiRequest("POST", `/api/tasks/${task.id}/checklist`, {
-        title: newChecklistItem,
-        completed: false,
-        itemOrder: checklist.length,
-      });
-
-      if (response.ok) {
-        const newItem = await response.json();
-        setChecklist(prev => [...prev, newItem]);
-        setNewChecklistItem("");
-      }
-    } catch (error) {
-      console.error("Error adding checklist item:", error);
-      toast({
-        title: "Fehler",
-        description: "Das Checklist-Element konnte nicht hinzugefügt werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const toggleChecklistItem = async (itemId: number, completed: boolean) => {
-    if (!task?.id) return;
-
-    try {
-      const response = await apiRequest("PATCH", `/api/tasks/${task.id}/checklist/${itemId}`, {
-        completed,
-      });
-
-      if (response.ok) {
-        setChecklist(prev =>
-          prev.map(item =>
-            item.id === itemId ? { ...item, completed } : item
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error updating checklist item:", error);
-      toast({
-        title: "Fehler",
-        description: "Das Checklist-Element konnte nicht aktualisiert werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deleteChecklistItem = async (itemId: number) => {
-    if (!task?.id) return;
-
-    try {
-      const response = await apiRequest("DELETE", `/api/tasks/${task.id}/checklist/${itemId}`);
-
-      if (response.ok) {
-        setChecklist(prev => {
-          const updatedList = prev.filter(item => item.id !== itemId);
-          return updatedList.map((item, index) => ({ ...item, itemOrder: index }));
-        });
-      }
-    } catch (error) {
-      console.error("Error deleting checklist item:", error);
-      toast({
-        title: "Fehler",
-        description: "Das Checklist-Element konnte nicht gelöscht werden",
-        variant: "destructive",
-      });
-    }
-  };
-
   const onSubmit = async (data: TaskFormValues) => {
     try {
-      if (!boardId) {
+      if (!currentBoard) {
         toast({
           title: "Fehler",
           description: "Kein aktives Board ausgewählt",
@@ -241,7 +168,7 @@ export function TaskDialog({
           assignedUserIds: data.assignedUserIds || [],
           dueDate: data.dueDate,
           archived: false,
-          boardId: boardId, // Use boardId from props
+          boardId: currentBoard.id, // Verwende currentBoard.id
         });
 
         if (!response.ok) {
@@ -249,8 +176,7 @@ export function TaskDialog({
           throw new Error(`Failed to create task: ${errorText}`);
         }
 
-        const newTask = await response.json();
-        await queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "tasks"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
         onClose();
         toast({ title: "Aufgabe erfolgreich erstellt" });
       }
