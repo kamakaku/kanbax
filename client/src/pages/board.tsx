@@ -21,7 +21,7 @@ const defaultColumns = [
 export default function Board() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { currentBoard } = useStore();
+  const { currentBoard, currentProject } = useStore();
 
   useEffect(() => {
     if (!currentBoard) {
@@ -135,7 +135,14 @@ export default function Board() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Kanban Board</h1>
+        <div>
+          <h1 className="text-3xl font-bold">{currentBoard.title}</h1>
+          {currentProject && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Projekt: {currentProject.title}
+            </p>
+          )}
+        </div>
         <BoardSelector />
       </div>
 
