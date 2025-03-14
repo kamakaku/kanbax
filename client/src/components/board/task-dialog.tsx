@@ -6,6 +6,7 @@ import { type Task } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useStore } from "@/lib/store"; // Add this import
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -64,6 +65,7 @@ interface TaskDialogProps {
   onClose: () => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
+  currentBoard?: any; // Added to receive the current board ID
 }
 
 export function TaskDialog({
@@ -72,6 +74,7 @@ export function TaskDialog({
   onClose,
   onUpdate,
   onDelete,
+  currentBoard, // Receive currentBoard ID
 }: TaskDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -84,6 +87,7 @@ export function TaskDialog({
 
   const { toast } = useToast();
   const isEditing = !!task;
+  const { board } = useStore(); //Use the store here
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -203,10 +207,9 @@ export function TaskDialog({
   const onSubmit = async (data: TaskFormValues) => {
     try {
       if (isEditing && task && onUpdate) {
-        // Bestehende Task-Daten beibehalten und nur die Formularfelder aktualisieren
+        // Update existing task
         const updatedTask: Task = {
-          id: task.id,
-          boardId: task.boardId,
+          ...task,
           title: data.title,
           description: data.description || "",
           status: data.status,
@@ -215,15 +218,35 @@ export function TaskDialog({
           order: data.order,
           labels: data.labels || [],
           assignedUserIds: data.assignedUserIds || [],
-          assignedTeamId: task.assignedTeamId,
-          assignedAt: task.assignedAt,
-          dueDate: data.dueDate, // Already an ISO string from the form
+          dueDate: data.dueDate,
           archived: data.archived,
-          checklist: task.checklist || [],
         };
 
         await onUpdate(updatedTask);
         onClose();
+      } else {
+        // Create new task
+        const response = await apiRequest("POST", "/api/tasks", {
+          title: data.title,
+          description: data.description || "",
+          status: data.status,
+          priority: data.priority,
+          columnId: data.columnId,
+          order: data.order,
+          labels: data.labels || [],
+          assignedUserIds: data.assignedUserIds || [],
+          dueDate: data.dueDate,
+          archived: false,
+          boardId: board?.id || currentBoard?.id, // Use board from store, fallback to prop
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create task");
+        }
+
+        const newTask = await response.json();
+        onClose();
+        toast({ title: "Aufgabe erfolgreich erstellt" });
       }
     } catch (error) {
       console.error("Form submission error:", error);
