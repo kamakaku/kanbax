@@ -14,18 +14,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { CalendarIcon, PlusCircle, X, Tag, UserPlus, Pencil } from "lucide-react";
+import { CommentList } from "@/components/comments/comment-list";
+import classnames from 'classnames';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -40,10 +35,8 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarIcon, PlusCircle, X, Tag, UserPlus, Pencil } from "lucide-react";
-import { CommentList } from "@/components/comments/comment-list";
-import classnames from 'classnames';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
 
 interface ChecklistItem {
   text: string;
@@ -58,19 +51,6 @@ interface TaskDialogProps {
   mode?: "edit" | "details";
   initialColumnId?: number;
 }
-
-const taskFormSchema = z.object({
-  title: z.string().min(1, "Titel ist erforderlich"),
-  description: z.string().optional(),
-  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
-  priority: z.enum(["low", "medium", "high"]),
-  columnId: z.number(),
-  labels: z.array(z.string()).default([]),
-  assignedUserIds: z.array(z.number()).default([]),
-  dueDate: z.string().nullable(),
-  archived: z.boolean().default(false),
-  order: z.number().default(0),
-});
 
 export function TaskDialog({
   task,
@@ -116,6 +96,240 @@ export function TaskDialog({
     }
   }, [open, task]);
 
+  const updateTaskMutation = useMutation({
+    mutationFn: async (updatedTask: Task) => {
+      const response = await apiRequest("PATCH", `/api/tasks/${task?.id}`, updatedTask);
+      if (!response.ok) {
+        throw new Error("Fehler beim Aktualisieren des Tasks");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Speichern",
+        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const saveChecklist = async (newChecklist: ChecklistItem[]) => {
+    if (!task) return;
+
+    const formattedChecklist = newChecklist.map(item => JSON.stringify(item));
+    const updatedTask: Task = {
+      ...task,
+      checklist: formattedChecklist,
+    };
+
+    await updateTaskMutation.mutateAsync(updatedTask);
+  };
+
+  const toggleChecklistItem = async (index: number) => {
+    const newChecklist = checklist.map((item, i) =>
+      i === index ? { ...item, checked: !item.checked } : item
+    );
+    setChecklist(newChecklist);
+    await saveChecklist(newChecklist);
+  };
+
+  const deleteChecklistItem = async (index: number) => {
+    const newChecklist = checklist.filter((_, i) => i !== index);
+    setChecklist(newChecklist);
+    await saveChecklist(newChecklist);
+  };
+
+  const addChecklistItem = async () => {
+    if (!newChecklistItem.trim()) return;
+    const newChecklist = [...checklist, { text: newChecklistItem, checked: false }];
+    setChecklist(newChecklist);
+    setNewChecklistItem("");
+    await saveChecklist(newChecklist);
+  };
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
+  const renderDetailView = () => {
+    const priorityConfig = {
+      high: {
+        color: "text-red-600",
+        bg: "bg-red-50",
+        border: "border-red-200",
+        label: "Hoch",
+        dot: "bg-red-600"
+      },
+      medium: {
+        color: "text-yellow-600",
+        bg: "bg-yellow-50",
+        border: "border-yellow-200",
+        label: "Mittel",
+        dot: "bg-yellow-600"
+      },
+      low: {
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        border: "border-blue-200",
+        label: "Niedrig",
+        dot: "bg-blue-600"
+      }
+    };
+
+    const priority = task?.priority ? priorityConfig[task.priority as keyof typeof priorityConfig] : priorityConfig.medium;
+
+    return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          {/* Priority and Labels */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className={classnames(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
+              "border border-current/20",
+              priority.color,
+            )}>
+              <div className={classnames("w-1.5 h-1.5 rounded-full", priority.dot)} />
+              <span className="text-xs font-medium">{priority.label}</span>
+            </div>
+
+            {task?.labels && task.labels.map((label, index) => (
+              <div
+                key={index}
+                className={classnames(
+                  "px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600",
+                  "transition-colors hover:bg-slate-200"
+                )}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
+
+          {/* Title and Description */}
+          <div className="text-lg font-medium">{task?.title}</div>
+          {task?.description && (
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {task.description}
+            </div>
+          )}
+
+          {/* Due Date */}
+          {task?.dueDate && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CalendarIcon className="h-4 w-4" />
+              {format(new Date(task.dueDate), "PPP", { locale: de })}
+            </div>
+          )}
+
+          {/* Assigned Users */}
+          {task?.assignedUserIds && task.assignedUserIds.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
+              <div className="flex flex-wrap gap-3">
+                {task.assignedUserIds.map((userId) => {
+                  const user = users.find((u) => u.id === userId);
+                  return user ? (
+                    <div key={userId} className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6 border-2 border-background">
+                        <AvatarImage src={user.avatarUrl || ""} />
+                        <AvatarFallback>
+                          {user.username.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm">{user.username}</span>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Checklist */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
+            <div className="space-y-2">
+              {checklist.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={() => toggleChecklistItem(index)}
+                    className="h-4 w-4"
+                  />
+                  <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                    {item.text}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => deleteChecklistItem(index)}
+                    className="ml-auto text-destructive hover:text-destructive/80"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Neues Checklist-Element"
+                value={newChecklistItem}
+                onChange={(e) => setNewChecklistItem(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addChecklistItem();
+                  }
+                }}
+              />
+              <Button type="button" onClick={addChecklistItem} size="sm">
+                <PlusCircle className="h-4 w-4 mr-1" />
+                Hinzufügen
+              </Button>
+            </div>
+          </div>
+
+          {/* Comments */}
+          {task && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+              <CommentList taskId={task.id} />
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsEditMode(true)}
+            className="gap-2"
+          >
+            <Pencil className="h-4 w-4" />
+            Bearbeiten
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Schließen
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+  };
+
   const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -129,17 +343,6 @@ export function TaskDialog({
       dueDate: task?.dueDate || null,
       archived: task?.archived || false,
       order: task?.order || 0,
-    },
-  });
-
-  const { data: users = [] } = useQuery({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
     },
   });
 
@@ -192,204 +395,6 @@ export function TaskDialog({
         variant: "destructive",
       });
     }
-  };
-
-  const addChecklistItem = () => {
-    if (!newChecklistItem.trim()) return;
-    setChecklist(prev => [...prev, { text: newChecklistItem, checked: false }]);
-    setNewChecklistItem("");
-  };
-
-  const toggleChecklistItem = (index: number) => {
-    setChecklist(prev =>
-      prev.map((item, i) =>
-        i === index ? { ...item, checked: !item.checked } : item
-      )
-    );
-  };
-
-  const deleteChecklistItem = (index: number) => {
-    setChecklist(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleAddLabel = () => {
-    if (!newLabel.trim()) return;
-    const currentLabels = form.getValues("labels");
-    if (!currentLabels.includes(newLabel)) {
-      form.setValue("labels", [...currentLabels, newLabel]);
-    }
-    setNewLabel("");
-  };
-
-  const removeLabel = (labelToRemove: string) => {
-    const currentLabels = form.getValues("labels");
-    form.setValue(
-      "labels",
-      currentLabels.filter(label => label !== labelToRemove)
-    );
-  };
-
-  const renderDetailView = () => {
-    const priorityConfig = {
-      high: {
-        color: "text-red-600",
-        bg: "bg-red-50",
-        border: "border-red-200",
-        label: "Hoch",
-        dot: "bg-red-600"
-      },
-      medium: {
-        color: "text-yellow-600",
-        bg: "bg-yellow-50",
-        border: "border-yellow-200",
-        label: "Mittel",
-        dot: "bg-yellow-600"
-      },
-      low: {
-        color: "text-blue-600",
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        label: "Niedrig",
-        dot: "bg-blue-600"
-      }
-    };
-
-    const priority = task?.priority ? priorityConfig[task.priority as keyof typeof priorityConfig] : priorityConfig.medium;
-
-    return (
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className={classnames(
-              "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-              "border border-current/20",
-              priority.color,
-            )}>
-              <div className={classnames("w-1.5 h-1.5 rounded-full", priority.dot)} />
-              <span className="text-xs font-medium">{priority.label}</span>
-            </div>
-
-            {task?.labels && task.labels.map((label, index) => (
-              <div
-                key={index}
-                className={classnames(
-                  "px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600",
-                  "transition-colors hover:bg-slate-200"
-                )}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-
-          <div className="text-lg font-medium">{task?.title}</div>
-
-          {task?.description && (
-            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {task.description}
-            </div>
-          )}
-
-          {task?.dueDate && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CalendarIcon className="h-4 w-4" />
-              {format(new Date(task.dueDate), "PPP", { locale: de })}
-            </div>
-          )}
-
-          {task?.assignedUserIds && task.assignedUserIds.length > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-2">
-                {task.assignedUserIds.map((userId) => {
-                  const user = users.find((u) => u.id === userId);
-                  return user ? (
-                    <Avatar
-                      key={userId}
-                      className="h-6 w-6 border-2 border-background"
-                    >
-                      <AvatarImage src={user.avatarUrl || ""} />
-                      <AvatarFallback>
-                        {user.username.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : null;
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
-            <div className="space-y-2">
-              {checklist.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2"
-                >
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    onChange={() => toggleChecklistItem(index)}
-                    className="h-4 w-4"
-                  />
-                  <span className={item.checked ? "line-through text-muted-foreground" : ""}>
-                    {item.text}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => deleteChecklistItem(index)}
-                    className="ml-auto text-destructive hover:text-destructive/80"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Neues Checklist-Element"
-                value={newChecklistItem}
-                onChange={(e) => setNewChecklistItem(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addChecklistItem();
-                  }
-                }}
-              />
-              <Button type="button" onClick={addChecklistItem} size="sm">
-                <PlusCircle className="h-4 w-4 mr-1" />
-                Hinzufügen
-              </Button>
-            </div>
-          </div>
-
-          {task && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
-              <CommentList taskId={task.id} />
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsEditMode(true)}
-            className="gap-2"
-          >
-            <Pencil className="h-4 w-4" />
-            Bearbeiten
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Schließen
-          </Button>
-        </DialogFooter>
-      </div>
-    );
   };
 
   return (
@@ -696,3 +701,16 @@ export function TaskDialog({
     </Dialog>
   );
 }
+
+const taskFormSchema = z.object({
+  title: z.string().min(1, "Titel ist erforderlich"),
+  description: z.string().optional(),
+  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
+  priority: z.enum(["low", "medium", "high"]),
+  columnId: z.number(),
+  labels: z.array(z.string()).default([]),
+  assignedUserIds: z.array(z.number()).default([]),
+  dueDate: z.string().nullable(),
+  archived: z.boolean().default(false),
+  order: z.number().default(0),
+});
