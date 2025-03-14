@@ -66,8 +66,8 @@ export function TaskCard({ task, index }: TaskCardProps) {
 
     task.checklist.forEach(item => {
       try {
-        const parsedItem = JSON.parse(item);
-        if (parsedItem.checked) {
+        const parsedItem = typeof item === 'string' ? JSON.parse(item) : item;
+        if (parsedItem.checked || parsedItem.completed) {
           completed++;
         }
       } catch (e) {
