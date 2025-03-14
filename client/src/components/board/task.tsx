@@ -78,30 +78,30 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
               </span>
             </div>
           )}
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
               {task.dueDate && (
                 <div className="flex items-center gap-1">
                   <CalendarIcon className="h-4 w-4" />
                   <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
                 </div>
               )}
-              {task.assignedUserIds && task.assignedUserIds.length > 0 && (
-                <div className="flex -space-x-2">
-                  {task.assignedUserIds.map((userId) => {
-                    const user = users.find((u) => u.id === userId);
-                    return user ? (
-                      <Avatar key={userId} className="h-5 w-5 border-2 border-background">
-                        <AvatarImage src={user.avatarUrl || ""} />
-                        <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
-                          {user.username.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : null;
-                  })}
-                </div>
-              )}
             </div>
+            {task.assignedUserIds && task.assignedUserIds.length > 0 && (
+              <div className="flex justify-end -space-x-2">
+                {task.assignedUserIds.map((userId) => {
+                  const user = users.find((u) => u.id === userId);
+                  return user ? (
+                    <Avatar key={userId} className="h-5 w-5 border-2 border-background">
+                      <AvatarImage src={user.avatarUrl || ""} />
+                      <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
+                        {user.username.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : null;
+                })}
+              </div>
+            )}
 
             {showBoardTitle && task.boardTitle && (
               <span className="text-xs text-slate-400">{task.boardTitle}</span>
