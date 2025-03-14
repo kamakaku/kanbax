@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -10,6 +9,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { type Comment, type User } from "@shared/schema";
+// Placeholder for apiRequest function - replace with your actual implementation
+const apiRequest = async (method: string, url: string, body?: any) => {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+  return res;
+};
 
 interface CommentListProps {
   taskId: number;
@@ -34,7 +47,7 @@ export function CommentList({ taskId }: CommentListProps) {
   const { data: users = {}, isLoading: isLoadingUsers } = useQuery<Record<number, User>>({
     queryKey: [`/api/users`],
     queryFn: async () => {
-      const userIds = [...new Set(comments.map(c => c.authorId || c.userId))];
+      const userIds = [...new Set(comments.map(c => c.authorId))];
       const users: Record<number, User> = {};
 
       for (const userId of userIds) {
@@ -73,8 +86,7 @@ export function CommentList({ taskId }: CommentListProps) {
   return (
     <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
       {comments.map((comment) => {
-        const userId = comment.authorId || comment.userId;
-        const author = users[userId];
+        const author = users[comment.authorId];
         const commentDate = new Date(comment.createdAt);
         const formattedDate = format(commentDate, "dd.MM.yyyy HH:mm", { locale: de });
 
@@ -82,8 +94,8 @@ export function CommentList({ taskId }: CommentListProps) {
           <div key={comment.id} className="border-b pb-3 last:border-0">
             <div className="flex items-center gap-2 mb-1">
               <Avatar className="h-6 w-6">
-                {author?.avatar ? (
-                  <AvatarImage src={author.avatar} alt={author?.name || `User #${userId}`} />
+                {author?.avatarUrl ? (
+                  <AvatarImage src={author.avatarUrl} alt={author.username} />
                 ) : (
                   <AvatarFallback>
                     <UserIcon className="h-4 w-4" />
@@ -92,7 +104,7 @@ export function CommentList({ taskId }: CommentListProps) {
               </Avatar>
               <div className="flex flex-col">
                 <span className="text-sm font-medium">
-                  {author?.name || `Benutzer #${userId}`}
+                  {author?.username || `Benutzer #${comment.authorId}`}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {formattedDate}
@@ -122,15 +134,11 @@ export function CommentEditor({ taskId, onCommentAdded }: CommentEditorProps) {
 
   const addComment = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/tasks/${taskId}/comments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          content,
-          authorId: user?.id
-        }),
+      const res = await apiRequest("POST", `/api/tasks/${taskId}/comments`, {
+        content,
+        rawContent: content,
+        authorId: user?.id,
+        taskId
       });
 
       if (!res.ok) {
@@ -141,13 +149,12 @@ export function CommentEditor({ taskId, onCommentAdded }: CommentEditorProps) {
     },
     onSuccess: () => {
       setContent("");
-      // Kommentarliste neu laden
-      queryClient.invalidateQueries([`/api/tasks/${taskId}/comments`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${taskId}/comments`] });
       toast({
         title: "Kommentar hinzugefügt",
         description: "Dein Kommentar wurde erfolgreich hinzugefügt.",
       });
-      
+
       if (onCommentAdded) {
         onCommentAdded();
       }
