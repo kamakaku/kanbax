@@ -4,7 +4,6 @@ import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 import { type Team } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
-import { wikiArticles, teams, type WikiArticle, type InsertWikiArticle, type UpdateWikiArticle } from "@shared/schema";
 
 export interface IStorage {
   // Project operations
@@ -48,24 +47,14 @@ export interface IStorage {
   getActivityLogs(taskId: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
 
-  // Add user operations
+  // User operations
   getUser(id: number): Promise<User>;
   getUserByUsername(username: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
   createUser(user: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User>;
-
-  // Wiki article operations
-  getWikiArticles(projectId: number): Promise<WikiArticle[]>;
-  getWikiArticle(id: number): Promise<WikiArticle>;
-  createWikiArticle(article: InsertWikiArticle): Promise<WikiArticle>;
-  updateWikiArticle(id: number, article: UpdateWikiArticle): Promise<WikiArticle>;
-  deleteWikiArticle(id: number): Promise<void>;
-
-  // Add new user methods
   updateUser(id: number, data: Partial<User>): Promise<User>;
   updateUserPassword(id: number, passwordHash: string): Promise<void>;
   updateUserEmail(id: number, email: string): Promise<User>;
-  // Add new method to get all users
   getUsers(): Promise<User[]>;
 }
 
@@ -116,7 +105,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Board operations with project support
+  // Board operations
   async getBoards(): Promise<Board[]> {
     return await db.select().from(boards);
   }
@@ -303,7 +292,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createComment(insertComment: InsertComment): Promise<Comment> {
-    // First check if the task exists
     const [task] = await db
       .select()
       .from(tasks)
@@ -313,14 +301,11 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Task ${insertComment.taskId} not found`);
     }
 
-    console.log("Creating comment with data:", insertComment);
-
     const [comment] = await db
       .insert(comments)
       .values(insertComment)
       .returning();
 
-    console.log("Comment created successfully:", comment);
     return comment;
   }
 
@@ -334,7 +319,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
-    // First check if the task exists
     const [task] = await db
       .select()
       .from(tasks)
@@ -344,14 +328,11 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Task ${insertItem.taskId} not found`);
     }
 
-    console.log("Creating checklist item with data:", insertItem);
-
     const [item] = await db
       .insert(checklistItems)
       .values(insertItem)
       .returning();
 
-    console.log("Checklist item created successfully:", item);
     return item;
   }
 
@@ -390,7 +371,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActivityLog(insertLog: InsertActivityLog): Promise<ActivityLog> {
-    // First check if the task exists
     const [task] = await db
       .select()
       .from(tasks)
@@ -400,18 +380,15 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Task ${insertLog.taskId} not found`);
     }
 
-    console.log("Creating activity log with data:", insertLog);
-
     const [log] = await db
       .insert(activityLogs)
       .values(insertLog)
       .returning();
 
-    console.log("Activity log created successfully:", log);
     return log;
   }
 
-  // Add user operations implementation
+  // User operations
   async getUser(id: number): Promise<User> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     if (!user) {
@@ -436,64 +413,6 @@ export class DatabaseStorage implements IStorage {
       .values(userData)
       .returning();
     return user;
-  }
-
-  // Wiki article implementations
-  async getWikiArticles(projectId: number): Promise<WikiArticle[]> {
-    return await db
-      .select()
-      .from(wikiArticles)
-      .where(eq(wikiArticles.projectId, projectId))
-      .orderBy(desc(wikiArticles.updatedAt));
-  }
-
-  async getWikiArticle(id: number): Promise<WikiArticle> {
-    const [article] = await db
-      .select()
-      .from(wikiArticles)
-      .where(eq(wikiArticles.id, id));
-
-    if (!article) {
-      throw new Error(`Wiki article ${id} not found`);
-    }
-
-    return article;
-  }
-
-  async createWikiArticle(insertArticle: InsertWikiArticle): Promise<WikiArticle> {
-    const [article] = await db
-      .insert(wikiArticles)
-      .values(insertArticle)
-      .returning();
-    return article;
-  }
-
-  async updateWikiArticle(id: number, updateArticle: UpdateWikiArticle): Promise<WikiArticle> {
-    const [article] = await db
-      .update(wikiArticles)
-      .set({
-        ...updateArticle,
-        updatedAt: new Date(),
-      })
-      .where(eq(wikiArticles.id, id))
-      .returning();
-
-    if (!article) {
-      throw new Error(`Wiki article ${id} not found`);
-    }
-
-    return article;
-  }
-
-  async deleteWikiArticle(id: number): Promise<void> {
-    const [article] = await db
-      .delete(wikiArticles)
-      .where(eq(wikiArticles.id, id))
-      .returning();
-
-    if (!article) {
-      throw new Error(`Wiki article ${id} not found`);
-    }
   }
 
   async updateUser(id: number, data: Partial<User>): Promise<User> {
@@ -523,7 +442,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserEmail(id: number, email: string): Promise<User> {
-    // First check if email is already taken
     const existingUser = await this.getUserByEmail(email);
     if (existingUser && existingUser.id !== id) {
       throw new Error('Email is already taken');
@@ -541,14 +459,9 @@ export class DatabaseStorage implements IStorage {
 
     return user;
   }
-  // Add implementation of getUsers
+
   async getUsers(): Promise<User[]> {
-    const allUsers = await db.select().from(users);
-    // Remove password hashes from response
-    return allUsers.map(user => {
-      const { passwordHash: _, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    });
+    return await db.select().from(users);
   }
 }
 

@@ -36,16 +36,6 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Wiki articles table
-export const wikiArticles = pgTable("wiki_articles", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  content: text("content").notNull(),
-  projectId: integer("project_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // Update boards table to include projectId
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
@@ -253,7 +243,7 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers)
     role: z.enum(["member", "admin"]).default("member"),
   });
 
-// Add project types
+// Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertBoard = z.infer<typeof insertBoardSchema>;
@@ -276,7 +266,6 @@ export type Task = typeof tasks.$inferSelect & {
 };
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;
-// Update the comment type
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
@@ -297,23 +286,3 @@ export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
-
-// Wiki article schema
-export const insertWikiArticleSchema = createInsertSchema(wikiArticles)
-  .pick({
-    title: true,
-    content: true,
-    projectId: true,
-  })
-  .extend({
-    title: z.string().min(1, "Title is required"),
-    content: z.string().min(1, "Content is required"),
-    projectId: z.number().int().positive("Project ID is required"),
-  });
-
-export const updateWikiArticleSchema = insertWikiArticleSchema.partial();
-
-// Export types
-export type WikiArticle = typeof wikiArticles.$inferSelect;
-export type InsertWikiArticle = z.infer<typeof insertWikiArticleSchema>;
-export type UpdateWikiArticle = z.infer<typeof updateWikiArticleSchema>;

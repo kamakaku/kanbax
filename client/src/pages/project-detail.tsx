@@ -1,11 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { type Project } from "@shared/schema";
-import { WikiList } from "@/components/project/wiki-list";
 import { BoardList } from "@/components/project/board-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 import { ProjectForm } from "@/components/project/project-form";
@@ -62,20 +60,7 @@ export default function ProjectDetail() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="boards" className="space-y-8">
-        <TabsList>
-          <TabsTrigger value="boards">Boards</TabsTrigger>
-          <TabsTrigger value="wiki">Wiki</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="boards">
-          <BoardList projectId={projectId} />
-        </TabsContent>
-
-        <TabsContent value="wiki">
-          <WikiList projectId={projectId} />
-        </TabsContent>
-      </Tabs>
+      <BoardList projectId={projectId} />
 
       <ProjectForm
         open={showEditForm}
