@@ -73,11 +73,11 @@ export const tasks = pgTable("tasks", {
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
   dueDate: text("due_date"), // Store as ISO string
-  checklist: text("checklist").array(),
   archived: boolean("archived").default(false),
   assignedUserIds: integer("assigned_user_ids").array(),
   assignedTeamId: integer("assigned_team_id"),
   assignedAt: timestamp("assigned_at"),
+  checklist: text("checklist").array(), // Keep as text array for now to avoid migration issues
 });
 
 export const checklistItems = pgTable("checklist_items", {
@@ -172,7 +172,6 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: true,
     labels: true,
     dueDate: true,
-    checklist: true,
     archived: true,
     assignedUserIds: true,
     assignedTeamId: true,
@@ -185,10 +184,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable().optional(), // Accept ISO string or null
-    checklist: z.array(z.object({
-      text: z.string().min(1, "Text is required"),
-      checked: z.boolean().default(false),
-    })).default([]),
+    checklist: z.array(z.string()).default([]), // Store as strings for now
     archived: z.boolean().default(false),
     assignedUserIds: z.array(z.number().int().positive()).default([]),
     assignedTeamId: z.union([
@@ -266,10 +262,7 @@ export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect & {
-  checklist?: Array<{
-    text: string;
-    checked: boolean;
-  }>;
+  checklist: string[]; // Keep as string array for database compatibility
   assignedUser?: {
     id: number;
     username: string;

@@ -67,6 +67,11 @@ interface TaskDialogProps {
   initialColumnId?: number;
 }
 
+interface ChecklistItem {
+  text: string;
+  checked: boolean;
+}
+
 export function TaskDialog({
   task,
   open,
@@ -78,12 +83,7 @@ export function TaskDialog({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
-  const [checklist, setChecklist] = useState<Array<{
-    id?: number;
-    title: string;
-    completed: boolean;
-    itemOrder: number;
-  }>>([]);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -103,17 +103,25 @@ export function TaskDialog({
       }
 
       try {
+        // Convert checklist items to string array for storage
+        const formattedTask = {
+          ...newTask,
+          checklist: checklist.map(item => item.text)
+        };
+
+        console.log("Sending task data:", formattedTask);
+
         const response = await apiRequest(
           "POST", 
           `/api/boards/${currentBoard.id}/tasks`, 
-          newTask
+          formattedTask
         );
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("Server response:", errorText);
           throw new Error(`Failed to create task: ${errorText}`);
         }
+
         return response.json();
       } catch (error) {
         console.error("Mutation error:", error);
@@ -121,17 +129,14 @@ export function TaskDialog({
       }
     },
     onSuccess: () => {
-      if (currentBoard?.id) {
-        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
       onClose();
       toast({ title: "Aufgabe erfolgreich erstellt" });
     },
     onError: (error) => {
-      console.error("Task creation error:", error);
       toast({
         title: "Fehler beim Speichern",
-        description: "Die Aufgabe konnte nicht erstellt werden. Bitte überprüfen Sie Ihre Eingaben.",
+        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
         variant: "destructive",
       });
     },
@@ -169,14 +174,14 @@ export function TaskDialog({
       order: task?.order || 0,
     });
 
-    setChecklist([]);
-    if (task?.id) {
-      fetch(`/api/tasks/${task.id}/checklist`)
-        .then(response => response.ok ? response.json() : [])
-        .then(items => setChecklist(items.sort((a, b) => a.itemOrder - b.itemOrder)))
-        .catch(error => console.error("Error fetching checklist:", error));
-    }
-  }, [open, task, initialColumnId]);
+    // Initialize checklist from task's string array
+    setChecklist(
+      (task?.checklist || []).map(text => ({
+        text,
+        checked: false
+      }))
+    );
+  }, [open, task, initialColumnId, form]);
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
@@ -192,40 +197,19 @@ export function TaskDialog({
       if (isEditing && task && onUpdate) {
         const updatedTask: Task = {
           ...task,
-          title: data.title,
-          description: data.description || "",
-          status: data.status,
-          priority: data.priority,
-          columnId: data.columnId,
-          order: data.order,
-          labels: data.labels || [],
-          assignedUserIds: data.assignedUserIds || [],
-          dueDate: data.dueDate,
-          archived: data.archived,
+          ...data,
+          checklist: checklist.map(item => item.text) // Convert to string array for storage
         };
 
         await onUpdate(updatedTask);
         onClose();
       } else {
         const newTaskData = {
-          title: data.title,
-          description: data.description || "",
-          status: data.status,
-          priority: data.priority,
-          columnId: initialColumnId || data.columnId,
-          order: 0,
-          labels: data.labels || [],
-          assignedUserIds: data.assignedUserIds || [],
-          dueDate: data.dueDate,
-          archived: false,
+          ...data,
           boardId: currentBoard.id,
-          checklist: checklist.map(item => ({
-            text: item.title,
-            checked: item.completed
-          }))
+          checklist: checklist.map(item => item.text) // Convert to string array for storage
         };
 
-        console.log("Creating new task with data:", newTaskData);
         await createTaskMutation.mutateAsync(newTaskData);
       }
     } catch (error) {
@@ -238,13 +222,12 @@ export function TaskDialog({
     }
   };
 
-  const addChecklistItem = async () => {
+  const addChecklistItem = () => {
     if (!newChecklistItem.trim()) return;
 
     const newItem = {
-      title: newChecklistItem,
-      completed: false,
-      itemOrder: checklist.length
+      text: newChecklistItem,
+      checked: false
     };
 
     setChecklist(prev => [...prev, newItem]);
@@ -254,7 +237,7 @@ export function TaskDialog({
   const toggleChecklistItem = (index: number) => {
     setChecklist(prev =>
       prev.map((item, i) =>
-        i === index ? { ...item, completed: !item.completed } : item
+        i === index ? { ...item, checked: !item.checked } : item
       )
     );
   };
@@ -533,12 +516,12 @@ export function TaskDialog({
                   >
                     <input
                       type="checkbox"
-                      checked={item.completed}
+                      checked={item.checked}
                       onChange={() => toggleChecklistItem(index)}
                       className="h-4 w-4"
                     />
-                    <span className={item.completed ? "line-through text-muted-foreground" : ""}>
-                      {item.title}
+                    <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                      {item.text}
                     </span>
                     <button
                       type="button"
