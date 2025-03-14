@@ -66,9 +66,18 @@ export function TaskCard({ task, index }: TaskCardProps) {
 
     task.checklist.forEach(item => {
       try {
-        const parsedItem = typeof item === 'string' ? JSON.parse(item) : item;
-        if (parsedItem.checked || parsedItem.completed) {
-          completed++;
+        if (typeof item === 'string') {
+          const parsedItem = JSON.parse(item);
+          if (parsedItem.checked) {
+            completed++;
+          }
+        } else if (item === '[object Object]') {
+          // Überspringe ungültige alte Einträge
+          return;
+        } else {
+          if (item.completed || item.checked) {
+            completed++;
+          }
         }
       } catch (e) {
         console.error("Error parsing checklist item:", e);
