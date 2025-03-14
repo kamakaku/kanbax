@@ -48,7 +48,7 @@ export default function Board() {
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ taskId, newStatus, newOrder, sourceColumnTasks, destinationColumnTasks }: { taskId: number; newStatus: string; newOrder: number; sourceColumnTasks?: Task[]; destinationColumnTasks?: Task[] }) => {
+    mutationFn: async ({ taskId, newStatus, newOrder }: { taskId: number; newStatus: string; newOrder: number }) => {
       // Find the existing task
       const task = tasks.find(t => t.id === taskId);
       if (!task) throw new Error("Task not found");
@@ -57,12 +57,14 @@ export default function Board() {
       const targetColumn = defaultColumns.find(col => col.title === newStatus);
       if (!targetColumn) throw new Error(`Invalid status: ${newStatus}`);
 
-      const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+      // Update the task with the new status and order
+      const updatedTask = {
+        ...task,
         status: newStatus,
-        order: newOrder,
-        boardId: task.boardId,
-        columnId: task.columnId //Preserving original columnId for now.  Could be removed if the backend doesn't need it.
-      });
+        order: newOrder
+      };
+
+      const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, updatedTask);
 
       if (!res.ok) throw new Error("Failed to update task");
       return res.json();
@@ -94,7 +96,7 @@ export default function Board() {
     if (!draggedTask) return;
 
     try {
-      // Create new array of tasks
+      // Create new array of tasks for optimistic update
       const newTasks = [...tasks];
       const updatedTask = {
         ...draggedTask,
@@ -132,8 +134,8 @@ export default function Board() {
       // Update in backend
       await updateTaskStatus.mutateAsync({
         taskId,
-        status: destination.droppableId,
-        order: destination.index
+        newStatus: destination.droppableId,
+        newOrder: destination.index
       });
     } catch (error) {
       console.error("Failed to update task status:", error);

@@ -34,12 +34,23 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            "bg-white rounded-t-lg border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-slate-300 transition-colors relative",
-            snapshot.isDragging && "shadow-lg scale-105 rotate-1 opacity-90 !border-slate-400 transition-transform duration-200",
-            task.priority === "high" && "border-t-[5px] border-t-red-500",
-            task.priority === "medium" && "border-t-[5px] border-t-yellow-500",
-            task.priority === "low" && "border-t-[5px] border-t-blue-500"
+            "bg-white rounded-lg border border-slate-200 shadow-sm p-3 cursor-pointer",
+            "hover:border-slate-300 transition-all duration-200 ease-in-out",
+            "transform-gpu", 
+            snapshot.isDragging && [
+              "shadow-lg scale-[1.02] rotate-1",
+              "border-2 border-primary/50",
+              "opacity-90",
+              "z-50"
+            ],
+            task.priority === "high" && "border-t-[3px] border-t-red-500",
+            task.priority === "medium" && "border-t-[3px] border-t-yellow-500",
+            task.priority === "low" && "border-t-[3px] border-t-blue-500"
           )}
+          style={{
+            ...provided.draggableProps.style,
+            transformOrigin: snapshot.isDragging ? "center center" : "50% 50%"
+          }}
         >
           {task.labels.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
