@@ -2,14 +2,13 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, PencilIcon } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -145,7 +144,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
             onOpenChange={setIsDialogOpen}
             task={task}
             onUpdate={(updatedTask) => updateTask.mutate(updatedTask)}
-            mode="details"
           />
         </div>
       )}
