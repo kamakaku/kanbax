@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { type Task } from "@shared/schema";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
@@ -41,7 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CommentList } from "@/components/comments/comment-list";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarIcon, PlusCircle, Trash } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, UserPlus } from "lucide-react";
 
 const taskFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
@@ -76,6 +76,7 @@ export function TaskDialog({
   initialColumnId,
 }: TaskDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [checklist, setChecklist] = useState<Array<{
     id?: number;
@@ -88,6 +89,12 @@ export function TaskDialog({
   const queryClient = useQueryClient();
   const isEditing = !!task;
   const { currentBoard } = useStore();
+
+  // Benutzer abrufen
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    enabled: open,
+  });
 
   const createTaskMutation = useMutation({
     mutationFn: async (newTask: Partial<Task>) => {
@@ -212,6 +219,10 @@ export function TaskDialog({
           dueDate: data.dueDate,
           archived: false,
           boardId: currentBoard.id,
+          checklist: checklist.map(item => ({
+            text: item.title,
+            checked: item.completed
+          }))
         };
 
         console.log("Creating new task with data:", newTaskData);
@@ -228,75 +239,42 @@ export function TaskDialog({
   };
 
   const addChecklistItem = async () => {
-    if (!newChecklistItem.trim() || !task?.id) return;
+    if (!newChecklistItem.trim()) return;
 
-    try {
-      const response = await apiRequest("POST", `/api/tasks/${task.id}/checklist`, {
-        title: newChecklistItem,
-        completed: false,
-        itemOrder: checklist.length,
-      });
+    const newItem = {
+      title: newChecklistItem,
+      completed: false,
+      itemOrder: checklist.length
+    };
 
-      if (response.ok) {
-        const newItem = await response.json();
-        setChecklist(prev => [...prev, newItem]);
-        setNewChecklistItem("");
-      }
-    } catch (error) {
-      console.error("Error adding checklist item:", error);
-      toast({
-        title: "Fehler",
-        description: "Das Checklist-Element konnte nicht hinzugefügt werden",
-        variant: "destructive",
-      });
-    }
+    setChecklist(prev => [...prev, newItem]);
+    setNewChecklistItem("");
   };
 
-  const toggleChecklistItem = async (itemId: number, completed: boolean) => {
-    if (!task?.id) return;
-
-    try {
-      const response = await apiRequest("PATCH", `/api/tasks/${task.id}/checklist/${itemId}`, {
-        completed,
-      });
-
-      if (response.ok) {
-        setChecklist(prev =>
-          prev.map(item =>
-            item.id === itemId ? { ...item, completed } : item
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error updating checklist item:", error);
-      toast({
-        title: "Fehler",
-        description: "Das Checklist-Element konnte nicht aktualisiert werden",
-        variant: "destructive",
-      });
-    }
+  const toggleChecklistItem = (index: number) => {
+    setChecklist(prev =>
+      prev.map((item, i) =>
+        i === index ? { ...item, completed: !item.completed } : item
+      )
+    );
   };
 
-  const deleteChecklistItem = async (itemId: number) => {
-    if (!task?.id) return;
+  const deleteChecklistItem = (index: number) => {
+    setChecklist(prev => prev.filter((_, i) => i !== index));
+  };
 
-    try {
-      const response = await apiRequest("DELETE", `/api/tasks/${task.id}/checklist/${itemId}`);
-
-      if (response.ok) {
-        setChecklist(prev => {
-          const updatedList = prev.filter(item => item.id !== itemId);
-          return updatedList.map((item, index) => ({ ...item, itemOrder: index }));
-        });
-      }
-    } catch (error) {
-      console.error("Error deleting checklist item:", error);
-      toast({
-        title: "Fehler",
-        description: "Das Checklist-Element konnte nicht gelöscht werden",
-        variant: "destructive",
-      });
+  const handleAddLabel = () => {
+    if (!newLabel.trim()) return;
+    const currentLabels = form.getValues("labels") || [];
+    if (!currentLabels.includes(newLabel)) {
+      form.setValue("labels", [...currentLabels, newLabel]);
     }
+    setNewLabel("");
+  };
+
+  const removeLabel = (labelToRemove: string) => {
+    const currentLabels = form.getValues("labels") || [];
+    form.setValue("labels", currentLabels.filter(label => label !== labelToRemove));
   };
 
   const handleDelete = () => {
@@ -437,53 +415,159 @@ export function TaskDialog({
               )}
             />
 
-            {isEditing && (
-              <div className="space-y-2">
-                <FormLabel>Checkliste</FormLabel>
-                <div className="space-y-2">
-                  {checklist.map((item) => (
-                    <div
-                      key={item.id || `item-${Date.now()}-${Math.random()}`}
-                      className="flex items-center gap-2"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.completed}
-                        onChange={(e) => item.id && toggleChecklistItem(item.id, e.target.checked)}
-                        className="h-4 w-4"
-                      />
-                      <span className={item.completed ? "line-through text-muted-foreground" : ""}>
-                        {item.title}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => item.id && deleteChecklistItem(item.id)}
-                        className="ml-auto text-red-500 hover:text-red-700"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </button>
+            {/* Labels */}
+            <FormField
+              control={form.control}
+              name="labels"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Labels</FormLabel>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {field.value?.map((label, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                        >
+                          <Tag className="h-3 w-3" />
+                          <span className="text-sm">{label}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeLabel(label)}
+                            className="text-primary/50 hover:text-primary"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Neues Checklist-Element"
-                    value={newChecklistItem}
-                    onChange={(e) => setNewChecklistItem(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addChecklistItem();
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Neues Label"
+                        value={newLabel}
+                        onChange={(e) => setNewLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddLabel();
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={handleAddLabel} size="sm">
+                        <Tag className="h-4 w-4 mr-1" />
+                        Hinzufügen
+                      </Button>
+                    </div>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {/* Assigned Users */}
+            <FormField
+              control={form.control}
+              name="assignedUserIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Zugewiesene Benutzer</FormLabel>
+                  <Select
+                    value={field.value?.toString() || ""}
+                    onValueChange={(value) => {
+                      const userId = parseInt(value);
+                      if (!isNaN(userId)) {
+                        const currentIds = field.value || [];
+                        if (!currentIds.includes(userId)) {
+                          field.onChange([...currentIds, userId]);
+                        }
                       }
                     }}
-                  />
-                  <Button type="button" onClick={addChecklistItem} size="sm">
-                    <PlusCircle className="h-4 w-4 mr-1" />
-                    Hinzufügen
-                  </Button>
-                </div>
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Benutzer auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {users.map((user: any) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.username}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {field.value?.map((userId) => {
+                      const user = users.find((u: any) => u.id === userId);
+                      return user ? (
+                        <div
+                          key={userId}
+                          className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                        >
+                          <UserPlus className="h-3 w-3" />
+                          <span className="text-sm">{user.username}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              field.onChange(field.value?.filter(id => id !== userId));
+                            }}
+                            className="text-primary/50 hover:text-primary"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : null;
+                    })}
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {/* Checklist */}
+            <div className="space-y-2">
+              <FormLabel>Checkliste</FormLabel>
+              <div className="space-y-2">
+                {checklist.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={() => toggleChecklistItem(index)}
+                      className="h-4 w-4"
+                    />
+                    <span className={item.completed ? "line-through text-muted-foreground" : ""}>
+                      {item.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => deleteChecklistItem(index)}
+                      className="ml-auto text-destructive hover:text-destructive/80"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Neues Checklist-Element"
+                  value={newChecklistItem}
+                  onChange={(e) => setNewChecklistItem(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addChecklistItem();
+                    }
+                  }}
+                />
+                <Button type="button" onClick={addChecklistItem} size="sm">
+                  <PlusCircle className="h-4 w-4 mr-1" />
+                  Hinzufügen
+                </Button>
+              </div>
+            </div>
 
             {isEditing && task && (
               <div className="space-y-2">
