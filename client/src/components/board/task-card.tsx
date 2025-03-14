@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -56,36 +55,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
     },
   });
 
-  const calculateProgress = () => {
-    if (!task.checklist || task.checklist.length === 0) {
-      return 0;
-    }
-
-    let completed = 0;
-    const total = task.checklist.length;
-
-    task.checklist.forEach(item => {
-      try {
-        if (typeof item === 'string') {
-          const parsedItem = JSON.parse(item);
-          if (parsedItem.checked) {
-            completed++;
-          }
-        } else if (item === '[object Object]') {
-          // Überspringe ungültige alte Einträge
-          return;
-        } else {
-          if (item.completed || item.checked) {
-            completed++;
-          }
-        }
-      } catch (e) {
-        console.error("Error parsing checklist item:", e);
-      }
-    });
-
-    return Math.round((completed / total) * 100);
-  };
 
   const renderAssignedUsers = () => {
     if (!task.assignedUserIds || task.assignedUserIds.length === 0) return null;
@@ -108,7 +77,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
     );
   };
 
-  const progress = calculateProgress();
   const hasChecklist = task.checklist && task.checklist.length > 0;
 
   return (
@@ -143,16 +111,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
                   ))}
                 </div>
               )}
-              
-              {hasChecklist && (
-                <div className="space-y-2 mb-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CheckSquare className="h-4 w-4" />
-                    <span>{progress}%</span>
-                  </div>
-                  <Progress value={progress} className="h-1" />
-                </div>
-              )}
+
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -167,7 +126,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
               </div>
             </CardContent>
           </Card>
-          
+
           <TaskDialog
             open={isDialogOpen}
             onOpenChange={setIsDialogOpen}
