@@ -89,6 +89,29 @@ export function TaskDialog({
   const isEditing = !!task;
   const { currentBoard } = useStore();
 
+  const createTaskMutation = useMutation({
+    mutationFn: async (newTask: Partial<Task>) => {
+      const response = await apiRequest("POST", "/api/tasks", newTask);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create task: ${errorText}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+      onClose();
+      toast({ title: "Aufgabe erfolgreich erstellt" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Speichern",
+        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -108,7 +131,7 @@ export function TaskDialog({
   useEffect(() => {
     if (!open) return;
 
-    form.reset({
+    const formData = {
       title: task?.title || "",
       description: task?.description || "",
       status: task?.status || "todo",
@@ -119,7 +142,9 @@ export function TaskDialog({
       dueDate: task?.dueDate || null,
       archived: task?.archived || false,
       order: task?.order || 0,
-    });
+    };
+
+    form.reset(formData);
 
     setChecklist([]);
     if (task?.id) {
@@ -128,7 +153,64 @@ export function TaskDialog({
         .then(items => setChecklist(items.sort((a, b) => a.itemOrder - b.itemOrder)))
         .catch(error => console.error("Error fetching checklist:", error));
     }
-  }, [open, task, initialColumnId]);
+  }, [open, task, initialColumnId, form]);
+
+  const onSubmit = async (data: TaskFormValues) => {
+    try {
+      if (!currentBoard?.id) {
+        toast({
+          title: "Fehler",
+          description: "Kein aktives Board ausgewählt",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (isEditing && task && onUpdate) {
+        const updatedTask: Task = {
+          ...task,
+          title: data.title,
+          description: data.description || "",
+          status: data.status,
+          priority: data.priority,
+          columnId: data.columnId,
+          order: data.order,
+          labels: data.labels || [],
+          assignedUserIds: data.assignedUserIds || [],
+          dueDate: data.dueDate,
+          archived: data.archived,
+        };
+
+        await onUpdate(updatedTask);
+        onClose();
+      } else {
+        // Create new task
+        const newTaskData = {
+          title: data.title,
+          description: data.description || "",
+          status: data.status,
+          priority: data.priority,
+          columnId: initialColumnId || data.columnId,
+          order: 0,
+          labels: data.labels || [],
+          assignedUserIds: data.assignedUserIds || [],
+          dueDate: data.dueDate,
+          archived: false,
+          boardId: currentBoard.id,
+        };
+
+        console.log("Creating new task with data:", newTaskData);
+        await createTaskMutation.mutateAsync(newTaskData);
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
+      toast({
+        title: "Fehler beim Speichern",
+        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    }
+  };
 
   const addChecklistItem = async () => {
     if (!newChecklistItem.trim() || !task?.id) return;
@@ -199,86 +281,6 @@ export function TaskDialog({
         description: "Das Checklist-Element konnte nicht gelöscht werden",
         variant: "destructive",
       });
-    }
-  };
-
-  const onSubmit = async (data: TaskFormValues) => {
-    try {
-      if (!currentBoard) {
-        toast({
-          title: "Fehler",
-          description: "Kein aktives Board ausgewählt",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (isEditing && task && onUpdate) {
-        const updatedTask: Task = {
-          ...task,
-          title: data.title,
-          description: data.description || "",
-          status: data.status,
-          priority: data.priority,
-          columnId: data.columnId,
-          order: data.order,
-          labels: data.labels || [],
-          assignedUserIds: data.assignedUserIds || [],
-          dueDate: data.dueDate,
-          archived: data.archived,
-        };
-
-        await onUpdate(updatedTask);
-        onClose();
-      } else {
-        // Neue Aufgabe erstellen
-        const response = await apiRequest("POST", "/api/tasks", {
-          title: data.title,
-          description: data.description || "",
-          status: data.status,
-          priority: data.priority,
-          columnId: data.columnId || initialColumnId || 0,
-          order: 0, // Neue Aufgaben am Anfang der Liste
-          labels: data.labels || [],
-          assignedUserIds: data.assignedUserIds || [],
-          dueDate: data.dueDate,
-          archived: false,
-          boardId: currentBoard.id,
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to create task: ${errorText}`);
-        }
-
-        // Cache invalidieren und UI aktualisieren
-        await queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
-        onClose();
-        toast({ title: "Aufgabe erfolgreich erstellt" });
-      }
-    } catch (error) {
-      console.error("Form submission error:", error);
-      toast({
-        title: "Fehler beim Speichern",
-        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDelete = async () => {
-    if (task && onDelete) {
-      try {
-        await onDelete(task.id);
-        onClose();
-      } catch (error) {
-        console.error("Delete error:", error);
-        toast({
-          title: "Fehler beim Löschen",
-          description: "Die Aufgabe konnte nicht gelöscht werden",
-          variant: "destructive",
-        });
-      }
     }
   };
 

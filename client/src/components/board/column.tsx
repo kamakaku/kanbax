@@ -57,6 +57,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
+  // Ensure columnId is a number
   const columnId = typeof column.id === 'string' ? parseInt(column.id) : column.id;
   const columnStyle = statusColors[column.title?.toLowerCase() || 'backlog'] || statusColors.backlog;
   const displayTitle = typeof column.title === 'string' ? 
@@ -65,9 +66,8 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
 
   const handleTaskUpdate = async (updatedTask: Task) => {
     try {
-      const cleanedTask = { ...updatedTask };
-      if (!cleanedTask.assignedTeamId || cleanedTask.assignedTeamId <= 0) {
-        delete cleanedTask.assignedTeamId;
+      if (!currentBoard?.id) {
+        throw new Error("Kein aktives Board ausgewählt");
       }
 
       const res = await fetch(`/api/tasks/${updatedTask.id}`, {
@@ -75,16 +75,16 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(cleanedTask)
+        body: JSON.stringify(updatedTask)
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("API error:", errorData);
         throw new Error(errorData.message || "Fehler beim Aktualisieren der Aufgabe");
       }
 
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+      // Invalidate cache to refresh the board
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
     } catch (error) {
       console.error("Failed to update task:", error);
       throw error;
@@ -120,7 +120,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         </div>
       </CardHeader>
       <CardContent className="p-2">
-        <Droppable droppableId={column.id.toString()} type="TASK">
+        <Droppable droppableId={columnId.toString()} type="TASK">
           {(provided, snapshot) => (
             <div
               {...provided.droppableProps}
@@ -155,7 +155,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         }}
         onUpdate={handleTaskUpdate}
         onDelete={onDelete}
-        initialColumnId={columnId} 
+        initialColumnId={columnId}
       />
     </Card>
   );
