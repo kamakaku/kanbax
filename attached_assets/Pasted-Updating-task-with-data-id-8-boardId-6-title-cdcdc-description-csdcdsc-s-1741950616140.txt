@@ -1,0 +1,75 @@
+Updating task with data: {id: 8, boardId: 6, title: 'ööööööööööööööcdcdc', description: 'csdcdsc', status: 'in-progress', …}archived: falseassignedAt: nullassignedUserIds: []boardId: 6checklist: []columnId: 21description: "csdcdsc"dueDate: "2025-03-28T23:00:00.000Z"id: 8labels: (2) ['ui', 'feature']order: 0priority: "low"status: "in-progress"title: "ööööööööööööööcdcdc"[[Prototype]]: Object
+column.tsx:78 
+            
+            
+           PATCH https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/api/tasks/8 404 (Not Found)
+handleTaskUpdate @ column.tsx:78
+onSubmit @ task-dialog.tsx:238
+(anonymous) @ chunk-YABUFNLM.js?v=bc4e950e:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=bc4e950e:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=bc4e950e:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=bc4e950e:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=bc4e950e:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=bc4e950e:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=bc4e950e:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=bc4e950e:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=bc4e950e:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=bc4e950e:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=bc4e950e:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=bc4e950e:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=bc4e950e:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=bc4e950e:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=bc4e950e:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=bc4e950e:5449Understand this errorAI
+column.tsx:88 API error: {message: 'value.toISOString is not a function'}
+overrideMethod @ hook.js:608
+handleTaskUpdate @ column.tsx:88
+await in handleTaskUpdate
+onSubmit @ task-dialog.tsx:238
+(anonymous) @ chunk-YABUFNLM.js?v=bc4e950e:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=bc4e950e:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=bc4e950e:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=bc4e950e:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=bc4e950e:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=bc4e950e:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=bc4e950e:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=bc4e950e:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=bc4e950e:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=bc4e950e:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=bc4e950e:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=bc4e950e:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=bc4e950e:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=bc4e950e:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=bc4e950e:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=bc4e950e:5449Understand this errorAI
+column.tsx:95 Failed to update task: Error: value.toISOString is not a function
+    at handleTaskUpdate (column.tsx:89:15)
+    at async onSubmit (task-dialog.tsx:238:9)
+    at async chunk-YABUFNLM.js?v=bc4e950e:1675:9
+overrideMethod @ hook.js:608
+handleTaskUpdate @ column.tsx:95
+await in handleTaskUpdate
+onSubmit @ task-dialog.tsx:238
+(anonymous) @ chunk-YABUFNLM.js?v=bc4e950e:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=bc4e950e:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=bc4e950e:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=bc4e950e:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=bc4e950e:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=bc4e950e:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=bc4e950e:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=bc4e950e:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=bc4e950e:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=bc4e950e:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=bc4e950e:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=bc4e950e:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=bc4e950e:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=bc4e950e:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=bc4e950e:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=bc4e950e:5449Understand this errorAI
+task-dialog.tsx:242 Form submission error: Error: value.toISOString is not a function
+    at handleTaskUpdate (column.tsx:89:15)
+    at async onSubmit (task-dialog.tsx:238:9)
+    at async chunk-YABUFNLM.js?v=bc4e950e:1675:9

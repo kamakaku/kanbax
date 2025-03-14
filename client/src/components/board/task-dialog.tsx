@@ -89,46 +89,55 @@ export function TaskDialog({
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: task?.priority || "medium",
-      columnId: task?.columnId || 0,
-      labels: task?.labels || [],
-      assignedUserIds: task?.assignedUserIds || [],
-      dueDate: task?.dueDate || null,
-      archived: task?.archived || false,
-      order: task?.order || 0,
+      title: "",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      columnId: 0,
+      labels: [],
+      assignedUserIds: [],
+      dueDate: null,
+      archived: false,
+      order: 0,
     },
   });
 
-  // Reset form and fetch checklist when dialog opens
   useEffect(() => {
-    if (open) {
-      // Reset form with task data or default values
-      const formData = {
-        title: task?.title || "",
-        description: task?.description || "",
-        status: task?.status || "todo",
-        priority: task?.priority || "medium",
-        columnId: task?.columnId || 0,
-        labels: task?.labels || [],
-        assignedUserIds: task?.assignedUserIds || [],
-        dueDate: task?.dueDate || null,
-        archived: task?.archived || false,
-        order: task?.order || 0,
-      };
+    if (open && task) {
+      // Reset form when editing a task
+      form.reset({
+        title: task.title,
+        description: task.description || "",
+        status: task.status,
+        priority: task.priority,
+        columnId: task.columnId,
+        labels: task.labels || [],
+        assignedUserIds: task.assignedUserIds || [],
+        dueDate: task.dueDate, // This is already an ISO string from the server
+        archived: task.archived || false,
+        order: task.order || 0,
+      });
 
-      form.reset(formData);
-
-      // Reset checklist and fetch if editing
+      // Fetch checklist items
+      fetch(`/api/tasks/${task.id}/checklist`)
+        .then(response => response.ok ? response.json() : [])
+        .then(items => setChecklist(items.sort((a, b) => a.itemOrder - b.itemOrder)))
+        .catch(error => console.error("Error fetching checklist:", error));
+    } else if (open) {
+      // Reset form for new task
+      form.reset({
+        title: "",
+        description: "",
+        status: "todo",
+        priority: "medium",
+        columnId: 0,
+        labels: [],
+        assignedUserIds: [],
+        dueDate: null,
+        archived: false,
+        order: 0,
+      });
       setChecklist([]);
-      if (task?.id) {
-        fetch(`/api/tasks/${task.id}/checklist`)
-          .then(response => response.ok ? response.json() : [])
-          .then(items => setChecklist(items.sort((a, b) => a.itemOrder - b.itemOrder)))
-          .catch(error => console.error("Error fetching checklist:", error));
-      }
     }
   }, [open, task]);
 
@@ -136,11 +145,10 @@ export function TaskDialog({
     if (!newChecklistItem.trim() || !task?.id) return;
 
     try {
-      const itemOrder = checklist.length;
       const response = await apiRequest("POST", `/api/tasks/${task.id}/checklist`, {
         title: newChecklistItem,
         completed: false,
-        itemOrder,
+        itemOrder: checklist.length,
       });
 
       if (response.ok) {
@@ -217,9 +225,9 @@ export function TaskDialog({
   const onSubmit = async (data: TaskFormValues) => {
     try {
       if (isEditing && task && onUpdate) {
+        // Keep the original task data and update only the form fields
         const updatedTask: Task = {
-          id: task.id,
-          boardId: task.boardId,
+          ...task,
           title: data.title,
           description: data.description || "",
           status: data.status,
@@ -228,11 +236,9 @@ export function TaskDialog({
           order: data.order,
           labels: data.labels || [],
           assignedUserIds: data.assignedUserIds || [],
-          assignedTeamId: task.assignedTeamId,
-          assignedAt: task.assignedAt,
+          // dueDate is already a string from the form
           dueDate: data.dueDate,
           archived: data.archived,
-          checklist: task.checklist || [],
         };
 
         await onUpdate(updatedTask);
@@ -383,7 +389,10 @@ export function TaskDialog({
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString() || null)}
+                          onSelect={(date) => {
+                            // Convert date to ISO string or null
+                            field.onChange(date ? date.toISOString() : null);
+                          }}
                           initialFocus
                         />
                       </PopoverContent>
