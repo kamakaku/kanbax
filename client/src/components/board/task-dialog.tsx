@@ -40,33 +40,21 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarIcon, PlusCircle, X, Tag, UserPlus } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, UserPlus, Pencil } from "lucide-react";
 import { CommentList } from "@/components/comments/comment-list";
 
-const taskFormSchema = z.object({
-  title: z.string().min(1, "Titel ist erforderlich"),
-  description: z.string().optional(),
-  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
-  priority: z.enum(["low", "medium", "high"]),
-  columnId: z.number(),
-  labels: z.array(z.string()).default([]),
-  assignedUserIds: z.array(z.number()).default([]),
-  dueDate: z.string().nullable(),
-  archived: z.boolean().default(false),
-  order: z.number().default(0),
-});
+interface ChecklistItem {
+  text: string;
+  checked: boolean;
+}
 
 interface TaskDialogProps {
   task?: Task;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;
+  mode?: "edit" | "details";
   initialColumnId?: number;
-}
-
-interface ChecklistItem {
-  text: string;
-  checked: boolean;
 }
 
 export function TaskDialog({
@@ -74,15 +62,24 @@ export function TaskDialog({
   open,
   onOpenChange,
   onUpdate,
+  mode = "edit",
   initialColumnId,
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
   const { toast } = useToast();
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
   const isEditing = !!task;
+
+  useEffect(() => {
+    // Setze den Edit-Modus basierend auf dem mode-Parameter, wenn sich der Dialog öffnet
+    if (open) {
+      setIsEditMode(mode === "edit");
+    }
+  }, [open, mode]);
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
@@ -97,18 +94,6 @@ export function TaskDialog({
       dueDate: null,
       archived: false,
       order: 0,
-    },
-  });
-
-  // Fetch users for assignment
-  const { data: users = [] } = useQuery({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
     },
   });
 
@@ -244,308 +229,462 @@ export function TaskDialog({
     );
   };
 
+  const renderDetailView = () => (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Titel</div>
+          <div className="text-lg font-medium">{task?.title}</div>
+        </div>
+
+        {task?.description && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">Beschreibung</div>
+            <div className="text-sm whitespace-pre-wrap">{task.description}</div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-4">
+          <div>
+            <div className="text-sm font-medium text-muted-foreground">Status</div>
+            <div className="text-sm">{task?.status}</div>
+          </div>
+          <div>
+            <div className="text-sm font-medium text-muted-foreground">Priorität</div>
+            <div className="text-sm">{task?.priority}</div>
+          </div>
+        </div>
+
+        {task?.dueDate && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">Fälligkeitsdatum</div>
+            <div className="text-sm flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              {format(new Date(task.dueDate), "PPP", { locale: de })}
+            </div>
+          </div>
+        )}
+
+        {task?.labels && task.labels.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">Labels</div>
+            <div className="flex flex-wrap gap-2">
+              {task.labels.map((label, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                >
+                  <Tag className="h-3 w-3" />
+                  <span className="text-sm">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
+          <div className="space-y-2">
+            {checklist.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="checkbox"
+                  checked={item.checked}
+                  onChange={() => toggleChecklistItem(index)}
+                  className="h-4 w-4"
+                  disabled={!isEditMode}
+                />
+                <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                  {item.text}
+                </span>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={() => deleteChecklistItem(index)}
+                    className="ml-auto text-destructive hover:text-destructive/80"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {isEditMode && (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Neues Checklist-Element"
+                value={newChecklistItem}
+                onChange={(e) => setNewChecklistItem(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addChecklistItem();
+                  }
+                }}
+              />
+              <Button type="button" onClick={addChecklistItem} size="sm">
+                <PlusCircle className="h-4 w-4 mr-1" />
+                Hinzufügen
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {task && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+            <CommentList taskId={task.id} />
+          </div>
+        )}
+      </div>
+
+      <DialogFooter>
+        <Button
+          variant="outline"
+          onClick={() => setIsEditMode(true)}
+          className="gap-2"
+        >
+          <Pencil className="h-4 w-4" />
+          Bearbeiten
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+        >
+          Schließen
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {task ? "Aufgabe bearbeiten" : "Neue Aufgabe"}
+            {isEditMode ? (task ? "Aufgabe bearbeiten" : "Neue Aufgabe") : "Aufgabendetails"}
           </DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Titel der Aufgabe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Beschreiben Sie die Aufgabe"
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+        {isEditMode ? (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titel</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Status auswählen" />
-                      </SelectTrigger>
+                      <Input placeholder="Titel der Aufgabe" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="backlog">Backlog</SelectItem>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="review">Review</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priorität</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beschreibung</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Priorität auswählen" />
-                      </SelectTrigger>
+                      <Textarea
+                        placeholder="Beschreiben Sie die Aufgabe"
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="low">Niedrig</SelectItem>
-                      <SelectItem value="medium">Mittel</SelectItem>
-                      <SelectItem value="high">Hoch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fälligkeitsdatum</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={`w-full pl-3 text-left font-normal ${
-                            !field.value && "text-muted-foreground"
-                          }`}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), "PPP", { locale: de })
-                          ) : (
-                            <span>Wählen Sie ein Datum</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Status auswählen" />
+                        </SelectTrigger>
                       </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) =>
-                          field.onChange(date ? date.toISOString() : null)
-                        }
-                        disabled={(date) =>
-                          date < new Date(new Date().setHours(0, 0, 0, 0))
-                        }
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      <SelectContent>
+                        <SelectItem value="backlog">Backlog</SelectItem>
+                        <SelectItem value="todo">To Do</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="review">Review</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="labels"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Labels</FormLabel>
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {field.value?.map((label, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
-                        >
-                          <Tag className="h-3 w-3" />
-                          <span className="text-sm">{label}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeLabel(label)}
-                            className="text-primary/50 hover:text-primary"
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priorität</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Priorität auswählen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">Niedrig</SelectItem>
+                        <SelectItem value="medium">Mittel</SelectItem>
+                        <SelectItem value="high">Hoch</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fälligkeitsdatum</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={`w-full pl-3 text-left font-normal ${
+                              !field.value && "text-muted-foreground"
+                            }`}
                           >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Neues Label"
-                        value={newLabel}
-                        onChange={(e) => setNewLabel(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddLabel();
+                            {field.value ? (
+                              format(new Date(field.value), "PPP", { locale: de })
+                            ) : (
+                              <span>Wählen Sie ein Datum</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) =>
+                            field.onChange(date ? date.toISOString() : null)
                           }
-                        }}
-                      />
-                      <Button type="button" onClick={handleAddLabel} size="sm">
-                        <Tag className="h-4 w-4 mr-1" />
-                        Hinzufügen
-                      </Button>
-                    </div>
-                  </div>
-                </FormItem>
-              )}
-            />
+                          disabled={(date) =>
+                            date < new Date(new Date().setHours(0, 0, 0, 0))
+                          }
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="assignedUserIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Zugewiesene Benutzer</FormLabel>
-                  <Select
-                    value={field.value?.toString() || ""}
-                    onValueChange={(value) => {
-                      const userId = parseInt(value);
-                      if (!isNaN(userId)) {
-                        const currentIds = field.value || [];
-                        if (!currentIds.includes(userId)) {
-                          field.onChange([...currentIds, userId]);
-                        }
+              <FormField
+                control={form.control}
+                name="labels"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Labels</FormLabel>
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {field.value?.map((label, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                          >
+                            <Tag className="h-3 w-3" />
+                            <span className="text-sm">{label}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeLabel(label)}
+                              className="text-primary/50 hover:text-primary"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Neues Label"
+                          value={newLabel}
+                          onChange={(e) => setNewLabel(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddLabel();
+                            }
+                          }}
+                        />
+                        <Button type="button" onClick={handleAddLabel} size="sm">
+                          <Tag className="h-4 w-4 mr-1" />
+                          Hinzufügen
+                        </Button>
+                      </div>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="assignedUserIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Zugewiesene Benutzer</FormLabel>
+                    <Select
+                      multiple
+                      value={field.value || []}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Benutzer auswählen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.username}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {field.value?.map((userId) => {
+                        const user = users.find((u) => u.id === userId);
+                        return user ? (
+                          <div
+                            key={userId}
+                            className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                          >
+                            <UserPlus className="h-3 w-3" />
+                            <span className="text-sm">{user.username}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                field.onChange(field.value?.filter(id => id !== userId));
+                              }}
+                              className="text-primary/50 hover:text-primary"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-2">
+                <FormLabel>Checkliste</FormLabel>
+                <div className="space-y-2">
+                  {checklist.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        onChange={() => toggleChecklistItem(index)}
+                        className="h-4 w-4"
+                      />
+                      <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                        {item.text}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => deleteChecklistItem(index)}
+                        className="ml-auto text-destructive hover:text-destructive/80"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Neues Checklist-Element"
+                    value={newChecklistItem}
+                    onChange={(e) => setNewChecklistItem(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addChecklistItem();
                       }
                     }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Benutzer auswählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.username}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {field.value?.map((userId) => {
-                      const user = users.find((u) => u.id === userId);
-                      return user ? (
-                        <div
-                          key={userId}
-                          className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
-                        >
-                          <UserPlus className="h-3 w-3" />
-                          <span className="text-sm">{user.username}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              field.onChange(field.value?.filter(id => id !== userId));
-                            }}
-                            className="text-primary/50 hover:text-primary"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                </FormItem>
+                  />
+                  <Button type="button" onClick={addChecklistItem} size="sm">
+                    <PlusCircle className="h-4 w-4 mr-1" />
+                    Hinzufügen
+                  </Button>
+                </div>
+              </div>
+
+              {isEditing && task && (
+                <div className="space-y-2">
+                  <FormLabel>Kommentare</FormLabel>
+                  <CommentList taskId={task.id} />
+                </div>
               )}
-            />
 
-            <div className="space-y-2">
-              <FormLabel>Checkliste</FormLabel>
-              <div className="space-y-2">
-                {checklist.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={item.checked}
-                      onChange={() => toggleChecklistItem(index)}
-                      className="h-4 w-4"
-                    />
-                    <span className={item.checked ? "line-through text-muted-foreground" : ""}>
-                      {item.text}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => deleteChecklistItem(index)}
-                      className="ml-auto text-destructive hover:text-destructive/80"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Neues Checklist-Element"
-                  value={newChecklistItem}
-                  onChange={(e) => setNewChecklistItem(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addChecklistItem();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={addChecklistItem} size="sm">
-                  <PlusCircle className="h-4 w-4 mr-1" />
-                  Hinzufügen
+              <DialogFooter className="gap-2">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Abbrechen
                 </Button>
-              </div>
-            </div>
-
-            {isEditing && task && (
-              <div className="space-y-2">
-                <FormLabel>Kommentare</FormLabel>
-                <CommentList taskId={task.id} />
-              </div>
-            )}
-
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Abbrechen
-              </Button>
-              <Button type="submit">
-                {isEditing ? "Speichern" : "Erstellen"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <Button type="submit">
+                  {isEditing ? "Speichern" : "Erstellen"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        ) : (
+          renderDetailView()
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
+const taskFormSchema = z.object({
+  title: z.string().min(1, "Titel ist erforderlich"),
+  description: z.string().optional(),
+  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
+  priority: z.enum(["low", "medium", "high"]),
+  columnId: z.number(),
+  labels: z.array(z.string()).default([]),
+  assignedUserIds: z.array(z.number()).default([]),
+  dueDate: z.string().nullable(),
+  archived: z.boolean().default(false),
+  order: z.number().default(0),
+});

@@ -68,7 +68,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
       <div className="flex -space-x-2">
         {assignedUsers.map((user) => (
           <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
-            <AvatarImage src={user.avatarUrl || ""} alt={user.username} />
+            <AvatarImage src={user.avatarUrl || ""} />
             <AvatarFallback>
               {user.username.substring(0, 2).toUpperCase()}
             </AvatarFallback>
@@ -144,6 +144,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
             onOpenChange={setIsDialogOpen}
             task={task}
             onUpdate={(updatedTask) => updateTask.mutate(updatedTask)}
+            mode="details"
           />
         </div>
       )}
