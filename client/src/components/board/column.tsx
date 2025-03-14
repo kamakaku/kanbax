@@ -12,6 +12,7 @@ interface ColumnProps {
     title?: string;
   };
   tasks: Task[];
+  onUpdate: (task: Task) => Promise<void>;
 }
 
 const statusColors: Record<string, { bg: string; text: string }> = {
@@ -30,7 +31,7 @@ const statusLabels: Record<string, string> = {
   done: "Done",
 };
 
-export function Column({ column, tasks }: ColumnProps) {
+export function Column({ column, tasks, onUpdate }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -91,7 +92,7 @@ export function Column({ column, tasks }: ColumnProps) {
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
         task={selectedTask}
-        onUpdate={async () => {}}
+        onUpdate={onUpdate}
       />
     </div>
   );

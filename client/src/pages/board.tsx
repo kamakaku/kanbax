@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Board, type Column, type Task } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
@@ -46,18 +46,18 @@ export default function Board() {
   });
 
   const updateTask = useMutation({
-    mutationFn: async (updates: { task: Task; newStatus: string; newOrder: number }) => {
-      const updatedTask = {
-        ...updates.task,
-        status: updates.newStatus,
-        order: updates.newOrder,
-      };
-
+    mutationFn: async (updatedTask: Task) => {
       const res = await apiRequest("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
       if (!res.ok) {
         throw new Error("Fehler beim Aktualisieren des Tasks");
       }
       return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
+      toast({ title: "Task erfolgreich aktualisiert" });
     },
     onError: (error) => {
       toast({
@@ -82,12 +82,10 @@ export default function Board() {
     }
 
     try {
-      // Erstelle eine neue Task-Liste für das optimistische Update
       const updatedTasks = [...tasks];
       const sourceIndex = updatedTasks.findIndex(t => t.id === taskId);
       const [movedTask] = updatedTasks.splice(sourceIndex, 1);
 
-      // Berechne die neue Position
       const insertIndex = destination.index;
       updatedTasks.splice(insertIndex, 0, {
         ...movedTask,
@@ -95,20 +93,17 @@ export default function Board() {
         order: destination.index,
       });
 
-      // Aktualisiere die Reihenfolge in der betroffenen Spalte
       const columnTasks = updatedTasks.filter(t => t.status === destination.droppableId);
       columnTasks.forEach((task, index) => {
         task.order = index;
       });
 
-      // Optimistisches Update
       queryClient.setQueryData(["/api/boards", currentBoard?.id, "tasks"], updatedTasks);
 
-      // Backend-Update
       await updateTask.mutateAsync({
-        task: draggedTask,
-        newStatus: destination.droppableId,
-        newOrder: destination.index,
+        ...draggedTask,
+        status: destination.droppableId,
+        order: destination.index,
       });
     } catch (error) {
       console.error("Fehler beim Aktualisieren:", error);
@@ -121,6 +116,10 @@ export default function Board() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleTaskUpdate = async (updatedTask: Task) => {
+    await updateTask.mutateAsync(updatedTask);
   };
 
   if (!currentBoard) return null;
@@ -145,7 +144,7 @@ export default function Board() {
           <div className="flex gap-6 pb-4">
             {defaultColumns.map((column) => {
               const columnTasks = tasks
-                .filter(task => task.status === column.id) // Changed to use column.id instead of column.title
+                .filter(task => task.status === column.id)
                 .sort((a, b) => a.order - b.order);
 
               return (
@@ -153,6 +152,7 @@ export default function Board() {
                   key={column.id}
                   column={column}
                   tasks={columnTasks}
+                  onUpdate={handleTaskUpdate}
                 />
               );
             })}
