@@ -2,13 +2,11 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { type Task, type User } from "@shared/schema";
+import { type Task } from "@shared/schema";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +23,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -37,16 +38,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Textarea } from "@/components/ui/textarea";
-import { CommentList } from "@/components/comments/comment-list";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { CalendarIcon, PlusCircle, X, Tag, UserPlus } from "lucide-react";
+import { CommentList } from "@/components/comments/comment-list";
 
 const taskFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
-  status: z.enum(["todo", "in-progress", "review", "done"]),
+  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
   priority: z.enum(["low", "medium", "high"]),
   columnId: z.number(),
   labels: z.array(z.string()).default([]),
@@ -56,14 +56,11 @@ const taskFormSchema = z.object({
   order: z.number().default(0),
 });
 
-type TaskFormValues = z.infer<typeof taskFormSchema>;
-
 interface TaskDialogProps {
   task?: Task;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;
-  onDelete?: (taskId: number) => Promise<void>;
   initialColumnId?: number;
 }
 
@@ -77,33 +74,17 @@ export function TaskDialog({
   open,
   onOpenChange,
   onUpdate,
-  onDelete,
   initialColumnId,
 }: TaskDialogProps) {
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-
   const { toast } = useToast();
+  const { currentBoard } = useStore();
   const queryClient = useQueryClient();
   const isEditing = !!task;
-  const { currentBoard } = useStore();
 
-  // Fetch users data
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
-    enabled: open,
-  });
-
-  const form = useForm<TaskFormValues>({
+  const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
       title: "",
@@ -119,9 +100,22 @@ export function TaskDialog({
     },
   });
 
+  // Fetch users for assignment
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
   useEffect(() => {
     if (!open) return;
 
+    // Reset form with task data or default values
     form.reset({
       title: task?.title || "",
       description: task?.description || "",
@@ -135,101 +129,65 @@ export function TaskDialog({
       order: task?.order || 0,
     });
 
-    try {
-      const initialChecklist = task?.checklist || [];
-      const parsedChecklist = initialChecklist.map(itemStr => {
-        try {
-          const parsedItem = typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
-          return {
-            text: parsedItem.text || String(itemStr),
-            checked: parsedItem.checked || false
-          };
-        } catch (e) {
-          return {
-            text: String(itemStr),
-            checked: false
-          };
-        }
-      });
-      setChecklist(parsedChecklist);
-    } catch (error) {
-      console.error('Error parsing checklist:', error);
+    // Parse checklist items
+    if (task?.checklist) {
+      try {
+        const parsedChecklist = task.checklist.map(item => {
+          if (typeof item === 'string') {
+            return JSON.parse(item);
+          }
+          return item;
+        });
+        setChecklist(parsedChecklist);
+      } catch (error) {
+        console.error('Error parsing checklist:', error);
+        setChecklist([]);
+      }
+    } else {
       setChecklist([]);
     }
   }, [open, task, initialColumnId, form]);
 
-  const createTaskMutation = useMutation({
-    mutationFn: async (newTask: Partial<Task>) => {
-      if (!currentBoard?.id) {
-        throw new Error("Kein aktives Board ausgewählt");
-      }
-
-      try {
-        const formattedTask = {
-          ...newTask,
-          boardId: currentBoard.id,
-          checklist: checklist.map(item => JSON.stringify(item))
-        };
-
-        const response = await apiRequest(
-          "POST",
-          `/api/boards/${currentBoard.id}/tasks`,
-          formattedTask
-        );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText);
-        }
-
-        return response.json();
-      } catch (error) {
-        console.error("Task creation error:", error);
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      onOpenChange(false);
-      toast({ title: "Aufgabe erfolgreich erstellt" });
-    },
-    onError: (error) => {
+  const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
+    if (!currentBoard?.id) {
       toast({
-        title: "Fehler beim Speichern",
-        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
+        title: "Fehler",
+        description: "Kein aktives Board ausgewählt",
         variant: "destructive",
       });
-    },
-  });
+      return;
+    }
 
-  const onSubmit = async (data: TaskFormValues) => {
     try {
-      if (!currentBoard?.id) {
-        toast({
-          title: "Fehler",
-          description: "Kein aktives Board ausgewählt",
-          variant: "destructive",
-        });
-        return;
-      }
+      const formattedChecklist = checklist.map(item => JSON.stringify(item));
 
       if (isEditing && task && onUpdate) {
         const updatedTask: Task = {
           ...task,
           ...data,
-          checklist: checklist.map(item => JSON.stringify(item))
+          checklist: formattedChecklist,
+          boardId: currentBoard.id,
         };
-
         await onUpdate(updatedTask);
         onOpenChange(false);
       } else {
-        const newTaskData = {
-          ...data,
-          boardId: currentBoard.id,
-          checklist: checklist.map(item => JSON.stringify(item))
-        };
+        const response = await apiRequest(
+          "POST",
+          `/api/boards/${currentBoard.id}/tasks`,
+          {
+            ...data,
+            boardId: currentBoard.id,
+            checklist: formattedChecklist,
+          }
+        );
 
-        await createTaskMutation.mutateAsync(newTaskData);
+        if (!response.ok) {
+          throw new Error("Fehler beim Erstellen der Aufgabe");
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
+        onOpenChange(false);
+        toast({ title: "Aufgabe erfolgreich erstellt" });
       }
     } catch (error) {
       console.error("Form submission error:", error);
@@ -243,13 +201,7 @@ export function TaskDialog({
 
   const addChecklistItem = () => {
     if (!newChecklistItem.trim()) return;
-
-    const newItem = {
-      text: newChecklistItem,
-      checked: false
-    };
-
-    setChecklist(prev => [...prev, newItem]);
+    setChecklist(prev => [...prev, { text: newChecklistItem, checked: false }]);
     setNewChecklistItem("");
   };
 
@@ -267,7 +219,7 @@ export function TaskDialog({
 
   const handleAddLabel = () => {
     if (!newLabel.trim()) return;
-    const currentLabels = form.getValues("labels") || [];
+    const currentLabels = form.getValues("labels");
     if (!currentLabels.includes(newLabel)) {
       form.setValue("labels", [...currentLabels, newLabel]);
     }
@@ -275,12 +227,11 @@ export function TaskDialog({
   };
 
   const removeLabel = (labelToRemove: string) => {
-    const currentLabels = form.getValues("labels") || [];
-    form.setValue("labels", currentLabels.filter(label => label !== labelToRemove));
-  };
-
-  const handleDelete = () => {
-    setIsDeleteDialogOpen(true);
+    const currentLabels = form.getValues("labels");
+    form.setValue(
+      "labels",
+      currentLabels.filter(label => label !== labelToRemove)
+    );
   };
 
   return (
@@ -339,10 +290,11 @@ export function TaskDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="todo">Zu erledigen</SelectItem>
-                      <SelectItem value="in-progress">In Bearbeitung</SelectItem>
-                      <SelectItem value="review">In Überprüfung</SelectItem>
-                      <SelectItem value="done">Erledigt</SelectItem>
+                      <SelectItem value="backlog">Backlog</SelectItem>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="review">Review</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -377,14 +329,14 @@ export function TaskDialog({
               control={form.control}
               name="dueDate"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Fälligkeitsdatum</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
                           variant={"outline"}
-                          className={`pl-3 text-left font-normal ${
+                          className={`w-full pl-3 text-left font-normal ${
                             !field.value && "text-muted-foreground"
                           }`}
                         >
@@ -401,14 +353,12 @@ export function TaskDialog({
                       <Calendar
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => {
-                          if (date instanceof Date) {
-                            field.onChange(date.toISOString());
-                          } else {
-                            field.onChange(null);
-                          }
-                        }}
-                        initialFocus
+                        onSelect={(date) =>
+                          field.onChange(date ? date.toISOString() : null)
+                        }
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
                       />
                     </PopoverContent>
                   </Popover>
@@ -417,7 +367,6 @@ export function TaskDialog({
               )}
             />
 
-            {/* Labels */}
             <FormField
               control={form.control}
               name="labels"
@@ -465,7 +414,6 @@ export function TaskDialog({
               )}
             />
 
-            {/* Assigned Users */}
             <FormField
               control={form.control}
               name="assignedUserIds"
@@ -524,7 +472,6 @@ export function TaskDialog({
               )}
             />
 
-            {/* Checklist */}
             <div className="space-y-2">
               <FormLabel>Checkliste</FormLabel>
               <div className="space-y-2">
@@ -578,24 +525,13 @@ export function TaskDialog({
               </div>
             )}
 
-            <DialogFooter className="flex justify-between items-center">
-              {isEditing && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => onDelete && task && onDelete(task.id)}
-                >
-                  Löschen
-                </Button>
-              )}
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Abbrechen
-                </Button>
-                <Button type="submit">
-                  {isEditing ? "Speichern" : "Erstellen"}
-                </Button>
-              </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Abbrechen
+              </Button>
+              <Button type="submit">
+                {isEditing ? "Speichern" : "Erstellen"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
