@@ -137,18 +137,7 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
 
                   <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
 
-                  {checklistItems.length > 0 && (
-                    <div className="mt-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <Progress value={percentage} className="h-1.5" />
-                        </div>
-                        <span className="text-xs text-slate-500 whitespace-nowrap">
-                          {percentage}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                  
 
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <div className="flex items-center gap-2">
