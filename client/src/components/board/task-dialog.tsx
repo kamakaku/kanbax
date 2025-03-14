@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { type Task } from "@shared/schema";
+import { type Task, type User } from "@shared/schema";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -90,7 +90,12 @@ export function TaskDialog({
   const isEditing = !!task;
   const { currentBoard } = useStore();
 
-  // Form initialization first
+  // Fetch users data
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: open,
+  });
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -107,6 +112,45 @@ export function TaskDialog({
     },
   });
 
+  useEffect(() => {
+    if (!open) return;
+
+    form.reset({
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || "todo",
+      priority: task?.priority || "medium",
+      columnId: task?.columnId || initialColumnId || 0,
+      labels: task?.labels || [],
+      assignedUserIds: task?.assignedUserIds || [],
+      dueDate: task?.dueDate || null,
+      archived: task?.archived || false,
+      order: task?.order || 0,
+    });
+
+    try {
+      const initialChecklist = task?.checklist || [];
+      const parsedChecklist = initialChecklist.map(itemStr => {
+        try {
+          const parsedItem = typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
+          return {
+            text: parsedItem.text || String(itemStr),
+            checked: parsedItem.checked || false
+          };
+        } catch (e) {
+          return {
+            text: String(itemStr),
+            checked: false
+          };
+        }
+      });
+      setChecklist(parsedChecklist);
+    } catch (error) {
+      console.error('Error parsing checklist:', error);
+      setChecklist([]);
+    }
+  }, [open, task, initialColumnId, form]);
+
   const createTaskMutation = useMutation({
     mutationFn: async (newTask: Partial<Task>) => {
       if (!currentBoard?.id) {
@@ -114,14 +158,11 @@ export function TaskDialog({
       }
 
       try {
-        // Format checklist items as JSON strings
         const formattedTask = {
           ...newTask,
           boardId: currentBoard.id,
           checklist: checklist.map(item => JSON.stringify(item))
         };
-
-        console.log("Sending task:", formattedTask);
 
         const response = await apiRequest(
           "POST",
@@ -154,49 +195,6 @@ export function TaskDialog({
       });
     },
   });
-
-  // useEffect after form initialization
-  useEffect(() => {
-    if (!open) return;
-
-    form.reset({
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: task?.priority || "medium",
-      columnId: task?.columnId || initialColumnId || 0,
-      labels: task?.labels || [],
-      assignedUserIds: task?.assignedUserIds || [],
-      dueDate: task?.dueDate || null,
-      archived: task?.archived || false,
-      order: task?.order || 0,
-    });
-
-    // Parse checklist items from task data
-    try {
-      const initialChecklist = task?.checklist || [];
-      const parsedChecklist = initialChecklist.map(itemStr => {
-        try {
-          // Try to parse the JSON string
-          const parsedItem = typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
-          return {
-            text: parsedItem.text || String(itemStr),
-            checked: parsedItem.checked || false
-          };
-        } catch (e) {
-          // If parsing fails, treat it as a plain text item
-          return {
-            text: String(itemStr),
-            checked: false
-          };
-        }
-      });
-      setChecklist(parsedChecklist);
-    } catch (error) {
-      console.error('Error parsing checklist:', error);
-      setChecklist([]);
-    }
-  }, [open, task, initialColumnId, form]);
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
@@ -486,7 +484,7 @@ export function TaskDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {users.map((user: any) => (
+                      {users.map((user) => (
                         <SelectItem key={user.id} value={user.id.toString()}>
                           {user.username}
                         </SelectItem>
@@ -495,7 +493,7 @@ export function TaskDialog({
                   </Select>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {field.value?.map((userId) => {
-                      const user = users.find((u: any) => u.id === userId);
+                      const user = users.find((u) => u.id === userId);
                       return user ? (
                         <div
                           key={userId}
