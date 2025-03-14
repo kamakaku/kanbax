@@ -4,6 +4,7 @@ import { Draggable } from "react-beautiful-dnd";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { Progress } from "@/components/ui/progress";
 import { CalendarIcon, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +52,36 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
             </div>
           )}
 
+          {task.checklist && task.checklist.length > 0 && (
+            <div className="space-y-2 mb-2">
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Checklist</span>
+                <span>
+                  {task.checklist.filter(item => {
+                    try {
+                      const parsed = JSON.parse(item);
+                      return parsed.checked;
+                    } catch {
+                      return false;
+                    }
+                  }).length} von {task.checklist.length}
+                </span>
+              </div>
+              <Progress 
+                value={
+                  (task.checklist.filter(item => {
+                    try {
+                      const parsed = JSON.parse(item);
+                      return parsed.checked;
+                    } catch {
+                      return false;
+                    }
+                  }).length / task.checklist.length) * 100
+                } 
+                className="h-1"
+              />
+            </div>
+          )}
           <div className="flex items-center justify-between text-xs text-slate-500">
             <div className="flex items-center gap-2">
               {task.dueDate && (
