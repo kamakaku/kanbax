@@ -85,7 +85,7 @@ export function TaskDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = !!task;
-  const { currentBoard } = useStore(); // Verwende currentBoard statt board
+  const { currentBoard } = useStore();
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -128,6 +128,78 @@ export function TaskDialog({
     }
   }, [open, task]);
 
+  const addChecklistItem = async () => {
+    if (!newChecklistItem.trim() || !task?.id) return;
+
+    try {
+      const response = await apiRequest("POST", `/api/tasks/${task.id}/checklist`, {
+        title: newChecklistItem,
+        completed: false,
+        itemOrder: checklist.length,
+      });
+
+      if (response.ok) {
+        const newItem = await response.json();
+        setChecklist(prev => [...prev, newItem]);
+        setNewChecklistItem("");
+      }
+    } catch (error) {
+      console.error("Error adding checklist item:", error);
+      toast({
+        title: "Fehler",
+        description: "Das Checklist-Element konnte nicht hinzugefügt werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleChecklistItem = async (itemId: number, completed: boolean) => {
+    if (!task?.id) return;
+
+    try {
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}/checklist/${itemId}`, {
+        completed,
+      });
+
+      if (response.ok) {
+        setChecklist(prev =>
+          prev.map(item =>
+            item.id === itemId ? { ...item, completed } : item
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error updating checklist item:", error);
+      toast({
+        title: "Fehler",
+        description: "Das Checklist-Element konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteChecklistItem = async (itemId: number) => {
+    if (!task?.id) return;
+
+    try {
+      const response = await apiRequest("DELETE", `/api/tasks/${task.id}/checklist/${itemId}`);
+
+      if (response.ok) {
+        setChecklist(prev => {
+          const updatedList = prev.filter(item => item.id !== itemId);
+          return updatedList.map((item, index) => ({ ...item, itemOrder: index }));
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting checklist item:", error);
+      toast({
+        title: "Fehler",
+        description: "Das Checklist-Element konnte nicht gelöscht werden",
+        variant: "destructive",
+      });
+    }
+  };
+
   const onSubmit = async (data: TaskFormValues) => {
     try {
       if (!currentBoard) {
@@ -168,7 +240,7 @@ export function TaskDialog({
           assignedUserIds: data.assignedUserIds || [],
           dueDate: data.dueDate,
           archived: false,
-          boardId: currentBoard.id, // Verwende currentBoard.id
+          boardId: currentBoard.id,
         });
 
         if (!response.ok) {
