@@ -57,24 +57,19 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  const columnId = typeof column.id === 'string' ? column.id.toLowerCase() : 'backlog';
-  const columnStyle = statusColors[columnId] || statusColors.backlog;
+  const columnId = typeof column.id === 'string' ? parseInt(column.id) : column.id;
+  const columnStyle = statusColors[column.title?.toLowerCase() || 'backlog'] || statusColors.backlog;
   const displayTitle = typeof column.title === 'string' ? 
     (statusLabels[column.title.toLowerCase()] || column.title) : 
     'Untitled';
 
   const handleTaskUpdate = async (updatedTask: Task) => {
     try {
-      // Bereinige die Task-Daten vor dem Senden
-      // Entferne assignedTeamId komplett, wenn es nicht gesetzt ist
       const cleanedTask = { ...updatedTask };
       if (!cleanedTask.assignedTeamId || cleanedTask.assignedTeamId <= 0) {
         delete cleanedTask.assignedTeamId;
       }
 
-      console.log("Updating task with data:", cleanedTask);
-
-      // Direkter API-Aufruf für bessere Kontrolle
       const res = await fetch(`/api/tasks/${updatedTask.id}`, {
         method: 'PATCH',
         headers: {
@@ -89,7 +84,6 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         throw new Error(errorData.message || "Fehler beim Aktualisieren der Aufgabe");
       }
 
-      // Ungültigmachen des Caches, um die neuesten Daten zu erhalten
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -126,7 +120,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         </div>
       </CardHeader>
       <CardContent className="p-2">
-        <Droppable droppableId={column.title || ""} type="TASK">
+        <Droppable droppableId={column.id.toString()} type="TASK">
           {(provided, snapshot) => (
             <div
               {...provided.droppableProps}
@@ -160,8 +154,8 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
           setSelectedTask(null);
         }}
         onUpdate={handleTaskUpdate}
-        defaultStatus={column.title?.toLowerCase() || "todo"}
-        defaultColumnId={column.id}
+        onDelete={onDelete}
+        initialColumnId={columnId} 
       />
     </Card>
   );

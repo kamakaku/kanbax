@@ -64,6 +64,7 @@ interface TaskDialogProps {
   onClose: () => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
+  initialColumnId?: number;
 }
 
 export function TaskDialog({
@@ -72,6 +73,7 @@ export function TaskDialog({
   onClose,
   onUpdate,
   onDelete,
+  initialColumnId,
 }: TaskDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -94,7 +96,7 @@ export function TaskDialog({
       description: "",
       status: "todo",
       priority: "medium",
-      columnId: 0,
+      columnId: initialColumnId || 0,
       labels: [],
       assignedUserIds: [],
       dueDate: null,
@@ -111,7 +113,7 @@ export function TaskDialog({
       description: task?.description || "",
       status: task?.status || "todo",
       priority: task?.priority || "medium",
-      columnId: task?.columnId || 0,
+      columnId: task?.columnId || initialColumnId || 0,
       labels: task?.labels || [],
       assignedUserIds: task?.assignedUserIds || [],
       dueDate: task?.dueDate || null,
@@ -126,7 +128,7 @@ export function TaskDialog({
         .then(items => setChecklist(items.sort((a, b) => a.itemOrder - b.itemOrder)))
         .catch(error => console.error("Error fetching checklist:", error));
     }
-  }, [open, task]);
+  }, [open, task, initialColumnId]);
 
   const addChecklistItem = async () => {
     if (!newChecklistItem.trim() || !task?.id) return;
@@ -229,13 +231,14 @@ export function TaskDialog({
         await onUpdate(updatedTask);
         onClose();
       } else {
+        // Neue Aufgabe erstellen
         const response = await apiRequest("POST", "/api/tasks", {
           title: data.title,
           description: data.description || "",
           status: data.status,
           priority: data.priority,
-          columnId: data.columnId || 0,
-          order: data.order || 0,
+          columnId: data.columnId || initialColumnId || 0,
+          order: 0, // Neue Aufgaben am Anfang der Liste
           labels: data.labels || [],
           assignedUserIds: data.assignedUserIds || [],
           dueDate: data.dueDate,
@@ -248,6 +251,7 @@ export function TaskDialog({
           throw new Error(`Failed to create task: ${errorText}`);
         }
 
+        // Cache invalidieren und UI aktualisieren
         await queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
         onClose();
         toast({ title: "Aufgabe erfolgreich erstellt" });
