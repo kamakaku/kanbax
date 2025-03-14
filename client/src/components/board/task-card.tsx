@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, ExpandIcon, PencilIcon, TrashIcon, Users } from "lucide-react";
+import { CalendarIcon, PencilIcon } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -27,7 +27,7 @@ const priorityColors = {
 };
 
 export function TaskCard({ task, index }: TaskCardProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false); 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentBoard } = useStore();
@@ -36,22 +36,22 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
-      const res = await fetch("/api/users");
-      if (!res.ok) {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
-      return res.json();
+      return response.json();
     },
   });
 
   const updateTask = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, {
-        title: task.title, 
+        title: task.title,
         description: task.description,
         priority: task.priority,
         labels: task.labels,
-        dueDate: task.dueDate?.toISOString(),
+        dueDate: task.dueDate,
         assignedUserIds: task.assignedUserIds,
       });
 
@@ -67,7 +67,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
       toast({ title: "Task updated successfully" });
-      setIsDialogOpen(false); 
+      setIsDialogOpen(false);
     },
     onError: (error) => {
       toast({
@@ -82,11 +82,24 @@ export function TaskCard({ task, index }: TaskCardProps) {
   const calculateChecklistProgress = () => {
     if (!task.checklist || task.checklist.length === 0) return 0;
 
-    const completedItems = task.checklist.reduce((count, itemStr) => {
+    const completedItems = task.checklist.reduce((count, item) => {
       try {
-        const item = JSON.parse(itemStr);
-        return count + (item.checked ? 1 : 0);
+        // Try to parse the item if it's a JSON string
+        let parsedItem;
+        if (typeof item === 'string') {
+          try {
+            parsedItem = JSON.parse(item);
+            return count + (parsedItem.checked ? 1 : 0);
+          } catch {
+            // If parsing fails, assume it's a legacy format or plain text
+            return count;
+          }
+        } else {
+          // If it's already an object
+          return count + (item.checked ? 1 : 0);
+        }
       } catch (e) {
+        console.error('Error processing checklist item:', e);
         return count;
       }
     }, 0);
@@ -199,9 +212,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         onUpdate={updateTask.mutate}
-        onDelete={() => {
-          // Handle delete if needed
-        }}
       />
     </>
   );
