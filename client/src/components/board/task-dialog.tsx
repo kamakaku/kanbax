@@ -33,10 +33,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar"; // Added Calendar import
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import {User} from "@/types"; // Assuming User type is defined here or imported
+import {User} from "@/types";
 
 interface ChecklistItem {
   text: string;
@@ -519,7 +520,6 @@ export function TaskDialog({
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        {/* Calendar component likely needs to be imported here */}
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
@@ -723,3 +723,10 @@ const taskFormSchema = z.object({
   archived: z.boolean().default(false),
   order: z.number().default(0),
 });
+
+const removeLabel = (label: string) => {
+    //Implementation to remove label
+};
+const handleAddLabel = () => {
+    //Implementation to handle add label
+};
