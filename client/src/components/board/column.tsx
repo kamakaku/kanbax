@@ -1,13 +1,10 @@
 import React, { useState } from "react";
 import { Droppable } from "react-beautiful-dnd";
-import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
 import { Task } from "@shared/schema";
-import { useStore } from "@/lib/store";
 import { Task as TaskComponent } from "./task";
 import { TaskDialog } from "./task-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Plus } from "lucide-react";
 
 interface ColumnProps {
   column: {
@@ -15,116 +12,63 @@ interface ColumnProps {
     title?: string;
   };
   tasks: Task[];
-  isAllTasksView?: boolean;
-  onUpdate?: (task: Task) => Promise<void>;
-  onDelete?: (taskId: number) => Promise<void>;
 }
 
-const statusColors: Record<string, { bg: string, text: string }> = {
-  'backlog': { 
-    bg: 'bg-slate-50',
-    text: 'text-slate-600'
-  },
-  'todo': { 
-    bg: 'bg-blue-50',
-    text: 'text-blue-600'
-  },
-  'in-progress': { 
-    bg: 'bg-amber-50',
-    text: 'text-amber-600'
-  },
-  'review': { 
-    bg: 'bg-purple-50',
-    text: 'text-purple-600'
-  },
-  'done': { 
-    bg: 'bg-green-50',
-    text: 'text-green-600'
-  }
+const statusColors: Record<string, { bg: string; text: string }> = {
+  backlog: { bg: "bg-slate-50", text: "text-slate-600" },
+  todo: { bg: "bg-blue-50", text: "text-blue-600" },
+  "in-progress": { bg: "bg-amber-50", text: "text-amber-600" },
+  review: { bg: "bg-purple-50", text: "text-purple-600" },
+  done: { bg: "bg-green-50", text: "text-green-600" },
 };
 
 const statusLabels: Record<string, string> = {
-  'backlog': 'Backlog',
-  'todo': 'To Do',
-  'in-progress': 'In Progress',
-  'review': 'Review',
-  'done': 'Done'
+  backlog: "Backlog",
+  todo: "To Do",
+  "in-progress": "In Progress",
+  review: "Review",
+  done: "Done",
 };
 
-export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, onDelete }: ColumnProps) {
+export function Column({ column, tasks }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { currentBoard } = useStore();
-  const queryClient = useQueryClient();
 
-  const columnId = typeof column.id === 'string' ? parseInt(column.id) : column.id;
-  const columnStyle = statusColors[column.title?.toLowerCase() || 'backlog'] || statusColors.backlog;
-  const displayTitle = typeof column.title === 'string' ? 
-    (statusLabels[column.title.toLowerCase()] || column.title) : 
-    'Untitled';
-
-  const handleTaskUpdate = async (updatedTask: Task) => {
-    try {
-      if (!currentBoard?.id) {
-        throw new Error("Kein aktives Board ausgewählt");
-      }
-
-      const res = await fetch(`/api/tasks/${updatedTask.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updatedTask)
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Fehler beim Aktualisieren der Aufgabe");
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
-    } catch (error) {
-      console.error("Failed to update task:", error);
-      throw error;
-    }
-  };
+  const columnStyle = statusColors[column.title?.toLowerCase() || "backlog"] || statusColors.backlog;
+  const displayTitle = column.title ? statusLabels[column.title.toLowerCase()] || column.title : "Untitled";
 
   return (
-    <div className="min-w-[280px] max-w-[280px] flex flex-col bg-white rounded-lg border border-slate-200">
+    <div className="min-w-[280px] max-w-[280px] bg-white rounded-lg border border-slate-200">
       <div className="p-3 pb-2">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${columnStyle.text.replace('text-', 'bg-')}`} />
-            <h3 className={`font-medium text-sm ${columnStyle.text}`}>
-              {displayTitle}
-            </h3>
+            <div className={`h-2 w-2 rounded-full ${columnStyle.text.replace("text-", "bg-")}`} />
+            <h3 className={`font-medium text-sm ${columnStyle.text}`}>{displayTitle}</h3>
             <div className={`px-1.5 rounded text-xs ${columnStyle.text} bg-white border border-current`}>
               {tasks.length}
             </div>
           </div>
-          {!isAllTasksView && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-6 w-6 hover:bg-slate-50 ${columnStyle.text}`}
-              onClick={() => {
-                setSelectedTask(null);
-                setIsTaskDialogOpen(true);
-              }}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-6 w-6 hover:bg-slate-50 ${columnStyle.text}`}
+            onClick={() => {
+              setSelectedTask(null);
+              setIsTaskDialogOpen(true);
+            }}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
         </div>
       </div>
 
-      <Droppable droppableId={column.title || 'untitled'}>
+      <Droppable droppableId={column.title || ""}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 p-2 space-y-2 min-h-[150px] ${
-              snapshot.isDraggingOver ? 'bg-slate-50/80' : ''
+            className={`p-2 min-h-[100px] transition-colors ${
+              snapshot.isDraggingOver ? "bg-slate-50" : ""
             }`}
           >
             {tasks.map((task, index) => (
@@ -132,9 +76,8 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
                 key={task.id}
                 task={task}
                 index={index}
-                showBoardTitle={isAllTasksView}
-                onClick={(clickedTask) => {
-                  setSelectedTask(clickedTask);
+                onClick={(task) => {
+                  setSelectedTask(task);
                   setIsTaskDialogOpen(true);
                 }}
               />
@@ -148,9 +91,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
         task={selectedTask}
-        onUpdate={handleTaskUpdate}
-        onDelete={onDelete}
-        initialColumnId={columnId}
+        onUpdate={async () => {}}
       />
     </div>
   );

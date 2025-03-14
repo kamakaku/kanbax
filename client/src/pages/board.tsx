@@ -45,29 +45,23 @@ export default function Board() {
     enabled: !!currentBoard,
   });
 
-  const updateTaskStatus = useMutation({
-    mutationFn: async (updates: { task: Task, newStatus: string, newOrder: number }) => {
+  const updateTask = useMutation({
+    mutationFn: async (updates: { task: Task; newStatus: string; newOrder: number }) => {
       const updatedTask = {
         ...updates.task,
         status: updates.newStatus,
-        order: updates.newOrder
+        order: updates.newOrder,
       };
 
-      const res = await apiRequest("PATCH", `/api/tasks/${updates.task.id}`, updatedTask);
+      const res = await apiRequest("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
       if (!res.ok) {
         throw new Error("Fehler beim Aktualisieren des Tasks");
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
-      });
-    },
     onError: (error) => {
-      console.error("Update task error:", error);
       toast({
-        title: "Fehler beim Aktualisieren des Tasks",
+        title: "Fehler beim Aktualisieren",
         description: error.message,
         variant: "destructive",
       });
@@ -79,7 +73,7 @@ export default function Board() {
 
     if (!destination) return;
 
-    const taskId = parseInt(draggableId.replace('task-', ''));
+    const taskId = parseInt(draggableId);
     const draggedTask = tasks.find(t => t.id === taskId);
 
     if (!draggedTask) {
@@ -88,126 +82,48 @@ export default function Board() {
     }
 
     try {
-      // Kopiere die Tasks für das optimistische Update
-      const updatedTasks = Array.from(tasks);
+      // Erstelle eine neue Task-Liste für das optimistische Update
+      const updatedTasks = [...tasks];
+      const sourceIndex = updatedTasks.findIndex(t => t.id === taskId);
+      const [movedTask] = updatedTasks.splice(sourceIndex, 1);
 
-      // Finde alle Tasks in der Quell- und Zielspalte
-      const sourceColumnTasks = updatedTasks.filter(t => t.status === source.droppableId);
-      const destColumnTasks = source.droppableId === destination.droppableId 
-        ? sourceColumnTasks 
-        : updatedTasks.filter(t => t.status === destination.droppableId);
+      // Berechne die neue Position
+      const insertIndex = destination.index;
+      updatedTasks.splice(insertIndex, 0, {
+        ...movedTask,
+        status: destination.droppableId,
+        order: destination.index,
+      });
 
-      // Entferne den Task aus der Quellspalte
-      const [movedTask] = sourceColumnTasks.splice(source.index, 1);
+      // Aktualisiere die Reihenfolge in der betroffenen Spalte
+      const columnTasks = updatedTasks.filter(t => t.status === destination.droppableId);
+      columnTasks.forEach((task, index) => {
+        task.order = index;
+      });
 
-      // Füge den Task in die Zielspalte ein
-      if (source.droppableId === destination.droppableId) {
-        // Wenn innerhalb derselben Spalte verschoben wird
-        sourceColumnTasks.splice(destination.index, 0, {
-          ...movedTask,
-          order: destination.index
-        });
+      // Optimistisches Update
+      queryClient.setQueryData(["/api/boards", currentBoard?.id, "tasks"], updatedTasks);
 
-        // Aktualisiere die Reihenfolge aller Tasks in der Spalte
-        sourceColumnTasks.forEach((task, index) => {
-          task.order = index;
-        });
-      } else {
-        // Wenn zwischen Spalten verschoben wird
-        destColumnTasks.splice(destination.index, 0, {
-          ...movedTask,
-          status: destination.droppableId,
-          order: destination.index
-        });
-
-        // Aktualisiere die Reihenfolge in beiden Spalten
-        sourceColumnTasks.forEach((task, index) => {
-          task.order = index;
-        });
-        destColumnTasks.forEach((task, index) => {
-          task.order = index;
-        });
-      }
-
-      // Aktualisiere den Cache optimistisch
-      queryClient.setQueryData(
-        ["/api/boards", currentBoard?.id, "tasks"],
-        updatedTasks
-      );
-
-      // Sende Update an Backend
-      await updateTaskStatus.mutateAsync({
+      // Backend-Update
+      await updateTask.mutateAsync({
         task: draggedTask,
         newStatus: destination.droppableId,
-        newOrder: destination.index
+        newOrder: destination.index,
       });
-
     } catch (error) {
-      console.error("Fehler beim Aktualisieren des Task-Status:", error);
+      console.error("Fehler beim Aktualisieren:", error);
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
-
       toast({
-        title: "Fehler beim Verschieben des Tasks",
-        description: "Der Task konnte nicht verschoben werden. Bitte versuchen Sie es erneut.",
+        title: "Fehler beim Verschieben",
+        description: "Bitte versuchen Sie es erneut",
         variant: "destructive",
       });
     }
   };
 
-  const handleTaskUpdate = async (updatedTask: Task) => {
-    try {
-      const res = await apiRequest(
-        "PATCH",
-        `/api/tasks/${updatedTask.id}`,
-        updatedTask
-      );
-
-      if (!res.ok) {
-        throw new Error("Fehler beim Aktualisieren des Tasks");
-      }
-
-      queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
-      });
-
-      toast({ title: "Task erfolgreich aktualisiert" });
-    } catch (error) {
-      console.error("Task update error:", error);
-      toast({
-        title: "Fehler beim Aktualisieren",
-        description: "Der Task konnte nicht aktualisiert werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleTaskDelete = async (taskId: number) => {
-    try {
-      const res = await apiRequest("DELETE", `/api/tasks/${taskId}`);
-      if (!res.ok) {
-        throw new Error("Fehler beim Löschen des Tasks");
-      }
-
-      queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
-      });
-
-      toast({ title: "Task erfolgreich gelöscht" });
-    } catch (error) {
-      console.error("Task delete error:", error);
-      toast({
-        title: "Fehler beim Löschen",
-        description: "Der Task konnte nicht gelöscht werden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  if (!currentBoard) {
-    return null;
-  }
+  if (!currentBoard) return null;
 
   if (tasksLoading) {
     return (
@@ -229,7 +145,7 @@ export default function Board() {
           <div className="flex gap-6 pb-4">
             {defaultColumns.map((column) => {
               const columnTasks = tasks
-                .filter(task => task.status === column.title)
+                .filter(task => task.status === column.id) // Changed to use column.id instead of column.title
                 .sort((a, b) => a.order - b.order);
 
               return (
@@ -237,8 +153,6 @@ export default function Board() {
                   key={column.id}
                   column={column}
                   tasks={columnTasks}
-                  onUpdate={handleTaskUpdate}
-                  onDelete={handleTaskDelete}
                 />
               );
             })}
