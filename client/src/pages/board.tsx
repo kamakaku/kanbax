@@ -10,7 +10,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 
-// Definiere die Standard-Spalten mit korrekten Status-Werten
 const defaultColumns = [
   { id: "backlog", title: "backlog" },
   { id: "todo", title: "todo" },
@@ -24,13 +23,12 @@ export default function Board() {
   const [, setLocation] = useLocation();
   const { currentBoard } = useStore();
 
-  // Redirect to projects page if no board is selected
   useEffect(() => {
     if (!currentBoard) {
       setLocation("/projects");
       toast({
-        title: "Please select a project first",
-        description: "You need to select a project before viewing boards",
+        title: "Bitte wählen Sie zuerst ein Projekt aus",
+        description: "Sie müssen ein Projekt auswählen, bevor Sie Boards anzeigen können",
       });
     }
   }, [currentBoard, setLocation, toast]);
@@ -40,7 +38,7 @@ export default function Board() {
     queryFn: async () => {
       const res = await fetch(`/api/boards/${currentBoard?.id}/tasks`);
       if (!res.ok) {
-        throw new Error("Failed to fetch tasks");
+        throw new Error("Fehler beim Laden der Tasks");
       }
       return res.json();
     },
@@ -48,37 +46,28 @@ export default function Board() {
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ taskId, newStatus, newOrder }: { taskId: number; newStatus: string; newOrder: number }) => {
-      // Find the existing task
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) throw new Error("Task not found");
-
-      // Find the matching column
-      const targetColumn = defaultColumns.find(col => col.title === newStatus);
-      if (!targetColumn) throw new Error(`Invalid status: ${newStatus}`);
-
-      // Update the task with the new status and order
+    mutationFn: async (updates: { task: Task, newStatus: string, newOrder: number }) => {
       const updatedTask = {
-        ...task,
-        status: newStatus,
-        order: newOrder
+        ...updates.task,
+        status: updates.newStatus,
+        order: updates.newOrder
       };
 
-      const res = await apiRequest("PATCH", `/api/tasks/${taskId}`, updatedTask);
-
-      if (!res.ok) throw new Error("Failed to update task");
+      const res = await apiRequest("PATCH", `/api/tasks/${updates.task.id}`, updatedTask);
+      if (!res.ok) {
+        throw new Error("Fehler beim Aktualisieren des Tasks");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
     },
     onError: (error) => {
       console.error("Update task error:", error);
       toast({
-        title: "Failed to update task",
+        title: "Fehler beim Aktualisieren des Tasks",
         description: error.message,
         variant: "destructive",
       });
@@ -86,61 +75,75 @@ export default function Board() {
   });
 
   const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
-
     const { source, destination, draggableId } = result;
-    const taskId = parseInt(draggableId);
 
-    // Find the task that was dragged
+    // Wenn keine Zielposition existiert, abbrechen
+    if (!destination) return;
+
+    // Wenn die Position unverändert ist, abbrechen
+    if (
+      source.droppableId === destination.droppableId &&
+      source.index === destination.index
+    ) {
+      return;
+    }
+
+    const taskId = parseInt(draggableId.replace('task-', ''));
     const draggedTask = tasks.find(t => t.id === taskId);
-    if (!draggedTask) return;
+
+    if (!draggedTask) {
+      console.error("Task nicht gefunden:", taskId);
+      return;
+    }
 
     try {
-      // Create new array of tasks for optimistic update
-      const newTasks = [...tasks];
-      const updatedTask = {
-        ...draggedTask,
+      // Neue Task-Liste für optimistisches Update erstellen
+      const updatedTasks = Array.from(tasks);
+
+      // Task aus der alten Position entfernen
+      const [removedTask] = updatedTasks.splice(source.index, 1);
+
+      // Task an der neuen Position einfügen
+      updatedTasks.splice(destination.index, 0, {
+        ...removedTask,
         status: destination.droppableId,
         order: destination.index
-      };
+      });
 
-      // Remove task from old position
-      const taskIndex = newTasks.findIndex(t => t.id === taskId);
-      if (taskIndex !== -1) {
-        newTasks.splice(taskIndex, 1);
-      }
-
-      // Insert task at new position
-      const insertIndex = newTasks.findIndex(t => 
-        t.status === destination.droppableId && 
-        t.order >= destination.index
+      // Reihenfolge für alle Tasks in der Ziel-Spalte aktualisieren
+      const tasksInDestColumn = updatedTasks.filter(
+        t => t.status === destination.droppableId
       );
 
-      if (insertIndex === -1) {
-        newTasks.push(updatedTask);
-      } else {
-        newTasks.splice(insertIndex, 0, updatedTask);
-      }
-
-      // Update orders for all tasks in the destination column
-      const tasksInDestColumn = newTasks.filter(t => t.status === destination.droppableId);
       tasksInDestColumn.forEach((task, index) => {
         task.order = index;
       });
 
-      // Optimistic update
-      queryClient.setQueryData(["/api/boards", currentBoard?.id, "tasks"], newTasks);
+      // Optimistisches Update durchführen
+      queryClient.setQueryData(
+        ["/api/boards", currentBoard?.id, "tasks"],
+        updatedTasks
+      );
 
-      // Update in backend
+      // Backend-Update durchführen
       await updateTaskStatus.mutateAsync({
-        taskId,
+        task: draggedTask,
         newStatus: destination.droppableId,
         newOrder: destination.index
       });
+
     } catch (error) {
-      console.error("Failed to update task status:", error);
-      // Revert optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+      console.error("Fehler beim Aktualisieren des Task-Status:", error);
+      // Bei Fehler Cache invalidieren, um korrekten Status wiederherzustellen
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+      });
+
+      toast({
+        title: "Fehler beim Verschieben des Tasks",
+        description: "Der Task konnte nicht verschoben werden. Bitte versuchen Sie es erneut.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -153,20 +156,19 @@ export default function Board() {
       );
 
       if (!res.ok) {
-        throw new Error("Failed to update task");
+        throw new Error("Fehler beim Aktualisieren des Tasks");
       }
 
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
 
-      toast({ title: "Task updated successfully" });
+      toast({ title: "Task erfolgreich aktualisiert" });
     } catch (error) {
       console.error("Task update error:", error);
       toast({
-        title: "Failed to update task",
-        description: "Could not update the task",
+        title: "Fehler beim Aktualisieren",
+        description: "Der Task konnte nicht aktualisiert werden",
         variant: "destructive",
       });
     }
@@ -176,20 +178,19 @@ export default function Board() {
     try {
       const res = await apiRequest("DELETE", `/api/tasks/${taskId}`);
       if (!res.ok) {
-        throw new Error("Failed to delete task");
+        throw new Error("Fehler beim Löschen des Tasks");
       }
 
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
-      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
 
-      toast({ title: "Task deleted successfully" });
+      toast({ title: "Task erfolgreich gelöscht" });
     } catch (error) {
       console.error("Task delete error:", error);
       toast({
-        title: "Failed to delete task",
-        description: "Could not delete the task",
+        title: "Fehler beim Löschen",
+        description: "Der Task konnte nicht gelöscht werden",
         variant: "destructive",
       });
     }
@@ -202,7 +203,7 @@ export default function Board() {
   if (tasksLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading...</p>
+        <p className="text-lg text-muted-foreground">Laden...</p>
       </div>
     );
   }
@@ -221,7 +222,7 @@ export default function Board() {
               const columnTasks = tasks
                 .filter(task => task.status === column.title)
                 .sort((a, b) => a.order - b.order);
-              
+
               return (
                 <ColumnComponent
                   key={column.id}
