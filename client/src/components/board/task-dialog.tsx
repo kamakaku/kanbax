@@ -279,43 +279,62 @@ export function TaskDialog({
   };
 
   const renderAssignedUsers = (isEditMode: boolean, field?: any) => {
-    return (
-      <div className="space-y-2">
-        <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
-        <div className="flex flex-wrap gap-3">
-          {users.map((user) => (
-            <Button
-              key={user.id}
-              type="button"
-              variant={
-                isEditMode
-                  ? field?.value?.includes(user.id) ? "default" : "outline"
-                  : task?.assignedUserIds?.includes(user.id) ? "default" : "outline"
-              }
-              className="flex items-center gap-2"
-              onClick={() => {
-                if (isEditMode) {
+    if (isEditMode) {
+      // Edit mode: Show all users with selection buttons
+      return (
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
+          <div className="flex flex-wrap gap-3">
+            {users.map((user) => (
+              <Button
+                key={user.id}
+                type="button"
+                variant={field?.value?.includes(user.id) ? "default" : "outline"}
+                className="flex items-center gap-2"
+                onClick={() => {
                   const currentValue = field?.value || [];
                   const newValue = currentValue.includes(user.id)
                     ? currentValue.filter(id => id !== user.id)
                     : [...currentValue, user.id];
                   field.onChange(newValue);
-                }
-              }}
-              disabled={!isEditMode}
-            >
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={user.avatarUrl || ''} />
-                <AvatarFallback>
-                  {user.username.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span>{user.username}</span>
-            </Button>
-          ))}
+                }}
+              >
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={user.avatarUrl || ''} />
+                  <AvatarFallback>
+                    {user.username.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{user.username}</span>
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
-    );
+      );
+    } else {
+      // Detail mode: Only show assigned users
+      const assignedUsers = users.filter(user => task?.assignedUserIds?.includes(user.id));
+      if (assignedUsers.length === 0) return null;
+
+      return (
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
+          <div className="flex flex-wrap gap-3">
+            {assignedUsers.map((user) => (
+              <div key={user.id} className="flex items-center gap-2">
+                <Avatar className="h-6 w-6 border-2 border-background">
+                  <AvatarImage src={user.avatarUrl || ""} />
+                  <AvatarFallback>
+                    {user.username.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm">{user.username}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
   };
 
   const renderDetailView = () => {
