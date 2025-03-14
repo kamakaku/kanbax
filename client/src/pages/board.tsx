@@ -99,46 +99,55 @@ export default function Board() {
       .filter(t => t.status === source.droppableId)
       .sort((a, b) => a.order - b.order);
 
-    // Update task in the UI optimistically
-    const updatedTasks = Array.from(tasks);
-    const taskIndex = updatedTasks.findIndex(t => t.id === taskId);
-    
-    if (taskIndex !== -1) {
-      const [movedTask] = updatedTasks.splice(taskIndex, 1);
-      movedTask.status = destination.droppableId;
-      
-      // Find insertion index based on destination
-      const insertIndex = updatedTasks.findIndex(t => 
-        t.status === destination.droppableId && 
-        t.order >= destination.index
-      );
-      
-      if (insertIndex === -1) {
-        updatedTasks.push(movedTask);
-      } else {
-        updatedTasks.splice(insertIndex, 0, movedTask);
-      }
-      
-      // Update orders
-      const tasksInColumn = updatedTasks.filter(t => t.status === destination.droppableId);
-      tasksInColumn.forEach((task, index) => {
-        task.order = index;
+    // Remove task from source array
+    const [movedTask] = sourceColumnTasks.splice(source.index, 1);
+
+    // Get all tasks in destination column
+    const destinationColumnTasks = tasks
+      .filter(t => t.status === destination.droppableId)
+      .sort((a, b) => a.order - b.order);
+
+    // Insert task at new position
+    if (source.droppableId !== destination.droppableId) {
+      destinationColumnTasks.splice(destination.index, 0, {
+        ...movedTask,
+        status: destination.droppableId
       });
+    } else {
+      sourceColumnTasks.splice(destination.index, 0, movedTask);
     }
 
-    // Update task in the backend
+    // Update task orders
+    const tasksToUpdate = source.droppableId !== destination.droppableId 
+      ? destinationColumnTasks 
+      : sourceColumnTasks;
+    
+    tasksToUpdate.forEach((task, index) => {
+      task.order = index;
+    });
+
     try {
       await updateTaskStatus.mutateAsync({
         taskId,
         status: destination.droppableId,
         order: destination.index
       });
-      
-      // Refresh tasks after successful update
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
+
+      // Optimistic update
+      const newTasks = tasks.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            status: destination.droppableId,
+            order: destination.index
+          };
+        }
+        return t;
+      });
+
+      queryClient.setQueryData(["/api/boards", currentBoard?.id, "tasks"], newTasks);
     } catch (error) {
       console.error("Failed to update task status:", error);
-      // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
     }
   };
