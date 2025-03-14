@@ -34,7 +34,7 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            "bg-white rounded-lg border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-slate-300 transition-colors relative",
+            "bg-white rounded-t-lg border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-slate-300 transition-colors relative",
             snapshot.isDragging && "shadow-lg",
             task.priority === "high" && "border-t-[5px] border-t-red-500",
             task.priority === "medium" && "border-t-[5px] border-t-yellow-500",
