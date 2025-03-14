@@ -163,6 +163,22 @@ export function Task({ task, index, showBoardTitle = false, onClick }: TaskProps
                           <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
                         </div>
                       )}
+
+                      {task.assignedUserIds && task.assignedUserIds.length > 0 && (
+                        <div className="flex -space-x-2">
+                          {task.assignedUserIds.map((userId) => {
+                            const user = users.find((u) => u.id === userId);
+                            return user ? (
+                              <Avatar key={user.id} className="h-5 w-5">
+                                <AvatarImage src={user.avatarUrl || ""} />
+                                <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
+                                  {user.username.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     {showBoardTitle && task.boardTitle && (
