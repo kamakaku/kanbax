@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { CalendarIcon, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useQuery } from "@tanstack/react-query";
+import type { User } from "@shared/schema";
 
 interface TaskProps {
   task: TaskType;
