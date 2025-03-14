@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, PencilIcon, CheckSquare } from "lucide-react";
+import { CalendarIcon, PencilIcon, CheckSquare, Eye } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -21,7 +21,8 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, index }: TaskCardProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const currentBoard = useStore((state) => state.currentBoard);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -44,7 +45,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
       toast({ title: "Task updated successfully" });
-      setIsDialogOpen(false);
+      setIsEditMode(false);
     },
     onError: (error) => {
       toast({
@@ -54,7 +55,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
       });
     },
   });
-
 
   const renderAssignedUsers = () => {
     if (!task.assignedUserIds || task.assignedUserIds.length === 0) return null;
@@ -91,14 +91,24 @@ export function TaskCard({ task, index }: TaskCardProps) {
             <CardHeader className="p-3">
               <div className="flex items-start justify-between">
                 <h3 className="text-sm font-medium">{task.title}</h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4"
-                  onClick={() => setIsDialogOpen(true)}
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4"
+                    onClick={() => setIsViewMode(true)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-3 pt-0">
@@ -111,7 +121,6 @@ export function TaskCard({ task, index }: TaskCardProps) {
                   ))}
                 </div>
               )}
-
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -142,8 +151,15 @@ export function TaskCard({ task, index }: TaskCardProps) {
           </Card>
 
           <TaskDialog
-            open={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
+            open={isViewMode}
+            onOpenChange={setIsViewMode}
+            task={task}
+            mode="view"
+          />
+
+          <TaskDialog
+            open={isEditMode}
+            onOpenChange={setIsEditMode}
             task={task}
             onUpdate={(updatedTask) => updateTask.mutate(updatedTask)}
           />
