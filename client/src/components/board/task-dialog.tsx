@@ -61,7 +61,7 @@ type TaskFormValues = z.infer<typeof taskFormSchema>;
 interface TaskDialogProps {
   task?: Task;
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
   initialColumnId?: number;
@@ -75,7 +75,7 @@ interface ChecklistItem {
 export function TaskDialog({
   task,
   open,
-  onClose,
+  onOpenChange,
   onUpdate,
   onDelete,
   initialColumnId,
@@ -182,8 +182,7 @@ export function TaskDialog({
           throw new Error(errorText);
         }
 
-        const data = await response.json();
-        return data;
+        return response.json();
       } catch (error) {
         console.error("Task creation error:", error);
         throw error;
@@ -191,7 +190,7 @@ export function TaskDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      onClose();
+      onOpenChange(false);
       toast({ title: "Aufgabe erfolgreich erstellt" });
     },
     onError: (error) => {
@@ -222,7 +221,7 @@ export function TaskDialog({
         };
 
         await onUpdate(updatedTask);
-        onClose();
+        onOpenChange(false);
       } else {
         const newTaskData = {
           ...data,
@@ -285,7 +284,7 @@ export function TaskDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -590,7 +589,7 @@ export function TaskDialog({
                 </Button>
               )}
               <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={onClose}>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Abbrechen
                 </Button>
                 <Button type="submit">
