@@ -22,19 +22,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 interface BoardFormProps {
   open: boolean;
   onClose: () => void;
-  projects: Project[];
 }
 
-export function BoardForm({ open, onClose, projects }: BoardFormProps) {
+export function BoardForm({ open, onClose }: BoardFormProps) {
   const { currentProject } = useStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
+      return response.json();
+    },
+  });
 
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
@@ -119,6 +129,7 @@ export function BoardForm({ open, onClose, projects }: BoardFormProps) {
                     <Textarea 
                       placeholder="Beschreiben Sie Ihr Board..." 
                       {...field}
+                      value={field.value || ""}
                     />
                   </FormControl>
                   <FormMessage />
@@ -135,6 +146,7 @@ export function BoardForm({ open, onClose, projects }: BoardFormProps) {
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
                     defaultValue={field.value?.toString()}
+                    disabled={projectsLoading}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -142,7 +154,7 @@ export function BoardForm({ open, onClose, projects }: BoardFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {projects.map((project) => (
+                      {!projectsLoading && projects.map((project) => (
                         <SelectItem key={project.id} value={project.id.toString()}>
                           {project.title}
                         </SelectItem>
@@ -154,8 +166,8 @@ export function BoardForm({ open, onClose, projects }: BoardFormProps) {
               )}
             />
 
-            <Button type="submit" className="w-full">
-              Board erstellen
+            <Button type="submit" className="w-full" disabled={projectsLoading}>
+              {projectsLoading ? "Laden..." : "Board erstellen"}
             </Button>
           </form>
         </Form>
