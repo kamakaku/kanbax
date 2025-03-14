@@ -104,11 +104,14 @@ export function TaskDialog({
       }
 
       try {
-        // Formatiere die Checkliste als String-Array
+        // Formatiere die Checkliste als Array von Objekten
         const formattedTask = {
           ...newTask,
           boardId: currentBoard.id,
-          checklist: checklist.map(item => item.title)
+          checklist: checklist.map(item => ({
+            text: item.title,
+            checked: item.completed
+          }))
         };
 
         console.log("Sending task:", formattedTask);
@@ -178,11 +181,11 @@ export function TaskDialog({
       order: task?.order || 0,
     });
 
-    // Initialisiere die Checkliste aus dem Task-Objekt
+    // Initialize checklist from task's checklist array
     setChecklist(
-      (task?.checklist || []).map(text => ({
-        title: text,
-        completed: false
+      (task?.checklist || []).map(item => ({
+        title: item.text || item,  // Handle both new and old format
+        completed: item.checked || false
       }))
     );
   }, [open, task, initialColumnId, form]);
@@ -202,7 +205,7 @@ export function TaskDialog({
         const updatedTask: Task = {
           ...task,
           ...data,
-          checklist: checklist.map(item => item.title) // Konvertiere zu String-Array
+          checklist: checklist.map(item => ({ text: item.title, checked: item.completed })) // Konvertiere zu Array von Objekten
         };
 
         await onUpdate(updatedTask);
@@ -211,7 +214,7 @@ export function TaskDialog({
         const newTaskData = {
           ...data,
           boardId: currentBoard.id,
-          checklist: checklist.map(item => item.title) // Konvertiere zu String-Array
+          checklist: checklist.map(item => ({ text: item.title, checked: item.completed })) // Konvertiere zu Array von Objekten
         };
 
         await createTaskMutation.mutateAsync(newTaskData);

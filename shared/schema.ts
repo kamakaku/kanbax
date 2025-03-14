@@ -184,7 +184,10 @@ export const insertTaskSchema = createInsertSchema(tasks)
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable().optional(), // Accept ISO string or null
-    checklist: z.array(z.string()).default([]), // Store as strings for now
+    checklist: z.array(z.object({
+      text: z.string().min(1, "Checklist item text is required"),
+      checked: z.boolean().default(false)
+    })).default([]),
     archived: z.boolean().default(false),
     assignedUserIds: z.array(z.number().int().positive()).default([]),
     assignedTeamId: z.union([
@@ -262,7 +265,7 @@ export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect & {
-  checklist: string[]; // Keep as string array for database compatibility
+  checklist: { text: string; checked: boolean }[];
   assignedUser?: {
     id: number;
     username: string;
