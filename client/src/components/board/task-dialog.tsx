@@ -63,14 +63,12 @@ const FormSchema = z.object({
   description: z.string().optional(),
   status: z.enum(["todo", "in-progress", "review", "done"]),
   priority: z.enum(["low", "medium", "high"]),
-  columnId: z.number().int().optional(),
-  boardId: z.number().int().optional(),
-  order: z.number().int().optional(),
-  labels: z.array(z.string()).optional(),
-  assignedUserIds: z.array(z.number()).optional(),
-  assignedTeamId: z.number().int().optional().nullable(),
-  dueDate: z.date().optional().nullable(),
-  archived: z.boolean().optional(),
+  columnId: z.number(),
+  labels: z.array(z.string()).default([]),
+  assignedUserIds: z.array(z.number()).default([]),
+  dueDate: z.string().nullable(),
+  archived: z.boolean().default(false),
+  order: z.number().default(0),
 });
 
 interface TaskDialogProps {
@@ -110,13 +108,11 @@ export function TaskDialog({
       status: "todo" as const,
       priority: "medium" as const,
       columnId: undefined,
-      boardId: undefined,
-      order: 0,
       labels: [],
       assignedUserIds: [],
-      assignedTeamId: null,
       dueDate: null,
       archived: false,
+      order: 0,
     },
   });
 
@@ -153,13 +149,11 @@ export function TaskDialog({
           status: task.status as any,
           priority: task.priority as any,
           columnId: task.columnId,
-          boardId: task.boardId,
-          order: task.order,
           labels: task.labels || [],
           assignedUserIds: task.assignedUserIds || [],
-          assignedTeamId: task.assignedTeamId,
-          dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          dueDate: task.dueDate,
           archived: task.archived || false,
+          order: task.order,
         });
       } else {
         form.reset({
@@ -168,13 +162,11 @@ export function TaskDialog({
           status: "todo" as const,
           priority: "medium" as const,
           columnId: undefined,
-          boardId: undefined,
-          order: 0,
           labels: [],
           assignedUserIds: [],
-          assignedTeamId: null,
           dueDate: null,
           archived: false,
+          order: 0,
         });
       }
     }
@@ -227,15 +219,17 @@ export function TaskDialog({
   const addChecklistItem = async () => {
     if (newChecklistItem.trim() && task?.id) {
       try {
-        const response = await apiRequest(`/api/tasks/${task.id}/checklist`, {
-          method: "POST",
-          data: {
-            title: newChecklistItem,
-            completed: false
-          }
+        const response = await apiRequest("POST", `/api/tasks/${task.id}/checklist`, {
+          title: newChecklistItem,
+          completed: false
         });
 
-        setChecklist([...checklist, response]);
+        if (!response.ok) {
+          throw new Error("Failed to add checklist item");
+        }
+
+        const newItem = await response.json();
+        setChecklist([...checklist, newItem]);
         setNewChecklistItem("");
       } catch (error) {
         console.error("Error adding checklist item:", error);
@@ -251,10 +245,13 @@ export function TaskDialog({
   const toggleChecklistItem = async (itemId: number, completed: boolean) => {
     if (task?.id) {
       try {
-        await apiRequest(`/api/tasks/${task.id}/checklist/${itemId}`, {
-          method: "PATCH",
-          data: { completed }
+        const response = await apiRequest("PATCH", `/api/tasks/${task.id}/checklist/${itemId}`, {
+          completed
         });
+
+        if (!response.ok) {
+          throw new Error("Failed to update checklist item");
+        }
 
         setChecklist(
           checklist.map(item => 
@@ -263,6 +260,11 @@ export function TaskDialog({
         );
       } catch (error) {
         console.error("Error updating checklist item:", error);
+        toast({
+          title: "Fehler",
+          description: "Das Checklist-Element konnte nicht aktualisiert werden",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -270,13 +272,20 @@ export function TaskDialog({
   const deleteChecklistItem = async (itemId: number) => {
     if (task?.id) {
       try {
-        await apiRequest(`/api/tasks/${task.id}/checklist/${itemId}`, {
-          method: "DELETE"
-        });
+        const response = await apiRequest("DELETE", `/api/tasks/${task.id}/checklist/${itemId}`);
+
+        if (!response.ok) {
+          throw new Error("Failed to delete checklist item");
+        }
 
         setChecklist(checklist.filter(item => item.id !== itemId));
       } catch (error) {
         console.error("Error deleting checklist item:", error);
+        toast({
+          title: "Fehler",
+          description: "Das Checklist-Element konnte nicht gelöscht werden",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -319,7 +328,7 @@ export function TaskDialog({
       const cleanedData = {
         ...data,
         title: data.title.trim(),
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate,
         assignedTeamId: data.assignedTeamId && data.assignedTeamId > 0 ? data.assignedTeamId : null,
         description: data.description || "",
         labels: data.labels || [],
@@ -333,13 +342,14 @@ export function TaskDialog({
           description: cleanedData.description,
           status: cleanedData.status,
           priority: cleanedData.priority,
-          columnId: cleanedData.columnId || task.columnId, 
+          columnId: cleanedData.columnId, 
           boardId: task.boardId, 
           labels: cleanedData.labels,
           assignedUserIds: cleanedData.assignedUserIds,
           assignedTeamId: cleanedData.assignedTeamId,
           dueDate: cleanedData.dueDate,
-          archived: cleanedData.archived || false
+          archived: cleanedData.archived,
+          order: cleanedData.order,
         };
 
         await onUpdate(updateData);
@@ -484,7 +494,7 @@ export function TaskDialog({
                             )}
                           >
                             {field.value ? (
-                              format(field.value, "PPP")
+                              format(new Date(field.value), "PPP", { locale: de })
                             ) : (
                               <span>Wählen Sie ein Datum</span>
                             )}
@@ -495,7 +505,7 @@ export function TaskDialog({
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          selected={field.value || undefined}
+                          selected={field.value ? new Date(field.value) : undefined}
                           onSelect={field.onChange}
                           initialFocus
                         />
