@@ -89,29 +89,6 @@ export function TaskDialog({
   const isEditing = !!task;
   const { currentBoard } = useStore();
 
-  const createTaskMutation = useMutation({
-    mutationFn: async (newTask: Partial<Task>) => {
-      const response = await apiRequest("POST", "/api/tasks", newTask);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to create task: ${errorText}`);
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      onClose();
-      toast({ title: "Aufgabe erfolgreich erstellt" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Fehler beim Speichern",
-        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
-        variant: "destructive",
-      });
-    },
-  });
-
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -131,7 +108,7 @@ export function TaskDialog({
   useEffect(() => {
     if (!open) return;
 
-    const formData = {
+    form.reset({
       title: task?.title || "",
       description: task?.description || "",
       status: task?.status || "todo",
@@ -142,9 +119,7 @@ export function TaskDialog({
       dueDate: task?.dueDate || null,
       archived: task?.archived || false,
       order: task?.order || 0,
-    };
-
-    form.reset(formData);
+    });
 
     setChecklist([]);
     if (task?.id) {
@@ -153,7 +128,42 @@ export function TaskDialog({
         .then(items => setChecklist(items.sort((a, b) => a.itemOrder - b.itemOrder)))
         .catch(error => console.error("Error fetching checklist:", error));
     }
-  }, [open, task, initialColumnId, form]);
+  }, [open, task, initialColumnId]);
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (newTask: Partial<Task>) => {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(newTask)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server response:", errorText);
+        throw new Error(errorText);
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (currentBoard?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
+      }
+      onClose();
+      toast({ title: "Aufgabe erfolgreich erstellt" });
+    },
+    onError: (error) => {
+      console.error("Mutation error:", error);
+      toast({
+        title: "Fehler beim Speichern",
+        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    },
+  });
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
@@ -184,7 +194,6 @@ export function TaskDialog({
         await onUpdate(updatedTask);
         onClose();
       } else {
-        // Create new task
         const newTaskData = {
           title: data.title,
           description: data.description || "",
@@ -282,6 +291,10 @@ export function TaskDialog({
         variant: "destructive",
       });
     }
+  };
+
+  const handleDelete = () => {
+    setIsDeleteDialogOpen(true);
   };
 
   return (
@@ -478,7 +491,7 @@ export function TaskDialog({
                 <Button
                   type="button"
                   variant="destructive"
-                  onClick={handleDelete}
+                  onClick={() => onDelete && task && onDelete(task.id)}
                 >
                   Löschen
                 </Button>
