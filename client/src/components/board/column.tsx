@@ -67,7 +67,7 @@ export function Column({ column, tasks }: ColumnProps) {
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`p-2 min-h-[100px] transition-colors ${
+            className={`p-3 min-h-[150px] transition-colors flex flex-col gap-3 ${
               snapshot.isDraggingOver ? "bg-slate-50" : ""
             }`}
           >
