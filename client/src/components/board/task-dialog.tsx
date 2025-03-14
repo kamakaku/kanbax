@@ -90,10 +90,21 @@ export function TaskDialog({
   const isEditing = !!task;
   const { currentBoard } = useStore();
 
-  // Benutzer abrufen
-  const { data: users = [] } = useQuery({
-    queryKey: ["/api/users"],
-    enabled: open,
+  // Form initialization first
+  const form = useForm<TaskFormValues>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      columnId: initialColumnId || 0,
+      labels: [],
+      assignedUserIds: [],
+      dueDate: null,
+      archived: false,
+      order: 0,
+    },
   });
 
   const createTaskMutation = useMutation({
@@ -144,6 +155,7 @@ export function TaskDialog({
     },
   });
 
+  // useEffect after form initialization
   useEffect(() => {
     if (!open) return;
 
@@ -165,11 +177,18 @@ export function TaskDialog({
       const initialChecklist = task?.checklist || [];
       const parsedChecklist = initialChecklist.map(itemStr => {
         try {
-          // Parse the JSON string
-          return typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
+          // Try to parse the JSON string
+          const parsedItem = typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
+          return {
+            text: parsedItem.text || String(itemStr),
+            checked: parsedItem.checked || false
+          };
         } catch (e) {
-          // If parsing fails, create a default item
-          return { text: String(itemStr), checked: false };
+          // If parsing fails, treat it as a plain text item
+          return {
+            text: String(itemStr),
+            checked: false
+          };
         }
       });
       setChecklist(parsedChecklist);
@@ -241,22 +260,6 @@ export function TaskDialog({
   const deleteChecklistItem = (index: number) => {
     setChecklist(prev => prev.filter((_, i) => i !== index));
   };
-
-  const form = useForm<TaskFormValues>({
-    resolver: zodResolver(taskFormSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      status: "todo",
-      priority: "medium",
-      columnId: initialColumnId || 0,
-      labels: [],
-      assignedUserIds: [],
-      dueDate: null,
-      archived: false,
-      order: 0,
-    },
-  });
 
   const handleAddLabel = () => {
     if (!newLabel.trim()) return;
