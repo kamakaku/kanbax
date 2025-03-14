@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 interface BoardFormProps {
   open: boolean;
@@ -31,9 +32,10 @@ interface BoardFormProps {
 }
 
 export function BoardForm({ open, onClose }: BoardFormProps) {
-  const { currentProject } = useStore();
+  const { currentProject, setCurrentBoard } = useStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -69,7 +71,7 @@ export function BoardForm({ open, onClose }: BoardFormProps) {
 
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (newBoard) => {
       queryClient.invalidateQueries({ queryKey: ["all-boards"] });
       projects.forEach(project => {
         queryClient.invalidateQueries({ 
@@ -79,6 +81,10 @@ export function BoardForm({ open, onClose }: BoardFormProps) {
       toast({ title: "Board erfolgreich erstellt" });
       form.reset();
       onClose();
+
+      // Set the current board and navigate to it
+      setCurrentBoard(newBoard);
+      setLocation(`/board`);
     },
     onError: (error) => {
       toast({
