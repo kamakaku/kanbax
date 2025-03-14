@@ -12,7 +12,6 @@ import type { User } from "@shared/schema";
 interface TaskProps {
   task: TaskType;
   index: number;
-  showBoardTitle?: boolean;
   onClick?: (task: TaskType) => void;
 }
 
@@ -60,11 +59,9 @@ export function Task({ task, index, onClick }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            `bg-white rounded-lg border p-3 cursor-grab active:cursor-grabbing`,
+            `bg-white rounded-lg border border-slate-200 p-3 cursor-grab active:cursor-grabbing`,
             "transition-all duration-200",
             "hover:border-slate-300 hover:shadow-sm hover:-translate-y-[2px]",
-            priority.bg,
-            priority.border,
             snapshot.isDragging && [
               "shadow-2xl",
               "scale-[1.02]",
@@ -73,7 +70,7 @@ export function Task({ task, index, onClick }: TaskProps) {
               "border-primary",
               "!bg-white",
               "z-50"
-            ],
+            ]
           )}
           style={{
             ...provided.draggableProps.style,
@@ -84,8 +81,8 @@ export function Task({ task, index, onClick }: TaskProps) {
           }}
         >
           <div className="flex flex-col gap-2">
-            {/* Priority Label */}
-            <div className="flex items-center gap-2">
+            {/* Priority and Labels in one row */}
+            <div className="flex items-center gap-2 flex-wrap">
               <div className={cn(
                 "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
                 "border border-current/20",
@@ -94,22 +91,22 @@ export function Task({ task, index, onClick }: TaskProps) {
                 <div className={cn("w-1.5 h-1.5 rounded-full", priority.dot)} />
                 <span className="text-xs font-medium">{priority.label}</span>
               </div>
-            </div>
 
-            {/* Other Labels */}
-            {task.labels && task.labels.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {task.labels.map((label) => (
-                  <span 
-                    key={label} 
-                    className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600 
-                             transition-colors hover:bg-slate-200"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            )}
+              {/* Other Labels */}
+              {task.labels && task.labels.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {task.labels.map((label) => (
+                    <span 
+                      key={label} 
+                      className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600 
+                               transition-colors hover:bg-slate-200"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
 
