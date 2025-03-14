@@ -77,7 +77,7 @@ export const tasks = pgTable("tasks", {
   assignedUserIds: integer("assigned_user_ids").array(),
   assignedTeamId: integer("assigned_team_id"),
   assignedAt: timestamp("assigned_at"),
-  checklist: text("checklist").array(), // Keep as text array for now to avoid migration issues
+  checklist: text("checklist").array(), // Keep as text array, but store stringified objects
 });
 
 export const checklistItems = pgTable("checklist_items", {

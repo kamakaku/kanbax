@@ -69,8 +69,8 @@ interface TaskDialogProps {
 }
 
 interface ChecklistItem {
-  title: string;
-  completed: boolean;
+  text: string;
+  checked: boolean;
 }
 
 export function TaskDialog({
@@ -109,7 +109,7 @@ export function TaskDialog({
           ...newTask,
           boardId: currentBoard.id,
           checklist: checklist.map(item => ({
-            text: item.title,
+            text: item.text,
             checked: item.completed
           }))
         };
@@ -181,13 +181,37 @@ export function TaskDialog({
       order: task?.order || 0,
     });
 
-    // Initialize checklist from task's checklist array
-    setChecklist(
-      (task?.checklist || []).map(item => ({
-        title: item.text || item,  // Handle both new and old format
-        completed: item.checked || false
-      }))
-    );
+    // Initialize checklist from task's data
+    try {
+      const initialChecklist = task?.checklist || [];
+      const parsedChecklist = initialChecklist.map(item => {
+        if (typeof item === 'string') {
+          try {
+            // Try to parse if it's a stringified object
+            const parsed = JSON.parse(item);
+            return {
+              text: parsed.text || '',
+              checked: parsed.checked || false
+            };
+          } catch {
+            // If parsing fails, treat it as a plain text item
+            return {
+              text: item,
+              checked: false
+            };
+          }
+        }
+        // If it's already an object, use its properties
+        return {
+          text: item.text || '',
+          checked: item.checked || false
+        };
+      });
+      setChecklist(parsedChecklist);
+    } catch (error) {
+      console.error('Error parsing checklist:', error);
+      setChecklist([]);
+    }
   }, [open, task, initialColumnId, form]);
 
   const onSubmit = async (data: TaskFormValues) => {
@@ -205,7 +229,10 @@ export function TaskDialog({
         const updatedTask: Task = {
           ...task,
           ...data,
-          checklist: checklist.map(item => ({ text: item.title, checked: item.completed })) // Konvertiere zu Array von Objekten
+          checklist: checklist.map(item => JSON.stringify({
+            text: item.text,
+            checked: item.checked
+          }))
         };
 
         await onUpdate(updatedTask);
@@ -214,7 +241,10 @@ export function TaskDialog({
         const newTaskData = {
           ...data,
           boardId: currentBoard.id,
-          checklist: checklist.map(item => ({ text: item.title, checked: item.completed })) // Konvertiere zu Array von Objekten
+          checklist: checklist.map(item => JSON.stringify({
+            text: item.text,
+            checked: item.checked
+          }))
         };
 
         await createTaskMutation.mutateAsync(newTaskData);
@@ -233,8 +263,8 @@ export function TaskDialog({
     if (!newChecklistItem.trim()) return;
 
     const newItem = {
-      title: newChecklistItem,
-      completed: false
+      text: newChecklistItem,
+      checked: false
     };
 
     setChecklist(prev => [...prev, newItem]);
@@ -244,7 +274,7 @@ export function TaskDialog({
   const toggleChecklistItem = (index: number) => {
     setChecklist(prev =>
       prev.map((item, i) =>
-        i === index ? { ...item, completed: !item.completed } : item
+        i === index ? { ...item, checked: !item.checked } : item
       )
     );
   };
@@ -523,12 +553,12 @@ export function TaskDialog({
                   >
                     <input
                       type="checkbox"
-                      checked={item.completed}
+                      checked={item.checked}
                       onChange={() => toggleChecklistItem(index)}
                       className="h-4 w-4"
                     />
-                    <span className={item.completed ? "line-through text-muted-foreground" : ""}>
-                      {item.title}
+                    <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                      {item.text}
                     </span>
                     <button
                       type="button"
