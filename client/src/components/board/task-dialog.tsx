@@ -71,7 +71,7 @@ export function TaskDialog({
   open,
   onOpenChange,
   onUpdate,
-  mode = task ? "details" : "edit", // Default to edit mode for new tasks
+  mode = task ? "details" : "edit",
   initialColumnId,
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
@@ -99,7 +99,6 @@ export function TaskDialog({
     },
   });
 
-  // Reset form when dialog opens/closes or task changes
   useEffect(() => {
     if (open && task) {
       form.reset({
@@ -155,7 +154,6 @@ export function TaskDialog({
     },
   });
 
-  // Ensure users is always an array
   const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
 
   const updateTaskMutation = useMutation({
@@ -638,49 +636,32 @@ export function TaskDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Zugewiesene Benutzer</FormLabel>
-                    <Select
-                      multiple
-                      value={field.value || []}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Benutzer auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.username}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {field.value?.map((userId) => {
-                        const user = users.find((u: User) => u.id === userId);
-                        return user ? (
-                          <div
-                            key={userId}
-                            className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
-                          >
-                            <UserPlus className="h-3 w-3" />
-                            <span className="text-sm">{user.username}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                field.onChange(field.value?.filter(id => id !== userId));
-                              }}
-                              className="text-primary/50 hover:text-primary"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ) : null;
-                      })}
+                    <div className="flex flex-wrap gap-2">
+                      {users.map((user) => (
+                        <Button
+                          key={user.id}
+                          type="button"
+                          variant={field.value?.includes(user.id) ? "default" : "outline"}
+                          className="flex items-center gap-2"
+                          onClick={() => {
+                            const currentValue = field.value || [];
+                            const newValue = currentValue.includes(user.id)
+                              ? currentValue.filter(id => id !== user.id)
+                              : [...currentValue, user.id];
+                            field.onChange(newValue);
+                          }}
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={user.avatarUrl || ''} />
+                            <AvatarFallback>
+                              {user.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{user.username}</span>
+                        </Button>
+                      ))}
                     </div>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
