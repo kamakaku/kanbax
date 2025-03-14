@@ -40,15 +40,44 @@ const priorityConfig = {
 };
 
 export function Task({ task, index, onClick }: TaskProps) {
-  const { data: users = [] } = useQuery<User[]>({
+  const { data: usersResponse = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
       return response.json();
     },
   });
 
+  // Ensure users is always an array
+  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
   const priority = priorityConfig[task.priority as keyof typeof priorityConfig];
+
+  const renderAssignedUsers = () => {
+    if (!task.assignedUserIds || task.assignedUserIds.length === 0) return null;
+
+    return (
+      <div className="flex -space-x-2">
+        {task.assignedUserIds.map((userId) => {
+          const user = users.find((u) => u.id === userId);
+          return user ? (
+            <Avatar 
+              key={userId} 
+              className="h-5 w-5 border-2 border-background 
+                       transition-transform hover:scale-110 hover:z-10"
+            >
+              <AvatarImage src={user.avatarUrl || ""} />
+              <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
+                {user.username.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          ) : null;
+        })}
+      </div>
+    );
+  };
 
   return (
     <Draggable draggableId={task.id.toString()} index={index}>
@@ -99,7 +128,7 @@ export function Task({ task, index, onClick }: TaskProps) {
                     <span 
                       key={label} 
                       className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600 
-                               transition-colors hover:bg-slate-200"
+                                transition-colors hover:bg-slate-200"
                     >
                       {label}
                     </span>
@@ -146,25 +175,7 @@ export function Task({ task, index, onClick }: TaskProps) {
                 </div>
               )}
 
-              {task.assignedUserIds && task.assignedUserIds.length > 0 && (
-                <div className="flex -space-x-2">
-                  {task.assignedUserIds.map((userId) => {
-                    const user = users.find((u) => u.id === userId);
-                    return user ? (
-                      <Avatar 
-                        key={userId} 
-                        className="h-5 w-5 border-2 border-background 
-                                 transition-transform hover:scale-110 hover:z-10"
-                      >
-                        <AvatarImage src={user.avatarUrl || ""} />
-                        <AvatarFallback className="text-[10px] bg-slate-100 text-slate-600">
-                          {user.username.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : null;
-                  })}
-                </div>
-              )}
+              {renderAssignedUsers()}
             </div>
           </div>
         </div>
