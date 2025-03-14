@@ -128,6 +128,7 @@ export function Column({ column, tasks = [], isAllTasksView = false, onUpdate, o
               className={`flex flex-col gap-2 min-h-[50px] transition-colors rounded-md p-1 ${
                 snapshot.isDraggingOver ? 'bg-slate-50' : ''
               }`}
+              style={{ overflow: 'visible' }}
             >
               {tasks.map((task, index) => (
                 <TaskComponent
