@@ -1,4 +1,3 @@
-
 import { type Task as TaskType } from "@shared/schema";
 import { Draggable } from "react-beautiful-dnd";
 import { cn } from "@/lib/utils";
@@ -42,8 +41,6 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
             task.priority === "low" && "border-t-[5px] border-t-blue-500"
           )}
         >
-          <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
-          
           {task.labels.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
               {task.labels.map((label) => (
@@ -51,6 +48,8 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
               ))}
             </div>
           )}
+
+          <h3 className="font-medium text-sm text-slate-900 line-clamp-2 mb-2">{task.title}</h3>
 
           {task.checklist && task.checklist.length > 0 && (
             <div className="flex items-center gap-2 mb-2">
