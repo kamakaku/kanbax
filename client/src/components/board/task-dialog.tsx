@@ -6,7 +6,7 @@ import { type Task } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useStore } from "@/lib/store"; // Add this import
+import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -43,7 +43,6 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { CalendarIcon, PlusCircle, Trash } from "lucide-react";
 
-// Validierungsschema für das Formular
 const taskFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
@@ -52,7 +51,7 @@ const taskFormSchema = z.object({
   columnId: z.number(),
   labels: z.array(z.string()).default([]),
   assignedUserIds: z.array(z.number()).default([]),
-  dueDate: z.string().nullable(), // Accept ISO string or null
+  dueDate: z.string().nullable(),
   archived: z.boolean().default(false),
   order: z.number().default(0),
 });
@@ -65,7 +64,6 @@ interface TaskDialogProps {
   onClose: () => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
-  currentBoard?: any; // Added to receive the current board ID
 }
 
 export function TaskDialog({
@@ -74,7 +72,6 @@ export function TaskDialog({
   onClose,
   onUpdate,
   onDelete,
-  currentBoard, // Receive currentBoard ID
 }: TaskDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -86,8 +83,9 @@ export function TaskDialog({
   }>>([]);
 
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isEditing = !!task;
-  const { board } = useStore(); //Use the store here
+  const { board } = useStore();
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -108,7 +106,6 @@ export function TaskDialog({
   useEffect(() => {
     if (!open) return;
 
-    // Reset form with task data or default values
     form.reset({
       title: task?.title || "",
       description: task?.description || "",
@@ -117,12 +114,11 @@ export function TaskDialog({
       columnId: task?.columnId || 0,
       labels: task?.labels || [],
       assignedUserIds: task?.assignedUserIds || [],
-      dueDate: task?.dueDate || null, // Already an ISO string from the database
+      dueDate: task?.dueDate || null,
       archived: task?.archived || false,
       order: task?.order || 0,
     });
 
-    // Reset checklist and fetch if editing
     setChecklist([]);
     if (task?.id) {
       fetch(`/api/tasks/${task.id}/checklist`)
@@ -206,8 +202,16 @@ export function TaskDialog({
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
+      if (!board?.id) {
+        toast({
+          title: "Fehler",
+          description: "Kein aktives Board ausgewählt",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (isEditing && task && onUpdate) {
-        // Update existing task
         const updatedTask: Task = {
           ...task,
           title: data.title,
@@ -225,26 +229,27 @@ export function TaskDialog({
         await onUpdate(updatedTask);
         onClose();
       } else {
-        // Create new task
         const response = await apiRequest("POST", "/api/tasks", {
           title: data.title,
           description: data.description || "",
           status: data.status,
           priority: data.priority,
-          columnId: data.columnId,
-          order: data.order,
+          columnId: data.columnId || 0,
+          order: data.order || 0,
           labels: data.labels || [],
           assignedUserIds: data.assignedUserIds || [],
           dueDate: data.dueDate,
           archived: false,
-          boardId: board?.id || currentBoard?.id, // Use board from store, fallback to prop
+          boardId: board.id,
         });
 
         if (!response.ok) {
-          throw new Error("Failed to create task");
+          const errorText = await response.text();
+          throw new Error(`Failed to create task: ${errorText}`);
         }
 
         const newTask = await response.json();
+        await queryClient.invalidateQueries({ queryKey: ["/api/boards", board.id, "tasks"] });
         onClose();
         toast({ title: "Aufgabe erfolgreich erstellt" });
       }
@@ -252,7 +257,7 @@ export function TaskDialog({
       console.error("Form submission error:", error);
       toast({
         title: "Fehler beim Speichern",
-        description: "Die Aufgabe konnte nicht gespeichert werden",
+        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
         variant: "destructive",
       });
     }
@@ -394,7 +399,6 @@ export function TaskDialog({
                         selected={field.value ? new Date(field.value) : undefined}
                         onSelect={(date) => {
                           if (date instanceof Date) {
-                            // Ensure we only call toISOString on actual Date objects
                             field.onChange(date.toISOString());
                           } else {
                             field.onChange(null);
