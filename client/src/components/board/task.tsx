@@ -35,7 +35,7 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           onClick={() => onClick?.(task)}
           className={cn(
             "bg-white rounded-t-lg border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-slate-300 transition-colors relative",
-            snapshot.isDragging && "shadow-lg",
+            snapshot.isDragging && "shadow-lg scale-105 rotate-1 opacity-90 !border-slate-400 transition-transform duration-200",
             task.priority === "high" && "border-t-[5px] border-t-red-500",
             task.priority === "medium" && "border-t-[5px] border-t-yellow-500",
             task.priority === "low" && "border-t-[5px] border-t-blue-500"
