@@ -43,7 +43,6 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { CalendarIcon, PlusCircle, X, Tag, UserPlus } from "lucide-react";
 
-// Schema unverändert...
 const taskFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
@@ -104,14 +103,11 @@ export function TaskDialog({
       }
 
       try {
-        // Formatiere die Checkliste als Array von Objekten
+        // Format checklist items as JSON strings
         const formattedTask = {
           ...newTask,
           boardId: currentBoard.id,
-          checklist: checklist.map(item => ({
-            text: item.text,
-            checked: item.completed
-          }))
+          checklist: checklist.map(item => JSON.stringify(item))
         };
 
         console.log("Sending task:", formattedTask);
@@ -124,7 +120,6 @@ export function TaskDialog({
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("Server response:", errorText);
           throw new Error(errorText);
         }
 
@@ -149,22 +144,6 @@ export function TaskDialog({
     },
   });
 
-  const form = useForm<TaskFormValues>({
-    resolver: zodResolver(taskFormSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      status: "todo",
-      priority: "medium",
-      columnId: initialColumnId || 0,
-      labels: [],
-      assignedUserIds: [],
-      dueDate: null,
-      archived: false,
-      order: 0,
-    },
-  });
-
   useEffect(() => {
     if (!open) return;
 
@@ -181,31 +160,17 @@ export function TaskDialog({
       order: task?.order || 0,
     });
 
-    // Initialize checklist from task's data
+    // Parse checklist items from task data
     try {
       const initialChecklist = task?.checklist || [];
-      const parsedChecklist = initialChecklist.map(item => {
-        if (typeof item === 'string') {
-          try {
-            // Try to parse if it's a stringified object
-            const parsed = JSON.parse(item);
-            return {
-              text: parsed.text || '',
-              checked: parsed.checked || false
-            };
-          } catch {
-            // If parsing fails, treat it as a plain text item
-            return {
-              text: item,
-              checked: false
-            };
-          }
+      const parsedChecklist = initialChecklist.map(itemStr => {
+        try {
+          // Parse the JSON string
+          return typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
+        } catch (e) {
+          // If parsing fails, create a default item
+          return { text: String(itemStr), checked: false };
         }
-        // If it's already an object, use its properties
-        return {
-          text: item.text || '',
-          checked: item.checked || false
-        };
       });
       setChecklist(parsedChecklist);
     } catch (error) {
@@ -229,10 +194,7 @@ export function TaskDialog({
         const updatedTask: Task = {
           ...task,
           ...data,
-          checklist: checklist.map(item => JSON.stringify({
-            text: item.text,
-            checked: item.checked
-          }))
+          checklist: checklist.map(item => JSON.stringify(item))
         };
 
         await onUpdate(updatedTask);
@@ -241,10 +203,7 @@ export function TaskDialog({
         const newTaskData = {
           ...data,
           boardId: currentBoard.id,
-          checklist: checklist.map(item => JSON.stringify({
-            text: item.text,
-            checked: item.checked
-          }))
+          checklist: checklist.map(item => JSON.stringify(item))
         };
 
         await createTaskMutation.mutateAsync(newTaskData);
@@ -282,6 +241,22 @@ export function TaskDialog({
   const deleteChecklistItem = (index: number) => {
     setChecklist(prev => prev.filter((_, i) => i !== index));
   };
+
+  const form = useForm<TaskFormValues>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      columnId: initialColumnId || 0,
+      labels: [],
+      assignedUserIds: [],
+      dueDate: null,
+      archived: false,
+      order: 0,
+    },
+  });
 
   const handleAddLabel = () => {
     if (!newLabel.trim()) return;
