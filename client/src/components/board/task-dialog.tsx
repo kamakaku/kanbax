@@ -36,7 +36,7 @@ import {
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-
+import {User} from "@/types"; // Assuming User type is defined here or imported
 
 interface ChecklistItem {
   text: string;
@@ -150,7 +150,7 @@ export function TaskDialog({
     await saveChecklist(newChecklist);
   };
 
-  const { data: users = [] } = useQuery({
+  const { data: usersResponse = [] } = useQuery({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
@@ -160,6 +160,9 @@ export function TaskDialog({
       return response.json();
     },
   });
+
+  // Ensure users is always an array
+  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
 
   const renderDetailView = () => {
     const priorityConfig = {
@@ -191,7 +194,6 @@ export function TaskDialog({
     return (
       <div className="space-y-6">
         <div className="space-y-4">
-          {/* Priority and Labels */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className={classnames(
               "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
@@ -215,7 +217,6 @@ export function TaskDialog({
             ))}
           </div>
 
-          {/* Title and Description */}
           <div className="text-lg font-medium">{task?.title}</div>
           {task?.description && (
             <div className="text-sm text-muted-foreground whitespace-pre-wrap">
@@ -223,7 +224,6 @@ export function TaskDialog({
             </div>
           )}
 
-          {/* Due Date */}
           {task?.dueDate && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CalendarIcon className="h-4 w-4" />
@@ -231,13 +231,12 @@ export function TaskDialog({
             </div>
           )}
 
-          {/* Assigned Users */}
           {task?.assignedUserIds && task.assignedUserIds.length > 0 && (
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
               <div className="flex flex-wrap gap-3">
                 {task.assignedUserIds.map((userId) => {
-                  const user = users.find((u) => u.id === userId);
+                  const user = users.find((u: User) => u.id === userId);
                   return user ? (
                     <div key={userId} className="flex items-center gap-2">
                       <Avatar className="h-6 w-6 border-2 border-background">
@@ -254,7 +253,6 @@ export function TaskDialog({
             </div>
           )}
 
-          {/* Checklist */}
           <div className="space-y-2">
             <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
             <div className="space-y-2">
@@ -301,7 +299,6 @@ export function TaskDialog({
             </div>
           </div>
 
-          {/* Comments */}
           {task && (
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
@@ -522,6 +519,7 @@ export function TaskDialog({
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
+                        {/* Calendar component likely needs to be imported here */}
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
@@ -614,7 +612,7 @@ export function TaskDialog({
                     </Select>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {field.value?.map((userId) => {
-                        const user = users.find((u) => u.id === userId);
+                        const user = users.find((u: User) => u.id === userId);
                         return user ? (
                           <div
                             key={userId}
