@@ -1,8 +1,9 @@
+
 import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, PencilIcon } from "lucide-react";
+import { CalendarIcon, PencilIcon, CheckSquare } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -55,56 +56,50 @@ export function TaskCard({ task, index }: TaskCardProps) {
     },
   });
 
-  const calculateChecklistProgress = () => {
+  const calculateProgress = () => {
     if (!task.checklist || task.checklist.length === 0) {
       return 0;
     }
 
     let completed = 0;
-    let total = task.checklist.length;
+    const total = task.checklist.length;
 
-    for (const item of task.checklist) {
+    task.checklist.forEach(item => {
       try {
-        const parsedItem = JSON.parse(typeof item === 'string' ? item : JSON.stringify(item));
-        if (parsedItem && parsedItem.checked) {
+        const parsedItem = JSON.parse(item);
+        if (parsedItem.checked) {
           completed++;
         }
       } catch (e) {
-        console.error(`Error parsing checklist item for task ${task.id}:`, e);
+        console.error("Error parsing checklist item:", e);
       }
-    }
+    });
 
     return Math.round((completed / total) * 100);
   };
 
   const renderAssignedUsers = () => {
-    if (!task.assignedUserIds || task.assignedUserIds.length === 0) {
-      return null;
-    }
+    if (!task.assignedUserIds || task.assignedUserIds.length === 0) return null;
 
-    const assignedUsers = task.assignedUserIds
-      .map(userId => users.find(u => u.id === userId))
-      .filter((user): user is User => user !== undefined);
-
-    if (assignedUsers.length === 0) return null;
+    const assignedUsers = users.filter(user => 
+      task.assignedUserIds.includes(user.id)
+    );
 
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex -space-x-2">
-          {assignedUsers.map((user) => (
-            <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
-              <AvatarImage src={user.avatarUrl || ''} alt={user.username} />
-              <AvatarFallback>
-                {user.username.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          ))}
-        </div>
+      <div className="flex -space-x-2">
+        {assignedUsers.map((user) => (
+          <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
+            <AvatarImage src={user.avatarUrl || ""} alt={user.username} />
+            <AvatarFallback>
+              {user.username.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        ))}
       </div>
     );
   };
 
-  const progress = calculateChecklistProgress();
+  const progress = calculateProgress();
   const hasChecklist = task.checklist && task.checklist.length > 0;
 
   return (
@@ -139,15 +134,17 @@ export function TaskCard({ task, index }: TaskCardProps) {
                   ))}
                 </div>
               )}
+              
               {hasChecklist && (
-                <div className="mb-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                    <span>Progress</span>
+                <div className="space-y-2 mb-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CheckSquare className="h-4 w-4" />
                     <span>{progress}%</span>
                   </div>
                   <Progress value={progress} className="h-1" />
                 </div>
               )}
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {task.dueDate && (
@@ -161,6 +158,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
               </div>
             </CardContent>
           </Card>
+          
           <TaskDialog
             open={isDialogOpen}
             onOpenChange={setIsDialogOpen}
