@@ -71,7 +71,7 @@ export function TaskDialog({
   open,
   onOpenChange,
   onUpdate,
-  mode = "details",
+  mode = task ? "details" : "edit", // Default to edit mode for new tasks
   initialColumnId,
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
@@ -419,11 +419,11 @@ export function TaskDialog({
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
               <CommentList taskId={task.id} />
-              <CommentEditor 
+              <CommentEditor
                 taskId={task.id}
                 onCommentAdded={() => {
-                  queryClient.invalidateQueries({ 
-                    queryKey: [`/api/tasks/${task.id}/comments`] 
+                  queryClient.invalidateQueries({
+                    queryKey: [`/api/tasks/${task.id}/comments`]
                   });
                 }}
               />
