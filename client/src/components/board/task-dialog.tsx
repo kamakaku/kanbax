@@ -91,8 +91,17 @@ export function TaskDialog({
 
   const createTaskMutation = useMutation({
     mutationFn: async (newTask: Partial<Task>) => {
+      if (!currentBoard?.id) {
+        throw new Error("Kein aktives Board ausgewählt");
+      }
+
       try {
-        const response = await apiRequest("POST", "/api/tasks", newTask);
+        const response = await apiRequest(
+          "POST", 
+          `/api/boards/${currentBoard.id}/tasks`, 
+          newTask
+        );
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error("Server response:", errorText);
