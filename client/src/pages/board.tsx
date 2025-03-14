@@ -77,16 +77,7 @@ export default function Board() {
   const handleDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
 
-    // Wenn keine Zielposition existiert, abbrechen
     if (!destination) return;
-
-    // Wenn die Position unverändert ist, abbrechen
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
-    ) {
-      return;
-    }
 
     const taskId = parseInt(draggableId.replace('task-', ''));
     const draggedTask = tasks.find(t => t.id === taskId);
@@ -97,35 +88,54 @@ export default function Board() {
     }
 
     try {
-      // Neue Task-Liste für optimistisches Update erstellen
+      // Kopiere die Tasks für das optimistische Update
       const updatedTasks = Array.from(tasks);
 
-      // Task aus der alten Position entfernen
-      const [removedTask] = updatedTasks.splice(source.index, 1);
+      // Finde alle Tasks in der Quell- und Zielspalte
+      const sourceColumnTasks = updatedTasks.filter(t => t.status === source.droppableId);
+      const destColumnTasks = source.droppableId === destination.droppableId 
+        ? sourceColumnTasks 
+        : updatedTasks.filter(t => t.status === destination.droppableId);
 
-      // Task an der neuen Position einfügen
-      updatedTasks.splice(destination.index, 0, {
-        ...removedTask,
-        status: destination.droppableId,
-        order: destination.index
-      });
+      // Entferne den Task aus der Quellspalte
+      const [movedTask] = sourceColumnTasks.splice(source.index, 1);
 
-      // Reihenfolge für alle Tasks in der Ziel-Spalte aktualisieren
-      const tasksInDestColumn = updatedTasks.filter(
-        t => t.status === destination.droppableId
-      );
+      // Füge den Task in die Zielspalte ein
+      if (source.droppableId === destination.droppableId) {
+        // Wenn innerhalb derselben Spalte verschoben wird
+        sourceColumnTasks.splice(destination.index, 0, {
+          ...movedTask,
+          order: destination.index
+        });
 
-      tasksInDestColumn.forEach((task, index) => {
-        task.order = index;
-      });
+        // Aktualisiere die Reihenfolge aller Tasks in der Spalte
+        sourceColumnTasks.forEach((task, index) => {
+          task.order = index;
+        });
+      } else {
+        // Wenn zwischen Spalten verschoben wird
+        destColumnTasks.splice(destination.index, 0, {
+          ...movedTask,
+          status: destination.droppableId,
+          order: destination.index
+        });
 
-      // Optimistisches Update durchführen
+        // Aktualisiere die Reihenfolge in beiden Spalten
+        sourceColumnTasks.forEach((task, index) => {
+          task.order = index;
+        });
+        destColumnTasks.forEach((task, index) => {
+          task.order = index;
+        });
+      }
+
+      // Aktualisiere den Cache optimistisch
       queryClient.setQueryData(
         ["/api/boards", currentBoard?.id, "tasks"],
         updatedTasks
       );
 
-      // Backend-Update durchführen
+      // Sende Update an Backend
       await updateTaskStatus.mutateAsync({
         task: draggedTask,
         newStatus: destination.droppableId,
@@ -134,7 +144,6 @@ export default function Board() {
 
     } catch (error) {
       console.error("Fehler beim Aktualisieren des Task-Status:", error);
-      // Bei Fehler Cache invalidieren, um korrekten Status wiederherzustellen
       queryClient.invalidateQueries({
         queryKey: ["/api/boards", currentBoard?.id, "tasks"],
       });
