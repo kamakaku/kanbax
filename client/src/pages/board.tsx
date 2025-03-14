@@ -215,15 +215,21 @@ export default function Board() {
       <div className="flex-1 overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
-            {defaultColumns.map((column) => (
-              <ColumnComponent
-                key={column.id}
-                column={column}
-                tasks={tasks.filter(task => task.status === column.title)}
-                onUpdate={handleTaskUpdate}
-                onDelete={handleTaskDelete}
-              />
-            ))}
+            {defaultColumns.map((column) => {
+              const columnTasks = tasks
+                .filter(task => task.status === column.title)
+                .sort((a, b) => a.order - b.order);
+              
+              return (
+                <ColumnComponent
+                  key={column.id}
+                  column={column}
+                  tasks={columnTasks}
+                  onUpdate={handleTaskUpdate}
+                  onDelete={handleTaskDelete}
+                />
+              );
+            })}
           </div>
         </DragDropContext>
       </div>
