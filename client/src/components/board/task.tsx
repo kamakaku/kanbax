@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MessageSquare } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
@@ -34,14 +34,17 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            "bg-white rounded-lg border border-slate-200 p-3 cursor-pointer",
-            "transition-all duration-300 ease-out transform-gpu will-change-transform",
-            "hover:border-slate-300 hover:shadow-md hover:scale-[1.01]",
+            "bg-white rounded-lg border border-slate-200 p-3",
+            "cursor-grab active:cursor-grabbing",
+            "transition-all duration-200",
+            "hover:border-slate-300 hover:shadow-sm hover:-translate-y-[2px]",
             snapshot.isDragging && [
-              "shadow-xl scale-[1.02]",
-              "rotate-[1deg]",
-              "border-2 border-primary/50",
-              "!bg-white/95",
+              "shadow-2xl",
+              "scale-[1.02]",
+              "rotate-3",
+              "border-2",
+              "border-primary",
+              "!bg-white",
               "z-50"
             ],
             task.priority === "high" && "border-l-4 border-l-red-500",
@@ -53,7 +56,7 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
             transformOrigin: "center center",
             transition: snapshot.isDragging 
               ? undefined 
-              : "all 0.2s cubic-bezier(0.2, 0, 0, 1)"
+              : "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)"
           }}
         >
           {task.labels && task.labels.length > 0 && (
