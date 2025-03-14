@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { type Task as TaskType } from "@shared/schema";
 import { Draggable } from "react-beautiful-dnd";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
@@ -46,6 +47,18 @@ export function Task({ task, index, onClick }: TaskProps) {
       const response = await fetch("/api/users");
       if (!response.ok) {
         throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
+  // Load comments count
+  const { data: comments = [] } = useQuery({
+    queryKey: [`/api/tasks/${task.id}/comments`],
+    queryFn: async () => {
+      const response = await fetch(`/api/tasks/${task.id}/comments`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Kommentare");
       }
       return response.json();
     },
@@ -168,12 +181,21 @@ export function Task({ task, index, onClick }: TaskProps) {
             )}
 
             <div className="flex items-center justify-between mt-1">
-              {task.dueDate && (
-                <div className="flex items-center gap-1 text-xs text-slate-500">
-                  <CalendarIcon className="h-3 w-3" />
-                  <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {task.dueDate && (
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <CalendarIcon className="h-3 w-3" />
+                    <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
+                  </div>
+                )}
+
+                {comments.length > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <MessageSquare className="h-3 w-3" />
+                    <span>{comments.length}</span>
+                  </div>
+                )}
+              </div>
 
               {renderAssignedUsers()}
             </div>
