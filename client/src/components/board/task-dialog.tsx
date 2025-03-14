@@ -33,11 +33,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar"; // Added Calendar import
+import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import {User} from "@/types";
+import { User } from "@shared/schema";
 
 interface ChecklistItem {
   text: string;
@@ -52,6 +52,19 @@ interface TaskDialogProps {
   mode?: "edit" | "details";
   initialColumnId?: number;
 }
+
+const taskFormSchema = z.object({
+  title: z.string().min(1, "Titel ist erforderlich"),
+  description: z.string().optional(),
+  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
+  priority: z.enum(["low", "medium", "high"]),
+  columnId: z.number(),
+  labels: z.array(z.string()).default([]),
+  assignedUserIds: z.array(z.number()).default([]),
+  dueDate: z.string().nullable(),
+  archived: z.boolean().default(false),
+  order: z.number().default(0),
+});
 
 export function TaskDialog({
   task,
@@ -69,6 +82,40 @@ export function TaskDialog({
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
   const isEditing = !!task;
+
+  const form = useForm<z.infer<typeof taskFormSchema>>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues: {
+      title: task?.title || "",
+      description: task?.description || "",
+      status: (task?.status || "todo") as "backlog" | "todo" | "in-progress" | "review" | "done",
+      priority: (task?.priority || "medium") as "low" | "medium" | "high",
+      columnId: task?.columnId || initialColumnId || 0,
+      labels: task?.labels || [],
+      assignedUserIds: task?.assignedUserIds || [],
+      dueDate: task?.dueDate || null,
+      archived: task?.archived || false,
+      order: task?.order || 0,
+    },
+  });
+
+  // Reset form when dialog opens/closes or task changes
+  useEffect(() => {
+    if (open && task) {
+      form.reset({
+        title: task.title,
+        description: task.description || "",
+        status: task.status as "backlog" | "todo" | "in-progress" | "review" | "done",
+        priority: task.priority as "low" | "medium" | "high",
+        columnId: task.columnId,
+        labels: task.labels || [],
+        assignedUserIds: task.assignedUserIds || [],
+        dueDate: task.dueDate,
+        archived: task.archived,
+        order: task.order,
+      });
+    }
+  }, [open, task, form]);
 
   useEffect(() => {
     if (open) {
@@ -96,6 +143,20 @@ export function TaskDialog({
       setChecklist([]);
     }
   }, [open, task]);
+
+  const { data: usersResponse = [] } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
+  // Ensure users is always an array
+  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
 
   const updateTaskMutation = useMutation({
     mutationFn: async (updatedTask: Task) => {
@@ -151,19 +212,73 @@ export function TaskDialog({
     await saveChecklist(newChecklist);
   };
 
-  const { data: usersResponse = [] } = useQuery({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
-  });
+  const handleAddLabel = () => {
+    if (!newLabel.trim()) return;
+    const currentLabels = form.getValues("labels");
+    if (!currentLabels.includes(newLabel)) {
+      form.setValue("labels", [...currentLabels, newLabel]);
+    }
+    setNewLabel("");
+  };
 
-  // Ensure users is always an array
-  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
+  const removeLabel = (labelToRemove: string) => {
+    const currentLabels = form.getValues("labels");
+    form.setValue(
+      "labels",
+      currentLabels.filter(label => label !== labelToRemove)
+    );
+  };
+
+  const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
+    if (!currentBoard?.id) {
+      toast({
+        title: "Fehler",
+        description: "Kein aktives Board ausgewählt",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const formattedChecklist = checklist.map(item => JSON.stringify(item));
+
+      if (isEditing && task && onUpdate) {
+        const updatedTask: Task = {
+          ...task,
+          ...data,
+          checklist: formattedChecklist,
+          boardId: currentBoard.id,
+        };
+        await onUpdate(updatedTask);
+        setIsEditMode(false);
+      } else {
+        const response = await apiRequest(
+          "POST",
+          `/api/boards/${currentBoard.id}/tasks`,
+          {
+            ...data,
+            boardId: currentBoard.id,
+            checklist: formattedChecklist,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Fehler beim Erstellen der Aufgabe");
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
+        onOpenChange(false);
+        toast({ title: "Aufgabe erfolgreich erstellt" });
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
+      toast({
+        title: "Fehler beim Speichern",
+        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    }
+  };
 
   const renderDetailView = () => {
     const priorityConfig = {
@@ -334,73 +449,6 @@ export function TaskDialog({
         </DialogFooter>
       </div>
     );
-  };
-
-  const form = useForm<z.infer<typeof taskFormSchema>>({
-    resolver: zodResolver(taskFormSchema),
-    defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      status: task?.status || "todo",
-      priority: task?.priority || "medium",
-      columnId: task?.columnId || initialColumnId || 0,
-      labels: task?.labels || [],
-      assignedUserIds: task?.assignedUserIds || [],
-      dueDate: task?.dueDate || null,
-      archived: task?.archived || false,
-      order: task?.order || 0,
-    },
-  });
-
-  const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
-    if (!currentBoard?.id) {
-      toast({
-        title: "Fehler",
-        description: "Kein aktives Board ausgewählt",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const formattedChecklist = checklist.map(item => JSON.stringify(item));
-
-      if (isEditing && task && onUpdate) {
-        const updatedTask: Task = {
-          ...task,
-          ...data,
-          checklist: formattedChecklist,
-          boardId: currentBoard.id,
-        };
-        await onUpdate(updatedTask);
-        setIsEditMode(false);
-      } else {
-        const response = await apiRequest(
-          "POST",
-          `/api/boards/${currentBoard.id}/tasks`,
-          {
-            ...data,
-            boardId: currentBoard.id,
-            checklist: formattedChecklist,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Fehler beim Erstellen der Aufgabe");
-        }
-
-        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
-        onOpenChange(false);
-        toast({ title: "Aufgabe erfolgreich erstellt" });
-      }
-    } catch (error) {
-      console.error("Form submission error:", error);
-      toast({
-        title: "Fehler beim Speichern",
-        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
-        variant: "destructive",
-      });
-    }
   };
 
   return (
@@ -710,23 +758,3 @@ export function TaskDialog({
     </Dialog>
   );
 }
-
-const taskFormSchema = z.object({
-  title: z.string().min(1, "Titel ist erforderlich"),
-  description: z.string().optional(),
-  status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
-  priority: z.enum(["low", "medium", "high"]),
-  columnId: z.number(),
-  labels: z.array(z.string()).default([]),
-  assignedUserIds: z.array(z.number()).default([]),
-  dueDate: z.string().nullable(),
-  archived: z.boolean().default(false),
-  order: z.number().default(0),
-});
-
-const removeLabel = (label: string) => {
-    //Implementation to remove label
-};
-const handleAddLabel = () => {
-    //Implementation to handle add label
-};
