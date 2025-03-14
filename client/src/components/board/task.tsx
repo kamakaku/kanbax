@@ -53,20 +53,7 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           )}
 
           {task.checklist && task.checklist.length > 0 && (
-            <div className="space-y-2 mb-2">
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>Checklist</span>
-                <span>
-                  {task.checklist.filter(item => {
-                    try {
-                      const parsed = JSON.parse(item);
-                      return parsed.checked;
-                    } catch {
-                      return false;
-                    }
-                  }).length} von {task.checklist.length}
-                </span>
-              </div>
+            <div className="flex items-center gap-2 mb-2">
               <Progress 
                 value={
                   (task.checklist.filter(item => {
@@ -78,8 +65,18 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
                     }
                   }).length / task.checklist.length) * 100
                 } 
-                className="h-1"
+                className="h-1 flex-1"
               />
+              <span className="text-xs text-slate-500">
+                {Math.round((task.checklist.filter(item => {
+                  try {
+                    const parsed = JSON.parse(item);
+                    return parsed.checked;
+                  } catch {
+                    return false;
+                  }
+                }).length / task.checklist.length) * 100)}%
+              </span>
             </div>
           )}
           <div className="flex items-center justify-between text-xs text-slate-500">
