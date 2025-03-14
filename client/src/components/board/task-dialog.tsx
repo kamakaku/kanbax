@@ -64,6 +64,7 @@ interface TaskDialogProps {
   onClose: () => void;
   onUpdate?: (task: Task) => Promise<void>;
   onDelete?: (taskId: number) => Promise<void>;
+  boardId: number; // Add boardId prop
 }
 
 export function TaskDialog({
@@ -72,6 +73,7 @@ export function TaskDialog({
   onClose,
   onUpdate,
   onDelete,
+  boardId, // Use boardId from props
 }: TaskDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -85,7 +87,6 @@ export function TaskDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = !!task;
-  const { board } = useStore();
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -202,7 +203,7 @@ export function TaskDialog({
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
-      if (!board?.id) {
+      if (!boardId) {
         toast({
           title: "Fehler",
           description: "Kein aktives Board ausgewählt",
@@ -240,7 +241,7 @@ export function TaskDialog({
           assignedUserIds: data.assignedUserIds || [],
           dueDate: data.dueDate,
           archived: false,
-          boardId: board.id,
+          boardId: boardId, // Use boardId from props
         });
 
         if (!response.ok) {
@@ -249,7 +250,7 @@ export function TaskDialog({
         }
 
         const newTask = await response.json();
-        await queryClient.invalidateQueries({ queryKey: ["/api/boards", board.id, "tasks"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "tasks"] });
         onClose();
         toast({ title: "Aufgabe erfolgreich erstellt" });
       }
@@ -473,7 +474,7 @@ export function TaskDialog({
                 <Button
                   type="button"
                   variant="destructive"
-                  onClick={() => setIsDeleteDialogOpen(true)}
+                  onClick={handleDelete}
                 >
                   Löschen
                 </Button>
