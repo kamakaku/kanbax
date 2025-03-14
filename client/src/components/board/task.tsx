@@ -81,12 +81,6 @@ export function Task({ task, index, showBoardTitle, onClick }: TaskProps) {
           <div className="flex items-center justify-between text-xs text-slate-500">
             <div className="flex items-center gap-2">
               {task.dueDate && (
-                <div className="flex items-center gap-1">
-                  <CalendarIcon className="h-4 w-4" />
-                  <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
-                </div>
-              )}
-              {task.dueDate && (
                 <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
               )}
               {task.assignedUserIds && task.assignedUserIds.length > 0 && (
