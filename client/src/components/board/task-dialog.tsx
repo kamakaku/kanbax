@@ -278,6 +278,46 @@ export function TaskDialog({
     }
   };
 
+  const renderAssignedUsers = (isEditMode: boolean, field?: any) => {
+    return (
+      <div className="space-y-2">
+        <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
+        <div className="flex flex-wrap gap-3">
+          {users.map((user) => (
+            <Button
+              key={user.id}
+              type="button"
+              variant={
+                isEditMode
+                  ? field?.value?.includes(user.id) ? "default" : "outline"
+                  : task?.assignedUserIds?.includes(user.id) ? "default" : "outline"
+              }
+              className="flex items-center gap-2"
+              onClick={() => {
+                if (isEditMode) {
+                  const currentValue = field?.value || [];
+                  const newValue = currentValue.includes(user.id)
+                    ? currentValue.filter(id => id !== user.id)
+                    : [...currentValue, user.id];
+                  field.onChange(newValue);
+                }
+              }}
+              disabled={!isEditMode}
+            >
+              <Avatar className="h-6 w-6">
+                <AvatarImage src={user.avatarUrl || ''} />
+                <AvatarFallback>
+                  {user.username.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span>{user.username}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderDetailView = () => {
     const priorityConfig = {
       high: {
@@ -345,27 +385,7 @@ export function TaskDialog({
             </div>
           )}
 
-          {task?.assignedUserIds && task.assignedUserIds.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
-              <div className="flex flex-wrap gap-3">
-                {task.assignedUserIds.map((userId) => {
-                  const user = users.find((u: User) => u.id === userId);
-                  return user ? (
-                    <div key={userId} className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6 border-2 border-background">
-                        <AvatarImage src={user.avatarUrl || ""} />
-                        <AvatarFallback>
-                          {user.username.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm">{user.username}</span>
-                    </div>
-                  ) : null;
-                })}
-              </div>
-            </div>
-          )}
+          {task?.assignedUserIds && task.assignedUserIds.length > 0 && renderAssignedUsers(false)}
 
           <div className="space-y-2">
             <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
@@ -635,32 +655,7 @@ export function TaskDialog({
                 name="assignedUserIds"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Zugewiesene Benutzer</FormLabel>
-                    <div className="flex flex-wrap gap-2">
-                      {users.map((user) => (
-                        <Button
-                          key={user.id}
-                          type="button"
-                          variant={field.value?.includes(user.id) ? "default" : "outline"}
-                          className="flex items-center gap-2"
-                          onClick={() => {
-                            const currentValue = field.value || [];
-                            const newValue = currentValue.includes(user.id)
-                              ? currentValue.filter(id => id !== user.id)
-                              : [...currentValue, user.id];
-                            field.onChange(newValue);
-                          }}
-                        >
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={user.avatarUrl || ''} />
-                            <AvatarFallback>
-                              {user.username.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{user.username}</span>
-                        </Button>
-                      ))}
-                    </div>
+                    {renderAssignedUsers(true, field)}
                     <FormMessage />
                   </FormItem>
                 )}
