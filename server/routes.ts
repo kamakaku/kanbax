@@ -730,5 +730,9 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Register OKR routes
+  const { registerOkrRoutes } = await import("./okrRoutes.js");
+  registerOkrRoutes(app);
+
   return createServer(app);
 }

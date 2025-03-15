@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarTrigger 
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Folder, KanbanSquare, UserCircle } from "lucide-react";
+import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
@@ -21,6 +21,7 @@ import NotFound from "@/pages/not-found";
 import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
 import Profile from "@/pages/profile";
+import OKRPage from "@/pages/okr";
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -60,6 +61,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 >
                   <KanbanSquare className="h-4 w-4" />
                   <span>Boards</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setLocation("/okr")}
+                  tooltip="OKRs"
+                >
+                  <Target className="h-4 w-4" />
+                  <span>OKRs</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -129,6 +139,7 @@ function AuthenticatedApp() {
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
+      <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />

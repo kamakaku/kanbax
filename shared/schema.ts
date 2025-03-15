@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -243,6 +243,123 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers)
     role: z.enum(["member", "admin"]).default("member"),
   });
 
+// OKR Cycles Tabelle
+export const okrCycles = pgTable("okr_cycles", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  projectId: integer("project_id").notNull(),
+  status: text("status").notNull().default("active"), // active, completed, archived
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Objectives Tabelle
+export const objectives = pgTable("objectives", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  projectId: integer("project_id").notNull(),
+  cycleId: integer("cycle_id").notNull(),
+  status: text("status").notNull().default("active"), // active, completed, archived
+  progress: real("progress").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Key Results Tabelle
+export const keyResults = pgTable("key_results", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  objectiveId: integer("objective_id").notNull(),
+  type: text("type").notNull(), // percentage, checkbox, progress
+  targetValue: real("target_value").notNull(),
+  currentValue: real("current_value").default(0),
+  progress: real("progress").default(0),
+  linkedTaskIds: integer("linked_task_ids").array(),
+  status: text("status").notNull().default("active"), // active, completed, archived
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// OKR Comments Tabelle
+export const okrComments = pgTable("okr_comments", {
+  id: serial("id").primaryKey(),
+  content: text("content").notNull(),
+  authorId: integer("author_id").notNull(),
+  objectiveId: integer("objective_id"),
+  keyResultId: integer("key_result_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Zod Schemas für OKR-Komponenten
+export const insertOkrCycleSchema = createInsertSchema(okrCycles)
+  .pick({
+    title: true,
+    startDate: true,
+    endDate: true,
+    projectId: true,
+    status: true,
+  })
+  .extend({
+    title: z.string().min(1, "Titel ist erforderlich"),
+    startDate: z.string().min(1, "Startdatum ist erforderlich"),
+    endDate: z.string().min(1, "Enddatum ist erforderlich"),
+    projectId: z.number().int().positive("Projekt ID ist erforderlich"),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+  });
+
+export const insertObjectiveSchema = createInsertSchema(objectives)
+  .pick({
+    title: true,
+    description: true,
+    projectId: true,
+    cycleId: true,
+    status: true,
+  })
+  .extend({
+    title: z.string().min(1, "Titel ist erforderlich"),
+    projectId: z.number().int().positive("Projekt ID ist erforderlich"),
+    cycleId: z.number().int().positive("Zyklus ID ist erforderlich"),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+  });
+
+export const insertKeyResultSchema = createInsertSchema(keyResults)
+  .pick({
+    title: true,
+    description: true,
+    objectiveId: true,
+    type: true,
+    targetValue: true,
+    currentValue: true,
+    linkedTaskIds: true,
+    status: true,
+  })
+  .extend({
+    title: z.string().min(1, "Titel ist erforderlich"),
+    objectiveId: z.number().int().positive("Objective ID ist erforderlich"),
+    type: z.enum(["percentage", "checkbox", "progress"]),
+    targetValue: z.number().min(0),
+    currentValue: z.number().min(0).optional(),
+    linkedTaskIds: z.array(z.number()).optional(),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+  });
+
+export const insertOkrCommentSchema = createInsertSchema(okrComments)
+  .pick({
+    content: true,
+    authorId: true,
+    objectiveId: true,
+    keyResultId: true,
+  })
+  .extend({
+    content: z.string().min(1, "Kommentar kann nicht leer sein"),
+    authorId: z.number().int().positive("Autor ID ist erforderlich"),
+    objectiveId: z.number().int().positive().optional(),
+    keyResultId: z.number().int().positive().optional(),
+  });
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -286,3 +403,15 @@ export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
+
+export type OkrCycle = typeof okrCycles.$inferSelect;
+export type InsertOkrCycle = z.infer<typeof insertOkrCycleSchema>;
+
+export type Objective = typeof objectives.$inferSelect;
+export type InsertObjective = z.infer<typeof insertObjectiveSchema>;
+
+export type KeyResult = typeof keyResults.$inferSelect;
+export type InsertKeyResult = z.infer<typeof insertKeyResultSchema>;
+
+export type OkrComment = typeof okrComments.$inferSelect;
+export type InsertOkrComment = z.infer<typeof insertOkrCommentSchema>;
