@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { type Objective } from "@shared/schema";
+import { type Objective, type KeyResult } from "@shared/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Target } from "lucide-react";
 import { useLocation } from "wouter";
+import { Progress } from "@/components/ui/progress";
 
 interface ProjectOKRListProps {
   projectId: number;
@@ -12,7 +13,7 @@ interface ProjectOKRListProps {
 export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
   const [_, setLocation] = useLocation();
 
-  const { data: objectives = [], isLoading } = useQuery<Objective[]>({
+  const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
     queryKey: ["/api/objectives", projectId],
     queryFn: async () => {
       const response = await fetch(`/api/objectives?projectId=${projectId}`);
@@ -23,12 +24,40 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
     },
   });
 
-  if (isLoading) {
+  const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
+    queryKey: ["/api/key-results"],
+    queryFn: async () => {
+      const response = await fetch("/api/key-results");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Key Results");
+      }
+      return response.json();
+    },
+  });
+
+  if (isLoadingObjectives || isLoadingKeyResults) {
     return <div className="text-center py-8">Lade OKRs...</div>;
   }
 
   // Filter objectives for this project and that are not archived
   const activeObjectives = objectives.filter(obj => obj.projectId === projectId && obj.status !== "archived");
+
+  // Calculate progress for each objective based on its key results
+  const objectivesWithProgress = activeObjectives.map(objective => {
+    const objectiveKeyResults = keyResults.filter(kr => kr.objectiveId === objective.id);
+    let progress = 0;
+
+    if (objectiveKeyResults.length > 0) {
+      const totalProgress = objectiveKeyResults.reduce((sum, kr) => {
+        // Convert progress to percentage based on current and target values
+        const krProgress = kr.currentValue ? (kr.currentValue / kr.targetValue) * 100 : 0;
+        return sum + krProgress;
+      }, 0);
+      progress = Math.round(totalProgress / objectiveKeyResults.length);
+    }
+
+    return { ...objective, calculatedProgress: progress };
+  });
 
   return (
     <div className="space-y-6">
@@ -40,7 +69,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
         </Button>
       </div>
 
-      {activeObjectives.length === 0 ? (
+      {objectivesWithProgress.length === 0 ? (
         <Card className="bg-muted/50">
           <CardContent className="py-6 text-center">
             <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -59,7 +88,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {activeObjectives.map((objective) => (
+          {objectivesWithProgress.map((objective) => (
             <Card
               key={objective.id}
               className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
@@ -72,14 +101,12 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
                 <CardDescription className="text-sm mt-2">
                   <div className="flex items-center justify-between">
                     <span>Fortschritt</span>
-                    <span className="font-medium">{objective.progress || 0}%</span>
+                    <span className="font-medium">{objective.calculatedProgress}%</span>
                   </div>
-                  <div className="w-full bg-primary/10 rounded-full h-2 mt-1">
-                    <div
-                      className="bg-primary rounded-full h-2 transition-all"
-                      style={{ width: `${objective.progress || 0}%` }}
-                    />
-                  </div>
+                  <Progress 
+                    value={objective.calculatedProgress} 
+                    className="h-2 mt-2"
+                  />
                 </CardDescription>
               </CardHeader>
             </Card>
