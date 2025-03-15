@@ -5,45 +5,30 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
 
-  // Fetch the objective and its key results
+  // Fetch the objective
   const { data: objective, isLoading: isLoadingObjective } = useQuery<Objective>({
     queryKey: ["/api/objectives", objectiveId],
-    queryFn: async () => {
-      const response = await fetch(`/api/objectives/${objectiveId}`);
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden des Objectives");
-      }
-      return response.json();
-    },
+    queryFn: () => apiRequest("GET", `/api/objectives/${objectiveId}`),
+    enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
+  // Fetch key results
   const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/objectives", objectiveId, "key-results"],
-    queryFn: async () => {
-      const response = await fetch(`/api/objectives/${objectiveId}/key-results`);
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Key Results");
-      }
-      return response.json();
-    },
-    enabled: !!objectiveId,
+    queryFn: () => apiRequest("GET", `/api/objectives/${objectiveId}/key-results`),
+    enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
-  // Fetch users for avatars
+  // Fetch users
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
+    queryFn: () => apiRequest("GET", "/api/users"),
   });
 
   if (isLoadingObjective || isLoadingKeyResults) {
