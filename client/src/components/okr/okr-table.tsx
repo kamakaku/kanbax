@@ -7,10 +7,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { type Objective, type OkrCycle } from "@shared/schema";
+import { OkrDetailView } from "./okr-detail-view";
+import { useState } from "react";
 
 export function OkrTable() {
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState<number | null>(null);
+
   // Fetch OKR cycles and objectives
   const { data: cycles = [], isLoading: isLoadingCycles } = useQuery<OkrCycle[]>({
     queryKey: ["/api/okr-cycles"],
@@ -50,41 +55,57 @@ export function OkrTable() {
   );
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Titel</TableHead>
-          <TableHead>Beschreibung</TableHead>
-          <TableHead>Zyklus</TableHead>
-          <TableHead className="w-[200px]">Fortschritt</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sortedObjectives.map((objective) => {
-          // Berechne den Fortschritt (Dummy-Wert, später durch echte Berechnung ersetzen)
-          const progress = Math.floor(Math.random() * 100);
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Titel</TableHead>
+            <TableHead>Beschreibung</TableHead>
+            <TableHead>Zyklus</TableHead>
+            <TableHead className="w-[200px]">Fortschritt</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sortedObjectives.map((objective) => {
+            const progress = Math.floor(Math.random() * 100);
 
-          return (
-            <TableRow key={objective.id} className="h-12">
-              <TableCell className="font-medium py-2">
-                {objective.title}
-              </TableCell>
-              <TableCell className="py-2">{objective.description || "-"}</TableCell>
-              <TableCell className="py-2">
-                {objective.cycle ? objective.cycle.title : "-"}
-              </TableCell>
-              <TableCell className="py-2">
-                <div className="flex items-center gap-4">
-                  <Progress value={progress} className="flex-1" />
-                  <span className="text-sm text-muted-foreground w-12 text-right">
-                    {progress}%
-                  </span>
-                </div>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+            return (
+              <TableRow 
+                key={objective.id} 
+                className="h-12 cursor-pointer hover:bg-muted/50"
+                onClick={() => setSelectedObjectiveId(objective.id)}
+              >
+                <TableCell className="font-medium py-2">
+                  {objective.title}
+                </TableCell>
+                <TableCell className="py-2">{objective.description || "-"}</TableCell>
+                <TableCell className="py-2">
+                  {objective.cycle ? objective.cycle.title : "-"}
+                </TableCell>
+                <TableCell className="py-2">
+                  <div className="flex items-center gap-4">
+                    <Progress value={progress} className="flex-1" />
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {progress}%
+                    </span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+
+      <Dialog 
+        open={selectedObjectiveId !== null} 
+        onOpenChange={() => setSelectedObjectiveId(null)}
+      >
+        <DialogContent className="max-w-3xl">
+          {selectedObjectiveId && (
+            <OkrDetailView objectiveId={selectedObjectiveId} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
