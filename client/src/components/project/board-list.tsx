@@ -185,7 +185,7 @@ export function BoardList({ projectId }: BoardListProps) {
               <Button
                 size="icon"
                 variant="ghost"
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-muted-foreground hover:text-primary transition-colors"
                 onClick={(e) => handleEditClick(e, board)}
               >
                 <Pencil className="h-4 w-4" />
