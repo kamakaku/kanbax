@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { type Project, type OkrCycle } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { OkrCycleForm } from "@/components/okr/okr-cycle-form";
+import { useState } from "react";
 
 export function OKRPage() {
   const { currentProject } = useStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: cycles = [], isLoading } = useQuery<OkrCycle[]>({
     queryKey: [`/api/projects/${currentProject?.id}/okr-cycles`],
@@ -34,10 +38,23 @@ export function OKRPage() {
     <div className="container mx-auto py-6 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">OKRs - {currentProject.title}</h1>
-        <Button>
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Neuer OKR-Zyklus
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Neuer OKR-Zyklus
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Neuen OKR-Zyklus erstellen</DialogTitle>
+            </DialogHeader>
+            <OkrCycleForm 
+              projectId={currentProject.id} 
+              onSuccess={() => setIsDialogOpen(false)} 
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {isLoading ? (
