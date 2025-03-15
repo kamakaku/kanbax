@@ -241,20 +241,36 @@ export function TaskDialog({
         toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
       } else {
+        // Create new task
+        const taskData: Task = {
+          id: 0, // Will be assigned by the server
+          title: data.title,
+          description: data.description || "",
+          status: data.status,
+          order: data.order,
+          boardId: currentBoard.id,
+          columnId: data.columnId,
+          priority: data.priority,
+          labels: data.labels,
+          dueDate: data.dueDate,
+          archived: false,
+          assignedUserIds: data.assignedUserIds,
+          assignedTeamId: null,
+          assignedAt: null,
+          checklist: formattedChecklist,
+        };
+
         const response = await apiRequest(
           "POST",
           `/api/boards/${currentBoard.id}/tasks`,
-          {
-            ...data,
-            boardId: currentBoard.id,
-            checklist: formattedChecklist,
-          }
+          taskData
         );
 
-        if (!response.ok) {
-          throw new Error("Fehler beim Erstellen der Aufgabe");
+        if (!response?.ok) {
+          throw new Error("Failed to create task: " + (await response?.text() || "Unknown error"));
         }
 
+        // Invalidate relevant queries
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),
           queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
