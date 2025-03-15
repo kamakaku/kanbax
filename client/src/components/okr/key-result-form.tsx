@@ -1,8 +1,8 @@
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { type KeyResult } from "@shared/schema";
+import { type KeyResult, type Project, type Team, type User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,10 @@ const keyResultSchema = z.object({
   currentValue: z.number().min(0).optional().nullable(),
   type: z.enum(["percentage", "checkbox", "progress", "checklist"]).default("percentage"),
   status: z.enum(["active", "completed", "archived"]).default("active"),
+  projectId: z.string().optional(),
+  teamId: z.string().optional(),
+  userId: z.string().optional(),
+  taskId: z.string().optional(),
   checklistItems: z.array(z.object({
     title: z.string(),
     completed: z.boolean().default(false)
@@ -51,10 +55,48 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch available data for dropdowns
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
+      return response.json();
+    }
+  });
+
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
+      }
+      return response.json();
+    }
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    }
+  });
+
   const form = useForm<KeyResultFormData>({
     resolver: zodResolver(keyResultSchema),
     defaultValues: keyResult ? {
       ...keyResult,
+      projectId: keyResult.projectId?.toString(),
+      teamId: keyResult.teamId?.toString(),
+      userId: keyResult.userId?.toString(),
+      taskId: keyResult.taskId?.toString(),
       checklistItems: keyResult.checklistItems?.map(item => 
         typeof item === 'string' ? JSON.parse(item) : item
       ) || [],
@@ -65,6 +107,10 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
       currentValue: 0,
       type: "percentage",
       status: "active",
+      projectId: undefined,
+      teamId: undefined,
+      userId: undefined,
+      taskId: undefined,
       checklistItems: [],
     },
   });
@@ -82,13 +128,19 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
 
       const method = keyResult ? "PATCH" : "POST";
 
+      const payload = {
+        ...data,
+        objectiveId,
+        projectId: data.projectId ? parseInt(data.projectId) : null,
+        teamId: data.teamId ? parseInt(data.teamId) : null,
+        userId: data.userId ? parseInt(data.userId) : null,
+        taskId: data.taskId ? parseInt(data.taskId) : null,
+      };
+
       return await apiRequest<KeyResult>(
         method,
         endpoint,
-        {
-          ...data,
-          objectiveId,
-        }
+        payload
       );
     },
     onSuccess: () => {
@@ -194,6 +246,81 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
                   <SelectItem value="active">Aktiv</SelectItem>
                   <SelectItem value="completed">Abgeschlossen</SelectItem>
                   <SelectItem value="archived">Archiviert</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="projectId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Projekt (optional)</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Projekt auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="teamId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Team (optional)</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Team auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id.toString()}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="userId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Benutzer (optional)</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Benutzer auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.username}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
