@@ -263,4 +263,20 @@ export function registerOkrRoutes(app: Express) {
       res.status(500).json({ message: "Fehler beim Erstellen des Kommentars" });
     }
   });
+
+  // New endpoint to get all key results
+  app.get("/api/key-results", async (_req: Request, res: Response) => {
+    try {
+      const krs = await db.select().from(keyResults);
+      // Parse checklistItems from JSON strings back to objects
+      const processedKrs = krs.map(kr => ({
+        ...kr,
+        checklistItems: kr.checklistItems ? kr.checklistItems.map(item => JSON.parse(item)) : [],
+      }));
+      res.json(processedKrs);
+    } catch (error) {
+      console.error("Fehler beim Abrufen der Key Results:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der Key Results" });
+    }
+  });
 }
