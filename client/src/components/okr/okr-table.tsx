@@ -10,9 +10,13 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { type Objective, type OkrCycle, type KeyResult } from "@shared/schema";
 import { useLocation } from "wouter";
+import { ChevronRight, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export function OkrTable() {
   const [, setLocation] = useLocation();
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   // Fetch OKR cycles and objectives
   const { data: cycles = [], isLoading: isLoadingCycles } = useQuery<OkrCycle[]>({
@@ -37,7 +41,6 @@ export function OkrTable() {
     },
   });
 
-  // Fetch key results for all objectives
   const { data: allKeyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/key-results"],
     queryFn: async () => {
@@ -66,6 +69,7 @@ export function OkrTable() {
     return {
       ...objective,
       cycle,
+      keyResults,
       progress
     };
   });
@@ -75,10 +79,23 @@ export function OkrTable() {
     a.title.localeCompare(b.title)
   );
 
+  const toggleRow = (objectiveId: number) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(objectiveId)) {
+        newSet.delete(objectiveId);
+      } else {
+        newSet.add(objectiveId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-[30px]"></TableHead>
           <TableHead>Titel</TableHead>
           <TableHead>Beschreibung</TableHead>
           <TableHead>Zyklus</TableHead>
@@ -87,27 +104,67 @@ export function OkrTable() {
       </TableHeader>
       <TableBody>
         {sortedObjectives.map((objective) => (
-          <TableRow 
-            key={objective.id} 
-            className="h-12 cursor-pointer hover:bg-muted/50"
-            onClick={() => setLocation(`/okr/${objective.id}`)}
-          >
-            <TableCell className="font-medium py-2">
-              {objective.title}
-            </TableCell>
-            <TableCell className="py-2">{objective.description || "-"}</TableCell>
-            <TableCell className="py-2">
-              {objective.cycle ? objective.cycle.title : "-"}
-            </TableCell>
-            <TableCell className="py-2">
-              <div className="flex items-center gap-4">
-                <Progress value={objective.progress} className="flex-1" />
-                <span className="text-sm text-muted-foreground w-12 text-right">
-                  {objective.progress}%
-                </span>
-              </div>
-            </TableCell>
-          </TableRow>
+          <>
+            <TableRow 
+              key={objective.id} 
+              className="h-12 hover:bg-muted/50"
+            >
+              <TableCell className="p-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => toggleRow(objective.id)}
+                >
+                  {expandedRows.has(objective.id) ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </TableCell>
+              <TableCell 
+                className="font-medium py-2 cursor-pointer"
+                onClick={() => setLocation(`/okr/${objective.id}`)}
+              >
+                {objective.title}
+              </TableCell>
+              <TableCell className="py-2">{objective.description || "-"}</TableCell>
+              <TableCell className="py-2">
+                {objective.cycle ? objective.cycle.title : "-"}
+              </TableCell>
+              <TableCell className="py-2">
+                <div className="flex items-center gap-4">
+                  <Progress value={objective.progress} className="flex-1" />
+                  <span className="text-sm text-muted-foreground w-12 text-right">
+                    {objective.progress}%
+                  </span>
+                </div>
+              </TableCell>
+            </TableRow>
+            {expandedRows.has(objective.id) && objective.keyResults.map((kr) => (
+              <TableRow key={`kr-${kr.id}`} className="bg-muted/30">
+                <TableCell></TableCell>
+                <TableCell colSpan={2} className="py-2">
+                  <div className="pl-4">
+                    <div className="font-medium">{kr.title}</div>
+                    <div className="text-sm text-muted-foreground">{kr.description}</div>
+                  </div>
+                </TableCell>
+                <TableCell className="py-2">
+                  <div className="text-sm">{kr.type}</div>
+                </TableCell>
+                <TableCell className="py-2">
+                  <div className="flex items-center gap-4">
+                    <Progress value={kr.currentValue || 0} className="flex-1" />
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {kr.currentValue || 0}%
+                    </span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </>
         ))}
       </TableBody>
     </Table>
