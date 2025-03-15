@@ -351,6 +351,79 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Add new route for creating boards without a project
+  app.post("/api/boards", async (req, res) => {
+    const result = insertBoardSchema.safeParse(req.body);
+    if (!result.success) {
+      console.error("Board validation failed:", result.error);
+      return res.status(400).json({
+        message: "Invalid board data",
+        errors: result.error.errors
+      });
+    }
+
+    try {
+      const board = await storage.createBoard(result.data);
+
+      // Create board members for assigned users
+      if (result.data.memberIds) {
+        await Promise.all(result.data.memberIds.map(userId =>
+          storage.createBoardMember({
+            boardId: board.id,
+            userId,
+            role: "member"
+          })
+        ));
+      }
+
+      // Create board teams for assigned teams
+      if (result.data.teamIds) {
+        await Promise.all(result.data.teamIds.map(teamId =>
+          storage.createBoardTeam({
+            boardId: board.id,
+            teamId,
+            role: "member"
+          })
+        ));
+      }
+
+      // Create board members for guest emails
+      if (result.data.guestEmails) {
+        await Promise.all(result.data.guestEmails.map(async (email) => {
+          // Check if user exists with this email
+          let user = await storage.getUserByEmail(email);
+
+          if (!user) {
+            // Create a new user with guest role
+            const tempPassword = Math.random().toString(36).slice(-8);
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(tempPassword, salt);
+
+            user = await storage.createUser({
+              email,
+              username: email.split('@')[0],
+              passwordHash,
+            });
+
+            // TODO: Send invitation email with temporary password
+          }
+
+          // Add as board member with guest role
+          await storage.createBoardMember({
+            boardId: board.id,
+            userId: user.id,
+            role: "guest"
+          });
+        }));
+      }
+
+      res.status(201).json(board);
+    } catch (error) {
+      console.error("Failed to create board:", error);
+      res.status(500).json({ message: "Failed to create board" });
+    }
+  });
+
   // Add new endpoints for board permissions
   app.post("/api/boards/:boardId/members", async (req, res) => {
     const boardId = parseInt(req.params.boardId);

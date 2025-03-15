@@ -81,7 +81,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     defaultValues: defaultValues || {
       title: "",
       description: "",
-      projectId: currentProject?.id || 0,
+      projectId: currentProject?.id,
       memberIds: [],
       teamIds: [],
       guestEmails: [],
@@ -93,7 +93,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       if (onSubmit) {
         await onSubmit(data);
       } else {
-        const res = await fetch(`/api/projects/${data.projectId}/boards`, {
+        // Construct the correct API endpoint based on whether we have a projectId
+        const endpoint = data.projectId 
+          ? `/api/projects/${data.projectId}/boards`
+          : '/api/boards';
+
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -102,14 +107,17 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         });
 
         if (!res.ok) {
-          throw new Error("Failed to create board");
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Failed to create board");
         }
 
         const newBoard = await res.json();
         queryClient.invalidateQueries({ queryKey: ["all-boards"] });
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/projects/${data.projectId}/boards`] 
-        });
+        if (data.projectId) {
+          queryClient.invalidateQueries({ 
+            queryKey: [`/api/projects/${data.projectId}/boards`] 
+          });
+        }
 
         toast({ title: "Board erfolgreich erstellt" });
         form.reset();
@@ -120,7 +128,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     } catch (error) {
       toast({
         title: "Fehler",
-        description: "Das Board konnte nicht erstellt werden",
+        description: error instanceof Error ? error.message : "Das Board konnte nicht erstellt werden",
         variant: "destructive",
       });
       console.error("Form submission error:", error);
@@ -174,17 +182,18 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
               name="projectId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Projekt</FormLabel>
+                  <FormLabel>Projekt (Optional)</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
                     defaultValue={field.value?.toString()}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Wählen Sie ein Projekt" />
+                        <SelectValue placeholder="Wählen Sie ein Projekt (optional)" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="">Kein Projekt</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id.toString()}>
                           {project.title}
