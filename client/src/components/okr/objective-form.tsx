@@ -129,15 +129,24 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
       // If creating a new cycle
       if (values.cycleType === "new" && values.newCycleQuarter && values.newCycleYear) {
         const { startDate, endDate } = getDateRange(values.newCycleQuarter, values.newCycleYear);
+
         const newCyclePayload = {
           title: `${values.newCycleQuarter} ${values.newCycleYear}`,
           startDate,
           endDate,
-          status: "active",
+          status: "active" as const,
         };
 
-        const newCycle = await apiRequest<OkrCycle>("POST", "/api/okr-cycles", newCyclePayload);
-        cycleId = newCycle.id.toString();
+        try {
+          const newCycle = await apiRequest<{ id: number }>("POST", "/api/okr-cycles", newCyclePayload);
+          if (!newCycle || typeof newCycle.id !== 'number') {
+            throw new Error("Ungültige Antwort vom Server beim Erstellen des OKR-Zyklus");
+          }
+          cycleId = newCycle.id.toString();
+        } catch (error) {
+          console.error("Error creating cycle:", error);
+          throw new Error("Fehler beim Erstellen des OKR-Zyklus");
+        }
       }
 
       const payload: InsertObjective = {

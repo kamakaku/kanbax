@@ -253,6 +253,25 @@ export const okrCycles = pgTable("okr_cycles", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Schema für das Einfügen eines neuen OKR-Zyklus
+export const insertOkrCycleSchema = createInsertSchema(okrCycles)
+  .pick({
+    title: true,
+    startDate: true,
+    endDate: true,
+    status: true,
+  })
+  .extend({
+    title: z.string().min(1, "Titel ist erforderlich"),
+    startDate: z.string().min(1, "Startdatum ist erforderlich"),
+    endDate: z.string().min(1, "Enddatum ist erforderlich"),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+  });
+
+// Export des OKR-Zyklus-Typs
+export type OkrCycle = typeof okrCycles.$inferSelect;
+export type InsertOkrCycle = z.infer<typeof insertOkrCycleSchema>;
+
 // Objectives are now independent entities
 export const objectives = pgTable("objectives", {
   id: serial("id").primaryKey(),
@@ -296,19 +315,6 @@ export const okrComments = pgTable("okr_comments", {
 });
 
 // Updated schemas to reflect the new structure
-export const insertOkrCycleSchema = createInsertSchema(okrCycles)
-  .pick({
-    title: true,
-    startDate: true,
-    endDate: true,
-    status: true,
-  })
-  .extend({
-    title: z.string().min(1, "Titel ist erforderlich"),
-    startDate: z.string().min(1, "Startdatum ist erforderlich"),
-    endDate: z.string().min(1, "Enddatum ist erforderlich"),
-    status: z.enum(["active", "completed", "archived"]).default("active"),
-  });
 
 export const insertObjectiveSchema = createInsertSchema(objectives)
   .pick({
