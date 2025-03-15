@@ -165,10 +165,16 @@ export function TaskDialog({
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate both the board tasks and the specific task queries
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id, "tasks"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task?.id}/comments`] });
+      // Invalidate all related queries to ensure fresh data
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          return (
+            query.queryKey[0] === "/api/boards" ||
+            query.queryKey[0] === "/api/tasks" ||
+            query.queryKey[0] === "/api/users"
+          );
+        }
+      });
       toast({ title: "Task erfolgreich aktualisiert" });
       setIsEditMode(false);
     },
