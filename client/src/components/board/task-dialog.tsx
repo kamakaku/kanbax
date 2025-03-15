@@ -78,7 +78,7 @@ export function TaskDialog({
   const queryClient = useQueryClient();
 
   // Query for users with proper error handling and loading state
-  const { data: usersData, isLoading: isLoadingUsers } = useQuery<User[]>({
+  const { data: usersData, isLoading: isLoadingUsers, isError } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
@@ -88,10 +88,13 @@ export function TaskDialog({
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 1000,
   });
 
   // Ensure users is always an array
-  const users = usersData || [];
+  const users = Array.isArray(usersData) ? usersData : [];
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
@@ -109,7 +112,6 @@ export function TaskDialog({
     },
   });
 
-  // Reset form when dialog opens/closes or task changes
   useEffect(() => {
     if (open) {
       setIsEditMode(mode === "edit");
@@ -128,7 +130,6 @@ export function TaskDialog({
     }
   }, [open, task, mode, form, initialColumnId]);
 
-  // Handle checklist initialization
   useEffect(() => {
     if (!open) return;
 
@@ -634,7 +635,15 @@ export function TaskDialog({
                       <div className="text-sm text-muted-foreground">
                         Lade Benutzer...
                       </div>
-                    ) : users.length > 0 ? (
+                    ) : isError ? (
+                      <div className="text-sm text-destructive">
+                        Fehler beim Laden der Benutzer
+                      </div>
+                    ) : users.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        Keine Benutzer verfügbar
+                      </div>
+                    ) : (
                       <div className="flex flex-wrap gap-3">
                         {users.map((user) => (
                           <Button
@@ -659,10 +668,6 @@ export function TaskDialog({
                             <span>{user.username}</span>
                           </Button>
                         ))}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground">
-                        Keine Benutzer verfügbar
                       </div>
                     )}
                     <FormMessage />
