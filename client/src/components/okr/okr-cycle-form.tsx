@@ -9,9 +9,11 @@ import { type InsertOkrCycle } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const okrCycleFormSchema = z.object({
-  title: z.string().min(1, "Titel ist erforderlich"),
+  quarter: z.string().min(1, "Quartal ist erforderlich"),
+  year: z.string().min(1, "Jahr ist erforderlich"),
   startDate: z.string().min(1, "Startdatum ist erforderlich"),
   endDate: z.string().min(1, "Enddatum ist erforderlich"),
 });
@@ -25,19 +27,65 @@ export function OkrCycleForm({ projectId, onSuccess }: OkrCycleFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Generate a list of years (current year + 5 years)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 6 }, (_, i) => (currentYear + i).toString().slice(-2));
+
+  const quarters = [
+    { value: "Q1", label: "Q1 (Jan-Mär)" },
+    { value: "Q2", label: "Q2 (Apr-Jun)" },
+    { value: "Q3", label: "Q3 (Jul-Sep)" },
+    { value: "Q4", label: "Q4 (Okt-Dez)" },
+  ];
+
   const form = useForm<z.infer<typeof okrCycleFormSchema>>({
     resolver: zodResolver(okrCycleFormSchema),
     defaultValues: {
-      title: "",
+      quarter: "",
+      year: new Date().getFullYear().toString().slice(-2),
       startDate: "",
       endDate: "",
     },
   });
 
+  // Update start and end dates when quarter changes
+  const updateDates = (quarter: string, year: string) => {
+    if (!quarter || !year) return;
+
+    const fullYear = `20${year}`;
+    let startDate, endDate;
+
+    switch (quarter) {
+      case "Q1":
+        startDate = `${fullYear}-01-01`;
+        endDate = `${fullYear}-03-31`;
+        break;
+      case "Q2":
+        startDate = `${fullYear}-04-01`;
+        endDate = `${fullYear}-06-30`;
+        break;
+      case "Q3":
+        startDate = `${fullYear}-07-01`;
+        endDate = `${fullYear}-09-30`;
+        break;
+      case "Q4":
+        startDate = `${fullYear}-10-01`;
+        endDate = `${fullYear}-12-31`;
+        break;
+      default:
+        return;
+    }
+
+    form.setValue("startDate", startDate);
+    form.setValue("endDate", endDate);
+  };
+
   async function onSubmit(values: z.infer<typeof okrCycleFormSchema>) {
     try {
       const payload: InsertOkrCycle = {
-        ...values,
+        title: `${values.quarter} ${values.year}`,
+        startDate: values.startDate,
+        endDate: values.endDate,
         projectId,
         status: "active",
       };
@@ -67,13 +115,32 @@ export function OkrCycleForm({ projectId, onSuccess }: OkrCycleFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="title"
+          name="quarter"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Titel</FormLabel>
-              <FormControl>
-                <Input placeholder="Q1 2024" {...field} />
-              </FormControl>
+              <FormLabel>Quartal</FormLabel>
+              <Select 
+                value={field.value} 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  updateDates(value, form.getValues("year"));
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Quartal auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    {quarters.map((quarter) => (
+                      <SelectItem key={quarter.value} value={quarter.value}>
+                        {quarter.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -81,31 +148,39 @@ export function OkrCycleForm({ projectId, onSuccess }: OkrCycleFormProps) {
 
         <FormField
           control={form.control}
-          name="startDate"
+          name="year"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Startdatum</FormLabel>
-              <FormControl>
-                <Input type="date" {...field} />
-              </FormControl>
+              <FormLabel>Jahr</FormLabel>
+              <Select 
+                value={field.value} 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  updateDates(form.getValues("quarter"), value);
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Jahr auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    {years.map((year) => (
+                      <SelectItem key={year} value={year}>
+                        20{year}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="endDate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Enddatum</FormLabel>
-              <FormControl>
-                <Input type="date" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <input type="hidden" {...form.register("startDate")} />
+        <input type="hidden" {...form.register("endDate")} />
 
         <DialogFooter>
           <Button type="submit">OKR-Zyklus erstellen</Button>
