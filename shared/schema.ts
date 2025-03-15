@@ -254,20 +254,23 @@ export const okrCycles = pgTable("okr_cycles", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Objectives Tabelle
+// Objectives are now independent entities
 export const objectives = pgTable("objectives", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  projectId: integer("project_id").notNull(),
-  cycleId: integer("cycle_id").notNull(),
   status: text("status").notNull().default("active"), // active, completed, archived
   progress: real("progress").default(0),
+  // Optional associations
+  projectId: integer("project_id"),
+  cycleId: integer("cycle_id"),
+  teamId: integer("team_id"),
+  userId: integer("user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Key Results Tabelle
+// Key Results with task linkage
 export const keyResults = pgTable("key_results", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -283,7 +286,7 @@ export const keyResults = pgTable("key_results", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// OKR Comments Tabelle
+// Comments can be attached to either objectives or key results
 export const okrComments = pgTable("okr_comments", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
@@ -293,7 +296,7 @@ export const okrComments = pgTable("okr_comments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Zod Schemas für OKR-Komponenten
+// Updated schemas to reflect the new structure
 export const insertOkrCycleSchema = createInsertSchema(okrCycles)
   .pick({
     title: true,
@@ -316,12 +319,16 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     description: true,
     projectId: true,
     cycleId: true,
+    teamId: true,
+    userId: true,
     status: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
-    projectId: z.number().int().positive("Projekt ID ist erforderlich"),
-    cycleId: z.number().int().positive("Zyklus ID ist erforderlich"),
+    projectId: z.number().int().positive().optional(),
+    cycleId: z.number().int().positive().optional(),
+    teamId: z.number().int().positive().optional(),
+    userId: z.number().int().positive().optional(),
     status: z.enum(["active", "completed", "archived"]).default("active"),
   });
 

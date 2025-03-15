@@ -1,67 +1,15 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { 
-  okrCycles, objectives, keyResults, okrComments,
-  insertOkrCycleSchema, insertObjectiveSchema, 
-  insertKeyResultSchema, insertOkrCommentSchema 
+  objectives, keyResults, okrComments,
+  insertObjectiveSchema, insertKeyResultSchema, insertOkrCommentSchema 
 } from "@shared/schema";
 
 export function registerOkrRoutes(app: Express) {
-  // OKR-Zyklen Endpunkte
-  app.get("/api/projects/:projectId/okr-cycles", async (req: Request, res: Response) => {
-    const projectId = parseInt(req.params.projectId);
-    if (isNaN(projectId)) {
-      return res.status(400).json({ message: "Ungültige Projekt-ID" });
-    }
-
-    try {
-      const cycles = await db.query.okrCycles.findMany({
-        where: (okrCycles, { eq }) => eq(okrCycles.projectId, projectId)
-      });
-      res.json(cycles);
-    } catch (error) {
-      console.error("Fehler beim Abrufen der OKR-Zyklen:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der OKR-Zyklen" });
-    }
-  });
-
-  app.post("/api/projects/:projectId/okr-cycles", async (req: Request, res: Response) => {
-    const projectId = parseInt(req.params.projectId);
-    if (isNaN(projectId)) {
-      return res.status(400).json({ message: "Ungültige Projekt-ID" });
-    }
-
-    const result = insertOkrCycleSchema.safeParse({ ...req.body, projectId });
-    if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
-    }
-
-    try {
-      // Konvertiere die Datums-Strings in Date-Objekte
-      const data = {
-        ...result.data,
-        startDate: new Date(result.data.startDate),
-        endDate: new Date(result.data.endDate)
-      };
-
-      const [cycle] = await db.insert(okrCycles).values(data).returning();
-      res.status(201).json(cycle);
-    } catch (error) {
-      console.error("Fehler beim Erstellen des OKR-Zyklus:", error);
-      res.status(500).json({ message: "Fehler beim Erstellen des OKR-Zyklus" });
-    }
-  });
-
   // Objectives Endpunkte
-  app.get("/api/okr-cycles/:cycleId/objectives", async (req: Request, res: Response) => {
-    const cycleId = parseInt(req.params.cycleId);
-    if (isNaN(cycleId)) {
-      return res.status(400).json({ message: "Ungültige Zyklus-ID" });
-    }
-
+  app.get("/api/objectives", async (_req: Request, res: Response) => {
     try {
-      const objectives = await db.select().from(objectives)
-        .where(objectives.cycleId.eq(cycleId));
+      const objectives = await db.query.objectives.findMany();
       res.json(objectives);
     } catch (error) {
       console.error("Fehler beim Abrufen der Objectives:", error);
@@ -69,13 +17,8 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.post("/api/okr-cycles/:cycleId/objectives", async (req: Request, res: Response) => {
-    const cycleId = parseInt(req.params.cycleId);
-    if (isNaN(cycleId)) {
-      return res.status(400).json({ message: "Ungültige Zyklus-ID" });
-    }
-
-    const result = insertObjectiveSchema.safeParse({ ...req.body, cycleId });
+  app.post("/api/objectives", async (req: Request, res: Response) => {
+    const result = insertObjectiveSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
@@ -89,6 +32,42 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
+  app.patch("/api/objectives/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Objective-ID" });
+    }
+
+    try {
+      const updated = await db.update(objectives)
+        .set(req.body)
+        .where(objectives.id.eq(id))
+        .returning();
+      if (updated.length === 0) {
+        return res.status(404).json({ message: "Objective nicht gefunden" });
+      }
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Fehler beim Aktualisieren des Objective:", error);
+      res.status(500).json({ message: "Fehler beim Aktualisieren des Objective" });
+    }
+  });
+
+  app.delete("/api/objectives/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Objective-ID" });
+    }
+
+    try {
+      await db.delete(objectives).where(objectives.id.eq(id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Fehler beim Löschen des Objective:", error);
+      res.status(500).json({ message: "Fehler beim Löschen des Objective" });
+    }
+  });
+
   // Key Results Endpunkte
   app.get("/api/objectives/:objectiveId/key-results", async (req: Request, res: Response) => {
     const objectiveId = parseInt(req.params.objectiveId);
@@ -97,9 +76,8 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const keyResults = await db.select().from(keyResults)
-        .where(keyResults.objectiveId.eq(objectiveId));
-      res.json(keyResults);
+      const krs = await db.select().from(keyResults).where(keyResults.objectiveId.eq(objectiveId));
+      res.json(krs);
     } catch (error) {
       console.error("Fehler beim Abrufen der Key Results:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Key Results" });
@@ -112,7 +90,8 @@ export function registerOkrRoutes(app: Express) {
       return res.status(400).json({ message: "Ungültige Objective-ID" });
     }
 
-    const result = insertKeyResultSchema.safeParse({ ...req.body, objectiveId });
+    const payload = { ...req.body, objectiveId };
+    const result = insertKeyResultSchema.safeParse(payload);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
@@ -126,7 +105,62 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  // Kommentare Endpunkte
+  app.patch("/api/key-results/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Key Result-ID" });
+    }
+
+    try {
+      const updated = await db.update(keyResults)
+        .set(req.body)
+        .where(keyResults.id.eq(id))
+        .returning();
+      if (updated.length === 0) {
+        return res.status(404).json({ message: "Key Result nicht gefunden" });
+      }
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Fehler beim Aktualisieren des Key Result:", error);
+      res.status(500).json({ message: "Fehler beim Aktualisieren des Key Result" });
+    }
+  });
+
+  app.delete("/api/key-results/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Key Result-ID" });
+    }
+
+    try {
+      await db.delete(keyResults).where(keyResults.id.eq(id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Fehler beim Löschen des Key Result:", error);
+      res.status(500).json({ message: "Fehler beim Löschen des Key Result" });
+    }
+  });
+
+  // Comments Endpunkte
+  app.get("/api/okr-comments", async (req: Request, res: Response) => {
+    const { objectiveId, keyResultId } = req.query;
+
+    try {
+      let query = db.select().from(okrComments);
+      if (objectiveId) {
+        query = query.where(okrComments.objectiveId.eq(Number(objectiveId)));
+      }
+      if (keyResultId) {
+        query = query.where(okrComments.keyResultId.eq(Number(keyResultId)));
+      }
+      const comments = await query;
+      res.json(comments);
+    } catch (error) {
+      console.error("Fehler beim Abrufen der Kommentare:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der Kommentare" });
+    }
+  });
+
   app.post("/api/okr-comments", async (req: Request, res: Response) => {
     const result = insertOkrCommentSchema.safeParse(req.body);
     if (!result.success) {
@@ -139,27 +173,6 @@ export function registerOkrRoutes(app: Express) {
     } catch (error) {
       console.error("Fehler beim Erstellen des Kommentars:", error);
       res.status(500).json({ message: "Fehler beim Erstellen des Kommentars" });
-    }
-  });
-
-  app.get("/api/okr-comments", async (req: Request, res: Response) => {
-    const { objectiveId, keyResultId } = req.query;
-    
-    try {
-      let query = db.select().from(okrComments);
-      
-      if (objectiveId) {
-        query = query.where(okrComments.objectiveId.eq(Number(objectiveId)));
-      }
-      if (keyResultId) {
-        query = query.where(okrComments.keyResultId.eq(Number(keyResultId)));
-      }
-      
-      const comments = await query;
-      res.json(comments);
-    } catch (error) {
-      console.error("Fehler beim Abrufen der Kommentare:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der Kommentare" });
     }
   });
 }
