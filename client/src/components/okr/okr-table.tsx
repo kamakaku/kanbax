@@ -13,7 +13,7 @@ import { formatDate } from "@/lib/utils";
 
 export function OkrTable() {
   // Fetch OKR cycles and objectives
-  const { data: cycles = [] } = useQuery<OkrCycle[]>({
+  const { data: cycles = [], isLoading: isLoadingCycles } = useQuery<OkrCycle[]>({
     queryKey: ["/api/okr-cycles"],
     queryFn: async () => {
       const response = await fetch("/api/okr-cycles");
@@ -24,7 +24,7 @@ export function OkrTable() {
     },
   });
 
-  const { data: objectives = [] } = useQuery<Objective[]>({
+  const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
     queryKey: ["/api/objectives"],
     queryFn: async () => {
       const response = await fetch("/api/objectives");
@@ -40,6 +40,18 @@ export function OkrTable() {
     cycle,
     objectives: objectives.filter(obj => obj.cycleId === cycle.id)
   }));
+
+  if (isLoadingCycles || isLoadingObjectives) {
+    return <div className="text-center py-8">Lade OKRs...</div>;
+  }
+
+  if (cycles.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">Keine OKR-Zyklen gefunden.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
