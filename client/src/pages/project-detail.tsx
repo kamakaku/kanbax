@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 import { ProjectForm } from "@/components/project/project-form";
+import { ProjectOKRList } from "@/components/project/project-okr-list";
 
 export default function ProjectDetail() {
   const params = useParams();
@@ -60,7 +61,13 @@ export default function ProjectDetail() {
         </CardContent>
       </Card>
 
-      <BoardList projectId={projectId} />
+      <div className="space-y-12">
+        {/* Project OKRs */}
+        <ProjectOKRList projectId={projectId} />
+
+        {/* Boards */}
+        <BoardList projectId={projectId} />
+      </div>
 
       <ProjectForm
         open={showEditForm}
