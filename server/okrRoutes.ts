@@ -21,18 +21,21 @@ export function registerOkrRoutes(app: Express) {
   });
 
   app.post("/api/okr-cycles", async (req: Request, res: Response) => {
+    console.log("Received cycle data:", req.body); // Debug log
+
     const result = insertOkrCycleSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
 
     try {
-      // Konvertiere die Datums-Strings in Date-Objekte
       const data = {
         ...result.data,
         startDate: new Date(result.data.startDate),
         endDate: new Date(result.data.endDate)
       };
+
+      console.log("Processed cycle data:", data); // Debug log
 
       const [cycle] = await db.insert(okrCycles).values(data).returning();
       res.status(201).json(cycle);
