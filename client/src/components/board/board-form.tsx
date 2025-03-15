@@ -93,17 +93,22 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       if (onSubmit) {
         await onSubmit(data);
       } else {
+        // Prepare the data, removing projectId if it's undefined
+        const submitData = data.projectId ? data : { ...data, projectId: undefined };
+
         // Construct the correct API endpoint based on whether we have a projectId
         const endpoint = data.projectId 
           ? `/api/projects/${data.projectId}/boards`
           : '/api/boards';
+
+        console.log("Submitting to endpoint:", endpoint, "with data:", submitData);
 
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(data)
+          body: JSON.stringify(submitData)
         });
 
         if (!res.ok) {
