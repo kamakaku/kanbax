@@ -9,20 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { type Comment, type User } from "@shared/schema";
-// Placeholder for apiRequest function - replace with your actual implementation
-const apiRequest = async (method: string, url: string, body?: any) => {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    throw new Error(`HTTP error! status: ${res.status}`);
-  }
-  return res;
-};
 
 interface CommentListProps {
   taskId: number;
@@ -43,26 +29,19 @@ export function CommentList({ taskId }: CommentListProps) {
     },
   });
 
-  // Fetch users for each comment
-  const { data: users = {}, isLoading: isLoadingUsers } = useQuery<Record<number, User>>({
-    queryKey: [`/api/users`],
+  // Fetch users for comments
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
+    queryKey: ["/api/users"],
     queryFn: async () => {
-      const userIds = [...new Set(comments.map(c => c.authorId))];
-      const users: Record<number, User> = {};
-
-      for (const userId of userIds) {
-        if (userId) {
-          const res = await fetch(`/api/users/${userId}`);
-          if (res.ok) {
-            const user = await res.json();
-            users[userId] = user;
-          }
-        }
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
       }
-
-      return users;
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
-    enabled: comments.length > 0,
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    cacheTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   const isLoading = isLoadingComments || isLoadingUsers;
@@ -86,7 +65,7 @@ export function CommentList({ taskId }: CommentListProps) {
   return (
     <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
       {comments.map((comment) => {
-        const author = users[comment.authorId];
+        const author = users.find(u => u.id === comment.authorId);
         const commentDate = new Date(comment.createdAt);
         const formattedDate = format(commentDate, "dd.MM.yyyy HH:mm", { locale: de });
 
@@ -120,6 +99,21 @@ export function CommentList({ taskId }: CommentListProps) {
     </div>
   );
 }
+
+// Placeholder for apiRequest function - replace with your actual implementation
+const apiRequest = async (method: string, url: string, body?: any) => {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+  return res;
+};
 
 interface CommentEditorProps {
   taskId: number;

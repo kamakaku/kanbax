@@ -77,26 +77,22 @@ export function TaskDialog({
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Query for users
-  const { data: users = [], isLoading: isLoadingUsers, isError } = useQuery<User[]>({
+  // Query for users with proper configuration
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/users");
-        if (!response.ok) {
-          throw new Error("Fehler beim Laden der Benutzer");
-        }
-        const data = await response.json();
-        console.log("Fetched users:", data); // Debug log
-        return data;
-      } catch (error) {
-        console.error("Error fetching users:", error);
-        throw error;
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        console.error("Failed to fetch users:", response.statusText);
+        throw new Error("Fehler beim Laden der Benutzer");
       }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
-    enabled: open, // Only run query when dialog is open
-    initialData: [], // Start with empty array
-    refetchOnMount: true
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    cacheTime: 5 * 60 * 1000, // Cache for 5 minutes
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
@@ -130,29 +126,26 @@ export function TaskDialog({
         archived: task?.archived || false,
         order: task?.order || 0,
       });
-    }
-  }, [open, task, mode, form, initialColumnId]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    if (task?.checklist) {
-      try {
-        const parsedChecklist = task.checklist.map(item => {
-          if (typeof item === 'string') {
-            return JSON.parse(item);
-          }
-          return item;
-        });
-        setChecklist(parsedChecklist);
-      } catch (error) {
-        console.error('Error parsing checklist:', error);
+      // Initialize checklist
+      if (task?.checklist) {
+        try {
+          const parsedChecklist = task.checklist.map(item => {
+            if (typeof item === 'string') {
+              return JSON.parse(item);
+            }
+            return item;
+          });
+          setChecklist(parsedChecklist);
+        } catch (error) {
+          console.error('Error parsing checklist:', error);
+          setChecklist([]);
+        }
+      } else {
         setChecklist([]);
       }
-    } else {
-      setChecklist([]);
     }
-  }, [open, task]);
+  }, [open, task, mode, form, initialColumnId]);
 
   const handleAddLabel = () => {
     if (!newLabel.trim()) return;
@@ -182,11 +175,9 @@ export function TaskDialog({
 
     try {
       await apiRequest("PATCH", `/api/tasks/${task.id}`, updatedTask);
-      // Invalidate all relevant queries
-      await queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      await queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}`] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}`] });
     } catch (error) {
       toast({
         title: "Fehler beim Speichern der Checkliste",
@@ -239,11 +230,13 @@ export function TaskDialog({
         };
         await onUpdate(updatedTask);
 
-        // Aggressive query invalidation to ensure fresh data
-        await queryClient.resetQueries({ queryKey: ["/api/boards"] });
-        await queryClient.resetQueries({ queryKey: ["/api/tasks"] });
-        await queryClient.resetQueries({ queryKey: [`/api/tasks/${task.id}`] });
-        await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+        // Invalidate all related queries immediately
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
+          queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}`] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/users"] }),
+        ]);
 
         toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
@@ -262,8 +255,10 @@ export function TaskDialog({
           throw new Error("Fehler beim Erstellen der Aufgabe");
         }
 
-        await queryClient.resetQueries({ queryKey: ["/api/boards"] });
-        await queryClient.resetQueries({ queryKey: ["/api/tasks"] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
+        ]);
 
         onOpenChange(false);
         toast({ title: "Aufgabe erfolgreich erstellt" });
@@ -628,7 +623,7 @@ export function TaskDialog({
                 )}
               />
 
-              {/* User assignments section in form */}
+              {/* User assignments section */}
               <FormField
                 control={form.control}
                 name="assignedUserIds"
@@ -638,10 +633,6 @@ export function TaskDialog({
                     {isLoadingUsers ? (
                       <div className="text-sm text-muted-foreground">
                         Lade Benutzer...
-                      </div>
-                    ) : isError ? (
-                      <div className="text-sm text-destructive">
-                        Fehler beim Laden der Benutzer
                       </div>
                     ) : users.length === 0 ? (
                       <div className="text-sm text-muted-foreground">
