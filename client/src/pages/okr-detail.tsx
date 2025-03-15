@@ -1,4 +1,4 @@
-import { useParams, useLocation } from "wouter";
+import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { type Objective, type KeyResult, type User } from "@shared/schema";
 import { Card } from "@/components/ui/card";
@@ -95,7 +95,7 @@ export function OKRDetailPage() {
       <div className="relative">
         {/* Center line */}
         <div className="absolute left-1/2 top-0 w-0.5 h-full bg-primary/20 -translate-x-1/2" />
-        
+
         {/* Key Results */}
         <div className="grid gap-8 relative">
           {keyResults.map((kr, index) => {
