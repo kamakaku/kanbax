@@ -42,9 +42,9 @@ export const boards = pgTable("boards", {
   title: text("title").notNull(),
   description: text("description"),
   projectId: integer("project_id"), // Remove .notNull()
-  memberIds: integer("member_ids").array(),
-  teamIds: integer("team_ids").array(),
-  guestEmails: text("guest_emails").array(),
+  memberIds: integer("member_ids").array().default([]),
+  teamIds: integer("team_ids").array().default([]),
+  guestEmails: text("guest_emails").array().default([]),
 });
 
 export const columns = pgTable("columns", {
