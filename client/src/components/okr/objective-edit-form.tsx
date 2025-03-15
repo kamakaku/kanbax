@@ -6,15 +6,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { type Objective } from "@shared/schema";
+import { type Objective, type Project, type Team, type User } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const objectiveEditSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
+  projectId: z.string().optional(),
+  teamId: z.string().optional(),
+  userId: z.string().optional(),
   status: z.enum(["active", "completed", "archived"]).default("active"),
 });
 
@@ -27,18 +30,62 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch available data for dropdowns
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
+      return response.json();
+    }
+  });
+
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
+      }
+      return response.json();
+    }
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    }
+  });
+
   const form = useForm<z.infer<typeof objectiveEditSchema>>({
     resolver: zodResolver(objectiveEditSchema),
     defaultValues: {
       title: objective.title,
       description: objective.description || "",
+      projectId: objective.projectId?.toString(),
+      teamId: objective.teamId?.toString(),
+      userId: objective.userId?.toString(),
       status: objective.status as "active" | "completed" | "archived",
     },
   });
 
   async function onSubmit(values: z.infer<typeof objectiveEditSchema>) {
     try {
-      await apiRequest("PATCH", `/api/objectives/${objective.id}`, values);
+      const payload = {
+        ...values,
+        projectId: values.projectId ? parseInt(values.projectId) : null,
+        teamId: values.teamId ? parseInt(values.teamId) : null,
+        userId: values.userId ? parseInt(values.userId) : null,
+      };
+
+      await apiRequest("PATCH", `/api/objectives/${objective.id}`, payload);
 
       await queryClient.invalidateQueries({ 
         queryKey: ["/api/objectives"]
@@ -104,6 +151,87 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
                     <SelectItem value="active">Aktiv</SelectItem>
                     <SelectItem value="completed">Abgeschlossen</SelectItem>
                     <SelectItem value="archived">Archiviert</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="projectId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Projekt (optional)</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Projekt auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {project.title}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="teamId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Team (optional)</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Team auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id.toString()}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="userId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Benutzer (optional)</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Benutzer auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.username}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
