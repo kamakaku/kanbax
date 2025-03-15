@@ -77,18 +77,19 @@ export function TaskDialog({
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Query for users - always enabled
-  const { data: users = [] } = useQuery<User[]>({
+  // Query for users with proper error handling and loading state
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
       if (!response.ok) {
         throw new Error("Fehler beim Laden der Benutzer");
       }
-      return response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache the data
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
@@ -628,31 +629,37 @@ export function TaskDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Zugewiesene Benutzer</FormLabel>
-                    <div className="flex flex-wrap gap-3">
-                      {users.map((user) => (
-                        <Button
-                          key={user.id}
-                          type="button"
-                          variant={field.value?.includes(user.id) ? "default" : "outline"}
-                          className="flex items-center gap-2"
-                          onClick={() => {
-                            const currentValue = field.value || [];
-                            const newValue = currentValue.includes(user.id)
-                              ? currentValue.filter(id => id !== user.id)
-                              : [...currentValue, user.id];
-                            field.onChange(newValue);
-                          }}
-                        >
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={user.avatarUrl || ''} />
-                            <AvatarFallback>
-                              {user.username.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{user.username}</span>
-                        </Button>
-                      ))}
-                    </div>
+                    {isLoadingUsers ? (
+                      <div className="text-sm text-muted-foreground">
+                        Lade Benutzer...
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-3">
+                        {users.map((user) => (
+                          <Button
+                            key={user.id}
+                            type="button"
+                            variant={field.value?.includes(user.id) ? "default" : "outline"}
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                              const currentValue = field.value || [];
+                              const newValue = currentValue.includes(user.id)
+                                ? currentValue.filter(id => id !== user.id)
+                                : [...currentValue, user.id];
+                              field.onChange(newValue);
+                            }}
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={user.avatarUrl || ''} />
+                              <AvatarFallback>
+                                {user.username.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{user.username}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
