@@ -9,7 +9,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { type Objective, type OkrCycle } from "@shared/schema";
-import { formatDate } from "@/lib/utils";
 
 export function OkrTable() {
   // Fetch OKR cycles and objectives
@@ -72,14 +71,7 @@ export function OkrTable() {
               </TableCell>
               <TableCell>{objective.description || "-"}</TableCell>
               <TableCell>
-                {objective.cycle ? (
-                  <div className="text-sm">
-                    <div>{objective.cycle.title}</div>
-                    <div className="text-muted-foreground">
-                      {formatDate(new Date(objective.cycle.startDate))} - {formatDate(new Date(objective.cycle.endDate))}
-                    </div>
-                  </div>
-                ) : "-"}
+                {objective.cycle ? objective.cycle.title : "-"}
               </TableCell>
               <TableCell>
                 <div className="space-y-2">
