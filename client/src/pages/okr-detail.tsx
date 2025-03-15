@@ -29,6 +29,7 @@ export function OKRDetailPage() {
   const objectiveId = parseInt(id);
   const [isKeyResultDialogOpen, setIsKeyResultDialogOpen] = useState(false);
   const [editingKR, setEditingKR] = useState<KeyResult | null>(null);
+  const [editingProgress, setEditingProgress] = useState<{[key: number]: number}>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -99,15 +100,32 @@ export function OKRDetailPage() {
     if (kr.type === "checkbox") {
       updateData.currentValue = value ? 100 : 0;
     } else if (kr.type === "checklist" && kr.checklistItems) {
-      // Update a checklist item's status
       const completedItems = kr.checklistItems.filter(item => item.completed).length;
       const totalItems = kr.checklistItems.length;
       updateData.currentValue = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
     } else {
-      updateData.currentValue = typeof value === "number" ? value : 0;
+      const numValue = typeof value === "number" ? value : 0;
+      updateData.currentValue = Math.min(Math.max(numValue, 0), 100);
     }
 
     await updateKeyResult.mutateAsync(updateData);
+  };
+
+  const handleProgressInputChange = (krId: number, value: string) => {
+    const numValue = Math.min(Math.max(parseInt(value) || 0, 0), 100);
+    setEditingProgress(prev => ({ ...prev, [krId]: numValue }));
+  };
+
+  const handleProgressInputBlur = async (kr: KeyResult) => {
+    const value = editingProgress[kr.id];
+    if (value !== undefined && value !== kr.currentValue) {
+      await handleProgressUpdate(kr, value);
+    }
+    setEditingProgress(prev => {
+      const newState = { ...prev };
+      delete newState[kr.id];
+      return newState;
+    });
   };
 
   const handleChecklistItemUpdate = async (kr: KeyResult, itemIndex: number, completed: boolean) => {
@@ -267,8 +285,9 @@ export function OKRDetailPage() {
                             <Input
                               type="number"
                               className="w-20"
-                              value={krProgress}
-                              onChange={(e) => handleProgressUpdate(kr, Number(e.target.value))}
+                              value={editingProgress[kr.id] !== undefined ? editingProgress[kr.id] : krProgress}
+                              onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                              onBlur={() => handleProgressInputBlur(kr)}
                               min={0}
                               max={100}
                             />
