@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, PlusCircle, X, Tag, UserPlus, Pencil } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, Pencil } from "lucide-react";
 import { CommentList, CommentEditor } from "@/components/comments/comment-list";
 import classnames from 'classnames';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,11 +38,6 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { User } from "@shared/schema";
-
-interface ChecklistItem {
-  text: string;
-  checked: boolean;
-}
 
 interface TaskDialogProps {
   task?: Task;
@@ -76,12 +71,25 @@ export function TaskDialog({
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [checklist, setChecklist] = useState<{ text: string; checked: boolean; }[]>([]);
+  const [isEditMode, setIsEditMode] = useState(mode === "edit");
   const { toast } = useToast();
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
-  const isEditing = !!task;
+
+  // Query for users
+  const { data: usersResponse = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
+  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
@@ -99,29 +107,28 @@ export function TaskDialog({
     },
   });
 
-  useEffect(() => {
-    if (open && task) {
-      form.reset({
-        title: task.title,
-        description: task.description || "",
-        status: task.status as "backlog" | "todo" | "in-progress" | "review" | "done",
-        priority: task.priority as "low" | "medium" | "high",
-        columnId: task.columnId,
-        labels: task.labels || [],
-        assignedUserIds: task.assignedUserIds || [],
-        dueDate: task.dueDate,
-        archived: task.archived,
-        order: task.order,
-      });
-    }
-  }, [open, task, form]);
-
+  // Reset form and mode when dialog opens/closes or task changes
   useEffect(() => {
     if (open) {
       setIsEditMode(mode === "edit");
+      if (task) {
+        form.reset({
+          title: task.title,
+          description: task.description || "",
+          status: task.status as "backlog" | "todo" | "in-progress" | "review" | "done",
+          priority: task.priority as "low" | "medium" | "high",
+          columnId: task.columnId,
+          labels: task.labels || [],
+          assignedUserIds: task.assignedUserIds || [],
+          dueDate: task.dueDate,
+          archived: task.archived,
+          order: task.order,
+        });
+      }
     }
-  }, [open, mode]);
+  }, [open, task, mode, form]);
 
+  // Handle checklist initialization
   useEffect(() => {
     if (!open) return;
 
@@ -143,51 +150,24 @@ export function TaskDialog({
     }
   }, [open, task]);
 
-  const { data: usersResponse = [] } = useQuery({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
-  });
+  const handleAddLabel = () => {
+    if (!newLabel.trim()) return;
+    const currentLabels = form.getValues("labels");
+    if (!currentLabels.includes(newLabel)) {
+      form.setValue("labels", [...currentLabels, newLabel]);
+    }
+    setNewLabel("");
+  };
 
-  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
+  const removeLabel = (labelToRemove: string) => {
+    const currentLabels = form.getValues("labels");
+    form.setValue(
+      "labels",
+      currentLabels.filter(label => label !== labelToRemove)
+    );
+  };
 
-  const updateTaskMutation = useMutation({
-    mutationFn: async (updatedTask: Task) => {
-      const response = await apiRequest("PATCH", `/api/tasks/${task?.id}`, updatedTask);
-      if (!response.ok) {
-        throw new Error("Fehler beim Aktualisieren des Tasks");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      // Invalidate all related queries to ensure fresh data
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          return (
-            query.queryKey[0] === "/api/boards" ||
-            query.queryKey[0] === "/api/tasks" ||
-            query.queryKey[0] === "/api/users"
-          );
-        }
-      });
-      toast({ title: "Task erfolgreich aktualisiert" });
-      setIsEditMode(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Fehler beim Speichern",
-        description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const saveChecklist = async (newChecklist: ChecklistItem[]) => {
+  const saveChecklist = async (newChecklist: { text: string; checked: boolean; }[]) => {
     if (!task) return;
 
     const formattedChecklist = newChecklist.map(item => JSON.stringify(item));
@@ -196,7 +176,29 @@ export function TaskDialog({
       checklist: formattedChecklist,
     };
 
-    await updateTaskMutation.mutateAsync(updatedTask);
+    try {
+      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, updatedTask);
+      if (!response.ok) {
+        throw new Error("Fehler beim Aktualisieren der Checkliste");
+      }
+
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
+          return (
+            queryKey === "/api/boards" ||
+            queryKey === "/api/tasks" ||
+            queryKey === "/api/users" ||
+            queryKey.startsWith(`/api/tasks/${task.id}`)
+          );
+        }
+      });
+    } catch (error) {
+      toast({
+        title: "Fehler beim Speichern der Checkliste",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleChecklistItem = async (index: number) => {
@@ -221,23 +223,6 @@ export function TaskDialog({
     await saveChecklist(newChecklist);
   };
 
-  const handleAddLabel = () => {
-    if (!newLabel.trim()) return;
-    const currentLabels = form.getValues("labels");
-    if (!currentLabels.includes(newLabel)) {
-      form.setValue("labels", [...currentLabels, newLabel]);
-    }
-    setNewLabel("");
-  };
-
-  const removeLabel = (labelToRemove: string) => {
-    const currentLabels = form.getValues("labels");
-    form.setValue(
-      "labels",
-      currentLabels.filter(label => label !== labelToRemove)
-    );
-  };
-
   const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
     if (!currentBoard?.id) {
       toast({
@@ -251,7 +236,7 @@ export function TaskDialog({
     try {
       const formattedChecklist = checklist.map(item => JSON.stringify(item));
 
-      if (isEditing && task && onUpdate) {
+      if (task && onUpdate) {
         const updatedTask: Task = {
           ...task,
           ...data,
@@ -260,7 +245,7 @@ export function TaskDialog({
         };
         await onUpdate(updatedTask);
 
-        // Invalidate all related queries
+        // Invalidate all related queries immediately
         queryClient.invalidateQueries({
           predicate: (query) => {
             const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
@@ -290,7 +275,6 @@ export function TaskDialog({
           throw new Error("Fehler beim Erstellen der Aufgabe");
         }
 
-        // Invalidate board tasks query
         queryClient.invalidateQueries({
           predicate: (query) => {
             const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
@@ -327,7 +311,7 @@ export function TaskDialog({
                 onClick={() => {
                   const currentValue = field?.value || [];
                   const newValue = currentValue.includes(user.id)
-                    ? currentValue.filter(id => id !== user.id)
+                    ? currentValue.filter((id: number) => id !== user.id)
                     : [...currentValue, user.id];
                   field.onChange(newValue);
                 }}
@@ -759,7 +743,7 @@ export function TaskDialog({
                 </div>
               </div>
 
-              {isEditing && task && (
+              {task && (
                 <div className="space-y-2">
                   <FormLabel>Kommentare</FormLabel>
                   <CommentList taskId={task.id} />
@@ -774,7 +758,7 @@ export function TaskDialog({
                   Abbrechen
                 </Button>
                 <Button type="submit">
-                  {isEditing ? "Speichern" : "Erstellen"}
+                  {task ? "Speichern" : "Erstellen"}
                 </Button>
               </DialogFooter>
             </form>
