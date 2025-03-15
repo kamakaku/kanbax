@@ -1,11 +1,39 @@
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { 
-  objectives, keyResults, okrComments,
-  insertObjectiveSchema, insertKeyResultSchema, insertOkrCommentSchema 
+  objectives, keyResults, okrComments, okrCycles,
+  insertObjectiveSchema, insertKeyResultSchema, insertOkrCommentSchema, insertOkrCycleSchema
 } from "@shared/schema";
 
 export function registerOkrRoutes(app: Express) {
+  // OKR Cycles Endpoints
+  app.get("/api/okr-cycles", async (_req: Request, res: Response) => {
+    try {
+      const cycles = await db.query.okrCycles.findMany({
+        orderBy: (cycles, { desc }) => [desc(cycles.startDate)]
+      });
+      res.json(cycles);
+    } catch (error) {
+      console.error("Fehler beim Abrufen der OKR-Zyklen:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der OKR-Zyklen" });
+    }
+  });
+
+  app.post("/api/okr-cycles", async (req: Request, res: Response) => {
+    const result = insertOkrCycleSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const [cycle] = await db.insert(okrCycles).values(result.data).returning();
+      res.status(201).json(cycle);
+    } catch (error) {
+      console.error("Fehler beim Erstellen des OKR-Zyklus:", error);
+      res.status(500).json({ message: "Fehler beim Erstellen des OKR-Zyklus" });
+    }
+  });
+
   // Objectives Endpunkte
   app.get("/api/objectives", async (_req: Request, res: Response) => {
     try {
