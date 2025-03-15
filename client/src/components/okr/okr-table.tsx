@@ -10,9 +10,10 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { type Objective, type OkrCycle, type KeyResult } from "@shared/schema";
 import { useLocation } from "wouter";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function OkrTable() {
   const [, setLocation] = useLocation();
@@ -107,7 +108,10 @@ export function OkrTable() {
           <>
             <TableRow 
               key={objective.id} 
-              className="h-12 hover:bg-muted/50"
+              className={cn(
+                "h-12 hover:bg-muted/50",
+                objective.progress === 100 && "bg-green-50 hover:bg-green-100"
+              )}
             >
               <TableCell className="p-2">
                 <Button
@@ -127,7 +131,12 @@ export function OkrTable() {
                 className="font-medium py-2 cursor-pointer"
                 onClick={() => setLocation(`/okr/${objective.id}`)}
               >
-                {objective.title}
+                <div className="flex items-center gap-2">
+                  {objective.title}
+                  {objective.progress === 100 && (
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  )}
+                </div>
               </TableCell>
               <TableCell className="py-2">{objective.description || "-"}</TableCell>
               <TableCell className="py-2">
@@ -135,7 +144,13 @@ export function OkrTable() {
               </TableCell>
               <TableCell className="py-2">
                 <div className="flex items-center gap-4">
-                  <Progress value={objective.progress} className="flex-1" />
+                  <Progress 
+                    value={objective.progress} 
+                    className={cn(
+                      "flex-1",
+                      objective.progress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                    )}
+                  />
                   <span className="text-sm text-muted-foreground w-12 text-right">
                     {objective.progress}%
                   </span>
@@ -143,11 +158,22 @@ export function OkrTable() {
               </TableCell>
             </TableRow>
             {expandedRows.has(objective.id) && objective.keyResults.map((kr) => (
-              <TableRow key={`kr-${kr.id}`} className="bg-muted/30">
+              <TableRow 
+                key={`kr-${kr.id}`} 
+                className={cn(
+                  "bg-muted/30",
+                  (kr.currentValue || 0) === 100 && "bg-green-50"
+                )}
+              >
                 <TableCell></TableCell>
                 <TableCell colSpan={2} className="py-2">
                   <div className="pl-4">
-                    <div className="font-medium">{kr.title}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {kr.title}
+                      {(kr.currentValue || 0) === 100 && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      )}
+                    </div>
                     <div className="text-sm text-muted-foreground">{kr.description}</div>
                   </div>
                 </TableCell>
@@ -156,7 +182,13 @@ export function OkrTable() {
                 </TableCell>
                 <TableCell className="py-2">
                   <div className="flex items-center gap-4">
-                    <Progress value={kr.currentValue || 0} className="flex-1" />
+                    <Progress 
+                      value={kr.currentValue || 0} 
+                      className={cn(
+                        "flex-1",
+                        (kr.currentValue || 0) === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                      )}
+                    />
                     <span className="text-sm text-muted-foreground w-12 text-right">
                       {kr.currentValue || 0}%
                     </span>
