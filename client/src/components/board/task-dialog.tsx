@@ -266,8 +266,8 @@ export function TaskDialog({
           taskData
         );
 
-        if (!response?.ok) {
-          throw new Error("Failed to create task: " + (await response?.text() || "Unknown error"));
+        if (!response) {
+          throw new Error("Fehler beim Erstellen der Aufgabe");
         }
 
         // Invalidate relevant queries
