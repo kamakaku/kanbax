@@ -27,13 +27,14 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
     return <div className="text-center py-8">Lade OKRs...</div>;
   }
 
-  const activeObjectives = objectives.filter(obj => !obj.archived);
+  // Filter objectives for this project and that are not archived
+  const activeObjectives = objectives.filter(obj => obj.projectId === projectId && obj.status !== "archived");
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-semibold">OKRs</h3>
-        <Button onClick={() => setLocation("/okr")} variant="outline">
+        <Button onClick={() => setLocation(`/okr?projectId=${projectId}`)} variant="outline">
           <Plus className="h-4 w-4 mr-2" />
           Neues OKR
         </Button>
@@ -47,7 +48,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
               Diesem Projekt sind noch keine OKRs zugeordnet.
             </p>
             <Button
-              onClick={() => setLocation("/okr")}
+              onClick={() => setLocation(`/okr?projectId=${projectId}`)}
               variant="outline"
               className="mt-4"
             >
