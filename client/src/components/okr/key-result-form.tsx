@@ -30,8 +30,13 @@ const keyResultSchema = z.object({
   description: z.string().optional().nullable(),
   targetValue: z.number().min(0, "Zielwert muss größer als 0 sein"),
   currentValue: z.number().min(0).optional().nullable(),
-  type: z.enum(["percentage", "checkbox", "progress"]).default("percentage"),
+  type: z.enum(["percentage", "checkbox", "progress", "checklist"]).default("percentage"),
   status: z.string().default("active"),
+  // Checklisten-Items
+  checklistItems: z.array(z.object({
+    title: z.string(),
+    completed: z.boolean().default(false)
+  })).optional(),
 });
 
 type KeyResultFormData = z.infer<typeof keyResultSchema>;
@@ -54,6 +59,7 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
       currentValue: 0,
       type: "percentage",
       status: "active",
+      checklistItems: [],
     },
   });
 
@@ -144,6 +150,7 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
                   <SelectItem value="percentage">Prozentual</SelectItem>
                   <SelectItem value="checkbox">Checkbox</SelectItem>
                   <SelectItem value="progress">Fortschritt</SelectItem>
+                  <SelectItem value="checklist">Checkliste</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />

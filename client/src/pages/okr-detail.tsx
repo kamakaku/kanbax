@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit2 } from "lucide-react";
+import { PlusCircle, UserCircle, Calendar, Target } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { format } from "date-fns";
@@ -20,7 +20,6 @@ export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
   const [isKeyResultDialogOpen, setIsKeyResultDialogOpen] = useState(false);
-  const [editingKR, setEditingKR] = useState<KeyResult | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -77,7 +76,6 @@ export function OKRDetailPage() {
         queryKey: ["/api/objectives", objectiveId, "key-results"],
       });
       toast({ title: "Key Result erfolgreich aktualisiert" });
-      setEditingKR(null);
     },
     onError: (error) => {
       toast({
@@ -171,8 +169,8 @@ export function OKRDetailPage() {
       </div>
 
       {/* Key Results Bereich */}
-      <div className="relative space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="relative">
+        <div className="flex justify-between items-center mb-8">
           <h4 className="text-lg font-semibold">Key Results</h4>
           <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
             <DialogTrigger asChild>
@@ -194,17 +192,17 @@ export function OKRDetailPage() {
         </div>
 
         {/* Center line */}
-        <div className="absolute left-1/2 top-16 w-0.5 h-full bg-primary/20 -translate-x-1/2" />
+        <div className="absolute left-1/2 top-16 -bottom-8 w-0.5 bg-primary/20 -translate-x-1/2" />
 
         {/* Key Results */}
-        <div className="grid gap-8 relative pt-8">
+        <div className="flex flex-col items-center gap-8">
           {keyResults.map((kr) => {
             const krProgress = kr.currentValue || 0;
             const assignedUser = kr.userId ? users.find(u => u.id === kr.userId) : null;
 
             return (
-              <div key={kr.id} className="flex justify-center">
-                <Card className="w-1/2 p-6 relative">
+              <div key={kr.id} className="w-1/2">
+                <Card className="p-6 relative">
                   {/* Curved connecting line */}
                   <div className="absolute -top-8 left-1/2 w-px h-8 bg-primary/50 -translate-x-1/2" />
                   <div className="flex items-start justify-between">
