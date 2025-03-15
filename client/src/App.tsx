@@ -2,7 +2,7 @@ import { Switch, Route, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import { useAuth, AuthProvider } from "@/lib/auth-store";
+import { useAuth, AuthProvider } from "@/hooks/use-auth";
 import { 
   SidebarProvider, 
   Sidebar, 
@@ -22,7 +22,7 @@ import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
 import Profile from "@/pages/profile";
 import OKRPage from "@/pages/okr";
-import OKRDetailPage from "@/pages/okr-detail"; // Neue Import
+import OKRDetailPage from "@/pages/okr-detail";
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -103,8 +103,12 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 }
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+
+  if (isLoading) {
+    return <div>Lade...</div>;
+  }
 
   if (!user) {
     setLocation("/auth");
@@ -118,17 +122,12 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
-function AuthenticatedApp() {
+function AppRoutes() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
   if (user && window.location.pathname === "/") {
     setLocation("/dashboard");
-    return null;
-  }
-
-  if (!user && window.location.pathname !== "/auth") {
-    setLocation("/auth");
     return null;
   }
 
@@ -141,7 +140,7 @@ function AuthenticatedApp() {
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />
-      <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} /> {/* Neue Route */}
+      <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />
@@ -151,12 +150,12 @@ function AuthenticatedApp() {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthenticatedApp />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AppRoutes />
         <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

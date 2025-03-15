@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { useAuth } from "@/hooks/use-auth";
 
 const commentSchema = z.object({
   content: z.string().min(1, "Kommentar kann nicht leer sein"),
@@ -26,6 +27,7 @@ interface CommentSectionProps {
 export function CommentSection({ objectiveId, keyResultId }: CommentSectionProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const form = useForm<z.infer<typeof commentSchema>>({
     resolver: zodResolver(commentSchema),
@@ -58,8 +60,11 @@ export function CommentSection({ objectiveId, keyResultId }: CommentSectionProps
 
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof commentSchema>) => {
+      if (!user) throw new Error("Sie müssen eingeloggt sein, um Kommentare zu schreiben");
+
       return await apiRequest("POST", "/api/okr-comments", {
         ...values,
+        authorId: user.id,
         objectiveId,
         keyResultId,
       });
@@ -75,6 +80,7 @@ export function CommentSection({ objectiveId, keyResultId }: CommentSectionProps
       console.error("Error adding comment:", error);
       toast({
         title: "Fehler beim Hinzufügen des Kommentars",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
         variant: "destructive",
       });
     },
@@ -108,7 +114,7 @@ export function CommentSection({ objectiveId, keyResultId }: CommentSectionProps
           />
           <Button
             type="submit"
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || !user}
           >
             {mutation.isPending ? "Wird gespeichert..." : "Kommentar hinzufügen"}
           </Button>
