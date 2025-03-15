@@ -145,10 +145,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
-    // Remove undefined projectId from the data before insertion
-    const boardData = insertBoard.projectId
-      ? insertBoard
-      : { ...insertBoard, projectId: null };
+    // Clean up the data before insertion
+    const boardData = {
+      ...insertBoard,
+      projectId: insertBoard.projectId || null,
+      memberIds: insertBoard.memberIds || [],
+      teamIds: insertBoard.teamIds || [],
+      guestEmails: insertBoard.guestEmails || []
+    };
+
+    console.log("Creating board with data:", boardData);
 
     const [board] = await db
       .insert(boards)

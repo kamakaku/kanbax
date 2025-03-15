@@ -353,6 +353,8 @@ export async function registerRoutes(app: Express) {
 
   // Add new route for creating boards without a project
   app.post("/api/boards", async (req, res) => {
+    console.log("Received board creation request:", req.body);
+
     const result = insertBoardSchema.safeParse(req.body);
     if (!result.success) {
       console.error("Board validation failed:", result.error);
@@ -366,7 +368,7 @@ export async function registerRoutes(app: Express) {
       const board = await storage.createBoard(result.data);
 
       // Create board members for assigned users
-      if (result.data.memberIds) {
+      if (result.data.memberIds?.length) {
         await Promise.all(result.data.memberIds.map(userId =>
           storage.createBoardMember({
             boardId: board.id,
@@ -377,7 +379,7 @@ export async function registerRoutes(app: Express) {
       }
 
       // Create board teams for assigned teams
-      if (result.data.teamIds) {
+      if (result.data.teamIds?.length) {
         await Promise.all(result.data.teamIds.map(teamId =>
           storage.createBoardTeam({
             boardId: board.id,
@@ -388,7 +390,7 @@ export async function registerRoutes(app: Express) {
       }
 
       // Create board members for guest emails
-      if (result.data.guestEmails) {
+      if (result.data.guestEmails?.length) {
         await Promise.all(result.data.guestEmails.map(async (email) => {
           // Check if user exists with this email
           let user = await storage.getUserByEmail(email);
@@ -417,6 +419,7 @@ export async function registerRoutes(app: Express) {
         }));
       }
 
+      console.log("Successfully created board:", board);
       res.status(201).json(board);
     } catch (error) {
       console.error("Failed to create board:", error);
