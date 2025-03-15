@@ -184,8 +184,8 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                 <FormItem>
                   <FormLabel>Projekt (Optional)</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                    defaultValue={field.value?.toString()}
+                    onValueChange={(value) => field.onChange(value === "0" ? undefined : parseInt(value))}
+                    defaultValue={field.value?.toString() || "0"}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -193,7 +193,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Kein Projekt</SelectItem>
+                      <SelectItem value="0">Kein Projekt</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id.toString()}>
                           {project.title}
