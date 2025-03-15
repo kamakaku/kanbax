@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit } from "lucide-react";
+import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { format } from "date-fns";
@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import cn from 'classnames';
 
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,7 @@ export function OKRDetailPage() {
   const [isKeyResultDialogOpen, setIsKeyResultDialogOpen] = useState(false);
   const [editingKR, setEditingKR] = useState<KeyResult | null>(null);
   const [editingProgress, setEditingProgress] = useState<{[key: number]: number}>({});
+  const [isEditingObjective, setIsEditingObjective] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -161,12 +163,28 @@ export function OKRDetailPage() {
     <div className="container mx-auto py-6 space-y-8">
       {/* Objective Card */}
       <div className="flex justify-center">
-        <Card className="w-2/3 p-6 relative">
+        <Card className={cn(
+          "w-2/3 p-6 relative",
+          progress === 100 && "bg-green-50"
+        )}>
           <div className="absolute -left-3 top-1/2 w-1 h-24 bg-primary -translate-y-1/2" />
           <div className="space-y-6">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <h3 className="text-2xl font-semibold">{objective.title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-2xl font-semibold">{objective.title}</h3>
+                  {progress === 100 && (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2"
+                    onClick={() => setIsEditingObjective(true)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
                 <p className="text-muted-foreground">{objective.description}</p>
               </div>
               {assignedUser && (
@@ -229,9 +247,9 @@ export function OKRDetailPage() {
               <DialogHeader>
                 <DialogTitle>Neues Key Result erstellen</DialogTitle>
               </DialogHeader>
-              <KeyResultForm 
-                objectiveId={objectiveId} 
-                onSuccess={() => setIsKeyResultDialogOpen(false)} 
+              <KeyResultForm
+                objectiveId={objectiveId}
+                onSuccess={() => setIsKeyResultDialogOpen(false)}
               />
             </DialogContent>
           </Dialog>
@@ -270,7 +288,7 @@ export function OKRDetailPage() {
                               <div key={index} className="flex items-center gap-2">
                                 <Checkbox
                                   checked={item.completed}
-                                  onCheckedChange={(checked) => 
+                                  onCheckedChange={(checked) =>
                                     handleChecklistItemUpdate(kr, index, checked as boolean)
                                   }
                                 />
@@ -319,12 +337,25 @@ export function OKRDetailPage() {
             <DialogTitle>Key Result bearbeiten</DialogTitle>
           </DialogHeader>
           {editingKR && (
-            <KeyResultForm 
+            <KeyResultForm
               objectiveId={objectiveId}
               keyResult={editingKR}
               onSuccess={() => setEditingKR(null)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Objective Dialog */}
+      <Dialog open={isEditingObjective} onOpenChange={setIsEditingObjective}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Objective bearbeiten</DialogTitle>
+          </DialogHeader>
+          <ObjectiveEditForm
+            objective={objective}
+            onSuccess={() => setIsEditingObjective(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

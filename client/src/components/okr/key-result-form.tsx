@@ -32,8 +32,7 @@ const keyResultSchema = z.object({
   targetValue: z.number().min(0, "Zielwert muss größer als 0 sein"),
   currentValue: z.number().min(0).optional().nullable(),
   type: z.enum(["percentage", "checkbox", "progress", "checklist"]).default("percentage"),
-  status: z.string().default("active"),
-  // Checklisten-Items
+  status: z.enum(["active", "completed", "archived"]).default("active"),
   checklistItems: z.array(z.object({
     title: z.string(),
     completed: z.boolean().default(false)
@@ -169,6 +168,32 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
                   <SelectItem value="checkbox">Checkbox</SelectItem>
                   <SelectItem value="progress">Fortschritt</SelectItem>
                   <SelectItem value="checklist">Checkliste</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wählen Sie einen Status" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="active">Aktiv</SelectItem>
+                  <SelectItem value="completed">Abgeschlossen</SelectItem>
+                  <SelectItem value="archived">Archiviert</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />

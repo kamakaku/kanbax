@@ -20,6 +20,7 @@ const objectiveFormSchema = z.object({
   projectId: z.string().optional(),
   teamId: z.string().optional(),
   userId: z.string().optional(),
+  status: z.enum(["active", "completed", "archived"]).default("active"),
 });
 
 interface ObjectiveFormProps {
@@ -41,7 +42,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
     { value: "Q4", label: "Q4 (Okt-Dez)" },
   ];
 
-  // Fetch available data for dropdowns with explicit queryFn
+  // Fetch available data for dropdowns
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
     queryFn: async () => {
@@ -85,6 +86,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
       projectId: undefined,
       teamId: undefined,
       userId: undefined,
+      status: "active",
     },
   });
 
@@ -130,7 +132,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         const payload: InsertObjective = {
           title: values.title,
           description: values.description,
-          status: "active",
+          status: values.status,
           projectId: values.projectId ? parseInt(values.projectId) : undefined,
           cycleId: newCycle.id,
           teamId: values.teamId ? parseInt(values.teamId) : undefined,
@@ -258,6 +260,31 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status auswählen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="active">Aktiv</SelectItem>
+                    <SelectItem value="completed">Abgeschlossen</SelectItem>
+                    <SelectItem value="archived">Archiviert</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
