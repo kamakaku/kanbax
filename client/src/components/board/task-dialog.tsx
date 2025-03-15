@@ -78,7 +78,7 @@ export function TaskDialog({
   const queryClient = useQueryClient();
 
   // Query for users with proper error handling and loading state
-  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
+  const { data: usersData, isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
@@ -88,9 +88,10 @@ export function TaskDialog({
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    refetchOnWindowFocus: false,
-    retry: 2,
   });
+
+  // Ensure users is always an array
+  const users = usersData || [];
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
@@ -633,7 +634,7 @@ export function TaskDialog({
                       <div className="text-sm text-muted-foreground">
                         Lade Benutzer...
                       </div>
-                    ) : (
+                    ) : users.length > 0 ? (
                       <div className="flex flex-wrap gap-3">
                         {users.map((user) => (
                           <Button
@@ -658,6 +659,10 @@ export function TaskDialog({
                             <span>{user.username}</span>
                           </Button>
                         ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        Keine Benutzer verfügbar
                       </div>
                     )}
                     <FormMessage />
