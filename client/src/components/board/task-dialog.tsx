@@ -34,7 +34,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { de } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { User } from "@shared/schema";
@@ -77,7 +77,6 @@ export function TaskDialog({
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Query for users with proper configuration
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -89,8 +88,8 @@ export function TaskDialog({
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    staleTime: 30000, // Consider data fresh for 30 seconds
-    cacheTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 30000,
+    cacheTime: 5 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -127,7 +126,6 @@ export function TaskDialog({
         order: task?.order || 0,
       });
 
-      // Initialize checklist
       if (task?.checklist) {
         try {
           const parsedChecklist = task.checklist.map(item => {
@@ -221,16 +219,23 @@ export function TaskDialog({
     try {
       const formattedChecklist = checklist.map(item => JSON.stringify(item));
 
+      // Adjust the due date to end of day in local timezone
+      let adjustedDueDate = null;
+      if (data.dueDate) {
+        const date = new Date(data.dueDate);
+        adjustedDueDate = endOfDay(date).toISOString();
+      }
+
       if (task && onUpdate) {
         const updatedTask: Task = {
           ...task,
           ...data,
+          dueDate: adjustedDueDate,
           checklist: formattedChecklist,
           boardId: currentBoard.id,
         };
         await onUpdate(updatedTask);
 
-        // Invalidate all related queries immediately
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),
           queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
@@ -241,9 +246,8 @@ export function TaskDialog({
         toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
       } else {
-        // Create new task
         const taskData: Task = {
-          id: 0, // Will be assigned by the server
+          id: 0,
           title: data.title,
           description: data.description || "",
           status: data.status,
@@ -252,7 +256,7 @@ export function TaskDialog({
           columnId: data.columnId,
           priority: data.priority,
           labels: data.labels,
-          dueDate: data.dueDate,
+          dueDate: adjustedDueDate,
           archived: false,
           assignedUserIds: data.assignedUserIds,
           assignedTeamId: null,
@@ -270,7 +274,6 @@ export function TaskDialog({
           throw new Error("Fehler beim Erstellen der Aufgabe");
         }
 
-        // Invalidate relevant queries
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),
           queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
@@ -639,7 +642,6 @@ export function TaskDialog({
                 )}
               />
 
-              {/* User assignments section */}
               <FormField
                 control={form.control}
                 name="assignedUserIds"
