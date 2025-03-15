@@ -25,6 +25,7 @@ export function registerOkrRoutes(app: Express) {
 
     const result = insertOkrCycleSchema.safeParse(req.body);
     if (!result.success) {
+      console.log("Validation error:", result.error);
       return res.status(400).json({ message: result.error.message });
     }
 
@@ -38,6 +39,12 @@ export function registerOkrRoutes(app: Express) {
       console.log("Processed cycle data:", data); // Debug log
 
       const [cycle] = await db.insert(okrCycles).values(data).returning();
+      console.log("Created cycle:", cycle); // Debug log
+
+      if (!cycle || !cycle.id) {
+        throw new Error("Cycle creation failed - no ID returned");
+      }
+
       res.status(201).json(cycle);
     } catch (error) {
       console.error("Fehler beim Erstellen des OKR-Zyklus:", error);

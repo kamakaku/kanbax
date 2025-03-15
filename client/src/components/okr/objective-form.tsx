@@ -133,11 +133,19 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           title: `${values.newCycleQuarter} ${values.newCycleYear}`,
           startDate,
           endDate,
-          status: "active",
+          status: "active" as const,
         };
 
+        console.log("Creating new cycle with payload:", newCyclePayload);
+
         const newCycle = await apiRequest<OkrCycle>("POST", "/api/okr-cycles", newCyclePayload);
-        cycleId = newCycle.id.toString();
+        console.log("Server response for new cycle:", newCycle);
+
+        if (!newCycle || typeof newCycle.id !== 'number') {
+          throw new Error("Fehler beim Erstellen des Zyklus: Ungültige Server-Antwort");
+        }
+
+        cycleId = String(newCycle.id);
       }
 
       const payload: InsertObjective = {
@@ -150,13 +158,15 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         userId: values.userId ? parseInt(values.userId) : undefined,
       };
 
+      console.log("Creating objective with payload:", payload);
+
       await apiRequest("POST", "/api/objectives", payload);
 
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/objectives"]
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/objectives"],
       });
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/okr-cycles"]
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/okr-cycles"],
       });
 
       toast({ title: "Objective erfolgreich erstellt" });
@@ -195,9 +205,9 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
             <FormItem>
               <FormLabel>Beschreibung</FormLabel>
               <FormControl>
-                <Textarea 
-                  placeholder="Beschreiben Sie das Ziel und den gewünschten Outcome" 
-                  {...field} 
+                <Textarea
+                  placeholder="Beschreiben Sie das Ziel und den gewünschten Outcome"
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
