@@ -35,68 +35,64 @@ export function OkrTable() {
     },
   });
 
-  // Gruppiere Objectives nach Cycles
-  const objectivesByCycle = cycles.map(cycle => ({
-    cycle,
-    objectives: objectives.filter(obj => obj.cycleId === cycle.id)
-  }));
-
   if (isLoadingCycles || isLoadingObjectives) {
     return <div className="text-center py-8">Lade OKRs...</div>;
   }
 
-  if (cycles.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">Keine OKR-Zyklen gefunden.</p>
-      </div>
-    );
-  }
+  // Kombiniere Objectives mit ihren Zyklen
+  const objectivesWithCycles = objectives.map(objective => ({
+    ...objective,
+    cycle: cycles.find(cycle => cycle.id === objective.cycleId)
+  }));
+
+  // Sortiere nach Titel
+  const sortedObjectives = [...objectivesWithCycles].sort((a, b) => 
+    a.title.localeCompare(b.title)
+  );
 
   return (
-    <div className="space-y-8">
-      {objectivesByCycle.map(({ cycle, objectives }) => (
-        <div key={cycle.id} className="rounded-lg border shadow-sm">
-          <div className="bg-muted/50 p-4 rounded-t-lg">
-            <h3 className="text-lg font-semibold">{cycle.title}</h3>
-            <p className="text-sm text-muted-foreground">
-              {formatDate(new Date(cycle.startDate))} - {formatDate(new Date(cycle.endDate))}
-            </p>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px]">Objective</TableHead>
-                <TableHead>Beschreibung</TableHead>
-                <TableHead className="w-[200px]">Fortschritt</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {objectives.map((objective) => {
-                // Berechne den Fortschritt (Dummy-Wert, später durch echte Berechnung ersetzen)
-                const progress = Math.floor(Math.random() * 100);
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Titel</TableHead>
+          <TableHead>Beschreibung</TableHead>
+          <TableHead>Zyklus</TableHead>
+          <TableHead className="w-[200px]">Fortschritt</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sortedObjectives.map((objective) => {
+          // Berechne den Fortschritt (Dummy-Wert, später durch echte Berechnung ersetzen)
+          const progress = Math.floor(Math.random() * 100);
 
-                return (
-                  <TableRow key={objective.id}>
-                    <TableCell className="font-medium">
-                      {objective.title}
-                    </TableCell>
-                    <TableCell>{objective.description}</TableCell>
-                    <TableCell>
-                      <div className="space-y-2">
-                        <Progress value={progress} />
-                        <p className="text-sm text-right text-muted-foreground">
-                          {progress}%
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      ))}
-    </div>
+          return (
+            <TableRow key={objective.id}>
+              <TableCell className="font-medium">
+                {objective.title}
+              </TableCell>
+              <TableCell>{objective.description || "-"}</TableCell>
+              <TableCell>
+                {objective.cycle ? (
+                  <div className="text-sm">
+                    <div>{objective.cycle.title}</div>
+                    <div className="text-muted-foreground">
+                      {formatDate(new Date(objective.cycle.startDate))} - {formatDate(new Date(objective.cycle.endDate))}
+                    </div>
+                  </div>
+                ) : "-"}
+              </TableCell>
+              <TableCell>
+                <div className="space-y-2">
+                  <Progress value={progress} />
+                  <p className="text-sm text-right text-muted-foreground">
+                    {progress}%
+                  </p>
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }
