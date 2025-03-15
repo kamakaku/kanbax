@@ -4,11 +4,18 @@ import { type Objective, type KeyResult, type User } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PlusCircle, UserCircle, Calendar, Target } from "lucide-react";
+import { useState } from "react";
+import { KeyResultForm } from "@/components/okr/key-result-form";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
+  const [isKeyResultDialogOpen, setIsKeyResultDialogOpen] = useState(false);
 
   // Fetch all objectives first
   const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
@@ -67,41 +74,85 @@ export function OKRDetailPage() {
       <div className="flex justify-center">
         <Card className="w-2/3 p-6 relative">
           <div className="absolute -left-3 top-1/2 w-1 h-24 bg-primary -translate-y-1/2" />
-          <div className="flex items-start justify-between">
-            <div className="space-y-4 flex-1">
+          <div className="space-y-6">
+            <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <h3 className="text-xl font-semibold">{objective.title}</h3>
-                <p className="text-sm text-muted-foreground">{objective.description}</p>
+                <h3 className="text-2xl font-semibold">{objective.title}</h3>
+                <p className="text-muted-foreground">{objective.description}</p>
               </div>
-              <div className="flex items-center gap-4">
-                <Progress value={progress} className="flex-1" />
-                <span className="text-sm font-medium w-12 text-right">
-                  {progress}%
-                </span>
+              {assignedUser && (
+                <Avatar className="h-12 w-12">
+                  {assignedUser.avatarUrl ? (
+                    <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.username} />
+                  ) : (
+                    <AvatarFallback>
+                      <UserCircle className="h-6 w-6" />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="space-y-1">
+                <div className="text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Erstellt am
+                </div>
+                <div>{format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Status
+                </div>
+                <div>{objective.status}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Verantwortlich</div>
+                <div>{assignedUser?.username || "Nicht zugewiesen"}</div>
               </div>
             </div>
-            {assignedUser && (
-              <Avatar className="h-10 w-10">
-                {assignedUser.avatarUrl ? (
-                  <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.username} />
-                ) : (
-                  <AvatarFallback>
-                    <UserCircle className="h-6 w-6" />
-                  </AvatarFallback>
-                )}
-              </Avatar>
-            )}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Gesamtfortschritt</span>
+                <span className="text-sm text-muted-foreground">{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
           </div>
         </Card>
       </div>
 
-      {/* Connecting Lines and Key Results */}
-      <div className="relative">
+      {/* Key Results Bereich */}
+      <div className="relative space-y-6">
+        <div className="flex justify-between items-center">
+          <h4 className="text-lg font-semibold">Key Results</h4>
+          <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Key Result hinzufügen
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Neues Key Result erstellen</DialogTitle>
+              </DialogHeader>
+              <KeyResultForm 
+                objectiveId={objectiveId} 
+                onSuccess={() => setIsKeyResultDialogOpen(false)} 
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
         {/* Center line */}
-        <div className="absolute left-1/2 top-0 w-0.5 h-full bg-primary/20 -translate-x-1/2" />
+        <div className="absolute left-1/2 top-16 w-0.5 h-full bg-primary/20 -translate-x-1/2" />
 
         {/* Key Results */}
-        <div className="grid gap-8 relative">
+        <div className="grid gap-8 relative pt-8">
           {keyResults.map((kr, index) => {
             const krProgress = Math.floor(Math.random() * 100);
             const assignedUser = kr.userId ? users.find(u => u.id === kr.userId) : null;
@@ -116,6 +167,16 @@ export function OKRDetailPage() {
                       <div className="space-y-2">
                         <h4 className="font-medium">{kr.title}</h4>
                         <p className="text-sm text-muted-foreground">{kr.description}</p>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Zielwert:</span>{" "}
+                          {kr.targetValue}
+                        </div>
+                        {kr.currentValue !== null && (
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Aktueller Wert:</span>{" "}
+                            {kr.currentValue}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-4">
                         <Progress value={krProgress} className="flex-1" />
