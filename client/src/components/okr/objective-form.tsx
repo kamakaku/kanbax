@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { type InsertObjective, type Project, type OkrCycle, type Team, type User } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -132,46 +133,16 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           title: `${values.newCycleQuarter} ${values.newCycleYear}`,
           startDate,
           endDate,
-          status: "active" as const,
+          status: "active",
         };
 
-        console.log("Creating new cycle with payload:", newCyclePayload);
-
-        try {
-          const response = await fetch("/api/okr-cycles", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(newCyclePayload),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error("Server error response:", errorData);
-            throw new Error(errorData.message || `Server-Fehler: ${response.status}`);
-          }
-
-          const newCycle = await response.json();
-          console.log("Server response for new cycle:", newCycle);
-
-          // Validate the response structure
-          if (!newCycle || typeof newCycle.id === 'undefined') {
-            console.error("Invalid cycle response structure:", newCycle);
-            throw new Error("Ungültige Server-Antwort: Fehlende ID");
-          }
-
-          cycleId = String(newCycle.id);
-          console.log("Successfully created cycle with ID:", cycleId);
-        } catch (error) {
-          console.error("Error creating cycle:", error);
-          throw new Error(`Fehler beim Erstellen des OKR-Zyklus: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
-        }
+        const newCycle = await apiRequest<OkrCycle>("POST", "/api/okr-cycles", newCyclePayload);
+        cycleId = newCycle.id.toString();
       }
 
       const payload: InsertObjective = {
         title: values.title,
-        description: values.description || undefined,
+        description: values.description,
         status: "active",
         projectId: values.projectId ? parseInt(values.projectId) : undefined,
         cycleId: cycleId ? parseInt(cycleId) : undefined,
@@ -179,27 +150,13 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         userId: values.userId ? parseInt(values.userId) : undefined,
       };
 
-      console.log("Creating objective with payload:", payload);
+      await apiRequest("POST", "/api/objectives", payload);
 
-      const response = await fetch("/api/objectives", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/objectives"]
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Server error response for objective:", errorData);
-        throw new Error(errorData.message || `Server-Fehler: ${response.status}`);
-      }
-
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/objectives"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/okr-cycles"],
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/okr-cycles"]
       });
 
       toast({ title: "Objective erfolgreich erstellt" });
@@ -208,7 +165,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
     } catch (error) {
       console.error("Fehler beim Erstellen des Objective:", error);
       toast({
-        title: error instanceof Error ? error.message : "Fehler beim Erstellen des Objective",
+        title: "Fehler beim Erstellen des Objective",
         variant: "destructive",
       });
     }
@@ -238,9 +195,9 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
             <FormItem>
               <FormLabel>Beschreibung</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Beschreiben Sie das Ziel und den gewünschten Outcome"
-                  {...field}
+                <Textarea 
+                  placeholder="Beschreiben Sie das Ziel und den gewünschten Outcome" 
+                  {...field} 
                 />
               </FormControl>
               <FormMessage />

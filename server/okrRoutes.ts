@@ -16,61 +16,32 @@ export function registerOkrRoutes(app: Express) {
       res.json(cycles);
     } catch (error) {
       console.error("Fehler beim Abrufen der OKR-Zyklen:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der OKR-Zyklen", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Abrufen der OKR-Zyklen" });
     }
   });
 
   app.post("/api/okr-cycles", async (req: Request, res: Response) => {
+    console.log("Received cycle data:", req.body); // Debug log
+
+    const result = insertOkrCycleSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
     try {
-      console.log("Received cycle data:", req.body);
-
-      const result = insertOkrCycleSchema.safeParse(req.body);
-      if (!result.success) {
-        console.error("Validation error:", result.error);
-        return res.status(400).json({ message: result.error.errors });
-      }
-
       const data = {
         ...result.data,
         startDate: new Date(result.data.startDate),
         endDate: new Date(result.data.endDate)
       };
 
-      console.log("Attempting to insert cycle with data:", data);
+      console.log("Processed cycle data:", data); // Debug log
 
-      const [cycle] = await db.insert(okrCycles)
-        .values(data)
-        .returning();
-
-      console.log("Database response for cycle:", cycle);
-      console.log("Type of cycle.id:", typeof cycle.id, "Value:", cycle.id);
-
-      if (!cycle) {
-        throw new Error("Cycle creation failed - no response from database");
-      }
-
-      // Ensure we have a valid numeric ID
-      const cycleId = Number(cycle.id);
-      if (isNaN(cycleId)) {
-        throw new Error("Invalid cycle ID received from database");
-      }
-
-      const response = {
-        id: cycleId,
-        title: cycle.title,
-        startDate: cycle.startDate,
-        endDate: cycle.endDate,
-        status: cycle.status
-      };
-
-      console.log("Sending response:", response);
-      res.status(201).json(response);
+      const [cycle] = await db.insert(okrCycles).values(data).returning();
+      res.status(201).json(cycle);
     } catch (error) {
       console.error("Fehler beim Erstellen des OKR-Zyklus:", error);
-      res.status(500).json({ 
-        message: "Fehler beim Erstellen des OKR-Zyklus", 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
+      res.status(500).json({ message: "Fehler beim Erstellen des OKR-Zyklus" });
     }
   });
 
@@ -81,7 +52,7 @@ export function registerOkrRoutes(app: Express) {
       res.json(objectives);
     } catch (error) {
       console.error("Fehler beim Abrufen der Objectives:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der Objectives", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Abrufen der Objectives" });
     }
   });
 
@@ -96,7 +67,7 @@ export function registerOkrRoutes(app: Express) {
       res.status(201).json(objective);
     } catch (error) {
       console.error("Fehler beim Erstellen des Objective:", error);
-      res.status(500).json({ message: "Fehler beim Erstellen des Objective", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Erstellen des Objective" });
     }
   });
 
@@ -117,7 +88,7 @@ export function registerOkrRoutes(app: Express) {
       res.json(updated[0]);
     } catch (error) {
       console.error("Fehler beim Aktualisieren des Objective:", error);
-      res.status(500).json({ message: "Fehler beim Aktualisieren des Objective", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Aktualisieren des Objective" });
     }
   });
 
@@ -132,7 +103,7 @@ export function registerOkrRoutes(app: Express) {
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Objective:", error);
-      res.status(500).json({ message: "Fehler beim Löschen des Objective", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Löschen des Objective" });
     }
   });
 
@@ -148,7 +119,7 @@ export function registerOkrRoutes(app: Express) {
       res.json(krs);
     } catch (error) {
       console.error("Fehler beim Abrufen der Key Results:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der Key Results", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Abrufen der Key Results" });
     }
   });
 
@@ -169,7 +140,7 @@ export function registerOkrRoutes(app: Express) {
       res.status(201).json(keyResult);
     } catch (error) {
       console.error("Fehler beim Erstellen des Key Result:", error);
-      res.status(500).json({ message: "Fehler beim Erstellen des Key Result", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Erstellen des Key Result" });
     }
   });
 
@@ -190,7 +161,7 @@ export function registerOkrRoutes(app: Express) {
       res.json(updated[0]);
     } catch (error) {
       console.error("Fehler beim Aktualisieren des Key Result:", error);
-      res.status(500).json({ message: "Fehler beim Aktualisieren des Key Result", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Aktualisieren des Key Result" });
     }
   });
 
@@ -205,7 +176,7 @@ export function registerOkrRoutes(app: Express) {
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Key Result:", error);
-      res.status(500).json({ message: "Fehler beim Löschen des Key Result", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Löschen des Key Result" });
     }
   });
 
@@ -225,7 +196,7 @@ export function registerOkrRoutes(app: Express) {
       res.json(comments);
     } catch (error) {
       console.error("Fehler beim Abrufen der Kommentare:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der Kommentare", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Abrufen der Kommentare" });
     }
   });
 
@@ -240,7 +211,7 @@ export function registerOkrRoutes(app: Express) {
       res.status(201).json(comment);
     } catch (error) {
       console.error("Fehler beim Erstellen des Kommentars:", error);
-      res.status(500).json({ message: "Fehler beim Erstellen des Kommentars", error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ message: "Fehler beim Erstellen des Kommentars" });
     }
   });
 }
