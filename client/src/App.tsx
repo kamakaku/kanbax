@@ -22,6 +22,7 @@ import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
 import Profile from "@/pages/profile";
 import OKRPage from "@/pages/okr";
+import OKRDetailPage from "@/pages/okr-detail"; // Neue Import
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -140,6 +141,7 @@ function AuthenticatedApp() {
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />
+      <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} /> {/* Neue Route */}
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />
