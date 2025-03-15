@@ -40,6 +40,12 @@ if (!fs.existsSync('./uploads/avatars')) {
 function registerAuthRoutes(app: Express) {
   log("Registering auth routes...");
 
+  // Add a simple auth check endpoint
+  app.get("/api/auth", (req, res) => {
+    log("Auth check endpoint called");
+    res.json({ message: "Auth endpoints are working" });
+  });
+
   app.post("/api/auth/register", async (req, res) => {
     log("Handling registration request");
     const result = insertUserSchema.safeParse(req.body);
@@ -102,11 +108,7 @@ function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Add a simple auth check endpoint
-  app.get("/api/auth", (req, res) => {
-    log("Auth check endpoint called");
-    res.json({ message: "Auth endpoints are working" });
-  });
+  log("Auth routes registered successfully");
 }
 
 export async function registerRoutes(app: Express) {
