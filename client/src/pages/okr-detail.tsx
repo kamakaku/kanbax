@@ -10,6 +10,7 @@ import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2 } from "lu
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
+import { CommentSection } from "@/components/okr/comment-section";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
@@ -233,6 +234,14 @@ export function OKRDetailPage() {
         </Card>
       </div>
 
+      {/* Objective Comments */}
+      <div className="flex justify-center">
+        <Card className="w-2/3 p-6">
+          <h4 className="text-lg font-semibold mb-4">Kommentare zum Objective</h4>
+          <CommentSection objectiveId={objectiveId} />
+        </Card>
+      </div>
+
       {/* Key Results Section */}
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -268,10 +277,8 @@ export function OKRDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {keyResults.map((kr) => {
-                const krProgress = kr.currentValue || 0;
-
-                return (
+              {keyResults.map((kr) => (
+                <>
                   <TableRow key={kr.id}>
                     <TableCell className="font-medium">{kr.title}</TableCell>
                     <TableCell>{kr.description}</TableCell>
@@ -280,7 +287,7 @@ export function OKRDetailPage() {
                       <div className="space-y-4">
                         {kr.type === "checkbox" ? (
                           <Checkbox
-                            checked={krProgress === 100}
+                            checked={kr.currentValue === 100}
                             onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
                           />
                         ) : kr.type === "checklist" && kr.checklistItems ? (
@@ -296,15 +303,15 @@ export function OKRDetailPage() {
                                 <span className="text-sm">{item.title}</span>
                               </div>
                             ))}
-                            <Progress value={krProgress} className="h-2" />
+                            <Progress value={kr.currentValue || 0} className="h-2" />
                           </div>
                         ) : (
                           <div className="flex items-center gap-4">
-                            <Progress value={krProgress} className="flex-1" />
+                            <Progress value={kr.currentValue || 0} className="flex-1" />
                             <Input
                               type="number"
                               className="w-20"
-                              value={editingProgress[kr.id] !== undefined ? editingProgress[kr.id] : krProgress}
+                              value={editingProgress[kr.id] !== undefined ? editingProgress[kr.id] : kr.currentValue || 0}
                               onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
                               onBlur={() => handleProgressInputBlur(kr)}
                               min={0}
@@ -324,8 +331,16 @@ export function OKRDetailPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                );
-              })}
+                  <TableRow>
+                    <TableCell colSpan={5} className="bg-muted/10">
+                      <div className="py-4">
+                        <h5 className="text-sm font-medium mb-2">Kommentare</h5>
+                        <CommentSection keyResultId={kr.id} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </>
+              ))}
             </TableBody>
           </Table>
         </Card>
