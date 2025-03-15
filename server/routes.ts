@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
@@ -290,11 +290,137 @@ export async function registerRoutes(app: Express) {
 
     try {
       const board = await storage.createBoard(result.data);
+
+      // Create board members for assigned users
+      if (result.data.memberIds) {
+        await Promise.all(result.data.memberIds.map(userId =>
+          storage.createBoardMember({
+            boardId: board.id,
+            userId,
+            role: "member"
+          })
+        ));
+      }
+
+      // Create board teams for assigned teams
+      if (result.data.teamIds) {
+        await Promise.all(result.data.teamIds.map(teamId =>
+          storage.createBoardTeam({
+            boardId: board.id,
+            teamId,
+            role: "member"
+          })
+        ));
+      }
+
+      // Create board members for guest emails
+      if (result.data.guestEmails) {
+        await Promise.all(result.data.guestEmails.map(async (email) => {
+          // Check if user exists with this email
+          let user = await storage.getUserByEmail(email);
+
+          if (!user) {
+            // Create a new user with guest role
+            const tempPassword = Math.random().toString(36).slice(-8);
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(tempPassword, salt);
+
+            user = await storage.createUser({
+              email,
+              username: email.split('@')[0],
+              passwordHash,
+            });
+
+            // TODO: Send invitation email with temporary password
+          }
+
+          // Add as board member with guest role
+          await storage.createBoardMember({
+            boardId: board.id,
+            userId: user.id,
+            role: "guest"
+          });
+        }));
+      }
+
       console.log("Created board:", board);
       res.status(201).json(board);
     } catch (error) {
       console.error("Failed to create board:", error);
       res.status(500).json({ message: "Failed to create board" });
+    }
+  });
+
+  // Add new endpoints for board permissions
+  app.post("/api/boards/:boardId/members", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    const result = insertBoardMemberSchema.safeParse({ ...req.body, boardId });
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const boardMember = await storage.createBoardMember(result.data);
+      res.status(201).json(boardMember);
+    } catch (error) {
+      console.error("Failed to add board member:", error);
+      res.status(500).json({ message: "Failed to add board member" });
+    }
+  });
+
+  app.post("/api/boards/:boardId/teams", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    const result = insertBoardTeamSchema.safeParse({ ...req.body, boardId });
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const boardTeam = await storage.createBoardTeam(result.data);
+      res.status(201).json(boardTeam);
+    } catch (error) {
+      console.error("Failed to add board team:", error);
+      res.status(500).json({ message: "Failed to add board team" });
+    }
+  });
+
+  // Get board members
+  app.get("/api/boards/:boardId/members", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    try {
+      const members = await storage.getBoardMembers(boardId);
+      res.json(members);
+    } catch (error) {
+      console.error("Failed to fetch board members:", error);
+      res.status(500).json({ message: "Failed to fetch board members" });
+    }
+  });
+
+  // Get board teams
+  app.get("/api/boards/:boardId/teams", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    try {
+      const teams = await storage.getBoardTeams(boardId);
+      res.json(teams);
+    } catch (error) {
+      console.error("Failed to fetch board teams:", error);
+      res.status(500).json({ message: "Failed to fetch board teams" });
     }
   });
 

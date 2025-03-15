@@ -42,6 +42,9 @@ export const boards = pgTable("boards", {
   title: text("title").notNull(),
   description: text("description"),
   projectId: integer("project_id").notNull(),
+  memberIds: integer("member_ids").array(),
+  teamIds: integer("team_ids").array(),
+  guestEmails: text("guest_emails").array(),
 });
 
 export const columns = pgTable("columns", {
@@ -137,6 +140,9 @@ export const insertBoardSchema = createInsertSchema(boards)
   .extend({
     title: z.string().min(1, "Title is required"),
     projectId: z.number().int().positive("Project ID is required"),
+    memberIds: z.array(z.number().int().positive()).optional(),
+    teamIds: z.array(z.number().int().positive()).optional(),
+    guestEmails: z.array(z.string().email()).optional(),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -433,6 +439,52 @@ export type InsertKeyResult = z.infer<typeof insertKeyResultSchema>;
 
 export type OkrComment = typeof okrComments.$inferSelect;
 export type InsertOkrComment = z.infer<typeof insertOkrCommentSchema>;
+
+// Add new tables for board permissions after the existing tables
+export const boardMembers = pgTable("board_members", {
+  id: serial("id").primaryKey(),
+  boardId: integer("board_id").notNull(),
+  userId: integer("user_id").notNull(),
+  role: text("role").notNull().default("member"), // 'member', 'admin', or 'guest'
+  invitedAt: timestamp("invited_at").defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+export const boardTeams = pgTable("board_teams", {
+  id: serial("id").primaryKey(),
+  boardId: integer("board_id").notNull(),
+  teamId: integer("team_id").notNull(),
+  role: text("role").notNull().default("member"), // 'member' or 'admin'
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+});
+
+// Add schemas for the new tables
+export const insertBoardMemberSchema = createInsertSchema(boardMembers)
+  .pick({
+    boardId: true,
+    userId: true,
+    role: true,
+  })
+  .extend({
+    role: z.enum(["member", "admin", "guest"]).default("member"),
+  });
+
+export const insertBoardTeamSchema = createInsertSchema(boardTeams)
+  .pick({
+    boardId: true,
+    teamId: true,
+    role: true,
+  })
+  .extend({
+    role: z.enum(["member", "admin"]).default("member"),
+  });
+
+// Export types for the new tables
+export type BoardMember = typeof boardMembers.$inferSelect;
+export type InsertBoardMember = z.infer<typeof insertBoardMemberSchema>;
+export type BoardTeam = typeof boardTeams.$inferSelect;
+export type InsertBoardTeam = z.infer<typeof insertBoardTeamSchema>;
+
 
 // Add new tables for productivity insights after the existing tables
 

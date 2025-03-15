@@ -1,4 +1,4 @@
-import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
+import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog, boardMembers, boardTeams, type BoardMember, type InsertBoardMember, type BoardTeam, type InsertBoardTeam } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -69,6 +69,12 @@ export interface IStorage {
 
   // Task state changes
   createTaskStateChange(change: InsertTaskStateChange): Promise<TaskStateChange>;
+
+  // Board permission operations
+  createBoardMember(member: InsertBoardMember): Promise<BoardMember>;
+  createBoardTeam(team: InsertBoardTeam): Promise<BoardTeam>;
+  getBoardMembers(boardId: number): Promise<BoardMember[]>;
+  getBoardTeams(boardId: number): Promise<BoardTeam[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -186,6 +192,39 @@ export class DatabaseStorage implements IStorage {
     if (!board) {
       throw new Error(`Board ${id} not found`);
     }
+  }
+
+  // Board permission implementations
+  async createBoardMember(member: InsertBoardMember): Promise<BoardMember> {
+    const [record] = await db
+      .insert(boardMembers)
+      .values(member)
+      .returning();
+    return record;
+  }
+
+  async createBoardTeam(team: InsertBoardTeam): Promise<BoardTeam> {
+    const [record] = await db
+      .insert(boardTeams)
+      .values(team)
+      .returning();
+    return record;
+  }
+
+  async getBoardMembers(boardId: number): Promise<BoardMember[]> {
+    return await db
+      .select()
+      .from(boardMembers)
+      .where(eq(boardMembers.boardId, boardId))
+      .orderBy(boardMembers.invitedAt);
+  }
+
+  async getBoardTeams(boardId: number): Promise<BoardTeam[]> {
+    return await db
+      .select()
+      .from(boardTeams)
+      .where(eq(boardTeams.boardId, boardId))
+      .orderBy(boardTeams.addedAt);
   }
 
   // Column operations
