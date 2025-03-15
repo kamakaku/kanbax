@@ -103,11 +103,29 @@ export function OKRDetailPage() {
 
     if (kr.type === "checkbox") {
       updateData.currentValue = value ? 100 : 0;
+    } else if (kr.type === "checklist" && kr.checklistItems) {
+      // Aktualisiere den Status eines Checklisten-Items
+      const completedItems = kr.checklistItems.filter(item => item.completed).length;
+      const totalItems = kr.checklistItems.length;
+      updateData.currentValue = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
     } else {
       updateData.currentValue = typeof value === "number" ? value : 0;
     }
 
     await updateKeyResult.mutateAsync(updateData);
+  };
+
+  const handleChecklistItemUpdate = async (kr: KeyResult, itemIndex: number, completed: boolean) => {
+    if (!kr.checklistItems) return;
+
+    const updatedItems = [...kr.checklistItems];
+    updatedItems[itemIndex] = { ...updatedItems[itemIndex], completed };
+
+    await updateKeyResult.mutateAsync({
+      id: kr.id,
+      checklistItems: updatedItems,
+      currentValue: (updatedItems.filter(item => item.completed).length / updatedItems.length) * 100,
+    });
   };
 
   if (isLoadingObjectives || isLoadingKeyResults) {
@@ -122,7 +140,7 @@ export function OKRDetailPage() {
   const progress = Math.floor(Math.random() * 100); // Später durch echte Berechnung ersetzen
 
   return (
-    <div className="container mx-auto py-12 space-y-16">
+    <div className="container mx-auto py-6 space-y-8">
       {/* Objective Card */}
       <div className="flex justify-center">
         <Card className="w-2/3 p-6 relative">
@@ -189,7 +207,7 @@ export function OKRDetailPage() {
                 Key Result hinzufügen
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Neues Key Result erstellen</DialogTitle>
               </DialogHeader>
@@ -215,7 +233,6 @@ export function OKRDetailPage() {
             <TableBody>
               {keyResults.map((kr) => {
                 const krProgress = kr.currentValue || 0;
-                const assignedUser = kr.userId ? users.find(u => u.id === kr.userId) : null;
 
                 return (
                   <TableRow key={kr.id}>
@@ -223,14 +240,29 @@ export function OKRDetailPage() {
                     <TableCell>{kr.description}</TableCell>
                     <TableCell>{kr.type}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-4">
+                      <div className="space-y-4">
                         {kr.type === "checkbox" ? (
                           <Checkbox
                             checked={krProgress === 100}
                             onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
                           />
+                        ) : kr.type === "checklist" && kr.checklistItems ? (
+                          <div className="space-y-2">
+                            {kr.checklistItems.map((item, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={item.completed}
+                                  onCheckedChange={(checked) => 
+                                    handleChecklistItemUpdate(kr, index, checked as boolean)
+                                  }
+                                />
+                                <span className="text-sm">{item.title}</span>
+                              </div>
+                            ))}
+                            <Progress value={krProgress} className="h-2" />
+                          </div>
                         ) : (
-                          <>
+                          <div className="flex items-center gap-4">
                             <Progress value={krProgress} className="flex-1" />
                             <Input
                               type="number"
@@ -240,7 +272,7 @@ export function OKRDetailPage() {
                               min={0}
                               max={100}
                             />
-                          </>
+                          </div>
                         )}
                       </div>
                     </TableCell>
@@ -263,7 +295,7 @@ export function OKRDetailPage() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingKR} onOpenChange={(open) => !open && setEditingKR(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Key Result bearbeiten</DialogTitle>
           </DialogHeader>

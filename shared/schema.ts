@@ -294,15 +294,43 @@ export const keyResults = pgTable("key_results", {
   title: text("title").notNull(),
   description: text("description"),
   objectiveId: integer("objective_id").notNull(),
-  type: text("type").notNull(), // percentage, checkbox, progress
+  type: text("type").notNull(), // percentage, checkbox, progress, checklist
   targetValue: real("target_value").notNull(),
   currentValue: real("current_value").default(0),
   progress: real("progress").default(0),
   linkedTaskIds: integer("linked_task_ids").array(),
   status: text("status").notNull().default("active"), // active, completed, archived
+  checklistItems: text("checklist_items").array(), // Store JSON stringified checklist items
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Update the insertKeyResultSchema to include checklist items
+export const insertKeyResultSchema = createInsertSchema(keyResults)
+  .pick({
+    title: true,
+    description: true,
+    objectiveId: true,
+    type: true,
+    targetValue: true,
+    currentValue: true,
+    linkedTaskIds: true,
+    status: true,
+    checklistItems: true,
+  })
+  .extend({
+    title: z.string().min(1, "Titel ist erforderlich"),
+    objectiveId: z.number().int().positive("Objective ID ist erforderlich"),
+    type: z.enum(["percentage", "checkbox", "progress", "checklist"]),
+    targetValue: z.number().min(0),
+    currentValue: z.number().min(0).optional(),
+    linkedTaskIds: z.array(z.number()).optional(),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+    checklistItems: z.array(z.object({
+      title: z.string(),
+      completed: z.boolean().default(false)
+    })).optional(),
+  });
 
 // Comments can be attached to either objectives or key results
 export const okrComments = pgTable("okr_comments", {
@@ -335,26 +363,6 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     status: z.enum(["active", "completed", "archived"]).default("active"),
   });
 
-export const insertKeyResultSchema = createInsertSchema(keyResults)
-  .pick({
-    title: true,
-    description: true,
-    objectiveId: true,
-    type: true,
-    targetValue: true,
-    currentValue: true,
-    linkedTaskIds: true,
-    status: true,
-  })
-  .extend({
-    title: z.string().min(1, "Titel ist erforderlich"),
-    objectiveId: z.number().int().positive("Objective ID ist erforderlich"),
-    type: z.enum(["percentage", "checkbox", "progress"]),
-    targetValue: z.number().min(0),
-    currentValue: z.number().min(0).optional(),
-    linkedTaskIds: z.array(z.number()).optional(),
-    status: z.enum(["active", "completed", "archived"]).default("active"),
-  });
 
 export const insertOkrCommentSchema = createInsertSchema(okrComments)
   .pick({

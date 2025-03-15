@@ -4,7 +4,7 @@ import {
   objectives, keyResults, okrComments, okrCycles,
   insertObjectiveSchema, insertKeyResultSchema, insertOkrCommentSchema, insertOkrCycleSchema
 } from "@shared/schema";
-import {eq} from 'drizzle-orm'
+import { eq } from 'drizzle-orm';
 
 export function registerOkrRoutes(app: Express) {
   // OKR Cycles Endpoints
@@ -133,7 +133,12 @@ export function registerOkrRoutes(app: Express) {
 
     try {
       const krs = await db.select().from(keyResults).where(eq(keyResults.objectiveId, objectiveId));
-      res.json(krs);
+      // Parse checklistItems from JSON strings back to objects
+      const processedKrs = krs.map(kr => ({
+        ...kr,
+        checklistItems: kr.checklistItems ? kr.checklistItems.map(item => JSON.parse(item)) : [],
+      }));
+      res.json(processedKrs);
     } catch (error) {
       console.error("Fehler beim Abrufen der Key Results:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Key Results" });
@@ -153,8 +158,21 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const [keyResult] = await db.insert(keyResults).values(result.data).returning();
-      res.status(201).json(keyResult);
+      // Stringify checklistItems before saving to database
+      const data = {
+        ...result.data,
+        checklistItems: result.data.checklistItems?.map(item => JSON.stringify(item)) || [],
+      };
+
+      const [keyResult] = await db.insert(keyResults).values(data).returning();
+
+      // Parse checklistItems back to objects for response
+      const response = {
+        ...keyResult,
+        checklistItems: keyResult.checklistItems?.map(item => JSON.parse(item)) || [],
+      };
+
+      res.status(201).json(response);
     } catch (error) {
       console.error("Fehler beim Erstellen des Key Result:", error);
       res.status(500).json({ message: "Fehler beim Erstellen des Key Result" });
@@ -168,14 +186,28 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
+      // If checklistItems is included in the update, stringify them
+      const updateData = {
+        ...req.body,
+        checklistItems: req.body.checklistItems?.map(item => JSON.stringify(item)) || undefined,
+      };
+
       const updated = await db.update(keyResults)
-        .set(req.body)
+        .set(updateData)
         .where(eq(keyResults.id, id))
         .returning();
+
       if (updated.length === 0) {
         return res.status(404).json({ message: "Key Result nicht gefunden" });
       }
-      res.json(updated[0]);
+
+      // Parse checklistItems back to objects for response
+      const response = {
+        ...updated[0],
+        checklistItems: updated[0].checklistItems?.map(item => JSON.parse(item)) || [],
+      };
+
+      res.json(response);
     } catch (error) {
       console.error("Fehler beim Aktualisieren des Key Result:", error);
       res.status(500).json({ message: "Fehler beim Aktualisieren des Key Result" });
