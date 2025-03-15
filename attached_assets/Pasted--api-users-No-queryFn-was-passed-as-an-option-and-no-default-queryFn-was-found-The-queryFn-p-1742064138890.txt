@@ -1,0 +1,59 @@
+["/api/users"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function Error Component Stack
+    at ObjectiveForm (objective-form.tsx:29:33)
+    at div (<anonymous>)
+    at chunk-CPFL7ZFD.js?v=a83ca5e2:41:13
+    at chunk-HHTAIDPU.js?v=a83ca5e2:61:7
+    at chunk-DKHUMOWT.js?v=a83ca5e2:52:11
+    at chunk-DKHUMOWT.js?v=a83ca5e2:33:11
+    at chunk-CPFL7ZFD.js?v=a83ca5e2:41:13
+    at chunk-Q6G2CDYH.js?v=a83ca5e2:29:5
+    at chunk-XALLT6XI.js?v=a83ca5e2:232:13
+    at chunk-XALLT6XI.js?v=a83ca5e2:155:58
+    at Presence (chunk-S7EWQZ7Q.js?v=a83ca5e2:24:11)
+    at chunk-XALLT6XI.js?v=a83ca5e2:146:64
+    at chunk-DKHUMOWT.js?v=a83ca5e2:52:11
+    at chunk-DKHUMOWT.js?v=a83ca5e2:33:11
+    at chunk-CPFL7ZFD.js?v=a83ca5e2:41:13
+    at chunk-HHTAIDPU.js?v=a83ca5e2:260:22
+    at Presence (chunk-S7EWQZ7Q.js?v=a83ca5e2:24:11)
+    at Provider (chunk-JJS7DLG7.js?v=a83ca5e2:38:15)
+    at DialogPortal (chunk-XALLT6XI.js?v=a83ca5e2:109:11)
+    at _c3 (dialog.tsx:33:6)
+    at Provider (chunk-JJS7DLG7.js?v=a83ca5e2:38:15)
+    at Dialog (chunk-XALLT6XI.js?v=a83ca5e2:50:5)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at OKRPage (okr.tsx:14:61)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Provider (chunk-JJS7DLG7.js?v=a83ca5e2:38:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=a83ca5e2:61:5)
+    at sidebar.tsx:85:7
+    at MainLayout (App.tsx:27:23)
+    at ProtectedRoute (App.tsx:104:38)
+    at component (<anonymous>)
+    at Route (wouter.js?v=a83ca5e2:206:16)
+    at Switch (wouter.js?v=a83ca5e2:262:17)
+    at AuthenticatedApp (App.tsx:121:20)
+    at QueryClientProvider (@tanstack_react-query.js?v=a83ca5e2:2848:3)
+    at AuthProvider (auth-store.tsx:51:32)
+    at App (<anonymous>)
+overrideMethod @ hook.js:608
+useBaseQuery @ @tanstack_react-query.js?v=a83ca5e2:3054
+useQuery @ @tanstack_react-query.js?v=a83ca5e2:3122
+ObjectiveForm @ objective-form.tsx:53
+renderWithHooks @ chunk-RPCDYKBN.js?v=a83ca5e2:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=a83ca5e2:14582
+beginWork @ chunk-RPCDYKBN.js?v=a83ca5e2:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=a83ca5e2:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=a83ca5e2:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=a83ca5e2:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=a83ca5e2:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=a83ca5e2:18678
+workLoop @ chunk-RPCDYKBN.js?v=a83ca5e2:197
+flushWork @ chunk-RPCDYKBN.js?v=a83ca5e2:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=a83ca5e2:384

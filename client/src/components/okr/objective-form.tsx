@@ -41,17 +41,38 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
     { value: "Q4", label: "Q4 (Okt-Dez)" },
   ];
 
-  // Fetch available data for dropdowns
+  // Fetch available data for dropdowns with explicit queryFn
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
+      return response.json();
+    }
   });
 
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
+      }
+      return response.json();
+    }
   });
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    }
   });
 
   const form = useForm<z.infer<typeof objectiveFormSchema>>({
@@ -94,7 +115,12 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         status: "active" as const,
       };
 
+      console.log("Creating cycle with payload:", newCyclePayload);
+
       const newCycle = await apiRequest<{ id: number }>("POST", "/api/okr-cycles", newCyclePayload);
+
+      console.log("Server response:", newCycle);
+
       if (!newCycle || typeof newCycle.id !== 'number') {
         throw new Error("Ungültige Antwort vom Server beim Erstellen des OKR-Zyklus");
       }
