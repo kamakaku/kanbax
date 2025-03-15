@@ -5,23 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { type InsertObjective, type Project, type OkrCycle, type Team, type User } from "@shared/schema";
+import { type InsertObjective, type Project, type Team, type User } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
 
 const objectiveFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
+  quarter: z.string().min(1, "Quartal ist erforderlich"),
+  year: z.string().min(1, "Jahr ist erforderlich"),
   projectId: z.string().optional(),
-  cycleType: z.enum(["existing", "new"]),
-  cycleId: z.string().optional(),
-  newCycleQuarter: z.string().optional(),
-  newCycleYear: z.string().optional(),
   teamId: z.string().optional(),
   userId: z.string().optional(),
 });
@@ -33,7 +29,6 @@ interface ObjectiveFormProps {
 export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [cycleType, setCycleType] = useState<"existing" | "new">("existing");
 
   // Generate a list of years (current year + 5 years)
   const currentYear = new Date().getFullYear();
@@ -46,49 +41,17 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
     { value: "Q4", label: "Q4 (Okt-Dez)" },
   ];
 
-  // Fetch all available data for dropdowns
+  // Fetch available data for dropdowns
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const response = await fetch("/api/projects");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Projekte");
-      }
-      return response.json();
-    },
-  });
-
-  const { data: cycles = [] } = useQuery<OkrCycle[]>({
-    queryKey: ["/api/okr-cycles"],
-    queryFn: async () => {
-      const response = await fetch("/api/okr-cycles");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der OKR-Zyklen");
-      }
-      return response.json();
-    },
   });
 
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
-    queryFn: async () => {
-      const response = await fetch("/api/teams");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Teams");
-      }
-      return response.json();
-    },
   });
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
   });
 
   const form = useForm<z.infer<typeof objectiveFormSchema>>({
@@ -96,11 +59,9 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
     defaultValues: {
       title: "",
       description: "",
-      cycleType: "existing",
+      quarter: "",
+      year: new Date().getFullYear().toString().slice(-2),
       projectId: undefined,
-      cycleId: undefined,
-      newCycleQuarter: undefined,
-      newCycleYear: new Date().getFullYear().toString().slice(-2),
       teamId: undefined,
       userId: undefined,
     },
@@ -124,37 +85,27 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
   async function onSubmit(values: z.infer<typeof objectiveFormSchema>) {
     try {
-      let cycleId = values.cycleId;
+      // Erstelle einen neuen OKR-Zyklus
+      const { startDate, endDate } = getDateRange(values.quarter, values.year);
+      const newCyclePayload = {
+        title: `${values.quarter} ${values.year}`,
+        startDate,
+        endDate,
+        status: "active" as const,
+      };
 
-      // If creating a new cycle
-      if (values.cycleType === "new" && values.newCycleQuarter && values.newCycleYear) {
-        const { startDate, endDate } = getDateRange(values.newCycleQuarter, values.newCycleYear);
-
-        const newCyclePayload = {
-          title: `${values.newCycleQuarter} ${values.newCycleYear}`,
-          startDate,
-          endDate,
-          status: "active" as const,
-        };
-
-        try {
-          const newCycle = await apiRequest<{ id: number }>("POST", "/api/okr-cycles", newCyclePayload);
-          if (!newCycle || typeof newCycle.id !== 'number') {
-            throw new Error("Ungültige Antwort vom Server beim Erstellen des OKR-Zyklus");
-          }
-          cycleId = newCycle.id.toString();
-        } catch (error) {
-          console.error("Error creating cycle:", error);
-          throw new Error("Fehler beim Erstellen des OKR-Zyklus");
-        }
+      const newCycle = await apiRequest<{ id: number }>("POST", "/api/okr-cycles", newCyclePayload);
+      if (!newCycle || typeof newCycle.id !== 'number') {
+        throw new Error("Ungültige Antwort vom Server beim Erstellen des OKR-Zyklus");
       }
 
+      // Erstelle das Objective mit dem neuen Zyklus
       const payload: InsertObjective = {
         title: values.title,
         description: values.description,
         status: "active",
         projectId: values.projectId ? parseInt(values.projectId) : undefined,
-        cycleId: cycleId ? parseInt(cycleId) : undefined,
+        cycleId: newCycle.id,
         teamId: values.teamId ? parseInt(values.teamId) : undefined,
         userId: values.userId ? parseInt(values.userId) : undefined,
       };
@@ -214,62 +165,24 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="cycleType"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>OKR-Zyklus</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={(value: "existing" | "new") => {
-                    field.onChange(value);
-                    setCycleType(value);
-                  }}
-                  defaultValue={field.value}
-                  className="flex flex-col space-y-1"
-                >
-                  <FormItem className="flex items-center space-x-3 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="existing" />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      Existierenden Zyklus auswählen
-                    </FormLabel>
-                  </FormItem>
-                  <FormItem className="flex items-center space-x-3 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="new" />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      Neuen Zyklus erstellen
-                    </FormLabel>
-                  </FormItem>
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {cycleType === "existing" ? (
+        <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="cycleId"
+            name="quarter"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>OKR-Zyklus auswählen</FormLabel>
+                <FormLabel>Quartal</FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Zyklus auswählen" />
+                      <SelectValue placeholder="Quartal auswählen" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     <SelectGroup>
-                      {cycles.map((cycle) => (
-                        <SelectItem key={cycle.id} value={cycle.id.toString()}>
-                          {cycle.title}
+                      {quarters.map((quarter) => (
+                        <SelectItem key={quarter.value} value={quarter.value}>
+                          {quarter.label}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -279,63 +192,34 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
               </FormItem>
             )}
           />
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="newCycleQuarter"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Quartal</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Quartal auswählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectGroup>
-                        {quarters.map((quarter) => (
-                          <SelectItem key={quarter.value} value={quarter.value}>
-                            {quarter.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name="newCycleYear"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Jahr</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Jahr auswählen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectGroup>
-                        {years.map((year) => (
-                          <SelectItem key={year} value={year}>
-                            20{year}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
+          <FormField
+            control={form.control}
+            name="year"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Jahr</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Jahr auswählen" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectGroup>
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year}>
+                          20{year}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}
