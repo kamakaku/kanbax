@@ -26,6 +26,11 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
+interface ChecklistItem {
+  title: string;
+  completed: boolean;
+}
+
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
@@ -39,36 +44,15 @@ export function OKRDetailPage() {
   // Fetch all necessary data
   const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
     queryKey: ["/api/objectives"],
-    queryFn: async () => {
-      const response = await fetch("/api/objectives");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Objectives");
-      }
-      return response.json();
-    },
   });
 
   const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/objectives", objectiveId, "key-results"],
-    queryFn: async () => {
-      const response = await fetch(`/api/objectives/${objectiveId}/key-results`);
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Key Results");
-      }
-      return response.json();
-    },
     enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
   });
 
   const updateKeyResult = useMutation({
@@ -103,8 +87,12 @@ export function OKRDetailPage() {
     if (kr.type === "checkbox") {
       updateData.currentValue = value ? 100 : 0;
     } else if (kr.type === "checklist" && kr.checklistItems) {
-      const completedItems = kr.checklistItems.filter(item => item.completed).length;
-      const totalItems = kr.checklistItems.length;
+      // Parse checklist items if they're stored as strings
+      const items = kr.checklistItems.map(item => 
+        typeof item === 'string' ? JSON.parse(item) as ChecklistItem : item
+      );
+      const completedItems = items.filter(item => item.completed).length;
+      const totalItems = items.length;
       updateData.currentValue = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
     } else {
       const numValue = typeof value === "number" ? value : 0;
@@ -134,12 +122,17 @@ export function OKRDetailPage() {
   const handleChecklistItemUpdate = async (kr: KeyResult, itemIndex: number, completed: boolean) => {
     if (!kr.checklistItems) return;
 
-    const updatedItems = [...kr.checklistItems];
+    // Parse checklist items if they're stored as strings
+    const items = kr.checklistItems.map(item => 
+      typeof item === 'string' ? JSON.parse(item) as ChecklistItem : item
+    );
+
+    const updatedItems = [...items];
     updatedItems[itemIndex] = { ...updatedItems[itemIndex], completed };
 
     await updateKeyResult.mutateAsync({
       id: kr.id,
-      checklistItems: updatedItems,
+      checklistItems: updatedItems.map(item => JSON.stringify(item)),
       currentValue: (updatedItems.filter(item => item.completed).length / updatedItems.length) * 100,
     });
   };
@@ -153,7 +146,11 @@ export function OKRDetailPage() {
     return <div className="text-center py-8">Objective nicht gefunden.</div>;
   }
 
-  const assignedUser = objective.userId ? users.find(u => u.id === objective.userId) : null;
+  const assignedUsers = objective.userIds
+    ? users.filter(u => objective.userIds?.includes(u.id))
+    : objective.userId && users.find(u => u.id === objective.userId)
+    ? [users.find(u => u.id === objective.userId)]
+    : [];
 
   // Calculate overall progress based on key results
   const progress = keyResults.length > 0
@@ -188,17 +185,19 @@ export function OKRDetailPage() {
                 </div>
                 <p className="text-muted-foreground">{objective.description}</p>
               </div>
-              {assignedUser && (
-                <Avatar className="h-12 w-12">
-                  {assignedUser.avatarUrl ? (
-                    <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.username} />
-                  ) : (
-                    <AvatarFallback>
-                      <UserCircle className="h-6 w-6" />
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-              )}
+              <div className="flex -space-x-2">
+                {assignedUsers.map((user) => user && (
+                  <Avatar key={user.id} className="h-12 w-12 border-2 border-background">
+                    {user.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={user.username} />
+                    ) : (
+                      <AvatarFallback>
+                        <UserCircle className="h-6 w-6" />
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4 text-sm">
@@ -218,7 +217,12 @@ export function OKRDetailPage() {
               </div>
               <div className="space-y-1">
                 <div className="text-muted-foreground">Verantwortlich</div>
-                <div>{assignedUser?.username || "Nicht zugewiesen"}</div>
+                <div>
+                  {assignedUsers
+                    .filter(Boolean)
+                    .map(user => user?.username)
+                    .join(", ") || "Nicht zugewiesen"}
+                </div>
               </div>
             </div>
 
@@ -271,6 +275,11 @@ export function OKRDetailPage() {
               {keyResults.map((kr) => {
                 const krProgress = kr.currentValue || 0;
 
+                // Parse checklist items if they're stored as strings
+                const checklistItems = kr.checklistItems?.map(item =>
+                  typeof item === 'string' ? JSON.parse(item) as ChecklistItem : item
+                ) || [];
+
                 return (
                   <TableRow key={kr.id}>
                     <TableCell className="font-medium">{kr.title}</TableCell>
@@ -281,16 +290,18 @@ export function OKRDetailPage() {
                         {kr.type === "checkbox" ? (
                           <Checkbox
                             checked={krProgress === 100}
-                            onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
+                            onCheckedChange={(checked) => 
+                              handleProgressUpdate(kr, checked === true)
+                            }
                           />
-                        ) : kr.type === "checklist" && kr.checklistItems ? (
+                        ) : kr.type === "checklist" ? (
                           <div className="space-y-2">
-                            {kr.checklistItems.map((item, index) => (
+                            {checklistItems.map((item, index) => (
                               <div key={index} className="flex items-center gap-2">
                                 <Checkbox
                                   checked={item.completed}
                                   onCheckedChange={(checked) =>
-                                    handleChecklistItemUpdate(kr, index, checked as boolean)
+                                    handleChecklistItemUpdate(kr, index, checked === true)
                                   }
                                 />
                                 <span className="text-sm">{item.title}</span>

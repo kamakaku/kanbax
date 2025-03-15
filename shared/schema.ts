@@ -284,6 +284,7 @@ export const objectives = pgTable("objectives", {
   cycleId: integer("cycle_id"),
   teamId: integer("team_id"),
   userId: integer("user_id"),
+  userIds: integer("user_ids").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -352,6 +353,7 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     cycleId: true,
     teamId: true,
     userId: true,
+    userIds: true,
     status: true,
   })
   .extend({
@@ -360,6 +362,7 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     cycleId: z.number().int().positive().optional(),
     teamId: z.number().int().positive().optional(),
     userId: z.number().int().positive().optional(),
+    userIds: z.array(z.number().int().positive()).optional(),
     status: z.enum(["active", "completed", "archived"]).default("active"),
   });
 
@@ -421,9 +424,6 @@ export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
-
-export type OkrCycle = typeof okrCycles.$inferSelect;
-export type InsertOkrCycle = z.infer<typeof insertOkrCycleSchema>;
 
 export type Objective = typeof objectives.$inferSelect;
 export type InsertObjective = z.infer<typeof insertObjectiveSchema>;

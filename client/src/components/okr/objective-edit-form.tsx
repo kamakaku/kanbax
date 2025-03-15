@@ -34,35 +34,14 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
   // Fetch available data for dropdowns
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const response = await fetch("/api/projects");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Projekte");
-      }
-      return response.json();
-    }
   });
 
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
-    queryFn: async () => {
-      const response = await fetch("/api/teams");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Teams");
-      }
-      return response.json();
-    }
   });
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    }
   });
 
   const userOptions: Option[] = users.map(user => ({
@@ -85,10 +64,12 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
   async function onSubmit(values: z.infer<typeof objectiveEditSchema>) {
     try {
       const payload = {
-        ...values,
+        title: values.title,
+        description: values.description,
         projectId: values.projectId ? parseInt(values.projectId) : null,
         teamId: values.teamId ? parseInt(values.teamId) : null,
         userIds: values.userIds.map(id => parseInt(id)),
+        status: values.status,
       };
 
       await apiRequest("PATCH", `/api/objectives/${objective.id}`, payload);
