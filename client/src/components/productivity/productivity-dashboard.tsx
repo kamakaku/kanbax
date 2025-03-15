@@ -37,14 +37,15 @@ export function ProductivityDashboard() {
     enabled: !!user?.id,
   });
 
-  const { data: taskDistribution = [], isLoading: isLoadingDistribution } = useQuery({
+  const { data: taskDistribution = [], isLoading: isLoadingDistribution } = useQuery<{ name: string; value: number; }[]>({
     queryKey: ["/api/productivity/task-distribution", user?.id],
     queryFn: async () => {
       const response = await fetch(`/api/productivity/task-distribution/${user?.id}`);
       if (!response.ok) {
         throw new Error("Failed to fetch task distribution");
       }
-      return response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!user?.id,
   });
@@ -135,7 +136,7 @@ export function ProductivityDashboard() {
             <div className="text-2xl font-bold">
               {Math.round(
                 metrics.reduce((acc, m) => acc + m.timeSpentMinutes, 0) /
-                Math.max(metrics.reduce((acc, m) => acc + m.tasksCompleted, 0), 1)
+                  Math.max(metrics.reduce((acc, m) => acc + m.tasksCompleted, 0), 1)
               )}min
             </div>
             <p className="text-xs text-muted-foreground">

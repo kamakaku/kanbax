@@ -516,7 +516,8 @@ export class DatabaseStorage implements IStorage {
       GROUP BY status
     `);
 
-    return result;
+    // Ensure we always return an array
+    return Array.isArray(result) ? result : result.rows || [];
   }
 
   // Task time tracking implementations
