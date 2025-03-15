@@ -65,20 +65,20 @@ export function OkrTable() {
           const progress = Math.floor(Math.random() * 100);
 
           return (
-            <TableRow key={objective.id}>
-              <TableCell className="font-medium">
+            <TableRow key={objective.id} className="h-12">
+              <TableCell className="font-medium py-2">
                 {objective.title}
               </TableCell>
-              <TableCell>{objective.description || "-"}</TableCell>
-              <TableCell>
+              <TableCell className="py-2">{objective.description || "-"}</TableCell>
+              <TableCell className="py-2">
                 {objective.cycle ? objective.cycle.title : "-"}
               </TableCell>
-              <TableCell>
-                <div className="space-y-2">
-                  <Progress value={progress} />
-                  <p className="text-sm text-right text-muted-foreground">
+              <TableCell className="py-2">
+                <div className="flex items-center gap-4">
+                  <Progress value={progress} className="flex-1" />
+                  <span className="text-sm text-muted-foreground w-12 text-right">
                     {progress}%
-                  </p>
+                  </span>
                 </div>
               </TableCell>
             </TableRow>
