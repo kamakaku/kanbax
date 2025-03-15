@@ -22,10 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect, type Option } from "@/components/ui/multi-select";
 import { apiRequest } from "@/lib/queryClient";
 import { MinusCircle, PlusCircle } from "lucide-react";
 
-// Define the schema for key result creation
 const keyResultSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional().nullable(),
@@ -35,7 +35,7 @@ const keyResultSchema = z.object({
   status: z.enum(["active", "completed", "archived"]).default("active"),
   projectId: z.string().optional(),
   teamId: z.string().optional(),
-  userId: z.string().optional(),
+  userIds: z.array(z.string()),
   taskId: z.string().optional(),
   checklistItems: z.array(z.object({
     title: z.string(),
@@ -89,13 +89,18 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
     }
   });
 
+  const userOptions: Option[] = users.map(user => ({
+    value: user.id.toString(),
+    label: user.username
+  }));
+
   const form = useForm<KeyResultFormData>({
     resolver: zodResolver(keyResultSchema),
     defaultValues: keyResult ? {
       ...keyResult,
       projectId: keyResult.projectId?.toString(),
       teamId: keyResult.teamId?.toString(),
-      userId: keyResult.userId?.toString(),
+      userIds: keyResult.userIds?.map(id => id.toString()) || [],
       taskId: keyResult.taskId?.toString(),
       checklistItems: keyResult.checklistItems?.map(item => 
         typeof item === 'string' ? JSON.parse(item) : item
@@ -109,7 +114,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
       status: "active",
       projectId: undefined,
       teamId: undefined,
-      userId: undefined,
+      userIds: [],
       taskId: undefined,
       checklistItems: [],
     },
@@ -133,7 +138,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         objectiveId,
         projectId: data.projectId ? parseInt(data.projectId) : null,
         teamId: data.teamId ? parseInt(data.teamId) : null,
-        userId: data.userId ? parseInt(data.userId) : null,
+        userIds: data.userIds.map(id => parseInt(id)),
         taskId: data.taskId ? parseInt(data.taskId) : null,
       };
 
@@ -305,24 +310,18 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
 
         <FormField
           control={form.control}
-          name="userId"
+          name="userIds"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Benutzer (optional)</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Benutzer auswählen" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id.toString()}>
-                      {user.username}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormLabel>Benutzer</FormLabel>
+              <FormControl>
+                <MultiSelect
+                  options={userOptions}
+                  selected={field.value}
+                  onChange={field.onChange}
+                  placeholder="Benutzer auswählen"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

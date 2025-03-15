@@ -11,13 +11,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MultiSelect, type Option } from "@/components/ui/multi-select";
 
 const objectiveEditSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
   projectId: z.string().optional(),
   teamId: z.string().optional(),
-  userId: z.string().optional(),
+  userIds: z.array(z.string()),
   status: z.enum(["active", "completed", "archived"]).default("active"),
 });
 
@@ -64,6 +65,11 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
     }
   });
 
+  const userOptions: Option[] = users.map(user => ({
+    value: user.id.toString(),
+    label: user.username
+  }));
+
   const form = useForm<z.infer<typeof objectiveEditSchema>>({
     resolver: zodResolver(objectiveEditSchema),
     defaultValues: {
@@ -71,7 +77,7 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
       description: objective.description || "",
       projectId: objective.projectId?.toString(),
       teamId: objective.teamId?.toString(),
-      userId: objective.userId?.toString(),
+      userIds: objective.userIds?.map(id => id.toString()) || [],
       status: objective.status as "active" | "completed" | "archived",
     },
   });
@@ -82,7 +88,7 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
         ...values,
         projectId: values.projectId ? parseInt(values.projectId) : null,
         teamId: values.teamId ? parseInt(values.teamId) : null,
-        userId: values.userId ? parseInt(values.userId) : null,
+        userIds: values.userIds.map(id => parseInt(id)),
       };
 
       await apiRequest("PATCH", `/api/objectives/${objective.id}`, payload);
@@ -215,26 +221,18 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
 
         <FormField
           control={form.control}
-          name="userId"
+          name="userIds"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Benutzer (optional)</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Benutzer auswählen" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectGroup>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.username}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <FormLabel>Benutzer</FormLabel>
+              <FormControl>
+                <MultiSelect
+                  options={userOptions}
+                  selected={field.value}
+                  onChange={field.onChange}
+                  placeholder="Benutzer auswählen"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
