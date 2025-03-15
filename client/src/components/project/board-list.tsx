@@ -92,7 +92,7 @@ export function BoardList({ projectId }: BoardListProps) {
       const { id, ...updateData } = data;
       const res = await apiRequest(
         "PATCH",
-        `/api/projects/${projectId}/boards/${id}`,
+        `/api/boards/${id}`,
         updateData
       );
 
@@ -174,23 +174,22 @@ export function BoardList({ projectId }: BoardListProps) {
         {boards?.map((board) => (
           <Card
             key={board.id}
-            className="hover:bg-muted/50 transition-colors cursor-pointer group"
-            onClick={() => handleBoardClick(board)}
+            className="relative hover:bg-muted/50 transition-colors cursor-pointer"
           >
-            <CardHeader className="flex flex-row items-start justify-between space-y-0">
-              <div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute top-2 right-2 bg-background/80 hover:bg-background"
+              onClick={(e) => handleEditClick(e, board)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <div onClick={() => handleBoardClick(board)}>
+              <CardHeader>
                 <CardTitle>{board.title}</CardTitle>
                 <CardDescription>{board.description}</CardDescription>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="text-muted-foreground hover:text-primary transition-colors"
-                onClick={(e) => handleEditClick(e, board)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </CardHeader>
+              </CardHeader>
+            </div>
           </Card>
         ))}
       </div>
@@ -228,6 +227,7 @@ export function BoardList({ projectId }: BoardListProps) {
                       <Textarea
                         placeholder="Beschreiben Sie Ihr Board..."
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
