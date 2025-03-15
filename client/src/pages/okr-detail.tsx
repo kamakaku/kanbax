@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
+import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import cn from 'classnames';
+import { cn } from "@/lib/utils";
 
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
