@@ -1,9 +1,10 @@
 import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { type Team } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
+import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 
 export interface IStorage {
   // Project operations
@@ -56,6 +57,18 @@ export interface IStorage {
   updateUserPassword(id: number, passwordHash: string): Promise<void>;
   updateUserEmail(id: number, email: string): Promise<User>;
   getUsers(): Promise<User[]>;
+
+  // Productivity metrics operations
+  getUserProductivityMetrics(userId: number, days: number): Promise<UserProductivityMetrics[]>;
+  createUserProductivityMetrics(metrics: InsertUserProductivityMetrics): Promise<UserProductivityMetrics>;
+  getTaskDistribution(userId: number): Promise<{ name: string; value: number; }[]>;
+
+  // Task time tracking
+  createTaskTimeEntry(entry: InsertTaskTimeEntry): Promise<TaskTimeEntry>;
+  updateTaskTimeEntry(id: number, endTime: Date): Promise<TaskTimeEntry>;
+
+  // Task state changes
+  createTaskStateChange(change: InsertTaskStateChange): Promise<TaskStateChange>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -462,6 +475,83 @@ export class DatabaseStorage implements IStorage {
 
   async getUsers(): Promise<User[]> {
     return await db.select().from(users);
+  }
+
+  // Productivity metrics implementations
+  async getUserProductivityMetrics(userId: number, days: number): Promise<UserProductivityMetrics[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    return await db
+      .select()
+      .from(userProductivityMetrics)
+      .where(
+        and(
+          eq(userProductivityMetrics.userId, userId),
+          gte(userProductivityMetrics.date, startDate)
+        )
+      )
+      .orderBy(userProductivityMetrics.date);
+  }
+
+  async createUserProductivityMetrics(metrics: InsertUserProductivityMetrics): Promise<UserProductivityMetrics> {
+    const [result] = await db
+      .insert(userProductivityMetrics)
+      .values(metrics)
+      .returning();
+    return result;
+  }
+
+  async getTaskDistribution(userId: number): Promise<{ name: string; value: number; }[]> {
+    const result = await db.execute<{ name: string; value: number; }>(sql`
+      WITH user_tasks AS (
+        SELECT DISTINCT t.id, t.status
+        FROM tasks t
+        LEFT JOIN task_state_changes tsc ON t.id = tsc.task_id
+        WHERE t.assigned_user_ids @> ARRAY[${userId}]::int[]
+        OR tsc.user_id = ${userId}
+      )
+      SELECT status as name, COUNT(*) as value
+      FROM user_tasks
+      GROUP BY status
+    `);
+
+    return result;
+  }
+
+  // Task time tracking implementations
+  async createTaskTimeEntry(entry: InsertTaskTimeEntry): Promise<TaskTimeEntry> {
+    const [result] = await db
+      .insert(taskTimeEntries)
+      .values(entry)
+      .returning();
+    return result;
+  }
+
+  async updateTaskTimeEntry(id: number, endTime: Date): Promise<TaskTimeEntry> {
+    const [result] = await db
+      .update(taskTimeEntries)
+      .set({
+        endTime,
+        durationMinutes: sql`EXTRACT(EPOCH FROM ${endTime}::timestamp - start_time) / 60`
+      })
+      .where(eq(taskTimeEntries.id, id))
+      .returning();
+
+    if (!result) {
+      throw new Error(`Task time entry ${id} not found`);
+    }
+
+    return result;
+  }
+
+  // Task state change implementations
+  async createTaskStateChange(change: InsertTaskStateChange): Promise<TaskStateChange> {
+    const [result] = await db
+      .insert(taskStateChanges)
+      .values(change)
+      .returning();
+    return result;
   }
 }
 

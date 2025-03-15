@@ -433,3 +433,91 @@ export type InsertKeyResult = z.infer<typeof insertKeyResultSchema>;
 
 export type OkrComment = typeof okrComments.$inferSelect;
 export type InsertOkrComment = z.infer<typeof insertOkrCommentSchema>;
+
+// Add new tables for productivity insights after the existing tables
+
+// Track user activity and productivity metrics
+export const userProductivityMetrics = pgTable("user_productivity_metrics", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  date: timestamp("date").notNull(),
+  tasksCompleted: integer("tasks_completed").default(0),
+  tasksCreated: integer("tasks_created").default(0),
+  timeSpentMinutes: integer("time_spent_minutes").default(0),
+  objectivesAchieved: integer("objectives_achieved").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Track time spent on tasks
+export const taskTimeEntries = pgTable("task_time_entries", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull(),
+  userId: integer("user_id").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  durationMinutes: integer("duration_minutes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Track task state changes for analytics
+export const taskStateChanges = pgTable("task_state_changes", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull(),
+  userId: integer("user_id").notNull(),
+  fromState: text("from_state").notNull(),
+  toState: text("to_state").notNull(),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+});
+
+// Add schemas for the new tables
+export const insertUserProductivityMetricsSchema = createInsertSchema(userProductivityMetrics)
+  .pick({
+    userId: true,
+    date: true,
+    tasksCompleted: true,
+    tasksCreated: true,
+    timeSpentMinutes: true,
+    objectivesAchieved: true,
+  })
+  .extend({
+    userId: z.number().int().positive("User ID is required"),
+    date: z.string().min(1, "Date is required"),
+  });
+
+export const insertTaskTimeEntrySchema = createInsertSchema(taskTimeEntries)
+  .pick({
+    taskId: true,
+    userId: true,
+    startTime: true,
+    endTime: true,
+    durationMinutes: true,
+  })
+  .extend({
+    taskId: z.number().int().positive("Task ID is required"),
+    userId: z.number().int().positive("User ID is required"),
+    startTime: z.string().min(1, "Start time is required"),
+  });
+
+export const insertTaskStateChangeSchema = createInsertSchema(taskStateChanges)
+  .pick({
+    taskId: true,
+    userId: true,
+    fromState: true,
+    toState: true,
+  })
+  .extend({
+    taskId: z.number().int().positive("Task ID is required"),
+    userId: z.number().int().positive("User ID is required"),
+    fromState: z.string().min(1, "Previous state is required"),
+    toState: z.string().min(1, "New state is required"),
+  });
+
+// Export types for the new tables
+export type UserProductivityMetrics = typeof userProductivityMetrics.$inferSelect;
+export type InsertUserProductivityMetrics = z.infer<typeof insertUserProductivityMetricsSchema>;
+
+export type TaskTimeEntry = typeof taskTimeEntries.$inferSelect;
+export type InsertTaskTimeEntry = z.infer<typeof insertTaskTimeEntrySchema>;
+
+export type TaskStateChange = typeof taskStateChanges.$inferSelect;
+export type InsertTaskStateChange = z.infer<typeof insertTaskStateChangeSchema>;

@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarTrigger 
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target } from "lucide-react";
+import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target, LineChart } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
@@ -22,7 +22,8 @@ import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
 import Profile from "@/pages/profile";
 import OKRPage from "@/pages/okr";
-import OKRDetailPage from "@/pages/okr-detail"; // Neue Import
+import OKRDetailPage from "@/pages/okr-detail";
+import { ProductivityPage } from "@/pages/productivity";
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -71,6 +72,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 >
                   <Target className="h-4 w-4" />
                   <span>OKRs</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setLocation("/productivity")}
+                  tooltip="Produktivität"
+                >
+                  <LineChart className="h-4 w-4" />
+                  <span>Produktivität</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -141,7 +151,8 @@ function AuthenticatedApp() {
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />
-      <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} /> {/* Neue Route */}
+      <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
+      <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />

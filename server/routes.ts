@@ -7,6 +7,7 @@ import type { User } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { registerProductivityRoutes } from "./productivityRoutes";
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -730,7 +731,10 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Register OKR routes
+  // Register productivity routes
+  registerProductivityRoutes(app);
+
+  // Register OKR routes (already exists)
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
 
