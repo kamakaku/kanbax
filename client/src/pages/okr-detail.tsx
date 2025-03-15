@@ -5,33 +5,52 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserCircle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
 
-  // Fetch the objective
-  const { data: objective, isLoading: isLoadingObjective } = useQuery<Objective>({
-    queryKey: ["/api/objectives", objectiveId],
-    queryFn: () => apiRequest("GET", `/api/objectives/${objectiveId}`),
-    enabled: !!objectiveId && !isNaN(objectiveId),
+  // Fetch all objectives first
+  const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
+    queryKey: ["/api/objectives"],
+    queryFn: async () => {
+      const response = await fetch("/api/objectives");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Objectives");
+      }
+      return response.json();
+    },
   });
+
+  // Find the specific objective
+  const objective = objectives.find(obj => obj.id === objectiveId);
 
   // Fetch key results
   const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/objectives", objectiveId, "key-results"],
-    queryFn: () => apiRequest("GET", `/api/objectives/${objectiveId}/key-results`),
+    queryFn: async () => {
+      const response = await fetch(`/api/objectives/${objectiveId}/key-results`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Key Results");
+      }
+      return response.json();
+    },
     enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
   // Fetch users
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    queryFn: () => apiRequest("GET", "/api/users"),
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
   });
 
-  if (isLoadingObjective || isLoadingKeyResults) {
+  if (isLoadingObjectives || isLoadingKeyResults) {
     return <div className="text-center py-8">Lade OKR Details...</div>;
   }
 
