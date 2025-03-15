@@ -47,11 +47,12 @@ export default function Board() {
 
   const updateTask = useMutation({
     mutationFn: async (updatedTask: Task) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
-      if (!res.ok) {
+      try {
+        return await apiRequest<Task>("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
+      } catch (error) {
+        console.error("Task update error:", error);
         throw new Error("Fehler beim Aktualisieren des Tasks");
       }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
