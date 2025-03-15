@@ -67,31 +67,24 @@ export function MultiSelect({
                 variant="secondary"
                 key={value}
                 className="mr-1 mb-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleUnselect(value);
-                }}
               >
                 {options.find((option) => option.value === value)?.label}
-                <button
-                  className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                <span
+                  role="button"
+                  className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUnselect(value);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       handleUnselect(value);
                     }
                   }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleUnselect(value);
-                  }}
+                  tabIndex={0}
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </span>
               </Badge>
             ))}
           </div>

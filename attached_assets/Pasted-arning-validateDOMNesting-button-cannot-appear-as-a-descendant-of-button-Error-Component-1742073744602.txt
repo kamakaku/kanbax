@@ -1,0 +1,82 @@
+arning: validateDOMNesting(...): <button> cannot appear as a descendant of <button>. Error Component Stack
+    at button (<anonymous>)
+    at div (<anonymous>)
+    at Badge (badge.tsx:30:18)
+    at div (<anonymous>)
+    at button (<anonymous>)
+    at _c (button.tsx:43:6)
+    at chunk-DKHUMOWT.js?v=6121e3b0:52:11
+    at chunk-DKHUMOWT.js?v=6121e3b0:33:11
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-DKHUMOWT.js?v=6121e3b0:52:11
+    at chunk-DKHUMOWT.js?v=6121e3b0:33:11
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-E5DUWNSD.js?v=6121e3b0:1980:13
+    at @radix-ui_react-popover.js?v=6121e3b0:115:13
+    at Provider (chunk-CGMBMWH4.js?v=6121e3b0:43:15)
+    at Provider (chunk-E5DUWNSD.js?v=6121e3b0:1915:15)
+    at Popper (chunk-E5DUWNSD.js?v=6121e3b0:1972:11)
+    at Popover (@radix-ui_react-popover.js?v=6121e3b0:64:5)
+    at MultiSelect (multi-select.tsx:34:3)
+    at chunk-DKHUMOWT.js?v=6121e3b0:52:11
+    at chunk-DKHUMOWT.js?v=6121e3b0:33:11
+    at form.tsx:107:9
+    at div (<anonymous>)
+    at form.tsx:76:6
+    at Controller (chunk-YABUFNLM.js?v=6121e3b0:313:35)
+    at FormField (form.tsx:33:6)
+    at form (<anonymous>)
+    at FormProvider (chunk-YABUFNLM.js?v=6121e3b0:102:11)
+    at ObjectiveEditForm (objective-edit-form.tsx:30:37)
+    at div (<anonymous>)
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-B65VSI42.js?v=6121e3b0:61:7
+    at chunk-DKHUMOWT.js?v=6121e3b0:52:11
+    at chunk-DKHUMOWT.js?v=6121e3b0:33:11
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-MTZFOBND.js?v=6121e3b0:29:5
+    at chunk-DG5QAD26.js?v=6121e3b0:234:13
+    at chunk-DG5QAD26.js?v=6121e3b0:157:58
+    at Presence (chunk-4GDBIILB.js?v=6121e3b0:24:11)
+    at chunk-DG5QAD26.js?v=6121e3b0:148:64
+    at chunk-DKHUMOWT.js?v=6121e3b0:52:11
+    at chunk-DKHUMOWT.js?v=6121e3b0:33:11
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-B65VSI42.js?v=6121e3b0:260:22
+    at Presence (chunk-4GDBIILB.js?v=6121e3b0:24:11)
+    at Provider (chunk-CGMBMWH4.js?v=6121e3b0:43:15)
+    at DialogPortal (chunk-DG5QAD26.js?v=6121e3b0:111:11)
+    at _c3 (dialog.tsx:33:6)
+    at Provider (chunk-CGMBMWH4.js?v=6121e3b0:43:15)
+    at Dialog (chunk-DG5QAD26.js?v=6121e3b0:52:5)
+    at div (<anonymous>)
+    at OKRDetailPage (okr-detail.tsx:30:18)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Provider (chunk-CGMBMWH4.js?v=6121e3b0:43:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=6121e3b0:63:5)
+    at sidebar.tsx:85:7
+    at MainLayout (App.tsx:28:23)
+    at ProtectedRoute (App.tsx:105:38)
+    at component (<anonymous>)
+    at Route (wouter.js?v=6121e3b0:206:16)
+    at Switch (wouter.js?v=6121e3b0:262:17)
+    at AuthenticatedApp (App.tsx:122:20)
+    at QueryClientProvider (@tanstack_react-query.js?v=6121e3b0:2848:3)
+    at AuthProvider (auth-store.tsx:51:32)
+    at App (<anonymous>)
+overrideMethod @ hook.js:608
+printWarning @ chunk-RPCDYKBN.js?v=6121e3b0:521
+error @ chunk-RPCDYKBN.js?v=6121e3b0:505
+validateDOMNesting @ chunk-RPCDYKBN.js?v=6121e3b0:8256
+createInstance @ chunk-RPCDYKBN.js?v=6121e3b0:8328
+completeWork @ chunk-RPCDYKBN.js?v=6121e3b0:16290
+completeUnitOfWork @ chunk-RPCDYKBN.js?v=6121e3b0:19224
+performUnitOfWork @ chunk-RPCDYKBN.js?v=6121e3b0:19206
+workLoopSync @ chunk-RPCDYKBN.js?v=6121e3b0:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=6121e3b0:19116
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=6121e3b0:18874
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=6121e3b0:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=6121e3b0:18627Understand this errorAI
