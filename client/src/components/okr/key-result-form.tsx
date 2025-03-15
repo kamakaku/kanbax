@@ -1,8 +1,8 @@
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { type KeyResult, type Task } from "@shared/schema";
+import { type KeyResult } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,13 +24,6 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { MinusCircle, PlusCircle } from "lucide-react";
-import {
-  MultiSelect,
-  MultiSelectContent,
-  MultiSelectItem,
-  MultiSelectTrigger,
-  MultiSelectValue,
-} from "@/components/ui/multi-select";
 
 // Define the schema for key result creation
 const keyResultSchema = z.object({
@@ -40,7 +33,6 @@ const keyResultSchema = z.object({
   currentValue: z.number().min(0).optional().nullable(),
   type: z.enum(["percentage", "checkbox", "progress", "checklist"]).default("percentage"),
   status: z.enum(["active", "completed", "archived"]).default("active"),
-  linkedTaskIds: z.array(z.number()).default([]),
   checklistItems: z.array(z.object({
     title: z.string(),
     completed: z.boolean().default(false)
@@ -59,18 +51,6 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch available tasks for linking
-  const { data: tasks = [] } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
-    queryFn: async () => {
-      const response = await fetch("/api/tasks");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Tasks");
-      }
-      return response.json();
-    },
-  });
-
   const form = useForm<KeyResultFormData>({
     resolver: zodResolver(keyResultSchema),
     defaultValues: keyResult ? {
@@ -78,7 +58,6 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
       checklistItems: keyResult.checklistItems?.map(item => 
         typeof item === 'string' ? JSON.parse(item) : item
       ) || [],
-      linkedTaskIds: keyResult.linkedTaskIds || [],
     } : {
       title: "",
       description: "",
@@ -87,7 +66,6 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
       type: "percentage",
       status: "active",
       checklistItems: [],
-      linkedTaskIds: [],
     },
   });
 
@@ -98,12 +76,6 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
 
   const mutation = useMutation({
     mutationFn: async (data: KeyResultFormData) => {
-      // Automatically set status to completed if progress is 100%
-      const status = (data.currentValue === data.targetValue || 
-        (data.type === "checklist" && data.checklistItems?.every(item => item.completed))) 
-        ? "completed" 
-        : data.status;
-
       const endpoint = keyResult 
         ? `/api/key-results/${keyResult.id}`
         : `/api/objectives/${objectiveId}/key-results`;
@@ -115,7 +87,6 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         endpoint,
         {
           ...data,
-          status,
           objectiveId,
         }
       );
@@ -225,34 +196,6 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
                   <SelectItem value="archived">Archiviert</SelectItem>
                 </SelectContent>
               </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="linkedTaskIds"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Verknüpfte Tasks</FormLabel>
-              <MultiSelect
-                value={field.value.map(String)}
-                onValueChange={(values) => field.onChange(values.map(Number))}
-              >
-                <FormControl>
-                  <MultiSelectTrigger>
-                    <MultiSelectValue placeholder="Tasks auswählen" />
-                  </MultiSelectTrigger>
-                </FormControl>
-                <MultiSelectContent>
-                  {tasks.map((task) => (
-                    <MultiSelectItem key={task.id} value={String(task.id)}>
-                      {task.title}
-                    </MultiSelectItem>
-                  ))}
-                </MultiSelectContent>
-              </MultiSelect>
               <FormMessage />
             </FormItem>
           )}

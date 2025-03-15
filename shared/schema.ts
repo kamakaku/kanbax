@@ -268,6 +268,10 @@ export const insertOkrCycleSchema = createInsertSchema(okrCycles)
     status: z.enum(["active", "completed", "archived"]).default("active"),
   });
 
+// Export des OKR-Zyklus-Typs
+export type OkrCycle = typeof okrCycles.$inferSelect;
+export type InsertOkrCycle = z.infer<typeof insertOkrCycleSchema>;
+
 // Objectives are now independent entities
 export const objectives = pgTable("objectives", {
   id: serial("id").primaryKey(),
@@ -283,27 +287,6 @@ export const objectives = pgTable("objectives", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
-
-// Add insertObjectiveSchema after the objectives table definition
-export const insertObjectiveSchema = createInsertSchema(objectives)
-  .pick({
-    title: true,
-    description: true,
-    status: true,
-    projectId: true,
-    cycleId: true,
-    teamId: true,
-    userId: true,
-  })
-  .extend({
-    title: z.string().min(1, "Titel ist erforderlich"),
-    description: z.string().optional(),
-    status: z.enum(["active", "completed", "archived"]).default("active"),
-    projectId: z.number().int().positive().optional(),
-    cycleId: z.number().int().positive().optional(),
-    teamId: z.number().int().positive().optional(),
-    userId: z.number().int().positive().optional(),
-  });
 
 // Key Results with task linkage
 export const keyResults = pgTable("key_results", {
@@ -358,6 +341,28 @@ export const okrComments = pgTable("okr_comments", {
   keyResultId: integer("key_result_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Updated schemas to reflect the new structure
+
+export const insertObjectiveSchema = createInsertSchema(objectives)
+  .pick({
+    title: true,
+    description: true,
+    projectId: true,
+    cycleId: true,
+    teamId: true,
+    userId: true,
+    status: true,
+  })
+  .extend({
+    title: z.string().min(1, "Titel ist erforderlich"),
+    projectId: z.number().int().positive().optional(),
+    cycleId: z.number().int().positive().optional(),
+    teamId: z.number().int().positive().optional(),
+    userId: z.number().int().positive().optional(),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+  });
+
 
 export const insertOkrCommentSchema = createInsertSchema(okrComments)
   .pick({
