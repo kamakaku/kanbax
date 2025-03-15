@@ -259,6 +259,21 @@ export function TaskDialog({
           boardId: currentBoard.id,
         };
         await onUpdate(updatedTask);
+
+        // Invalidate all related queries
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
+            return (
+              queryKey === "/api/boards" ||
+              queryKey === "/api/tasks" ||
+              queryKey === "/api/users" ||
+              queryKey.startsWith(`/api/tasks/${task.id}`)
+            );
+          }
+        });
+
+        toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
       } else {
         const response = await apiRequest(
@@ -275,7 +290,14 @@ export function TaskDialog({
           throw new Error("Fehler beim Erstellen der Aufgabe");
         }
 
-        queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard.id, "tasks"] });
+        // Invalidate board tasks query
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
+            return queryKey === "/api/boards" || queryKey === "/api/tasks";
+          }
+        });
+
         onOpenChange(false);
         toast({ title: "Aufgabe erfolgreich erstellt" });
       }

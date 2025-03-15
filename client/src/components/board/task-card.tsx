@@ -43,7 +43,15 @@ export function TaskCard({ task, index }: TaskCardProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+        predicate: (query) => {
+          const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
+          return (
+            queryKey === "/api/boards" ||
+            queryKey === "/api/tasks" ||
+            queryKey === "/api/users" ||
+            queryKey.startsWith(`/api/tasks/${task.id}`)
+          );
+        }
       });
       toast({ title: "Task updated successfully" });
       setIsDialogOpen(false);
