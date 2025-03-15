@@ -305,8 +305,8 @@ export const insertOkrCycleSchema = createInsertSchema(okrCycles)
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
-    startDate: z.date().min(new Date(), "Startdatum muss in der Zukunft liegen"),
-    endDate: z.date().min(new Date(), "Enddatum muss in der Zukunft liegen"),
+    startDate: z.string().min(1, "Startdatum ist erforderlich"),
+    endDate: z.string().min(1, "Enddatum ist erforderlich"),
     status: z.enum(["active", "completed", "archived"]).default("active"),
   });
 
