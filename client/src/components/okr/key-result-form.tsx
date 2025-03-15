@@ -56,7 +56,9 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
     resolver: zodResolver(keyResultSchema),
     defaultValues: keyResult ? {
       ...keyResult,
-      checklistItems: keyResult.checklistItems || [],
+      checklistItems: keyResult.checklistItems?.map(item => 
+        typeof item === 'string' ? JSON.parse(item) : item
+      ) || [],
     } : {
       title: "",
       description: "",
