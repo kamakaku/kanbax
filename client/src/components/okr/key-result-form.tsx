@@ -15,6 +15,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 
 // Define the schema for key result creation
@@ -23,7 +30,7 @@ const keyResultSchema = z.object({
   description: z.string().optional().nullable(),
   targetValue: z.number().min(0, "Zielwert muss größer als 0 sein"),
   currentValue: z.number().min(0).optional().nullable(),
-  type: z.string().default("numeric"),
+  type: z.enum(["percentage", "checkbox", "progress"]).default("percentage"),
   status: z.string().default("active"),
 });
 
@@ -45,7 +52,7 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
       description: "",
       targetValue: 100,
       currentValue: 0,
-      type: "numeric",
+      type: "percentage",
       status: "active",
     },
   });
@@ -113,6 +120,32 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
                   value={field.value || ""}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Typ</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wählen Sie einen Typ" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="percentage">Prozentual</SelectItem>
+                  <SelectItem value="checkbox">Checkbox</SelectItem>
+                  <SelectItem value="progress">Fortschritt</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
