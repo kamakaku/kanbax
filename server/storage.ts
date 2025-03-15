@@ -145,9 +145,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
+    // Remove undefined projectId from the data before insertion
+    const boardData = insertBoard.projectId
+      ? insertBoard
+      : { ...insertBoard, projectId: null };
+
     const [board] = await db
       .insert(boards)
-      .values(insertBoard)
+      .values(boardData)
       .returning();
 
     // Create default columns for the new board
