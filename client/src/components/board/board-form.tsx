@@ -15,7 +15,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
 interface BoardFormProps {
@@ -30,6 +37,17 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
+      return response.json();
+    },
+  });
 
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
@@ -59,10 +77,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
         const newBoard = await res.json();
         queryClient.invalidateQueries({ queryKey: ["all-boards"] });
-        
+
         //Invalidate queries for individual project boards
-        const projectIds = (await fetch('/api/projects')).json().then(data => data.map(project => project.id));
-        await Promise.all(projectIds.map(projectId => queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/boards`] })));
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/projects/${data.projectId}/boards`] 
+        });
+
         toast({ title: "Board erfolgreich erstellt" });
         form.reset();
         onClose();
