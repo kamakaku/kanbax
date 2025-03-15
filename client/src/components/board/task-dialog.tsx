@@ -77,8 +77,8 @@ export function TaskDialog({
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Query for users
-  const { data: usersResponse = [] } = useQuery<User[]>({
+  // Query for users - always enabled
+  const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
@@ -87,9 +87,9 @@ export function TaskDialog({
       }
       return response.json();
     },
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache the data
   });
-
-  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
@@ -107,26 +107,24 @@ export function TaskDialog({
     },
   });
 
-  // Reset form and mode when dialog opens/closes or task changes
+  // Reset form when dialog opens/closes or task changes
   useEffect(() => {
     if (open) {
       setIsEditMode(mode === "edit");
-      if (task) {
-        form.reset({
-          title: task.title,
-          description: task.description || "",
-          status: task.status as "backlog" | "todo" | "in-progress" | "review" | "done",
-          priority: task.priority as "low" | "medium" | "high",
-          columnId: task.columnId,
-          labels: task.labels || [],
-          assignedUserIds: task.assignedUserIds || [],
-          dueDate: task.dueDate,
-          archived: task.archived,
-          order: task.order,
-        });
-      }
+      form.reset({
+        title: task?.title || "",
+        description: task?.description || "",
+        status: (task?.status || "todo") as "backlog" | "todo" | "in-progress" | "review" | "done",
+        priority: (task?.priority || "medium") as "low" | "medium" | "high",
+        columnId: task?.columnId || initialColumnId || 0,
+        labels: task?.labels || [],
+        assignedUserIds: task?.assignedUserIds || [],
+        dueDate: task?.dueDate || null,
+        archived: task?.archived || false,
+        order: task?.order || 0,
+      });
     }
-  }, [open, task, mode, form]);
+  }, [open, task, mode, form, initialColumnId]);
 
   // Handle checklist initialization
   useEffect(() => {
@@ -177,22 +175,12 @@ export function TaskDialog({
     };
 
     try {
-      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, updatedTask);
-      if (!response.ok) {
-        throw new Error("Fehler beim Aktualisieren der Checkliste");
-      }
-
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
-          return (
-            queryKey === "/api/boards" ||
-            queryKey === "/api/tasks" ||
-            queryKey === "/api/users" ||
-            queryKey.startsWith(`/api/tasks/${task.id}`)
-          );
-        }
-      });
+      await apiRequest("PATCH", `/api/tasks/${task.id}`, updatedTask);
+      // Invalidate all relevant queries
+      await queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      await queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}`] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     } catch (error) {
       toast({
         title: "Fehler beim Speichern der Checkliste",
@@ -245,18 +233,11 @@ export function TaskDialog({
         };
         await onUpdate(updatedTask);
 
-        // Invalidate all related queries immediately
-        queryClient.invalidateQueries({
-          predicate: (query) => {
-            const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
-            return (
-              queryKey === "/api/boards" ||
-              queryKey === "/api/tasks" ||
-              queryKey === "/api/users" ||
-              queryKey.startsWith(`/api/tasks/${task.id}`)
-            );
-          }
-        });
+        // Aggressive query invalidation to ensure fresh data
+        await queryClient.resetQueries({ queryKey: ["/api/boards"] });
+        await queryClient.resetQueries({ queryKey: ["/api/tasks"] });
+        await queryClient.resetQueries({ queryKey: [`/api/tasks/${task.id}`] });
+        await queryClient.resetQueries({ queryKey: ["/api/users"] });
 
         toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
@@ -275,12 +256,8 @@ export function TaskDialog({
           throw new Error("Fehler beim Erstellen der Aufgabe");
         }
 
-        queryClient.invalidateQueries({
-          predicate: (query) => {
-            const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
-            return queryKey === "/api/boards" || queryKey === "/api/tasks";
-          }
-        });
+        await queryClient.resetQueries({ queryKey: ["/api/boards"] });
+        await queryClient.resetQueries({ queryKey: ["/api/tasks"] });
 
         onOpenChange(false);
         toast({ title: "Aufgabe erfolgreich erstellt" });
@@ -292,65 +269,6 @@ export function TaskDialog({
         description: error instanceof Error ? error.message : "Die Aufgabe konnte nicht gespeichert werden",
         variant: "destructive",
       });
-    }
-  };
-
-  const renderAssignedUsers = (isEditMode: boolean, field?: any) => {
-    if (isEditMode) {
-      // Edit mode: Show all users with selection buttons
-      return (
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
-          <div className="flex flex-wrap gap-3">
-            {users.map((user) => (
-              <Button
-                key={user.id}
-                type="button"
-                variant={field?.value?.includes(user.id) ? "default" : "outline"}
-                className="flex items-center gap-2"
-                onClick={() => {
-                  const currentValue = field?.value || [];
-                  const newValue = currentValue.includes(user.id)
-                    ? currentValue.filter((id: number) => id !== user.id)
-                    : [...currentValue, user.id];
-                  field.onChange(newValue);
-                }}
-              >
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={user.avatarUrl || ''} />
-                  <AvatarFallback>
-                    {user.username.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span>{user.username}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      );
-    } else {
-      // Detail mode: Only show assigned users
-      const assignedUsers = users.filter(user => task?.assignedUserIds?.includes(user.id));
-      if (assignedUsers.length === 0) return null;
-
-      return (
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
-          <div className="flex flex-wrap gap-3">
-            {assignedUsers.map((user) => (
-              <div key={user.id} className="flex items-center gap-2">
-                <Avatar className="h-6 w-6 border-2 border-background">
-                  <AvatarImage src={user.avatarUrl || ""} />
-                  <AvatarFallback>
-                    {user.username.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm">{user.username}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
     }
   };
 
@@ -380,6 +298,7 @@ export function TaskDialog({
     };
 
     const priority = task?.priority ? priorityConfig[task.priority as keyof typeof priorityConfig] : priorityConfig.medium;
+    const assignedUsers = users.filter(user => task?.assignedUserIds?.includes(user.id));
 
     return (
       <div className="space-y-6">
@@ -421,7 +340,24 @@ export function TaskDialog({
             </div>
           )}
 
-          {task?.assignedUserIds && task.assignedUserIds.length > 0 && renderAssignedUsers(false)}
+          {assignedUsers.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
+              <div className="flex flex-wrap gap-3">
+                {assignedUsers.map((user) => (
+                  <div key={user.id} className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6 border-2 border-background">
+                      <AvatarImage src={user.avatarUrl || ""} />
+                      <AvatarFallback>
+                        {user.username.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{user.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
@@ -691,7 +627,32 @@ export function TaskDialog({
                 name="assignedUserIds"
                 render={({ field }) => (
                   <FormItem>
-                    {renderAssignedUsers(true, field)}
+                    <FormLabel>Zugewiesene Benutzer</FormLabel>
+                    <div className="flex flex-wrap gap-3">
+                      {users.map((user) => (
+                        <Button
+                          key={user.id}
+                          type="button"
+                          variant={field.value?.includes(user.id) ? "default" : "outline"}
+                          className="flex items-center gap-2"
+                          onClick={() => {
+                            const currentValue = field.value || [];
+                            const newValue = currentValue.includes(user.id)
+                              ? currentValue.filter(id => id !== user.id)
+                              : [...currentValue, user.id];
+                            field.onChange(newValue);
+                          }}
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={user.avatarUrl || ''} />
+                            <AvatarFallback>
+                              {user.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{user.username}</span>
+                        </Button>
+                      ))}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
