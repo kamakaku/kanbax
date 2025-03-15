@@ -138,14 +138,19 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
         console.log("Creating new cycle with payload:", newCyclePayload);
 
-        const newCycle = await apiRequest<OkrCycle>("POST", "/api/okr-cycles", newCyclePayload);
-        console.log("Server response for new cycle:", newCycle);
+        try {
+          const newCycle = await apiRequest<OkrCycle>("POST", "/api/okr-cycles", newCyclePayload);
+          console.log("Server response for new cycle:", newCycle);
 
-        if (!newCycle || typeof newCycle.id !== 'number') {
-          throw new Error("Fehler beim Erstellen des Zyklus: Ungültige Server-Antwort");
+          if (!newCycle || typeof newCycle.id !== 'number') {
+            throw new Error("Ungültige Server-Antwort: Keine gültige ID erhalten");
+          }
+
+          cycleId = String(newCycle.id);
+        } catch (error) {
+          console.error("Error creating cycle:", error);
+          throw new Error(`Fehler beim Erstellen des OKR-Zyklus: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
         }
-
-        cycleId = String(newCycle.id);
       }
 
       const payload: InsertObjective = {
@@ -175,7 +180,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
     } catch (error) {
       console.error("Fehler beim Erstellen des Objective:", error);
       toast({
-        title: "Fehler beim Erstellen des Objective",
+        title: error instanceof Error ? error.message : "Fehler beim Erstellen des Objective",
         variant: "destructive",
       });
     }

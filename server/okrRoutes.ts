@@ -21,28 +21,37 @@ export function registerOkrRoutes(app: Express) {
   });
 
   app.post("/api/okr-cycles", async (req: Request, res: Response) => {
-    console.log("Received cycle data:", req.body); // Debug log
-
-    const result = insertOkrCycleSchema.safeParse(req.body);
-    if (!result.success) {
-      console.log("Validation error:", result.error);
-      return res.status(400).json({ message: result.error.message });
-    }
-
     try {
+      console.log("Received cycle data:", req.body);
+
+      const result = insertOkrCycleSchema.safeParse(req.body);
+      if (!result.success) {
+        console.error("Validation error:", result.error);
+        return res.status(400).json({ message: result.error.errors });
+      }
+
       const data = {
         ...result.data,
         startDate: new Date(result.data.startDate),
         endDate: new Date(result.data.endDate)
       };
 
-      console.log("Processed cycle data:", data); // Debug log
+      console.log("Attempting to insert cycle with data:", data);
 
-      const [cycle] = await db.insert(okrCycles).values(data).returning();
-      console.log("Created cycle:", cycle); // Debug log
+      const [cycle] = await db.insert(okrCycles)
+        .values(data)
+        .returning({
+          id: okrCycles.id,
+          title: okrCycles.title,
+          startDate: okrCycles.startDate,
+          endDate: okrCycles.endDate,
+          status: okrCycles.status
+        });
 
-      if (!cycle || !cycle.id) {
-        throw new Error("Cycle creation failed - no ID returned");
+      console.log("Created cycle:", cycle);
+
+      if (!cycle || typeof cycle.id !== 'number') {
+        throw new Error("Cycle creation failed - invalid response");
       }
 
       res.status(201).json(cycle);
