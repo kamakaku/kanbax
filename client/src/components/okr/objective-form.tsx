@@ -136,8 +136,8 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           status: "active",
         };
 
-        const response = await apiRequest("POST", "/api/okr-cycles", newCyclePayload);
-        cycleId = response.id.toString();
+        const newCycle = await apiRequest<OkrCycle>("POST", "/api/okr-cycles", newCyclePayload);
+        cycleId = newCycle.id.toString();
       }
 
       const payload: InsertObjective = {
