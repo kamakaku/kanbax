@@ -1,21 +1,28 @@
 import { useParams } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Objective, type KeyResult, type User } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target } from "lucide-react";
+import { PlusCircle, UserCircle, Calendar, Target, Edit2 } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
   const [isKeyResultDialogOpen, setIsKeyResultDialogOpen] = useState(false);
+  const [editingKR, setEditingKR] = useState<KeyResult | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Fetch all objectives first
   const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
@@ -56,6 +63,44 @@ export function OKRDetailPage() {
       return response.json();
     },
   });
+
+  const updateKeyResult = useMutation({
+    mutationFn: async (data: Partial<KeyResult> & { id: number }) => {
+      return await apiRequest<KeyResult>(
+        "PATCH",
+        `/api/key-results/${data.id}`,
+        data
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/objectives", objectiveId, "key-results"],
+      });
+      toast({ title: "Key Result erfolgreich aktualisiert" });
+      setEditingKR(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Aktualisieren",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleProgressUpdate = async (kr: KeyResult, value: number | boolean) => {
+    let updateData: Partial<KeyResult> & { id: number } = {
+      id: kr.id,
+    };
+
+    if (kr.type === "checkbox") {
+      updateData.currentValue = value ? 100 : 0;
+    } else {
+      updateData.currentValue = typeof value === "number" ? value : 0;
+    }
+
+    await updateKeyResult.mutateAsync(updateData);
+  };
 
   if (isLoadingObjectives || isLoadingKeyResults) {
     return <div className="text-center py-8">Lade OKR Details...</div>;
@@ -153,8 +198,8 @@ export function OKRDetailPage() {
 
         {/* Key Results */}
         <div className="grid gap-8 relative pt-8">
-          {keyResults.map((kr, index) => {
-            const krProgress = Math.floor(Math.random() * 100);
+          {keyResults.map((kr) => {
+            const krProgress = kr.currentValue || 0;
             const assignedUser = kr.userId ? users.find(u => u.id === kr.userId) : null;
 
             return (
@@ -178,11 +223,27 @@ export function OKRDetailPage() {
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-4">
-                        <Progress value={krProgress} className="flex-1" />
-                        <span className="text-sm font-medium w-12 text-right">
-                          {krProgress}%
-                        </span>
+                      <div className="space-y-4">
+                        {kr.type === "checkbox" ? (
+                          <Checkbox
+                            checked={krProgress === 100}
+                            onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
+                          />
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-4">
+                              <Progress value={krProgress} className="flex-1" />
+                              <Input
+                                type="number"
+                                className="w-20"
+                                value={krProgress}
+                                onChange={(e) => handleProgressUpdate(kr, Number(e.target.value))}
+                                min={0}
+                                max={100}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {assignedUser && (
