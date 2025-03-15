@@ -32,7 +32,7 @@ export function OKRDetailPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch all objectives first
+  // Fetch all necessary data
   const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
     queryKey: ["/api/objectives"],
     queryFn: async () => {
@@ -44,10 +44,6 @@ export function OKRDetailPage() {
     },
   });
 
-  // Find the specific objective
-  const objective = objectives.find(obj => obj.id === objectiveId);
-
-  // Fetch key results
   const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/objectives", objectiveId, "key-results"],
     queryFn: async () => {
@@ -60,7 +56,6 @@ export function OKRDetailPage() {
     enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
-  // Fetch users
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -104,7 +99,7 @@ export function OKRDetailPage() {
     if (kr.type === "checkbox") {
       updateData.currentValue = value ? 100 : 0;
     } else if (kr.type === "checklist" && kr.checklistItems) {
-      // Aktualisiere den Status eines Checklisten-Items
+      // Update a checklist item's status
       const completedItems = kr.checklistItems.filter(item => item.completed).length;
       const totalItems = kr.checklistItems.length;
       updateData.currentValue = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
@@ -132,12 +127,17 @@ export function OKRDetailPage() {
     return <div className="text-center py-8">Lade OKR Details...</div>;
   }
 
+  const objective = objectives.find(obj => obj.id === objectiveId);
   if (!objective) {
     return <div className="text-center py-8">Objective nicht gefunden.</div>;
   }
 
   const assignedUser = objective.userId ? users.find(u => u.id === objective.userId) : null;
-  const progress = Math.floor(Math.random() * 100); // Später durch echte Berechnung ersetzen
+
+  // Calculate overall progress based on key results
+  const progress = keyResults.length > 0
+    ? Math.round(keyResults.reduce((sum, kr) => sum + (kr.currentValue || 0), 0) / keyResults.length)
+    : 0;
 
   return (
     <div className="container mx-auto py-6 space-y-8">
