@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { type InsertObjective, type Project, type OkrCycle, type Team, type User } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -139,14 +138,31 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         console.log("Creating new cycle with payload:", newCyclePayload);
 
         try {
-          const newCycle = await apiRequest<OkrCycle>("POST", "/api/okr-cycles", newCyclePayload);
+          const response = await fetch("/api/okr-cycles", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(newCyclePayload),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Server error response:", errorData);
+            throw new Error(errorData.message || `Server-Fehler: ${response.status}`);
+          }
+
+          const newCycle = await response.json();
           console.log("Server response for new cycle:", newCycle);
 
-          if (!newCycle || typeof newCycle.id !== 'number') {
-            throw new Error("Ungültige Server-Antwort: Keine gültige ID erhalten");
+          // Validate the response structure
+          if (!newCycle || typeof newCycle.id === 'undefined') {
+            console.error("Invalid cycle response structure:", newCycle);
+            throw new Error("Ungültige Server-Antwort: Fehlende ID");
           }
 
           cycleId = String(newCycle.id);
+          console.log("Successfully created cycle with ID:", cycleId);
         } catch (error) {
           console.error("Error creating cycle:", error);
           throw new Error(`Fehler beim Erstellen des OKR-Zyklus: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
@@ -155,7 +171,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
       const payload: InsertObjective = {
         title: values.title,
-        description: values.description,
+        description: values.description || undefined,
         status: "active",
         projectId: values.projectId ? parseInt(values.projectId) : undefined,
         cycleId: cycleId ? parseInt(cycleId) : undefined,
@@ -165,7 +181,19 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
       console.log("Creating objective with payload:", payload);
 
-      await apiRequest("POST", "/api/objectives", payload);
+      const response = await fetch("/api/objectives", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Server error response for objective:", errorData);
+        throw new Error(errorData.message || `Server-Fehler: ${response.status}`);
+      }
 
       await queryClient.invalidateQueries({
         queryKey: ["/api/objectives"],
