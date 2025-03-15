@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Board, type Column, type Task } from "@shared/schema";
+import { type Board, type Column, type Task, type InsertBoard } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
@@ -9,6 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import { BoardForm } from "@/components/board/board-form";
 
 const defaultColumns = [
   { id: "backlog", title: "backlog" },
@@ -22,6 +25,7 @@ export default function Board() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { currentBoard, currentProject } = useStore();
+  const [showEditForm, setShowEditForm] = useState(false);
 
   useEffect(() => {
     if (!currentBoard) {
@@ -43,6 +47,38 @@ export default function Board() {
       return res.json();
     },
     enabled: !!currentBoard,
+  });
+
+  const updateBoard = useMutation({
+    mutationFn: async (data: InsertBoard) => {
+      if (!currentBoard?.id) return null;
+
+      const res = await apiRequest(
+        "PATCH",
+        `/api/boards/${currentBoard.id}`,
+        data
+      );
+
+      if (!res.ok) {
+        throw new Error("Fehler beim Aktualisieren des Boards");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boards", currentBoard?.id],
+      });
+      toast({ title: "Board erfolgreich aktualisiert" });
+      setShowEditForm(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Aktualisieren",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const updateTask = useMutation({
@@ -136,13 +172,23 @@ export default function Board() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">{currentBoard.title}</h1>
-          {currentProject && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Projekt: {currentProject.title}
-            </p>
-          )}
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">{currentBoard.title}</h1>
+            {currentProject && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Projekt: {currentProject.title}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowEditForm(true)}
+            className="hover:bg-muted"
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
         </div>
         <BoardSelector />
       </div>
@@ -167,6 +213,13 @@ export default function Board() {
           </div>
         </DragDropContext>
       </div>
+
+      <BoardForm
+        open={showEditForm}
+        onClose={() => setShowEditForm(false)}
+        defaultValues={currentBoard}
+        onSubmit={(data) => updateBoard.mutate(data)}
+      />
     </div>
   );
 }
