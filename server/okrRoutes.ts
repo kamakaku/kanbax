@@ -38,7 +38,16 @@ export function registerOkrRoutes(app: Express) {
 
       console.log("Processed cycle data:", data); // Debug log
 
-      const [cycle] = await db.insert(okrCycles).values(data).returning();
+      const [cycle] = await db.insert(okrCycles)
+        .values(data)
+        .returning({
+          id: okrCycles.id,
+          title: okrCycles.title,
+          startDate: okrCycles.startDate,
+          endDate: okrCycles.endDate,
+          status: okrCycles.status
+        });
+
       console.log("Created cycle:", cycle); // Debug log
 
       if (!cycle || !cycle.id) {

@@ -117,41 +117,53 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
       console.log("Creating cycle with payload:", newCyclePayload);
 
-      const newCycle = await apiRequest<{ id: number }>("POST", "/api/okr-cycles", newCyclePayload);
+      try {
+        const newCycle = await apiRequest<{ id: number }>("POST", "/api/okr-cycles", newCyclePayload);
+        console.log("Server response for cycle:", newCycle);
 
-      console.log("Server response:", newCycle);
+        if (!newCycle || typeof newCycle.id !== 'number') {
+          console.error("Invalid cycle response:", newCycle);
+          throw new Error("Ungültige Antwort vom Server beim Erstellen des OKR-Zyklus");
+        }
 
-      if (!newCycle || typeof newCycle.id !== 'number') {
-        throw new Error("Ungültige Antwort vom Server beim Erstellen des OKR-Zyklus");
+        // Erstelle das Objective mit dem neuen Zyklus
+        const payload: InsertObjective = {
+          title: values.title,
+          description: values.description,
+          status: "active",
+          projectId: values.projectId ? parseInt(values.projectId) : undefined,
+          cycleId: newCycle.id,
+          teamId: values.teamId ? parseInt(values.teamId) : undefined,
+          userId: values.userId ? parseInt(values.userId) : undefined,
+        };
+
+        console.log("Creating objective with payload:", payload);
+
+        await apiRequest("POST", "/api/objectives", payload);
+
+        await queryClient.invalidateQueries({ 
+          queryKey: ["/api/objectives"]
+        });
+        await queryClient.invalidateQueries({ 
+          queryKey: ["/api/okr-cycles"]
+        });
+
+        toast({ title: "Objective erfolgreich erstellt" });
+        form.reset();
+        onSuccess?.();
+      } catch (error) {
+        console.error("Error in cycle creation:", error);
+        toast({
+          title: "Fehler beim Erstellen des OKR-Zyklus",
+          description: error instanceof Error ? error.message : "Unbekannter Fehler",
+          variant: "destructive",
+        });
       }
-
-      // Erstelle das Objective mit dem neuen Zyklus
-      const payload: InsertObjective = {
-        title: values.title,
-        description: values.description,
-        status: "active",
-        projectId: values.projectId ? parseInt(values.projectId) : undefined,
-        cycleId: newCycle.id,
-        teamId: values.teamId ? parseInt(values.teamId) : undefined,
-        userId: values.userId ? parseInt(values.userId) : undefined,
-      };
-
-      await apiRequest("POST", "/api/objectives", payload);
-
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/objectives"]
-      });
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/okr-cycles"]
-      });
-
-      toast({ title: "Objective erfolgreich erstellt" });
-      form.reset();
-      onSuccess?.();
     } catch (error) {
-      console.error("Fehler beim Erstellen des Objective:", error);
+      console.error("Error in form submission:", error);
       toast({
         title: "Fehler beim Erstellen des Objective",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
         variant: "destructive",
       });
     }
