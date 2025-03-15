@@ -50,7 +50,26 @@ export function ProductivityDashboard() {
     enabled: !!user?.id,
   });
 
-  if (isLoadingMetrics || isLoadingDistribution) {
+  // Fetch OKR data
+  const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery({
+    queryKey: ["/api/objectives"],
+    queryFn: async () => {
+      const response = await fetch("/api/objectives");
+      if (!response.ok) {
+        throw new Error("Failed to fetch objectives");
+      }
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const activeObjectives = objectives.filter(obj => obj.progress !== undefined && !obj.archived);
+  const completedObjectives = objectives.filter(obj => obj.progress !== undefined && obj.progress === 100);
+  const averageProgress = activeObjectives.length > 0
+    ? Math.round(activeObjectives.reduce((acc, obj) => acc + obj.progress, 0) / activeObjectives.length)
+    : 0;
+
+  if (isLoadingMetrics || isLoadingDistribution || isLoadingObjectives) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <p className="text-lg text-muted-foreground">Lade Produktivitätsdaten...</p>
@@ -97,15 +116,15 @@ export function ProductivityDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Erreichte Objectives
+              Objectives Progress
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {metrics.reduce((acc, m) => acc + m.objectivesAchieved, 0)}
+              {averageProgress}%
             </div>
             <p className="text-xs text-muted-foreground">
-              In den letzten {timeRange} Tagen
+              Durchschnittlicher Fortschritt
             </p>
           </CardContent>
         </Card>
@@ -129,18 +148,15 @@ export function ProductivityDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Durchschnittliche Bearbeitungszeit
+              Erreichte Objectives
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.round(
-                metrics.reduce((acc, m) => acc + m.timeSpentMinutes, 0) /
-                  Math.max(metrics.reduce((acc, m) => acc + m.tasksCompleted, 0), 1)
-              )}min
+              {completedObjectives.length}
             </div>
             <p className="text-xs text-muted-foreground">
-              Pro abgeschlossenem Task
+              Von {activeObjectives.length} aktiven
             </p>
           </CardContent>
         </Card>
@@ -177,6 +193,13 @@ export function ProductivityDashboard() {
                   dataKey="tasksCompleted"
                   name="Abgeschlossene Tasks"
                   stroke="#0088FE"
+                  activeDot={{ r: 8 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="objectivesAchieved"
+                  name="Erreichte Objectives"
+                  stroke="#FFBB28"
                   activeDot={{ r: 8 }}
                 />
                 <Line
