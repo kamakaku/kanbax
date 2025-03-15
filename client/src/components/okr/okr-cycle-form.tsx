@@ -42,8 +42,10 @@ export function OkrCycleForm({ projectId, onSuccess }: OkrCycleFormProps) {
         status: "active",
       };
 
+      console.log("Submitting OKR cycle:", payload); // Debug log
+
       await apiRequest("POST", `/api/projects/${projectId}/okr-cycles`, payload);
-      
+
       await queryClient.invalidateQueries({ 
         queryKey: [`/api/projects/${projectId}/okr-cycles`] 
       });

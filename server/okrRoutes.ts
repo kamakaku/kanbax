@@ -15,7 +15,9 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const cycles = await db.select().from(okrCycles).where(okrCycles.projectId.eq(projectId));
+      const cycles = await db.query.okrCycles.findMany({
+        where: (okrCycles, { eq }) => eq(okrCycles.projectId, projectId)
+      });
       res.json(cycles);
     } catch (error) {
       console.error("Fehler beim Abrufen der OKR-Zyklen:", error);
@@ -35,7 +37,14 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const [cycle] = await db.insert(okrCycles).values(result.data).returning();
+      // Konvertiere die Datums-Strings in Date-Objekte
+      const data = {
+        ...result.data,
+        startDate: new Date(result.data.startDate),
+        endDate: new Date(result.data.endDate)
+      };
+
+      const [cycle] = await db.insert(okrCycles).values(data).returning();
       res.status(201).json(cycle);
     } catch (error) {
       console.error("Fehler beim Erstellen des OKR-Zyklus:", error);
