@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
+import { MinusCircle, PlusCircle } from "lucide-react";
 
 // Define the schema for key result creation
 const keyResultSchema = z.object({
@@ -43,16 +44,20 @@ type KeyResultFormData = z.infer<typeof keyResultSchema>;
 
 interface KeyResultFormProps {
   objectiveId: number;
+  keyResult?: KeyResult;
   onSuccess?: () => void;
 }
 
-export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
+export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const form = useForm<KeyResultFormData>({
     resolver: zodResolver(keyResultSchema),
-    defaultValues: {
+    defaultValues: keyResult ? {
+      ...keyResult,
+      checklistItems: keyResult.checklistItems || [],
+    } : {
       title: "",
       description: "",
       targetValue: 100,
@@ -63,11 +68,21 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
     },
   });
 
-  const createKeyResult = useMutation({
+  const { fields, append, remove } = form.useFieldArray({
+    name: "checklistItems",
+  });
+
+  const mutation = useMutation({
     mutationFn: async (data: KeyResultFormData) => {
+      const endpoint = keyResult 
+        ? `/api/key-results/${keyResult.id}`
+        : `/api/objectives/${objectiveId}/key-results`;
+
+      const method = keyResult ? "PATCH" : "POST";
+
       return await apiRequest<KeyResult>(
-        "POST",
-        `/api/objectives/${objectiveId}/key-results`,
+        method,
+        endpoint,
         {
           ...data,
           objectiveId,
@@ -78,16 +93,16 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
       queryClient.invalidateQueries({
         queryKey: ["/api/objectives", objectiveId, "key-results"],
       });
-      toast({ title: "Key Result erfolgreich erstellt" });
+      toast({ title: `Key Result erfolgreich ${keyResult ? 'aktualisiert' : 'erstellt'}` });
       form.reset();
       if (onSuccess) {
         onSuccess();
       }
     },
     onError: (error) => {
-      console.error("Create key result error:", error);
+      console.error("Key result mutation error:", error);
       toast({
-        title: "Fehler beim Erstellen des Key Results",
+        title: `Fehler beim ${keyResult ? 'Aktualisieren' : 'Erstellen'} des Key Results`,
         variant: "destructive",
       });
     },
@@ -96,7 +111,7 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit((data) => createKeyResult.mutate(data))}
+        onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
         className="space-y-4"
       >
         <FormField
@@ -176,14 +191,55 @@ export function KeyResultForm({ objectiveId, onSuccess }: KeyResultFormProps) {
           )}
         />
 
+        {form.watch("type") === "checklist" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <FormLabel>Checklisten-Items</FormLabel>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ title: "", completed: false })}
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Item hinzufügen
+              </Button>
+            </div>
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex items-center gap-2">
+                <FormField
+                  control={form.control}
+                  name={`checklistItems.${index}.title`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <Input placeholder="Item Beschreibung" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => remove(index)}
+                >
+                  <MinusCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <Button
           type="submit"
           className="w-full"
-          disabled={createKeyResult.isPending}
+          disabled={mutation.isPending}
         >
-          {createKeyResult.isPending
-            ? "Wird erstellt..."
-            : "Key Result erstellen"}
+          {mutation.isPending
+            ? keyResult ? "Wird aktualisiert..." : "Wird erstellt..."
+            : keyResult ? "Key Result aktualisieren" : "Key Result erstellen"}
         </Button>
       </form>
     </Form>

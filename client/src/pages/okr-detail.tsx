@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target } from "lucide-react";
+import { PlusCircle, UserCircle, Calendar, Target, Edit } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { format } from "date-fns";
@@ -15,11 +15,20 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
   const [isKeyResultDialogOpen, setIsKeyResultDialogOpen] = useState(false);
+  const [editingKR, setEditingKR] = useState<KeyResult | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -76,6 +85,7 @@ export function OKRDetailPage() {
         queryKey: ["/api/objectives", objectiveId, "key-results"],
       });
       toast({ title: "Key Result erfolgreich aktualisiert" });
+      setEditingKR(null);
     },
     onError: (error) => {
       toast({
@@ -168,9 +178,9 @@ export function OKRDetailPage() {
         </Card>
       </div>
 
-      {/* Key Results Bereich */}
-      <div className="relative">
-        <div className="flex justify-between items-center mb-8">
+      {/* Key Results Section */}
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
           <h4 className="text-lg font-semibold">Key Results</h4>
           <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
             <DialogTrigger asChild>
@@ -191,77 +201,81 @@ export function OKRDetailPage() {
           </Dialog>
         </div>
 
-        {/* Center line */}
-        <div className="absolute left-1/2 top-16 -bottom-8 w-0.5 bg-primary/20 -translate-x-1/2" />
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Titel</TableHead>
+                <TableHead>Beschreibung</TableHead>
+                <TableHead>Typ</TableHead>
+                <TableHead>Fortschritt</TableHead>
+                <TableHead className="w-[100px]">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {keyResults.map((kr) => {
+                const krProgress = kr.currentValue || 0;
+                const assignedUser = kr.userId ? users.find(u => u.id === kr.userId) : null;
 
-        {/* Key Results */}
-        <div className="flex flex-col items-center gap-8">
-          {keyResults.map((kr) => {
-            const krProgress = kr.currentValue || 0;
-            const assignedUser = kr.userId ? users.find(u => u.id === kr.userId) : null;
-
-            return (
-              <div key={kr.id} className="w-1/2">
-                <Card className="p-6 relative">
-                  {/* Curved connecting line */}
-                  <div className="absolute -top-8 left-1/2 w-px h-8 bg-primary/50 -translate-x-1/2" />
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-4 flex-1">
-                      <div className="space-y-2">
-                        <h4 className="font-medium">{kr.title}</h4>
-                        <p className="text-sm text-muted-foreground">{kr.description}</p>
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Zielwert:</span>{" "}
-                          {kr.targetValue}
-                        </div>
-                        {kr.currentValue !== null && (
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">Aktueller Wert:</span>{" "}
-                            {kr.currentValue}
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-4">
+                return (
+                  <TableRow key={kr.id}>
+                    <TableCell className="font-medium">{kr.title}</TableCell>
+                    <TableCell>{kr.description}</TableCell>
+                    <TableCell>{kr.type}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-4">
                         {kr.type === "checkbox" ? (
                           <Checkbox
                             checked={krProgress === 100}
                             onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
                           />
                         ) : (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-4">
-                              <Progress value={krProgress} className="flex-1" />
-                              <Input
-                                type="number"
-                                className="w-20"
-                                value={krProgress}
-                                onChange={(e) => handleProgressUpdate(kr, Number(e.target.value))}
-                                min={0}
-                                max={100}
-                              />
-                            </div>
-                          </div>
+                          <>
+                            <Progress value={krProgress} className="flex-1" />
+                            <Input
+                              type="number"
+                              className="w-20"
+                              value={krProgress}
+                              onChange={(e) => handleProgressUpdate(kr, Number(e.target.value))}
+                              min={0}
+                              max={100}
+                            />
+                          </>
                         )}
                       </div>
-                    </div>
-                    {assignedUser && (
-                      <Avatar className="h-8 w-8">
-                        {assignedUser.avatarUrl ? (
-                          <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.username} />
-                        ) : (
-                          <AvatarFallback>
-                            <UserCircle className="h-5 w-5" />
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                    )}
-                  </div>
-                </Card>
-              </div>
-            );
-          })}
-        </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingKR(kr)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingKR} onOpenChange={(open) => !open && setEditingKR(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Key Result bearbeiten</DialogTitle>
+          </DialogHeader>
+          {editingKR && (
+            <KeyResultForm 
+              objectiveId={objectiveId}
+              keyResult={editingKR}
+              onSuccess={() => setEditingKR(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
