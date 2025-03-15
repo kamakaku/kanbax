@@ -249,7 +249,6 @@ export const okrCycles = pgTable("okr_cycles", {
   title: text("title").notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
-  projectId: integer("project_id").notNull(),
   status: text("status").notNull().default("active"), // active, completed, archived
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -302,14 +301,12 @@ export const insertOkrCycleSchema = createInsertSchema(okrCycles)
     title: true,
     startDate: true,
     endDate: true,
-    projectId: true,
     status: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
     startDate: z.string().min(1, "Startdatum ist erforderlich"),
     endDate: z.string().min(1, "Enddatum ist erforderlich"),
-    projectId: z.number().int().positive("Projekt ID ist erforderlich"),
     status: z.enum(["active", "completed", "archived"]).default("active"),
   });
 
