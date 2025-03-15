@@ -1,13 +1,12 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { log } from "./vite";
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -36,18 +35,9 @@ if (!fs.existsSync('./uploads/avatars')) {
   fs.mkdirSync('./uploads/avatars', { recursive: true });
 }
 
-// Register auth routes first
-function registerAuthRoutes(app: Express) {
-  log("Registering auth routes...");
-
-  // Add a simple auth check endpoint
-  app.get("/api/auth", (req, res) => {
-    log("Auth check endpoint called");
-    res.json({ message: "Auth endpoints are working" });
-  });
-
+export async function registerRoutes(app: Express) {
+  // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
-    log("Handling registration request");
     const result = insertUserSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -73,7 +63,6 @@ function registerAuthRoutes(app: Express) {
 
       // Remove password hash from response
       const { passwordHash: _, ...userWithoutPassword } = user;
-      log("User registered successfully");
       res.status(201).json(userWithoutPassword);
     } catch (error) {
       console.error("Failed to create user:", error);
@@ -82,7 +71,6 @@ function registerAuthRoutes(app: Express) {
   });
 
   app.post("/api/auth/login", async (req, res) => {
-    log("Handling login request");
     const { email, password } = req.body;
 
     try {
@@ -100,22 +88,12 @@ function registerAuthRoutes(app: Express) {
 
       // Remove password hash from response
       const { passwordHash: _, ...userWithoutPassword } = user;
-      log("User logged in successfully");
       res.json(userWithoutPassword);
     } catch (error) {
       console.error("Failed to login:", error);
       res.status(500).json({ message: "Failed to login" });
     }
   });
-
-  log("Auth routes registered successfully");
-}
-
-export async function registerRoutes(app: Express) {
-  log("Starting routes registration...");
-
-  // Register auth routes first
-  registerAuthRoutes(app);
 
   // Add new route to get all users
   app.get("/api/users", async (_req, res) => {
@@ -755,12 +733,6 @@ export async function registerRoutes(app: Express) {
   // Register OKR routes
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
-
-  // Add catch-all for unhandled routes
-  app.use((req, res) => {
-    log(`404 - Route not found: ${req.method} ${req.path}`);
-    res.status(404).json({ message: "Route not found" });
-  });
 
   return createServer(app);
 }
