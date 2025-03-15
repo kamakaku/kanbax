@@ -77,24 +77,27 @@ export function TaskDialog({
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  // Query for users with proper error handling and loading state
-  const { data: usersData, isLoading: isLoadingUsers, isError } = useQuery<User[]>({
+  // Query for users
+  const { data: users = [], isLoading: isLoadingUsers, isError } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
+      try {
+        const response = await fetch("/api/users");
+        if (!response.ok) {
+          throw new Error("Fehler beim Laden der Benutzer");
+        }
+        const data = await response.json();
+        console.log("Fetched users:", data); // Debug log
+        return data;
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        throw error;
       }
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
     },
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 1000,
+    enabled: open, // Only run query when dialog is open
+    initialData: [], // Start with empty array
+    refetchOnMount: true
   });
-
-  // Ensure users is always an array
-  const users = Array.isArray(usersData) ? usersData : [];
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
     resolver: zodResolver(taskFormSchema),
@@ -240,7 +243,7 @@ export function TaskDialog({
         await queryClient.resetQueries({ queryKey: ["/api/boards"] });
         await queryClient.resetQueries({ queryKey: ["/api/tasks"] });
         await queryClient.resetQueries({ queryKey: [`/api/tasks/${task.id}`] });
-        await queryClient.resetQueries({ queryKey: ["/api/users"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
 
         toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
@@ -625,6 +628,7 @@ export function TaskDialog({
                 )}
               />
 
+              {/* User assignments section in form */}
               <FormField
                 control={form.control}
                 name="assignedUserIds"
