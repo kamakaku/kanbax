@@ -4,6 +4,7 @@ import {
   objectives, keyResults, okrComments, okrCycles,
   insertObjectiveSchema, insertKeyResultSchema, insertOkrCommentSchema, insertOkrCycleSchema
 } from "@shared/schema";
+import {eq} from 'drizzle-orm'
 
 export function registerOkrRoutes(app: Express) {
   // OKR Cycles Endpoints
@@ -26,7 +27,14 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const [cycle] = await db.insert(okrCycles).values(result.data).returning();
+      // Konvertiere die Datums-Strings in Date-Objekte
+      const data = {
+        ...result.data,
+        startDate: new Date(result.data.startDate),
+        endDate: new Date(result.data.endDate)
+      };
+
+      const [cycle] = await db.insert(okrCycles).values(data).returning();
       res.status(201).json(cycle);
     } catch (error) {
       console.error("Fehler beim Erstellen des OKR-Zyklus:", error);
@@ -69,7 +77,7 @@ export function registerOkrRoutes(app: Express) {
     try {
       const updated = await db.update(objectives)
         .set(req.body)
-        .where(objectives.id.eq(id))
+        .where(eq(objectives.id, id))
         .returning();
       if (updated.length === 0) {
         return res.status(404).json({ message: "Objective nicht gefunden" });
@@ -88,7 +96,7 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      await db.delete(objectives).where(objectives.id.eq(id));
+      await db.delete(objectives).where(eq(objectives.id, id));
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Objective:", error);
@@ -104,7 +112,7 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const krs = await db.select().from(keyResults).where(keyResults.objectiveId.eq(objectiveId));
+      const krs = await db.select().from(keyResults).where(eq(keyResults.objectiveId, objectiveId));
       res.json(krs);
     } catch (error) {
       console.error("Fehler beim Abrufen der Key Results:", error);
@@ -142,7 +150,7 @@ export function registerOkrRoutes(app: Express) {
     try {
       const updated = await db.update(keyResults)
         .set(req.body)
-        .where(keyResults.id.eq(id))
+        .where(eq(keyResults.id, id))
         .returning();
       if (updated.length === 0) {
         return res.status(404).json({ message: "Key Result nicht gefunden" });
@@ -161,7 +169,7 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      await db.delete(keyResults).where(keyResults.id.eq(id));
+      await db.delete(keyResults).where(eq(keyResults.id, id));
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Key Result:", error);
@@ -176,10 +184,10 @@ export function registerOkrRoutes(app: Express) {
     try {
       let query = db.select().from(okrComments);
       if (objectiveId) {
-        query = query.where(okrComments.objectiveId.eq(Number(objectiveId)));
+        query = query.where(eq(okrComments.objectiveId, Number(objectiveId)));
       }
       if (keyResultId) {
-        query = query.where(okrComments.keyResultId.eq(Number(keyResultId)));
+        query = query.where(eq(okrComments.keyResultId, Number(keyResultId)));
       }
       const comments = await query;
       res.json(comments);
