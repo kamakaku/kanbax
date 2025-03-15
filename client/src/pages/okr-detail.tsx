@@ -44,15 +44,36 @@ export function OKRDetailPage() {
   // Fetch all necessary data
   const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
     queryKey: ["/api/objectives"],
+    queryFn: async () => {
+      const response = await fetch("/api/objectives");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Objectives");
+      }
+      return response.json();
+    },
   });
 
   const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/objectives", objectiveId, "key-results"],
+    queryFn: async () => {
+      const response = await fetch(`/api/objectives/${objectiveId}/key-results`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Key Results");
+      }
+      return response.json();
+    },
     enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
   });
 
   const updateKeyResult = useMutation({

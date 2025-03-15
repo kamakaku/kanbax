@@ -34,14 +34,35 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
   // Fetch available data for dropdowns
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
+      return response.json();
+    }
   });
 
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
+      }
+      return response.json();
+    }
   });
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    }
   });
 
   const userOptions: Option[] = users.map(user => ({
