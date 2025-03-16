@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProjectSchema, type InsertProject, type Project } from "@shared/schema";
+import { insertProjectSchema, type InsertProject, type Project, type Team } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -14,8 +14,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ProjectFormProps {
   open: boolean;
@@ -27,11 +36,24 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch teams
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
+      }
+      return response.json();
+    },
+  });
+
   const form = useForm<InsertProject>({
     resolver: zodResolver(existingProject ? insertProjectSchema.partial() : insertProjectSchema),
     defaultValues: {
       title: existingProject?.title || "",
       description: existingProject?.description || "",
+      teamIds: existingProject?.teamIds || [],
     },
   });
 
@@ -45,12 +67,12 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({ title: "Project created successfully" });
+      toast({ title: "Projekt erfolgreich erstellt" });
       onClose();
     },
     onError: (error) => {
       toast({
-        title: "Failed to create project",
+        title: "Fehler beim Erstellen des Projekts",
         description: error.message,
         variant: "destructive",
       });
@@ -75,12 +97,12 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({ title: "Project updated successfully" });
+      toast({ title: "Projekt erfolgreich aktualisiert" });
       onClose();
     },
     onError: (error) => {
       toast({
-        title: "Failed to update project",
+        title: "Fehler beim Aktualisieren des Projekts",
         description: error.message,
         variant: "destructive",
       });
@@ -100,7 +122,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {existingProject ? "Edit Project" : "Create New Project"}
+            {existingProject ? "Projekt bearbeiten" : "Neues Projekt erstellen"}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
@@ -110,7 +132,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>Titel</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -124,10 +146,62 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Beschreibung</FormLabel>
                   <FormControl>
                     <Textarea {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="teamIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Teams</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      const id = parseInt(value);
+                      if (!field.value?.includes(id)) {
+                        field.onChange([...(field.value || []), id]);
+                      }
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Team hinzufügen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id.toString()}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {field.value?.map((teamId) => {
+                      const team = teams.find((t) => t.id === teamId);
+                      return (
+                        <Badge key={teamId} variant="secondary">
+                          {team?.name}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 ml-1"
+                            onClick={() => {
+                              field.onChange(field.value?.filter((id) => id !== teamId));
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -138,7 +212,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
               className="w-full"
               disabled={createProject.isPending || updateProject.isPending}
             >
-              {existingProject ? "Save Changes" : "Create Project"}
+              {existingProject ? "Änderungen speichern" : "Projekt erstellen"}
             </Button>
           </form>
         </Form>
