@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { MultiSelect, type Option } from "@/components/ui/multi-select";
 import { type User } from "@shared/schema";
+import { useEffect } from "react";
 
 interface TeamFormProps {
   open: boolean;
@@ -49,11 +50,28 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
   const form = useForm<InsertTeam>({
     resolver: zodResolver(insertTeamSchema),
     defaultValues: {
-      name: defaultValues?.name || "",
-      description: defaultValues?.description || "",
-      memberIds: defaultValues?.memberIds || [],
+      name: "",
+      description: "",
+      memberIds: [],
     },
   });
+
+  // Reset form when defaultValues change
+  useEffect(() => {
+    if (defaultValues) {
+      form.reset({
+        name: defaultValues.name,
+        description: defaultValues.description,
+        memberIds: defaultValues.memberIds,
+      });
+    } else {
+      form.reset({
+        name: "",
+        description: "",
+        memberIds: [],
+      });
+    }
+  }, [defaultValues, form.reset]);
 
   const handleSubmit = async (data: InsertTeam) => {
     try {
