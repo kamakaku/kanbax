@@ -59,9 +59,13 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
 
   const createProject = useMutation({
     mutationFn: async (data: InsertProject) => {
-      const res = await apiRequest("POST", "/api/projects", data);
+      const res = await apiRequest("POST", "/api/projects", {
+        ...data,
+        teamIds: data.teamIds || [],
+      });
       if (!res.ok) {
-        throw new Error("Failed to create project");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Fehler beim Erstellen des Projekts");
       }
       return res.json();
     },
@@ -83,14 +87,20 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
     mutationFn: async (data: Partial<InsertProject>) => {
       if (!existingProject) return;
 
+      console.log("Updating project with data:", data); // Debug log
+
       const res = await apiRequest(
         "PATCH",
         `/api/projects/${existingProject.id}`,
-        data
+        {
+          ...data,
+          teamIds: data.teamIds || [],
+        }
       );
 
       if (!res.ok) {
-        throw new Error("Failed to update project");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Fehler beim Aktualisieren des Projekts");
       }
 
       return res.json();

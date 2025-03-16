@@ -110,12 +110,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProject(id: number, updateProject: UpdateProject): Promise<Project> {
+    // Ensure teamIds is an array, even if empty
+    const projectData = {
+      ...updateProject,
+      teamIds: Array.isArray(updateProject.teamIds) ? updateProject.teamIds : [],
+    };
+
+    console.log("Updating project with data:", projectData); // Debug log
+
     const [project] = await db
       .update(projects)
-      .set({
-        ...updateProject,
-        teamIds: updateProject.teamIds || [], // Ensure teamIds is always an array
-      })
+      .set(projectData)
       .where(eq(projects.id, id))
       .returning();
 
