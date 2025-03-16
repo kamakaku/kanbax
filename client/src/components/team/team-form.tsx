@@ -48,10 +48,10 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
 
   const form = useForm<InsertTeam>({
     resolver: zodResolver(insertTeamSchema),
-    defaultValues: defaultValues || {
-      name: "",
-      description: "",
-      memberIds: [],
+    defaultValues: {
+      name: defaultValues?.name || "",
+      description: defaultValues?.description || "",
+      memberIds: defaultValues?.memberIds || [],
     },
   });
 
