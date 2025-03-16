@@ -2,7 +2,7 @@ import { tasks, boards, columns, comments, checklistItems, activityLogs, type Ta
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
-import { type Team, type InsertTeam } from "@shared/schema";
+import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 
