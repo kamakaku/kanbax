@@ -14,7 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { MultiSelect, type Option } from "@/components/ui/multi-select";
+import { type User } from "@shared/schema";
 
 interface TeamFormProps {
   open: boolean;
@@ -27,11 +29,29 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch available users
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    }
+  });
+
+  const userOptions: Option[] = users.map(user => ({
+    value: user.id.toString(),
+    label: user.username
+  }));
+
   const form = useForm<InsertTeam>({
     resolver: zodResolver(insertTeamSchema),
     defaultValues: defaultValues || {
       name: "",
       description: "",
+      memberIds: [],
     },
   });
 
@@ -45,7 +65,10 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(data)
+          body: JSON.stringify({
+            ...data,
+            memberIds: data.memberIds?.map(id => parseInt(id)) || []
+          })
         });
 
         if (!res.ok) {
@@ -103,6 +126,25 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
                       placeholder="Beschreiben Sie das Team..."
                       {...field}
                       value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="memberIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Team-Mitglieder</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      options={userOptions}
+                      selected={field.value || []}
+                      onChange={field.onChange}
+                      placeholder="Mitglieder auswählen"
                     />
                   </FormControl>
                   <FormMessage />

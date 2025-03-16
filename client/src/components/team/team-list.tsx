@@ -29,6 +29,17 @@ export function TeamList() {
     },
   });
 
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["/api/team-members"],
+    queryFn: async () => {
+      const response = await fetch("/api/team-members");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Team-Mitglieder");
+      }
+      return response.json();
+    },
+  });
+
   if (isLoading) {
     return <div>Lade Teams...</div>;
   }
@@ -69,8 +80,7 @@ export function TeamList() {
               <div className="mt-4 flex items-center">
                 <Users className="h-4 w-4 mr-2 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
-                  {/* TODO: Add member count */}
-                  0 Mitglieder
+                  {teamMembers.filter(tm => tm.teamId === team.id).length} Mitglieder
                 </span>
               </div>
             </CardContent>

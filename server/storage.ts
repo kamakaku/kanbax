@@ -2,7 +2,7 @@ import { tasks, boards, columns, comments, checklistItems, activityLogs, type Ta
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
-import { teams, type Team, type InsertTeam } from "@shared/schema";
+import { teams, teamMembers, type Team, type InsertTeam, type TeamMember } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 
@@ -82,6 +82,9 @@ export interface IStorage {
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team>;
   deleteTeam(id: number): Promise<void>;
+
+  // Team member operations
+  getTeamMembers(): Promise<TeamMember[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -631,18 +634,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTeam(insertTeam: InsertTeam): Promise<Team> {
+    const { memberIds, ...teamData } = insertTeam;
+
+    // Create the team first
     const [team] = await db
       .insert(teams)
-      .values(insertTeam)
+      .values(teamData)
       .returning();
+
+    // If memberIds are provided, create team member relationships
+    if (memberIds && memberIds.length > 0) {
+      const memberEntries = memberIds.map(id => ({
+        teamId: team.id,
+        userId: parseInt(id),
+        role: 'member' as const
+      }));
+
+      await db
+        .insert(teamMembers)
+        .values(memberEntries);
+    }
 
     return team;
   }
 
   async updateTeam(id: number, updateTeam: Partial<InsertTeam>): Promise<Team> {
+    const { memberIds, ...teamData } = updateTeam;
+
+    // Update the team data
     const [team] = await db
       .update(teams)
-      .set(updateTeam)
+      .set(teamData)
       .where(eq(teams.id, id))
       .returning();
 
@@ -650,10 +672,37 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Team ${id} not found`);
     }
 
+    // If memberIds are provided, update team members
+    if (memberIds) {
+      // First remove all existing members
+      await db
+        .delete(teamMembers)
+        .where(eq(teamMembers.teamId, id));
+
+      // Then add the new members
+      if (memberIds.length > 0) {
+        const memberEntries = memberIds.map(memberId => ({
+          teamId: id,
+          userId: parseInt(memberId),
+          role: 'member' as const
+        }));
+
+        await db
+          .insert(teamMembers)
+          .values(memberEntries);
+      }
+    }
+
     return team;
   }
 
   async deleteTeam(id: number): Promise<void> {
+    // First delete all team member relationships
+    await db
+      .delete(teamMembers)
+      .where(eq(teamMembers.teamId, id));
+
+    // Then delete the team
     const [team] = await db
       .delete(teams)
       .where(eq(teams.id, id))
@@ -662,6 +711,10 @@ export class DatabaseStorage implements IStorage {
     if (!team) {
       throw new Error(`Team ${id} not found`);
     }
+  }
+    // Team member operations
+  async getTeamMembers(): Promise<TeamMember[]> {
+    return await db.select().from(teamMembers);
   }
 }
 

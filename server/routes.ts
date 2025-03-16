@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema, teamMembers } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
@@ -882,7 +882,7 @@ export async function registerRoutes(app: Express) {
   });
 
   app.patch("/api/columns/:id", async (req, res) => {
-const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
     }
@@ -1021,6 +1021,17 @@ const id = parseInt(req.params.id);
   // Register OKR routes (already exists)
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
+
+  // Inside the registerRoutes function, add the new team-members route
+  app.get("/api/team-members", async (_req, res) => {
+    try {
+      const result = await storage.getTeamMembers(); // Assuming storage.getTeamMembers exists
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch team members:", error);
+      res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
 
   return createServer(app);
 }
