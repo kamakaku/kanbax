@@ -2,7 +2,7 @@ import { tasks, boards, columns, comments, checklistItems, activityLogs, type Ta
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
-import { type Team } from "@shared/schema";
+import { type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 
@@ -75,6 +75,13 @@ export interface IStorage {
   createBoardTeam(team: InsertBoardTeam): Promise<BoardTeam>;
   getBoardMembers(boardId: number): Promise<BoardMember[]>;
   getBoardTeams(boardId: number): Promise<BoardTeam[]>;
+
+  // Team operations
+  getTeams(): Promise<Team[]>;
+  getTeam(id: number): Promise<Team>;
+  createTeam(team: InsertTeam): Promise<Team>;
+  updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team>;
+  deleteTeam(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -603,6 +610,58 @@ export class DatabaseStorage implements IStorage {
       .values(change)
       .returning();
     return result;
+  }
+
+  // Team operations
+  async getTeams(): Promise<Team[]> {
+    return await db.select().from(teams);
+  }
+
+  async getTeam(id: number): Promise<Team> {
+    const [team] = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, id));
+
+    if (!team) {
+      throw new Error(`Team ${id} not found`);
+    }
+
+    return team;
+  }
+
+  async createTeam(insertTeam: InsertTeam): Promise<Team> {
+    const [team] = await db
+      .insert(teams)
+      .values(insertTeam)
+      .returning();
+
+    return team;
+  }
+
+  async updateTeam(id: number, updateTeam: Partial<InsertTeam>): Promise<Team> {
+    const [team] = await db
+      .update(teams)
+      .set(updateTeam)
+      .where(eq(teams.id, id))
+      .returning();
+
+    if (!team) {
+      throw new Error(`Team ${id} not found`);
+    }
+
+    return team;
+  }
+
+  async deleteTeam(id: number): Promise<void> {
+    const [team] = await db
+      .delete(teams)
+      .where(eq(teams.id, id))
+      .returning();
+
+    if (!team) {
+      throw new Error(`Team ${id} not found`);
+    }
   }
 }
 
