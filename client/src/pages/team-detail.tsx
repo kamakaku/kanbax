@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { type Team, type Project, type Board, type User } from "@shared/schema";
+import { type Team, type Project, type Board, type User, type Objective } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Pencil, Users, Kanban, Target } from "lucide-react";
+import { Pencil, Users, Kanban, Target, LineChart } from "lucide-react";
 import { useState } from "react";
 import { TeamForm } from "@/components/team/team-form";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,19 @@ export default function TeamDetail() {
       const res = await fetch(`/api/teams/${teamId}/members`);
       if (!res.ok) {
         throw new Error("Failed to fetch team members");
+      }
+      return res.json();
+    },
+    enabled: !!teamId,
+  });
+
+  // Fetch team OKRs
+  const { data: objectives = [] } = useQuery<Objective[]>({
+    queryKey: [`/api/teams/${teamId}/objectives`],
+    queryFn: async () => {
+      const res = await fetch(`/api/teams/${teamId}/objectives`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch team objectives");
       }
       return res.json();
     },
@@ -168,6 +181,32 @@ export default function TeamDetail() {
                   <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
                     <h3 className="font-medium">{board.title}</h3>
                     <p className="text-sm text-muted-foreground line-clamp-2">{board.description}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* OKRs Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <LineChart className="h-5 w-5" />
+              <CardTitle>OKRs</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {objectives.map((objective) => (
+                <Link key={objective.id} href={`/okr/${objective.id}`}>
+                  <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                    <h3 className="font-medium">{objective.title}</h3>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant={objective.status === 'completed' ? 'default' : 'secondary'}>
+                        {objective.status === 'completed' ? 'Abgeschlossen' : 'In Bearbeitung'}
+                      </Badge>
+                    </div>
                   </div>
                 </Link>
               ))}
