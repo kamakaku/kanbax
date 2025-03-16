@@ -330,7 +330,7 @@ export function OKRDetailPage() {
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </TableCell>
-                      <TableCell className="font-medium" style={{ minWidth: '200px' }}> {/* Added minWidth */}
+                      <TableCell className="font-medium" style={{ minWidth: '200px', padding: '1rem 0' }}>
                         <div className="flex items-center gap-4">
                           <CircularProgressIndicator 
                             value={krProgress} 
@@ -367,40 +367,25 @@ export function OKRDetailPage() {
                       <TableRow>
                         <TableCell colSpan={5}>
                           <div className="py-4 px-6 space-y-4">
-                            <div className="flex items-center gap-4">
-                              <CircularProgressIndicator 
-                                value={krProgress} 
-                                size="md"
-                                label={kr.type === "checkbox" 
-                                  ? `${krProgress === 100 ? "1" : "0"}/1` 
-                                  : `${currentValue}/${maxValue}`
-                                }
-                                className="cursor-pointer"
-                                onClick={() => kr.type === "checkbox" && 
-                                  handleProgressUpdate(kr, krProgress !== 100)
-                                }
-                              />
-
-                              {kr.type !== "checkbox" && kr.type !== "checklist" && (
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium">
-                                    Fortschritt anpassen
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    className="w-24"
-                                    value={editingProgress[kr.id] !== undefined 
-                                      ? editingProgress[kr.id] 
-                                      : krProgress
-                                    }
-                                    onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                                    onBlur={() => handleProgressInputBlur(kr)}
-                                    min={0}
-                                    max={100}
-                                  />
-                                </div>
-                              )}
-                            </div>
+                            {kr.type !== "checkbox" && kr.type !== "checklist" && (
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Fortschritt anpassen
+                                </label>
+                                <Input
+                                  type="number"
+                                  className="w-24"
+                                  value={editingProgress[kr.id] !== undefined 
+                                    ? editingProgress[kr.id] 
+                                    : krProgress
+                                  }
+                                  onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                  onBlur={() => handleProgressInputBlur(kr)}
+                                  min={0}
+                                  max={100}
+                                />
+                              </div>
+                            )}
 
                             {kr.type === "checklist" && kr.checklistItems && (
                               <div className="space-y-2">
