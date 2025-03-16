@@ -326,20 +326,19 @@ export function OKRDetailPage() {
                   <>
                     <TableRow key={kr.id}>
                       <TableCell>
-                        {kr.type === "checkbox" ? (
-                          <Checkbox
-                            checked={krProgress === 100}
-                            onCheckedChange={(checked) => 
-                              handleProgressUpdate(kr, checked === true)
-                            }
-                          />
-                        ) : (
-                          <CircularProgressIndicator 
-                            value={krProgress} 
-                            size="sm"
-                            label={`${currentValue}/${maxValue}`}
-                          />
-                        )}
+                        {/* Replace checkbox with CircularProgressIndicator */}
+                        <CircularProgressIndicator 
+                          value={krProgress} 
+                          size="sm"
+                          label={kr.type === "checkbox" ? 
+                            `${krProgress === 100 ? "1" : "0"}/1` : 
+                            `${currentValue}/${maxValue}`
+                          }
+                          className="cursor-pointer"
+                          onClick={() => kr.type === "checkbox" && 
+                            handleProgressUpdate(kr, krProgress !== 100)
+                          }
+                        />
                       </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">

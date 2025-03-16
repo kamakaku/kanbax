@@ -5,6 +5,7 @@ interface CircularProgressIndicatorProps {
   size?: "sm" | "md" | "lg";
   label?: string;
   className?: string;
+  onClick?: () => void;
 }
 
 const sizeClasses = {
@@ -24,6 +25,7 @@ export function CircularProgressIndicator({
   size = "md",
   label,
   className,
+  onClick,
 }: CircularProgressIndicatorProps) {
   // Ensure value is between 0 and 100
   const normalizedValue = Math.min(Math.max(value || 0, 0), 100);
@@ -39,9 +41,11 @@ export function CircularProgressIndicator({
     <div 
       className={cn(
         "relative inline-flex items-center justify-center",
+        onClick && "cursor-pointer hover:opacity-80 transition-opacity",
         sizeClasses[size],
         className
       )}
+      onClick={onClick}
     >
       <svg className="w-full h-full -rotate-90">
         {/* Background circle */}
