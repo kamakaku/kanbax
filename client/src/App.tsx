@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarTrigger 
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target, LineChart } from "lucide-react";
+import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target, LineChart, Users } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
@@ -23,6 +23,7 @@ import AllBoards from "@/pages/all-boards";
 import Profile from "@/pages/profile";
 import OKRPage from "@/pages/okr";
 import OKRDetailPage from "@/pages/okr-detail";
+import TeamsPage from "@/pages/teams";
 import { ProductivityPage } from "@/pages/productivity";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +55,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 >
                   <Folder className="h-4 w-4" />
                   <span>Projekte</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setLocation("/teams")}
+                  tooltip="Teams"
+                >
+                  <Users className="h-4 w-4" />
+                  <span>Teams</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -148,6 +158,7 @@ function AuthenticatedApp() {
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
+      <Route path="/teams" component={() => <ProtectedRoute component={TeamsPage} />} />
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />

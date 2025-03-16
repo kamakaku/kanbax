@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type InsertTeam } from "@shared/schema";
+import { type InsertTeam, insertTeamSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
