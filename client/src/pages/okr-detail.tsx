@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { CircularProgressIndicator } from "@/components/ui/circular-progress";
 
 interface ChecklistItem {
   title: string;
@@ -287,27 +288,30 @@ export function OKRDetailPage() {
               <TableRow>
                 <TableHead>Titel</TableHead>
                 <TableHead>Beschreibung</TableHead>
-                <TableHead>Typ</TableHead>
-                <TableHead>Fortschritt</TableHead>
-                <TableHead className="w-[100px]">Aktionen</TableHead>
+                <TableHead className="w-[180px]">Fortschritt</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {keyResults.map((kr) => {
                 const krProgress = kr.currentValue || 0;
-
-                // Parse checklist items if they're stored as strings
-                const checklistItems = kr.checklistItems?.map(item =>
-                  typeof item === 'string' ? JSON.parse(item) as ChecklistItem : item
-                ) || [];
+                const maxValue = kr.type === "checklist" 
+                  ? kr.checklistItems?.length || 0
+                  : kr.targetValue;
+                const currentValue = kr.type === "checklist"
+                  ? kr.checklistItems?.filter(item => 
+                      typeof item === 'string' 
+                        ? JSON.parse(item).completed 
+                        : item.completed
+                    ).length || 0
+                  : krProgress;
 
                 return (
                   <TableRow key={kr.id}>
                     <TableCell className="font-medium">{kr.title}</TableCell>
                     <TableCell>{kr.description}</TableCell>
-                    <TableCell>{kr.type}</TableCell>
                     <TableCell>
-                      <div className="space-y-4">
+                      <div className="flex items-center gap-4">
                         {kr.type === "checkbox" ? (
                           <Checkbox
                             checked={krProgress === 100}
@@ -315,36 +319,50 @@ export function OKRDetailPage() {
                               handleProgressUpdate(kr, checked === true)
                             }
                           />
-                        ) : kr.type === "checklist" ? (
-                          <div className="space-y-2">
-                            {checklistItems.map((item, index) => (
+                        ) : (
+                          <>
+                            <CircularProgressIndicator 
+                              value={krProgress} 
+                              size="sm"
+                              label={`${currentValue}/${maxValue}`}
+                            />
+                            {kr.type !== "checklist" && (
+                              <Input
+                                type="number"
+                                className="w-20"
+                                value={editingProgress[kr.id] !== undefined 
+                                  ? editingProgress[kr.id] 
+                                  : krProgress
+                                }
+                                onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                onBlur={() => handleProgressInputBlur(kr)}
+                                min={0}
+                                max={100}
+                              />
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {kr.type === "checklist" && (
+                        <div className="mt-2 space-y-2">
+                          {kr.checklistItems?.map((item, index) => {
+                            const checklistItem = typeof item === 'string' 
+                              ? JSON.parse(item) 
+                              : item;
+                            return (
                               <div key={index} className="flex items-center gap-2">
                                 <Checkbox
-                                  checked={item.completed}
+                                  checked={checklistItem.completed}
                                   onCheckedChange={(checked) =>
                                     handleChecklistItemUpdate(kr, index, checked === true)
                                   }
                                 />
-                                <span className="text-sm">{item.title}</span>
+                                <span className="text-sm">{checklistItem.title}</span>
                               </div>
-                            ))}
-                            <Progress value={krProgress} className="h-2" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-4">
-                            <Progress value={krProgress} className="flex-1" />
-                            <Input
-                              type="number"
-                              className="w-20"
-                              value={editingProgress[kr.id] !== undefined ? editingProgress[kr.id] : krProgress}
-                              onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                              onBlur={() => handleProgressInputBlur(kr)}
-                              min={0}
-                              max={100}
-                            />
-                          </div>
-                        )}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Button
