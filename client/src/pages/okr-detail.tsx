@@ -330,9 +330,8 @@ export function OKRDetailPage() {
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium" style={{ minWidth: '200px' }}> {/* Added minWidth */}
                         <div className="flex items-center gap-4">
-                          {kr.title}
                           <CircularProgressIndicator 
                             value={krProgress} 
                             size="sm"
@@ -341,6 +340,7 @@ export function OKRDetailPage() {
                               : `${currentValue}/${maxValue}`
                             }
                           />
+                          {kr.title}
                         </div>
                       </TableCell>
                       <TableCell>{kr.description}</TableCell>
