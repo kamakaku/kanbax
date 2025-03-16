@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type Team } from "@shared/schema";
+import { type Team, type TeamMember } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,7 +29,7 @@ export function TeamList() {
     },
   });
 
-  const { data: teamMembers = [] } = useQuery({
+  const { data: teamMembers = [] } = useQuery<TeamMember[]>({
     queryKey: ["/api/team-members"],
     queryFn: async () => {
       const response = await fetch("/api/team-members");
@@ -47,6 +47,12 @@ export function TeamList() {
   if (error) {
     return <div>Fehler beim Laden der Teams</div>;
   }
+
+  const getTeamMembers = (teamId: number) => {
+    return teamMembers
+      .filter(tm => tm.teamId === teamId)
+      .map(tm => tm.userId.toString());
+  };
 
   return (
     <div className="space-y-4">
@@ -96,7 +102,10 @@ export function TeamList() {
       <TeamForm
         open={!!editingTeam}
         onClose={() => setEditingTeam(null)}
-        defaultValues={editingTeam || undefined}
+        defaultValues={editingTeam ? {
+          ...editingTeam,
+          memberIds: getTeamMembers(editingTeam.id)
+        } : undefined}
         onSubmit={async (data) => {
           if (!editingTeam) return;
 
