@@ -8,15 +8,15 @@ interface CircularProgressIndicatorProps {
 }
 
 const sizeClasses = {
-  sm: "w-8 h-8",
-  md: "w-12 h-12",
-  lg: "w-16 h-16",
+  sm: "w-10 h-10", 
+  md: "w-14 h-14", 
+  lg: "w-20 h-20", 
 };
 
 const textSizeClasses = {
-  sm: "text-[10px]",
-  md: "text-sm",
-  lg: "text-base",
+  sm: "text-[8px]", 
+  md: "text-xs", 
+  lg: "text-sm", 
 };
 
 export function CircularProgressIndicator({
@@ -29,7 +29,7 @@ export function CircularProgressIndicator({
   const normalizedValue = Math.min(Math.max(value || 0, 0), 100);
 
   // Calculate circle properties based on size
-  const svgSize = size === "sm" ? 32 : size === "md" ? 48 : 64;
+  const svgSize = size === "sm" ? 40 : size === "md" ? 56 : 80; 
   const strokeWidth = size === "sm" ? 3 : size === "md" ? 4 : 5;
   const radius = (svgSize - strokeWidth * 2) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -74,7 +74,7 @@ export function CircularProgressIndicator({
       {label && (
         <span 
           className={cn(
-            "absolute text-center font-medium",
+            "absolute text-center font-medium text-muted-foreground",
             textSizeClasses[size]
           )}
         >
