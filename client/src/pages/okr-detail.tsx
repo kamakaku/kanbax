@@ -367,6 +367,20 @@ export function OKRDetailPage() {
                       <TableRow>
                         <TableCell colSpan={5}>
                           <div className="py-4 px-6 space-y-4">
+                            {kr.type === "checkbox" && (
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Status ändern
+                                </label>
+                                <Checkbox
+                                  checked={krProgress === 100}
+                                  onCheckedChange={(checked) =>
+                                    handleProgressUpdate(kr, checked === true)
+                                  }
+                                />
+                              </div>
+                            )}
+
                             {kr.type !== "checkbox" && kr.type !== "checklist" && (
                               <div className="space-y-2">
                                 <label className="text-sm font-medium">
