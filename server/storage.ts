@@ -112,7 +112,10 @@ export class DatabaseStorage implements IStorage {
   async updateProject(id: number, updateProject: UpdateProject): Promise<Project> {
     const [project] = await db
       .update(projects)
-      .set(updateProject)
+      .set({
+        ...updateProject,
+        teamIds: updateProject.teamIds || [], // Ensure teamIds is always an array
+      })
       .where(eq(projects.id, id))
       .returning();
 
@@ -712,7 +715,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Team ${id} not found`);
     }
   }
-    // Team member operations
+  // Team member operations
   async getTeamMembers(): Promise<TeamMember[]> {
     return await db.select().from(teamMembers);
   }
