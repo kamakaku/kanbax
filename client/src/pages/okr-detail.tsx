@@ -299,10 +299,10 @@ export function OKRDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[80px]"></TableHead>
+                <TableHead className="w-[40px]"></TableHead>
                 <TableHead>Titel</TableHead>
                 <TableHead>Beschreibung</TableHead>
-                <TableHead className="w-[100px]"></TableHead>
+                <TableHead className="w-[100px]">Fortschritt</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -320,95 +320,101 @@ export function OKRDetailPage() {
                     ).length || 0
                   : krProgress;
 
-                const hasChecklist = kr.type === "checklist" && kr.checklistItems?.length > 0;
-
                 return (
                   <>
-                    <TableRow key={kr.id}>
+                    <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(kr.id)}>
                       <TableCell>
-                        {/* Replace checkbox with CircularProgressIndicator */}
-                        <CircularProgressIndicator 
-                          value={krProgress} 
-                          size="sm"
-                          label={kr.type === "checkbox" ? 
-                            `${krProgress === 100 ? "1" : "0"}/1` : 
-                            `${currentValue}/${maxValue}`
-                          }
-                          className="cursor-pointer"
-                          onClick={() => kr.type === "checkbox" && 
-                            handleProgressUpdate(kr, krProgress !== 100)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {hasChecklist && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={() => toggleRow(kr.id)}
-                            >
-                              {expandedRows.has(kr.id) ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                            </Button>
-                          )}
-                          {kr.title}
-                        </div>
-                      </TableCell>
-                      <TableCell>{kr.description}</TableCell>
-                      <TableCell>
-                        {kr.type !== "checkbox" && kr.type !== "checklist" && (
-                          <Input
-                            type="number"
-                            className="w-20"
-                            value={editingProgress[kr.id] !== undefined 
-                              ? editingProgress[kr.id] 
-                              : krProgress
-                            }
-                            onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                            onBlur={() => handleProgressInputBlur(kr)}
-                            min={0}
-                            max={100}
-                          />
+                        {expandedRows.has(kr.id) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
                         )}
+                      </TableCell>
+                      <TableCell className="font-medium">{kr.title}</TableCell>
+                      <TableCell>{kr.description}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {kr.type === "checkbox" 
+                          ? `${krProgress === 100 ? "Erledigt" : "Offen"}`
+                          : `${Math.round(krProgress)}%`
+                        }
                       </TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setEditingKR(kr)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingKR(kr);
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
-                    {hasChecklist && expandedRows.has(kr.id) && (
+                    {expandedRows.has(kr.id) && (
                       <TableRow>
-                        <TableCell></TableCell>
-                        <TableCell colSpan={4}>
-                          <div className="pl-8 py-2 space-y-2">
-                            {kr.checklistItems.map((item, index) => {
-                              const checklistItem = typeof item === 'string' 
-                                ? JSON.parse(item) 
-                                : item;
-                              return (
-                                <div key={index} className="flex items-center gap-2">
-                                  <Checkbox
-                                    checked={checklistItem.completed}
-                                    onCheckedChange={(checked) =>
-                                      handleChecklistItemUpdate(kr, index, checked === true)
+                        <TableCell colSpan={5}>
+                          <div className="py-4 px-6 space-y-4">
+                            <div className="flex items-center gap-4">
+                              <CircularProgressIndicator 
+                                value={krProgress} 
+                                size="md"
+                                label={kr.type === "checkbox" 
+                                  ? `${krProgress === 100 ? "1" : "0"}/1` 
+                                  : `${currentValue}/${maxValue}`
+                                }
+                                className="cursor-pointer"
+                                onClick={() => kr.type === "checkbox" && 
+                                  handleProgressUpdate(kr, krProgress !== 100)
+                                }
+                              />
+
+                              {kr.type !== "checkbox" && kr.type !== "checklist" && (
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    Fortschritt anpassen
+                                  </label>
+                                  <Input
+                                    type="number"
+                                    className="w-24"
+                                    value={editingProgress[kr.id] !== undefined 
+                                      ? editingProgress[kr.id] 
+                                      : krProgress
                                     }
+                                    onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                    onBlur={() => handleProgressInputBlur(kr)}
+                                    min={0}
+                                    max={100}
                                   />
-                                  <span className="text-sm text-muted-foreground">
-                                    {checklistItem.title}
-                                  </span>
                                 </div>
-                              );
-                            })}
+                              )}
+                            </div>
+
+                            {kr.type === "checklist" && kr.checklistItems && (
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium">Checkliste</h4>
+                                <div className="space-y-2">
+                                  {kr.checklistItems.map((item, index) => {
+                                    const checklistItem = typeof item === 'string' 
+                                      ? JSON.parse(item) 
+                                      : item;
+                                    return (
+                                      <div key={index} className="flex items-center gap-2">
+                                        <Checkbox
+                                          checked={checklistItem.completed}
+                                          onCheckedChange={(checked) =>
+                                            handleChecklistItemUpdate(kr, index, checked === true)
+                                          }
+                                        />
+                                        <span className="text-sm text-muted-foreground">
+                                          {checklistItem.title}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
