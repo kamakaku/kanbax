@@ -330,7 +330,19 @@ export function OKRDetailPage() {
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">{kr.title}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-4">
+                          {kr.title}
+                          <CircularProgressIndicator 
+                            value={krProgress} 
+                            size="sm"
+                            label={kr.type === "checkbox" 
+                              ? `${krProgress === 100 ? "1" : "0"}/1` 
+                              : `${currentValue}/${maxValue}`
+                            }
+                          />
+                        </div>
+                      </TableCell>
                       <TableCell>{kr.description}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {kr.type === "checkbox" 
