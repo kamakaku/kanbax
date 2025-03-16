@@ -59,27 +59,24 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
 
   const createProject = useMutation({
     mutationFn: async (data: InsertProject) => {
-      const res = await apiRequest("POST", "/api/projects", {
+      return await apiRequest("POST", "/api/projects", {
         ...data,
         teamIds: data.teamIds || [],
       });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Fehler beim Erstellen des Projekts");
-      }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: "Projekt erfolgreich erstellt" });
+      form.reset();
       onClose();
     },
     onError: (error) => {
       toast({
         title: "Fehler beim Erstellen des Projekts",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Das Projekt konnte nicht erstellt werden",
         variant: "destructive",
       });
+      console.error("Project creation error:", error);
     },
   });
 
@@ -89,7 +86,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
 
       console.log("Updating project with data:", data); // Debug log
 
-      const res = await apiRequest(
+      return await apiRequest(
         "PATCH",
         `/api/projects/${existingProject.id}`,
         {
@@ -97,13 +94,6 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
           teamIds: data.teamIds || [],
         }
       );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Fehler beim Aktualisieren des Projekts");
-      }
-
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -113,9 +103,10 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
     onError: (error) => {
       toast({
         title: "Fehler beim Aktualisieren des Projekts",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Das Projekt konnte nicht aktualisiert werden",
         variant: "destructive",
       });
+      console.error("Project update error:", error);
     },
   });
 
