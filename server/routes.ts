@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
@@ -882,7 +882,7 @@ export async function registerRoutes(app: Express) {
   });
 
   app.patch("/api/columns/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
+const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
     }
@@ -930,6 +930,88 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Failed to upload avatar:", error);
       res.status(500).json({ message: "Failed to upload avatar" });
+    }
+  });
+
+  // Add team routes
+  app.get("/api/teams", async (_req, res) => {
+    try {
+      const teams = await storage.getTeams();
+      res.json(teams);
+    } catch (error) {
+      console.error("Failed to fetch teams:", error);
+      res.status(500).json({ message: "Failed to fetch teams" });
+    }
+  });
+
+  app.get("/api/teams/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    try {
+      const team = await storage.getTeam(id);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.json(team);
+    } catch (error) {
+      console.error("Failed to fetch team:", error);
+      res.status(500).json({ message: "Failed to fetch team" });
+    }
+  });
+
+  app.post("/api/teams", async (req, res) => {
+    const result = insertTeamSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const team = await storage.createTeam(result.data);
+      res.status(201).json(team);
+    } catch (error) {
+      console.error("Failed to create team:", error);
+      res.status(500).json({ message: "Failed to create team" });
+    }
+  });
+
+  app.patch("/api/teams/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    const result = insertTeamSchema.partial().safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const team = await storage.updateTeam(id, result.data);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.json(team);
+    } catch (error) {
+      console.error("Failed to update team:", error);
+      res.status(500).json({ message: "Failed to update team" });
+    }
+  });
+
+  app.delete("/api/teams/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    try {
+      await storage.deleteTeam(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete team:", error);
+      res.status(500).json({ message: "Failed to delete team" });
     }
   });
 
