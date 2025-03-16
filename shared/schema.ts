@@ -34,6 +34,7 @@ export const projects = pgTable("projects", {
   title: text("title").notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  teamIds: integer("team_ids").array().default([]),
 });
 
 // Update boards table to include projectId
@@ -125,7 +126,9 @@ export const insertProjectSchema = createInsertSchema(projects)
     description: true,
   })
   .extend({
-    title: z.string().min(1, "Title is required"),
+    title: z.string().min(1, "Titel ist erforderlich"),
+    description: z.string().optional(),
+    teamIds: z.array(z.number().int().positive()).optional(),
   });
 
 export const updateProjectSchema = insertProjectSchema.partial();
@@ -351,7 +354,6 @@ export const okrComments = pgTable("okr_comments", {
 });
 
 // Updated schemas to reflect the new structure
-
 export const insertObjectiveSchema = createInsertSchema(objectives)
   .pick({
     title: true,
@@ -428,7 +430,13 @@ export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 
 // Add project types
-export type Project = typeof projects.$inferSelect;
+export type Project = typeof projects.$inferSelect & {
+  teams?: {
+    id: number;
+    name: string;
+    role: string;
+  }[];
+};
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 
@@ -574,3 +582,27 @@ export type InsertTaskTimeEntry = z.infer<typeof insertTaskTimeEntrySchema>;
 
 export type TaskStateChange = typeof taskStateChanges.$inferSelect;
 export type InsertTaskStateChange = z.infer<typeof insertTaskStateChangeSchema>;
+
+// Add new table for project-team relationships after the existing tables
+export const projectTeams = pgTable("project_teams", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  teamId: integer("team_id").notNull(),
+  role: text("role").notNull().default("member"), // 'member' or 'admin'
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+});
+
+// Add schema for the new table
+export const insertProjectTeamSchema = createInsertSchema(projectTeams)
+  .pick({
+    projectId: true,
+    teamId: true,
+    role: true,
+  })
+  .extend({
+    role: z.enum(["member", "admin"]).default("member"),
+  });
+
+// Export types for the new table
+export type ProjectTeam = typeof projectTeams.$inferSelect;
+export type InsertProjectTeam = z.infer<typeof insertProjectTeamSchema>;
