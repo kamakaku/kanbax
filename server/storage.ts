@@ -166,19 +166,11 @@ export class DatabaseStorage implements IStorage {
     try {
       // Log incoming data
       console.log("Received board data:", insertBoard);
-      console.log("memberIds type:", typeof insertBoard.memberIds, "value:", insertBoard.memberIds);
-      console.log("teamIds type:", typeof insertBoard.teamIds, "value:", insertBoard.teamIds);
 
       // Clean up the data before insertion
       const boardData = {
         ...insertBoard,
         projectId: insertBoard.projectId || null,
-        memberIds: Array.isArray(insertBoard.memberIds)
-          ? insertBoard.memberIds.map(id => Number(id))
-          : [],
-        teamIds: Array.isArray(insertBoard.teamIds)
-          ? insertBoard.teamIds.map(id => Number(id))
-          : []
       };
 
       console.log("Processed board data for insertion:", boardData);
@@ -215,19 +207,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         console.log("Default columns created successfully");
-
-        const processedBoard = {
-          ...board,
-          memberIds: Array.isArray(board.memberIds)
-            ? board.memberIds.map(Number)
-            : [],
-          teamIds: Array.isArray(board.teamIds)
-            ? board.teamIds.map(Number)
-            : []
-        };
-
-        console.log("Final processed board data:", processedBoard);
-        return processedBoard;
+        return board;
 
       } catch (dbError) {
         console.error("Database error during board creation:", dbError);

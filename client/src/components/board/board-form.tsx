@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertBoardSchema, type InsertBoard, type Project, type User, type Team } from "@shared/schema";
+import { insertBoardSchema, type InsertBoard, type Project } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -24,8 +24,6 @@ import {
 } from "@/components/ui/select";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
 
 interface BoardFormProps {
   open: boolean;
@@ -52,38 +50,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
-  // Fetch users
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
-  });
-
-  // Fetch teams
-  const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: ["/api/teams"],
-    queryFn: async () => {
-      const response = await fetch("/api/teams");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Teams");
-      }
-      return response.json();
-    },
-  });
-
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: defaultValues || {
       title: "",
       description: "",
       projectId: currentProject?.id,
-      memberIds: [],
-      teamIds: [],
     },
   });
 
@@ -99,8 +71,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         const submitData = {
           ...data,
           projectId: data.projectId || undefined,
-          memberIds: data.memberIds?.map(id => Number(id)) || [],
-          teamIds: data.teamIds?.map(id => Number(id)) || [],
         };
 
         console.log("Processed submit data:", submitData);
@@ -227,110 +197,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="memberIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mitglieder</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      const id = parseInt(value);
-                      if (!field.value?.includes(id)) {
-                        field.onChange([...(field.value || []), id]);
-                      }
-                    }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Benutzer hinzufügen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.username}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {field.value?.map((userId) => {
-                      const user = users.find((u) => u.id === userId);
-                      return (
-                        <Badge key={userId} variant="secondary">
-                          {user?.username}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 ml-1"
-                            onClick={() => {
-                              field.onChange(field.value?.filter((id) => id !== userId));
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="teamIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teams</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      const id = parseInt(value);
-                      if (!field.value?.includes(id)) {
-                        field.onChange([...(field.value || []), id]);
-                      }
-                    }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Team hinzufügen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {teams.map((team) => (
-                        <SelectItem key={team.id} value={team.id.toString()}>
-                          {team.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {field.value?.map((teamId) => {
-                      const team = teams.find((t) => t.id === teamId);
-                      return (
-                        <Badge key={teamId} variant="secondary">
-                          {team?.name}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 ml-1"
-                            onClick={() => {
-                              field.onChange(field.value?.filter((id) => id !== teamId));
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      );
-                    })}
-                  </div>
                   <FormMessage />
                 </FormItem>
               )}
