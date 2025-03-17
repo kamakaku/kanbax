@@ -56,6 +56,7 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const createBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
+      console.log("Creating board with data:", data);
       const res = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
@@ -63,12 +64,15 @@ export function BoardList({ projectId }: BoardListProps) {
       );
 
       if (!res.ok) {
-        throw new Error("Failed to create board");
+        const errorText = await res.text();
+        console.error("Failed to create board:", errorText);
+        throw new Error(`Failed to create board: ${errorText}`);
       }
 
       return res.json();
     },
     onSuccess: (newBoard) => {
+      console.log("Board created successfully:", newBoard);
       queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
@@ -79,6 +83,7 @@ export function BoardList({ projectId }: BoardListProps) {
       form.reset();
     },
     onError: (error) => {
+      console.error("Error creating board:", error);
       toast({
         title: "Fehler beim Erstellen des Boards",
         description: error.message,
@@ -121,6 +126,7 @@ export function BoardList({ projectId }: BoardListProps) {
   });
 
   const onSubmit = (data: InsertBoard) => {
+    console.log("Form submitted with data:", data);
     if (editingBoard) {
       updateBoard.mutate({ ...data, id: editingBoard.id });
     } else {
@@ -157,6 +163,7 @@ export function BoardList({ projectId }: BoardListProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Boards</h2>
         <Button onClick={() => {
+          console.log("Opening new board form");
           setEditingBoard(null);
           form.reset({
             title: "",
