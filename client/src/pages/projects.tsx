@@ -1,101 +1,85 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type Project } from "@shared/schema";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { useLocation } from "wouter";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ProjectForm } from "@/components/project/project-form";
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Projects() {
   const [showForm, setShowForm] = useState(false);
-  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  const { data: projects, isLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) {
-        throw new Error("Failed to fetch projects");
-      }
-      return res.json();
-    },
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["projects"],
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
+  const handleProjectClick = (projectId: number) => {
+    setLocation(`/projects/${projectId}`);
+  };
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold">Projekte</h1>
-          <p className="text-muted-foreground mt-2">
-            Verwalten Sie Ihre Projekte und zugehörigen Boards
-          </p>
-        </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+    <div className="container py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Projekte</h1>
+        <button
+          onClick={() => setShowForm(true)}
+          className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
+        >
           Neues Projekt
-        </Button>
+        </button>
       </div>
 
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Favoriten</h2>
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {projects?.filter(p => p.isFavorite).map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-[140px] border-primary/20">
-                <CardHeader className="p-4">
-                  <CardTitle className="text-base line-clamp-1">{project.title}</CardTitle>
-                  <CardDescription className="text-sm line-clamp-2">
-                    {project.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <p className="text-xs text-muted-foreground">
-                    Erstellt: {new Date(project.createdAt).toLocaleDateString()}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+      {projects.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Keine Projekte vorhanden</p>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">Favorisierte Projekte</h2>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {projects.filter(p => p.isFavorite).map((project) => (
+                <Card
+                  key={project.id}
+                  className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20 h-[120px]"
+                  onClick={() => handleProjectClick(project.id)}
+                >
+                  <CardHeader className="p-4 space-y-2">
+                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                      {project.title}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2">
+                      {project.description}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          </div>
 
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Alle Projekte</h2>
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {projects?.map((project) => (
-          <Link key={project.id} href={`/projects/${project.id}`}>
-            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-[140px]">
-              <CardHeader className="p-4">
-                <CardTitle className="text-base line-clamp-1">{project.title}</CardTitle>
-                <CardDescription className="text-sm line-clamp-2">
-                  {project.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <p className="text-xs text-muted-foreground">
-                  Erstellt: {new Date(project.createdAt).toLocaleDateString()}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">Alle Projekte</h2>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {projects.map((project) => (
+                <Card
+                  key={project.id}
+                  className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
+                  onClick={() => handleProjectClick(project.id)}
+                >
+                  <CardHeader className="p-4 space-y-2">
+                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                      {project.title}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2">
+                      {project.description}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <ProjectForm
         open={showForm}
