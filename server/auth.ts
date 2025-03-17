@@ -13,23 +13,11 @@ declare global {
 }
 
 export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "your-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    },
-    name: "sid" // Change default session cookie name
-  };
-
-  app.use(session(sessionSettings));
+  // Initialize Passport and restore authentication state from session
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Configure Local Strategy
   passport.use(
     new LocalStrategy(
       {
@@ -56,6 +44,7 @@ export function setupAuth(app: Express) {
     )
   );
 
+  // Tell Passport how to serialize/deserialize the user
   passport.serializeUser((user, done) => {
     done(null, (user as User).id);
   });
@@ -70,6 +59,7 @@ export function setupAuth(app: Express) {
   });
 }
 
+// Auth middleware for protecting routes
 export function isAuthenticated(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
   if (req.isAuthenticated()) {
     return next();
