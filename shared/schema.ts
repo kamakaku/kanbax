@@ -37,12 +37,13 @@ export const projects = pgTable("projects", {
   teamIds: integer("team_ids").array().default([]),
 });
 
-// Update boards table to include projectId
+// Update boards table to include projectId and creatorId
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  projectId: integer("project_id"), // Remove .notNull()
+  projectId: integer("project_id"),
+  creatorId: integer("creator_id").notNull(),
 });
 
 export const columns = pgTable("columns", {
@@ -136,10 +137,12 @@ export const insertBoardSchema = createInsertSchema(boards)
     title: true,
     description: true,
     projectId: true,
+    creatorId: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
     projectId: z.number().int().positive("Project ID must be positive").optional(),
+    creatorId: z.number().int().positive("Creator ID is required"),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)

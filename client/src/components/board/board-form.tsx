@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-store";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,11 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+
+  if (!user) {
+    return null; // Don't render the form if there's no user
+  }
 
   // Fetch projects
   const { data: projects = [] } = useQuery<Project[]>({
@@ -56,6 +62,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       title: "",
       description: "",
       projectId: currentProject?.id,
+      creatorId: user.id, // Set the creator ID from the current user
     },
   });
 
@@ -69,13 +76,15 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
         // Prepare the data
         const submitData = {
-          ...data,
+          title: data.title,
+          description: data.description,
           projectId: data.projectId || null,
+          creatorId: user.id, // Ensure creator ID is set
         };
 
         console.log("Processed submit data:", submitData);
 
-        // Construct the API endpoint
+        // Use the simplified endpoint
         const endpoint = '/api/boards';
         console.log("Sending request to endpoint:", endpoint);
 
@@ -102,7 +111,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         form.reset();
         onClose();
         setCurrentBoard(newBoard);
-        setLocation(`/board`);
+        setLocation("/board");
       }
     } catch (error) {
       console.error("Form submission error:", error);

@@ -164,58 +164,62 @@ export class DatabaseStorage implements IStorage {
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
     try {
-      // Log incoming data
-      console.log("Received board data:", insertBoard);
+      // Basic data validation
+      if (!insertBoard.title) {
+        throw new Error("Board title is required");
+      }
+      if (!insertBoard.creatorId) {
+        throw new Error("Creator ID is required");
+      }
 
-      // Clean up the data before insertion
+      // Prepare minimal board data
       const boardData = {
         title: insertBoard.title,
         description: insertBoard.description || null,
         projectId: insertBoard.projectId || null,
+        creatorId: insertBoard.creatorId
       };
 
-      console.log("Processed board data for insertion:", boardData);
+      console.log("Storage: Inserting board with data:", boardData);
 
+      // Create the board
+      const [board] = await db
+        .insert(boards)
+        .values(boardData)
+        .returning();
+
+      if (!board) {
+        throw new Error("Failed to create board - no data returned");
+      }
+
+      console.log("Storage: Board created:", board);
+
+      // Create default columns
       try {
-        const [board] = await db
-          .insert(boards)
-          .values(boardData)
-          .returning();
-
-        console.log("Database response after board creation:", board);
-
-        if (!board) {
-          console.error("Board creation failed - no board returned from database");
-          throw new Error("Failed to create board - database returned no data");
-        }
-
-        // Create default columns for the new board
         const defaultColumns = [
           { title: "Backlog", order: 0 },
           { title: "To Do", order: 1 },
           { title: "In Progress", order: 2 },
-          { title: "Done", order: 3 },
+          { title: "Done", order: 3 }
         ];
-
-        console.log("Creating default columns for board:", board.id);
 
         for (const column of defaultColumns) {
           await db.insert(columns).values({
             title: column.title,
             boardId: board.id,
-            order: column.order,
+            order: column.order
           });
         }
 
-        console.log("Default columns created successfully");
-        return board;
-
-      } catch (dbError) {
-        console.error("Database error during board creation:", dbError);
-        throw new Error(`Failed to create board - Database error: ${dbError.message}`);
+        console.log("Storage: Default columns created");
+      } catch (columnError) {
+        console.error("Storage: Failed to create default columns:", columnError);
+        // Continue even if column creation fails
       }
+
+      return board;
     } catch (error) {
-      console.error("Error in createBoard:", error);
+      console.error("Storage: Error in createBoard:", error);
       throw error;
     }
   }
