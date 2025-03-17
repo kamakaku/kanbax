@@ -65,12 +65,13 @@ export function BoardList({ projectId }: BoardListProps) {
     },
   });
 
-  const handleCreateBoard = async (data: InsertBoard) => {
+  const handleCreateBoard = async (data: InsertBoard): Promise<void> => {
     try {
+      console.log("Handling board creation with data:", data);
       await createBoard.mutateAsync(data);
     } catch (error) {
       console.error("Error in handleCreateBoard:", error);
-      // Error will be handled by mutation's onError
+      throw error; // Let the form handle the error
     }
   };
 
