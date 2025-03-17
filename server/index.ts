@@ -78,44 +78,56 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const startServer = (port: number = 5000, maxAttempts = 1) => {
+    const startServer = async (initialPort: number = 5000, maxAttempts = 3) => {
       const host = '0.0.0.0';
+      let currentPort = initialPort;
+      let attempts = 0;
 
-      if (maxAttempts <= 0) {
-        log('Failed to start server on port 5000');
-        process.exit(1);
-        return;
-      }
+      while (attempts < maxAttempts) {
+        try {
+          log(`Attempting to start server on port ${currentPort} (attempt ${attempts + 1}/${maxAttempts})`);
 
-      try {
-        // Force close previous listeners if they exist
-        server.close();
+          // Force close previous listeners if they exist
+          server.close();
 
-        server.listen(port, host, () => {
-          log(`Server successfully started on ${host}:${port}`);
-          log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
-        });
+          await new Promise<void>((resolve, reject) => {
+            server.listen(currentPort, host, () => {
+              log(`Server successfully started on ${host}:${currentPort}`);
+              log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+              resolve();
+            });
 
-        server.once('error', (e: any) => {
-          if (e.code === 'EADDRINUSE') {
-            log(`Port ${port} is already in use. Please ensure no other server is running on port 5000.`);
+            server.once('error', (e: any) => {
+              if (e.code === 'EADDRINUSE') {
+                log(`Port ${currentPort} is in use, trying next port...`);
+                currentPort++;
+                attempts++;
+                resolve(); // Continue to next attempt
+              } else {
+                reject(e);
+              }
+            });
+          });
+
+          // If we get here, the server started successfully
+          break;
+        } catch (error) {
+          console.error(`Failed to start server on port ${currentPort}:`, error);
+          attempts++;
+          if (attempts >= maxAttempts) {
+            log('Failed to start server after maximum attempts');
             process.exit(1);
-          } else {
-            console.error('Server error:', e);
-            log(`Server error: ${e.message}`);
           }
-        });
-      } catch (error) {
-        console.error('Failed to start server:', error);
-        log(`Failed to start server: ${error instanceof Error ? error.message : String(error)}`);
-        process.exit(1);
+          // Try next port
+          currentPort++;
+        }
       }
     };
 
-    // Get port from environment or use 5000 as default
-    const port = parseInt(process.env.PORT || "5000", 10);
-    log(`Starting server on port ${port}`);
-    startServer(port);
+    // Get initial port from environment or use 5000 as default
+    const initialPort = parseInt(process.env.PORT || "5000", 10);
+    log(`Starting server with initial port ${initialPort}`);
+    await startServer(initialPort);
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

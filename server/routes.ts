@@ -881,8 +881,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/columns/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
+  app.patch("/api/columns/:id", async (req, res) => {const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
     }
@@ -1057,6 +1056,42 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error(`Error fetching team members for team ${teamId}:`, error);
       res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+
+  // Add OKR routes for teams
+  app.get("/api/teams/:teamId/objectives", async (req, res) => {
+    const teamId = parseInt(req.params.teamId);
+    if (isNaN(teamId)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    try {
+      console.log(`Fetching objectives for team ${teamId}`);
+      const objectives = await storage.getObjectivesByTeam(teamId);
+      console.log(`Found ${objectives.length} objectives for team ${teamId}`);
+      res.json(objectives);
+    } catch (error) {
+      console.error(`Error fetching objectives for team ${teamId}:`, error);
+      res.status(500).json({ message: "Failed to fetch team objectives" });
+    }
+  });
+
+  // Add boards route for teams
+  app.get("/api/teams/:teamId/boards", async (req, res) => {
+    const teamId = parseInt(req.params.teamId);
+    if (isNaN(teamId)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    try {
+      console.log(`Fetching boards for team ${teamId}`);
+      const boards = await storage.getBoardsByTeam(teamId);
+      console.log(`Found ${boards.length} boards for team ${teamId}`);
+      res.json(boards);
+    } catch (error) {
+      console.error(`Error fetching boards for team ${teamId}:`, error);
+      res.status(500).json({ message: "Failed to fetch team boards" });
     }
   });
 

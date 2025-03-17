@@ -40,7 +40,7 @@ export default function TeamDetail() {
         throw new Error("Failed to fetch projects");
       }
       const allProjects = await res.json();
-      return allProjects.filter((project: Project) => 
+      return allProjects.filter((project: Project) =>
         project.teamIds?.includes(teamId)
       );
     },
@@ -48,20 +48,29 @@ export default function TeamDetail() {
   });
 
   // Fetch boards associated with this team
-  const { data: boards = [] } = useQuery<Board[]>({
-    queryKey: ["/api/boards"],
+  const { data: boards = [], error: boardsError } = useQuery<Board[]>({
+    queryKey: [`/api/teams/${teamId}/boards`],
     queryFn: async () => {
-      const res = await fetch("/api/boards");
+      console.log("Fetching boards for team:", teamId);
+      const res = await fetch(`/api/teams/${teamId}/boards`);
       if (!res.ok) {
-        console.error("Failed to fetch boards:", await res.text());
-        throw new Error("Failed to fetch boards");
+        const errorText = await res.text();
+        console.error("Failed to fetch team boards:", errorText);
+        throw new Error(errorText || "Failed to fetch team boards");
       }
-      const allBoards = await res.json();
-      return allBoards.filter((board: Board) => 
-        board.teamIds?.includes(teamId)
-      );
+      const data = await res.json();
+      console.log("Received boards data:", data);
+      return data;
     },
     enabled: !!teamId,
+    onError: (error) => {
+      console.error("Boards query error:", error);
+      toast({
+        title: "Fehler",
+        description: "Boards konnten nicht geladen werden",
+        variant: "destructive",
+      });
+    },
   });
 
   // Fetch team members
@@ -91,17 +100,29 @@ export default function TeamDetail() {
   });
 
   // Fetch team OKRs
-  const { data: objectives = [] } = useQuery<Objective[]>({
+  const { data: objectives = [], error: objectivesError } = useQuery<Objective[]>({
     queryKey: [`/api/teams/${teamId}/objectives`],
     queryFn: async () => {
+      console.log("Fetching objectives for team:", teamId);
       const res = await fetch(`/api/teams/${teamId}/objectives`);
       if (!res.ok) {
-        console.error("Failed to fetch team objectives:", await res.text());
-        throw new Error("Failed to fetch team objectives");
+        const errorText = await res.text();
+        console.error("Failed to fetch team objectives:", errorText);
+        throw new Error(errorText || "Failed to fetch team objectives");
       }
-      return res.json();
+      const data = await res.json();
+      console.log("Received objectives data:", data);
+      return data;
     },
     enabled: !!teamId,
+    onError: (error) => {
+      console.error("Objectives query error:", error);
+      toast({
+        title: "Fehler",
+        description: "OKRs konnten nicht geladen werden",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isTeamLoading) {
@@ -204,16 +225,28 @@ export default function TeamDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {boards.map((board) => (
-                <Link key={board.id} href={`/boards/${board.id}`}>
-                  <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                    <h3 className="font-medium">{board.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{board.description}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            {boardsError ? (
+              <p className="text-sm text-destructive">
+                Fehler beim Laden der Boards
+              </p>
+            ) : boards.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Keine Boards gefunden
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {boards.map((board) => (
+                  <Link key={board.id} href={`/boards/${board.id}`}>
+                    <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                      <h3 className="font-medium">{board.title}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {board.description}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -226,20 +259,30 @@ export default function TeamDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {objectives.map((objective) => (
-                <Link key={objective.id} href={`/okr/${objective.id}`}>
-                  <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                    <h3 className="font-medium">{objective.title}</h3>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant={objective.status === 'completed' ? 'default' : 'secondary'}>
-                        {objective.status === 'completed' ? 'Abgeschlossen' : 'In Bearbeitung'}
-                      </Badge>
+            {objectivesError ? (
+              <p className="text-sm text-destructive">
+                Fehler beim Laden der OKRs
+              </p>
+            ) : objectives.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Keine OKRs gefunden
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {objectives.map((objective) => (
+                  <Link key={objective.id} href={`/okr/${objective.id}`}>
+                    <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                      <h3 className="font-medium">{objective.title}</h3>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant={objective.status === 'completed' ? 'default' : 'secondary'}>
+                          {objective.status === 'completed' ? 'Abgeschlossen' : 'In Bearbeitung'}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
