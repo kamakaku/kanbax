@@ -92,62 +92,25 @@ export function BoardList({ projectId }: BoardListProps) {
     },
   });
 
-  const updateBoard = useMutation({
-    mutationFn: async (data: InsertBoard & { id: number }) => {
-      const { id, ...updateData } = data;
-      const res = await apiRequest(
-        "PATCH",
-        `/api/boards/${id}`,
-        updateData
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to update board");
-      }
-
-      return res.json();
-    },
-    onSuccess: (updatedBoard) => {
-      queryClient.invalidateQueries({
-        queryKey: [`/api/projects/${projectId}/boards`],
-      });
-      toast({ title: "Board erfolgreich aktualisiert" });
-      setShowForm(false);
-      setEditingBoard(null);
-      form.reset();
-    },
-    onError: (error) => {
+  const onSubmit = async (data: InsertBoard) => {
+    console.log("Form submitted with data:", data);
+    try {
+      const validatedData = insertBoardSchema.parse({ ...data, projectId });
+      console.log("Validated data:", validatedData);
+      await createBoard.mutateAsync(validatedData);
+    } catch (error) {
+      console.error("Validation error:", error);
       toast({
-        title: "Fehler beim Aktualisieren des Boards",
-        description: error.message,
+        title: "Validierungsfehler",
+        description: "Bitte überprüfen Sie Ihre Eingaben",
         variant: "destructive",
       });
-    },
-  });
-
-  const onSubmit = (data: InsertBoard) => {
-    console.log("Form submitted with data:", data);
-    if (editingBoard) {
-      updateBoard.mutate({ ...data, id: editingBoard.id });
-    } else {
-      createBoard.mutate({ ...data, projectId });
     }
   };
 
   const handleBoardClick = (board: Board) => {
     setCurrentBoard(board);
     setLocation("/board");
-  };
-
-  const handleEditClick = (e: React.MouseEvent, board: Board) => {
-    e.stopPropagation();
-    setEditingBoard(board);
-    form.reset({
-      title: board.title,
-      description: board.description || "",
-      projectId: board.projectId,
-    });
-    setShowForm(true);
   };
 
   if (isLoading) {
@@ -182,21 +145,12 @@ export function BoardList({ projectId }: BoardListProps) {
           <Card
             key={board.id}
             className="relative hover:bg-muted/50 transition-colors cursor-pointer"
+            onClick={() => handleBoardClick(board)}
           >
-            <Button
-              size="icon"
-              variant="ghost"
-              className="absolute top-2 right-2 bg-background/80 hover:bg-background"
-              onClick={(e) => handleEditClick(e, board)}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <div onClick={() => handleBoardClick(board)}>
-              <CardHeader>
-                <CardTitle>{board.title}</CardTitle>
-                <CardDescription>{board.description}</CardDescription>
-              </CardHeader>
-            </div>
+            <CardHeader>
+              <CardTitle>{board.title}</CardTitle>
+              <CardDescription>{board.description}</CardDescription>
+            </CardHeader>
           </Card>
         ))}
       </div>
