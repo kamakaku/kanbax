@@ -93,15 +93,21 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       if (onSubmit) {
         await onSubmit(data);
       } else {
-        // Prepare the data, removing projectId if it's undefined
-        const submitData = data.projectId ? data : { ...data, projectId: undefined };
+        // Prepare the data
+        const submitData = {
+          ...data,
+          projectId: data.projectId || undefined,
+          memberIds: data.memberIds?.map(id => Number(id)) || [],
+          teamIds: data.teamIds?.map(id => Number(id)) || [],
+          guestEmails: data.guestEmails || []
+        };
 
-        // Construct the correct API endpoint based on whether we have a projectId
+        console.log("Submitting board data:", submitData);
+
+        // Construct the correct API endpoint
         const endpoint = data.projectId 
           ? `/api/projects/${data.projectId}/boards`
           : '/api/boards';
-
-        console.log("Submitting to endpoint:", endpoint, "with data:", submitData);
 
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -112,12 +118,13 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         });
 
         if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.message || "Failed to create board");
+          const errorData = await res.text();
+          console.error("Server response:", errorData);
+          throw new Error(errorData || "Fehler beim Erstellen des Boards");
         }
 
         const newBoard = await res.json();
-        queryClient.invalidateQueries({ queryKey: ["all-boards"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
         if (data.projectId) {
           queryClient.invalidateQueries({ 
             queryKey: [`/api/projects/${data.projectId}/boards`] 
@@ -131,12 +138,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         setLocation(`/board`);
       }
     } catch (error) {
+      console.error("Form submission error:", error);
       toast({
         title: "Fehler",
         description: error instanceof Error ? error.message : "Das Board konnte nicht erstellt werden",
         variant: "destructive",
       });
-      console.error("Form submission error:", error);
     }
   };
 

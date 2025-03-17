@@ -163,44 +163,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
-    // Clean up the data before insertion
-    const boardData = {
-      ...insertBoard,
-      projectId: insertBoard.projectId || null,
-      memberIds: Array.isArray(insertBoard.memberIds) ? insertBoard.memberIds : [],
-      teamIds: Array.isArray(insertBoard.teamIds) ? insertBoard.teamIds : [],
-      guestEmails: Array.isArray(insertBoard.guestEmails) ? insertBoard.guestEmails : []
-    };
+    try {
+      // Clean up the data before insertion
+      const boardData = {
+        ...insertBoard,
+        projectId: insertBoard.projectId || null,
+        memberIds: Array.isArray(insertBoard.memberIds) ? insertBoard.memberIds.map(Number) : [],
+        teamIds: Array.isArray(insertBoard.teamIds) ? insertBoard.teamIds.map(Number) : [],
+        guestEmails: Array.isArray(insertBoard.guestEmails) ? insertBoard.guestEmails : []
+      };
 
-    console.log("Creating board with data:", boardData);
+      console.log("Creating board with data:", boardData);
 
-    const [board] = await db
-      .insert(boards)
-      .values(boardData)
-      .returning();
+      const [board] = await db
+        .insert(boards)
+        .values(boardData)
+        .returning();
 
-    // Create default columns for the new board
-    const defaultColumns = [
-      { title: "Backlog", order: 0 },
-      { title: "To Do", order: 1 },
-      { title: "In Progress", order: 2 },
-      { title: "Done", order: 3 },
-    ];
+      if (!board) {
+        throw new Error("Failed to create board");
+      }
 
-    for (const column of defaultColumns) {
-      await db.insert(columns).values({
-        title: column.title,
-        boardId: board.id,
-        order: column.order,
-      });
+      // Create default columns for the new board
+      const defaultColumns = [
+        { title: "Backlog", order: 0 },
+        { title: "To Do", order: 1 },
+        { title: "In Progress", order: 2 },
+        { title: "Done", order: 3 },
+      ];
+
+      for (const column of defaultColumns) {
+        await db.insert(columns).values({
+          title: column.title,
+          boardId: board.id,
+          order: column.order,
+        });
+      }
+
+      return {
+        ...board,
+        memberIds: Array.isArray(board.memberIds) ? board.memberIds.map(Number) : [],
+        teamIds: Array.isArray(board.teamIds) ? board.teamIds.map(Number) : [],
+        guestEmails: Array.isArray(board.guestEmails) ? board.guestEmails : []
+      };
+    } catch (error) {
+      console.error("Error creating board:", error);
+      throw error;
     }
-
-    return {
-      ...board,
-      memberIds: Array.isArray(board.memberIds) ? board.memberIds : [],
-      teamIds: Array.isArray(board.teamIds) ? board.teamIds : [],
-      guestEmails: Array.isArray(board.guestEmails) ? board.guestEmails : []
-    };
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
