@@ -5,14 +5,12 @@ import path from "path";
 import cors from "cors";
 
 const app = express();
+const apiRouter = express.Router();
 
 // Basic middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
-// Create API router
-const apiRouter = express.Router();
 
 // Force JSON Content-Type for API responses
 apiRouter.use((req, res, next) => {
@@ -32,12 +30,12 @@ apiRouter.use((req, res, next) => {
   next();
 });
 
-// Initialize API routes
+// Initialize API routes first before any other middleware
 registerRoutes(apiRouter).then((server) => {
   // Serve uploaded files
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-  // Mount the API router at the absolute path
+  // Mount the API router at the absolute path with explicit Content-Type
   app.use("/api", (req, res, next) => {
     res.setHeader('Content-Type', 'application/json');
     apiRouter(req, res, next);

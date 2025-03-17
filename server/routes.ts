@@ -10,34 +10,19 @@ import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
 import teamRoutes from "./teamRoutes";
 
-// Configure multer for avatar uploads
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: './uploads/avatars',
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-  }),
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'));
-    }
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  }
-});
-
-// Ensure upload directory exists
-if (!fs.existsSync('./uploads/avatars')) {
-  fs.mkdirSync('./uploads/avatars', { recursive: true });
-}
+// Test endpoint for API verification
+const TEST_RESPONSE = {
+  status: "ok",
+  message: "API is working correctly",
+  timestamp: new Date().toISOString()
+};
 
 export async function registerRoutes(router: Router) {
+  // Add test endpoint
+  router.get("/test", (_req, res) => {
+    res.json(TEST_RESPONSE);
+  });
+
   // Authentication routes
   router.post("/api/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
