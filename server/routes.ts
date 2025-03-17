@@ -1,13 +1,14 @@
-import type { Express } from "express";
+import type { Express, Router } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema, teamMembers } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
+import teamRoutes from "./teamRoutes";
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -36,9 +37,9 @@ if (!fs.existsSync('./uploads/avatars')) {
   fs.mkdirSync('./uploads/avatars', { recursive: true });
 }
 
-export async function registerRoutes(app: Express) {
+export async function registerRoutes(router: Router) {
   // Authentication routes
-  app.post("/api/auth/register", async (req, res) => {
+  router.post("/api/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -71,7 +72,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  router.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
 
     try {
@@ -97,7 +98,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Add new route to get all users
-  app.get("/api/users", async (_req, res) => {
+  router.get("/api/users", async (_req, res) => {
     try {
       const users = await storage.getUsers();
       res.json(users);
@@ -107,7 +108,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/users/:id", async (req, res) => {
+  router.get("/api/users/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid user ID" });
@@ -124,7 +125,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Profile update routes
-  app.patch("/api/profile", async (req, res) => {
+  router.patch("/api/profile", async (req, res) => {
     try {
       const userId = req.body.userId; // We'll need to add proper auth middleware later
       const { username, email, currentPassword, newPassword } = req.body;
@@ -174,7 +175,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Project routes
-  app.get("/api/projects", async (_req, res) => {
+  router.get("/api/projects", async (_req, res) => {
     try {
       const projects = await storage.getProjects();
       res.json(projects);
@@ -184,7 +185,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/projects/:id", async (req, res) => {
+  router.get("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -202,7 +203,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/projects", async (req, res) => {
+  router.post("/api/projects", async (req, res) => {
     const result = insertProjectSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -217,7 +218,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/projects/:id", async (req, res) => {
+  router.patch("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -240,7 +241,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/projects/:id", async (req, res) => {
+  router.delete("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -256,7 +257,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Board routes
-  app.get("/api/projects/:projectId/boards", async (req, res) => {
+  router.get("/api/projects/:projectId/boards", async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -271,7 +272,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/projects/:projectId/boards", async (req, res) => {
+  router.post("/api/projects/:projectId/boards", async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -352,7 +353,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Add new route for creating boards without a project
-  app.post("/api/boards", async (req, res) => {
+  router.post("/api/boards", async (req, res) => {
     console.log("Received board creation request:", req.body);
 
     const result = insertBoardSchema.safeParse(req.body);
@@ -428,7 +429,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Add new endpoints for board permissions
-  app.post("/api/boards/:boardId/members", async (req, res) => {
+  router.post("/api/boards/:boardId/members", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -448,7 +449,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/boards/:boardId/teams", async (req, res) => {
+  router.post("/api/boards/:boardId/teams", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -469,7 +470,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Get board members
-  app.get("/api/boards/:boardId/members", async (req, res) => {
+  router.get("/api/boards/:boardId/members", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -485,7 +486,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Get board teams
-  app.get("/api/boards/:boardId/teams", async (req, res) => {
+  router.get("/api/boards/:boardId/teams", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -500,7 +501,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/boards", async (_req, res) => {
+  router.get("/api/boards", async (_req, res) => {
     try {
       const boards = await storage.getBoards();
       const boardsWithProjects = await Promise.all(
@@ -519,7 +520,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/boards/:id", async (req, res) => {
+  router.get("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       console.error("Invalid board ID received:", req.params.id);
@@ -554,7 +555,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/boards/:id", async (req, res) => {
+  router.patch("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -573,7 +574,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/boards/:id", async (req, res) => {
+  router.delete("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -588,7 +589,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Task routes
-  app.get("/api/boards/:boardId/tasks", async (req, res) => {
+  router.get("/api/boards/:boardId/tasks", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -600,7 +601,7 @@ export async function registerRoutes(app: Express) {
     res.json(tasks);
   });
 
-  app.post("/api/boards/:boardId/tasks", async (req, res) => {
+  router.post("/api/boards/:boardId/tasks", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -631,7 +632,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/tasks/:id", async (req, res) => {
+  router.patch("/api/tasks/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -664,7 +665,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/tasks/:id", async (req, res) => {
+  router.delete("/api/tasks/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -679,7 +680,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Comment routes
-  app.get("/api/tasks/:taskId/comments", async (req, res) => {
+  router.get("/api/tasks/:taskId/comments", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -693,7 +694,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/tasks/:taskId/comments", async (req, res) => {
+  router.post("/api/tasks/:taskId/comments", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -725,7 +726,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Checklist routes
-  app.get("/api/tasks/:taskId/checklist", async (req, res) => {
+  router.get("/api/tasks/:taskId/checklist", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -739,7 +740,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/tasks/:taskId/checklist", async (req, res) => {
+  router.post("/api/tasks/:taskId/checklist", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -770,7 +771,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/checklist/:id", async (req, res) => {
+  router.patch("/api/checklist/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid checklist item ID" });
@@ -784,7 +785,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/checklist/:id", async (req, res) => {
+  router.delete("/api/checklist/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid checklist item ID" });
@@ -799,7 +800,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Activity Log routes
-  app.get("/api/tasks/:taskId/activities", async (req, res) => {
+  router.get("/api/tasks/:taskId/activities", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -813,7 +814,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/tasks/:taskId/activities", async (req, res) => {
+  router.post("/api/tasks/:taskId/activities", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -845,7 +846,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Column routes
-  app.get("/api/boards/:boardId/columns", async (req, res) => {
+  router.get("/api/boards/:boardId/columns", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -859,7 +860,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/boards/:boardId/columns", async (req, res) => {
+  router.post("/api/boards/:boardId/columns", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -881,7 +882,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/columns/:id", async (req, res) => {const id = parseInt(req.params.id);
+  router.patch("/api/columns/:id", async(req, res) => {const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
     }
@@ -894,7 +895,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/columns/:id", async (req, res) => {
+  router.delete("/api/columns/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
@@ -909,7 +910,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Avatar upload route
-  app.post("/api/profile/avatar", upload.single('avatar'), async (req, res) => {
+  router.post("/api/profile/avatar", upload.single('avatar'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -932,168 +933,15 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Add team routes
-  app.get("/api/teams", async (_req, res) => {
-    try {
-      const teams = await storage.getTeams();
-      res.json(teams);
-    } catch (error) {
-      console.error("Failed to fetch teams:", error);
-      res.status(500).json({ message: "Failed to fetch teams" });
-    }
-  });
-
-  app.get("/api/teams/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid team ID" });
-    }
-
-    try {
-      const team = await storage.getTeam(id);
-      if (!team) {
-        return res.status(404).json({ message: "Team not found" });
-      }
-      res.json(team);
-    } catch (error) {
-      console.error("Failed to fetch team:", error);
-      res.status(500).json({ message: "Failed to fetch team" });
-    }
-  });
-
-  app.post("/api/teams", async (req, res) => {
-    const result = insertTeamSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
-    }
-
-    try {
-      const team = await storage.createTeam(result.data);
-      res.status(201).json(team);
-    } catch (error) {
-      console.error("Failed to create team:", error);
-      res.status(500).json({ message: "Failed to create team" });
-    }
-  });
-
-  app.patch("/api/teams/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid team ID" });
-    }
-
-    const result = insertTeamSchema.partial().safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
-    }
-
-    try {
-      const team = await storage.updateTeam(id, result.data);
-      if (!team) {
-        return res.status(404).json({ message: "Team not found" });
-      }
-      res.json(team);
-    } catch (error) {
-      console.error("Failed to update team:", error);
-      res.status(500).json({ message: "Failed to update team" });
-    }
-  });
-
-  app.delete("/api/teams/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid team ID" });
-    }
-
-    try {
-      await storage.deleteTeam(id);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Failed to delete team:", error);
-      res.status(500).json({ message: "Failed to delete team" });
-    }
-  });
+  // Mount team routes
+  router.use("/teams", teamRoutes);
 
   // Register productivity routes
-  registerProductivityRoutes(app);
+  registerProductivityRoutes(router);
 
   // Register OKR routes (already exists)
   const { registerOkrRoutes } = await import("./okrRoutes.js");
-  registerOkrRoutes(app);
+  registerOkrRoutes(router);
 
-  // Inside the registerRoutes function, add the new team-members route
-  app.get("/api/team-members", async (_req, res) => {
-    try {
-      const result = await storage.getTeamMembers(); // Assuming storage.getTeamMembers exists
-      res.json(result);
-    } catch (error) {
-      console.error("Failed to fetch team members:", error);
-      res.status(500).json({ message: "Failed to fetch team members" });
-    }
-  });
-  // Add team member routes
-  app.get("/api/teams/:teamId/members", async (req, res) => {
-    const teamId = parseInt(req.params.teamId);
-    if (isNaN(teamId)) {
-      return res.status(400).json({ message: "Invalid team ID" });
-    }
-
-    try {
-      console.log(`Fetching members for team ${teamId}`);
-      const teamMembers = await storage.getTeamMembers(teamId);
-
-      // Get full user details for each team member
-      const members = await Promise.all(
-        teamMembers.map(async (tm) => {
-          const user = await storage.getUser(tm.userId);
-          const { passwordHash, ...userWithoutPassword } = user;
-          return userWithoutPassword;
-        })
-      );
-
-      console.log(`Found ${members.length} members for team ${teamId}`);
-      res.json(members);
-    } catch (error) {
-      console.error(`Error fetching team members for team ${teamId}:`, error);
-      res.status(500).json({ message: "Failed to fetch team members" });
-    }
-  });
-
-  // Add OKR routes for teams
-  app.get("/api/teams/:teamId/objectives", async (req, res) => {
-    const teamId = parseInt(req.params.teamId);
-    if (isNaN(teamId)) {
-      return res.status(400).json({ message: "Invalid team ID" });
-    }
-
-    try {
-      console.log(`Fetching objectives for team ${teamId}`);
-      const objectives = await storage.getObjectivesByTeam(teamId);
-      console.log(`Found ${objectives.length} objectives for team ${teamId}`);
-      res.json(objectives);
-    } catch (error) {
-      console.error(`Error fetching objectives for team ${teamId}:`, error);
-      res.status(500).json({ message: "Failed to fetch team objectives" });
-    }
-  });
-
-  // Add boards route for teams
-  app.get("/api/teams/:teamId/boards", async (req, res) => {
-    const teamId = parseInt(req.params.teamId);
-    if (isNaN(teamId)) {
-      return res.status(400).json({ message: "Invalid team ID" });
-    }
-
-    try {
-      console.log(`Fetching boards for team ${teamId}`);
-      const boards = await storage.getBoardsByTeam(teamId);
-      console.log(`Found ${boards.length} boards for team ${teamId}`);
-      res.json(boards);
-    } catch (error) {
-      console.error(`Error fetching boards for team ${teamId}:`, error);
-      res.status(500).json({ message: "Failed to fetch team boards" });
-    }
-  });
-
-  return createServer(app);
+  return createServer(router);
 }
