@@ -38,13 +38,13 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const createBoard = useMutation({
     mutationFn: async (board: InsertBoard) => {
-      console.log("Creating board with data:", board);
-      const res = await apiRequest(
+      console.log("Creating board with data:", { ...board, projectId });
+      const response = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
         { ...board, projectId }
       );
-      return res;
+      return response;
     },
     onSuccess: (newBoard) => {
       queryClient.invalidateQueries({
@@ -64,6 +64,15 @@ export function BoardList({ projectId }: BoardListProps) {
       });
     },
   });
+
+  const handleCreateBoard = async (data: InsertBoard) => {
+    try {
+      await createBoard.mutateAsync(data);
+    } catch (error) {
+      console.error("Error in handleCreateBoard:", error);
+      // Error will be handled by mutation's onError
+    }
+  };
 
   if (isLoading) {
     return (
@@ -119,7 +128,7 @@ export function BoardList({ projectId }: BoardListProps) {
           setShowForm(false);
           setEditingBoard(null);
         }}
-        onSubmit={(data) => createBoard.mutate(data)}
+        onSubmit={handleCreateBoard}
       />
     </div>
   );

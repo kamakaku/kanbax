@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 interface BoardFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: InsertBoard) => void | Promise<void>;
+  onSubmit: (data: InsertBoard) => Promise<void>;
 }
 
 export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
@@ -36,7 +36,8 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
 
   const handleSubmit = async (data: InsertBoard) => {
     try {
-      await Promise.resolve(onSubmit(data));
+      console.log("Submitting form with data:", data);
+      await onSubmit(data);
       form.reset();
       onClose();
     } catch (error) {
