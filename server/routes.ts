@@ -1,5 +1,4 @@
-import type { Express, Router } from "express";
-import { createServer } from "http";
+import type { Router } from "express";
 import { storage } from "./storage";
 import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
@@ -10,6 +9,33 @@ import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
 import teamRoutes from "./teamRoutes";
 
+// Configure multer for avatar uploads
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: './uploads/avatars',
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
+
+// Ensure upload directory exists
+if (!fs.existsSync('./uploads/avatars')) {
+  fs.mkdirSync('./uploads/avatars', { recursive: true });
+}
+
 // Test endpoint for API verification
 const TEST_RESPONSE = {
   status: "ok",
@@ -17,14 +43,15 @@ const TEST_RESPONSE = {
   timestamp: new Date().toISOString()
 };
 
-export async function registerRoutes(router: Router) {
-  // Add test endpoint
+export async function registerRoutes(router: Router): Promise<Router> {
+  // Add test endpoint with extra logging
   router.get("/test", (_req, res) => {
+    console.log("[API] Test endpoint hit");
     res.json(TEST_RESPONSE);
   });
 
   // Authentication routes
-  router.post("/api/auth/register", async (req, res) => {
+  router.post("/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -57,7 +84,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/auth/login", async (req, res) => {
+  router.post("/auth/login", async (req, res) => {
     const { email, password } = req.body;
 
     try {
@@ -83,7 +110,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Add new route to get all users
-  router.get("/api/users", async (_req, res) => {
+  router.get("/users", async (_req, res) => {
     try {
       const users = await storage.getUsers();
       res.json(users);
@@ -93,7 +120,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.get("/api/users/:id", async (req, res) => {
+  router.get("/users/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid user ID" });
@@ -110,7 +137,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Profile update routes
-  router.patch("/api/profile", async (req, res) => {
+  router.patch("/profile", async (req, res) => {
     try {
       const userId = req.body.userId; // We'll need to add proper auth middleware later
       const { username, email, currentPassword, newPassword } = req.body;
@@ -160,7 +187,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Project routes
-  router.get("/api/projects", async (_req, res) => {
+  router.get("/projects", async (_req, res) => {
     try {
       const projects = await storage.getProjects();
       res.json(projects);
@@ -170,7 +197,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.get("/api/projects/:id", async (req, res) => {
+  router.get("/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -188,7 +215,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/projects", async (req, res) => {
+  router.post("/projects", async (req, res) => {
     const result = insertProjectSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -203,7 +230,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.patch("/api/projects/:id", async (req, res) => {
+  router.patch("/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -226,7 +253,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.delete("/api/projects/:id", async (req, res) => {
+  router.delete("/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -242,7 +269,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Board routes
-  router.get("/api/projects/:projectId/boards", async (req, res) => {
+  router.get("/projects/:projectId/boards", async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -257,7 +284,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/projects/:projectId/boards", async (req, res) => {
+  router.post("/projects/:projectId/boards", async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -338,7 +365,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Add new route for creating boards without a project
-  router.post("/api/boards", async (req, res) => {
+  router.post("/boards", async (req, res) => {
     console.log("Received board creation request:", req.body);
 
     const result = insertBoardSchema.safeParse(req.body);
@@ -414,7 +441,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Add new endpoints for board permissions
-  router.post("/api/boards/:boardId/members", async (req, res) => {
+  router.post("/boards/:boardId/members", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -434,7 +461,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/boards/:boardId/teams", async (req, res) => {
+  router.post("/boards/:boardId/teams", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -455,7 +482,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Get board members
-  router.get("/api/boards/:boardId/members", async (req, res) => {
+  router.get("/boards/:boardId/members", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -471,7 +498,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Get board teams
-  router.get("/api/boards/:boardId/teams", async (req, res) => {
+  router.get("/boards/:boardId/teams", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -486,7 +513,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.get("/api/boards", async (_req, res) => {
+  router.get("/boards", async (_req, res) => {
     try {
       const boards = await storage.getBoards();
       const boardsWithProjects = await Promise.all(
@@ -505,7 +532,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.get("/api/boards/:id", async (req, res) => {
+  router.get("/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       console.error("Invalid board ID received:", req.params.id);
@@ -513,21 +540,21 @@ export async function registerRoutes(router: Router) {
     }
 
     try {
-      console.log(`[GET /api/boards/${id}] Fetching board...`);
+      console.log(`[GET /boards/${id}] Fetching board...`);
       const board = await storage.getBoard(id);
 
       if (!board) {
-        console.log(`[GET /api/boards/${id}] Board not found`);
+        console.log(`[GET /boards/${id}] Board not found`);
         return res.status(404).json({ message: "Board not found" });
       }
 
-      console.log(`[GET /api/boards/${id}] Successfully fetched board:`, board);
+      console.log(`[GET /boards/${id}] Successfully fetched board:`, board);
 
       // Fetch additional board data
       const columns = await storage.getColumns(id);
       const tasks = await storage.getTasks(id);
 
-      console.log(`[GET /api/boards/${id}] Found ${columns.length} columns and ${tasks.length} tasks`);
+      console.log(`[GET /boards/${id}] Found ${columns.length} columns and ${tasks.length} tasks`);
 
       res.json({
         ...board,
@@ -535,12 +562,12 @@ export async function registerRoutes(router: Router) {
         tasks,
       });
     } catch (error) {
-      console.error(`[GET /api/boards/${id}] Error fetching board:`, error);
+      console.error(`[GET /boards/${id}] Error fetching board:`, error);
       res.status(500).json({ message: "Failed to fetch board" });
     }
   });
 
-  router.patch("/api/boards/:id", async (req, res) => {
+  router.patch("/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -559,7 +586,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.delete("/api/boards/:id", async (req, res) => {
+  router.delete("/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -574,7 +601,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Task routes
-  router.get("/api/boards/:boardId/tasks", async (req, res) => {
+  router.get("/boards/:boardId/tasks", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -586,7 +613,7 @@ export async function registerRoutes(router: Router) {
     res.json(tasks);
   });
 
-  router.post("/api/boards/:boardId/tasks", async (req, res) => {
+  router.post("/boards/:boardId/tasks", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -617,7 +644,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.patch("/api/tasks/:id", async (req, res) => {
+  router.patch("/tasks/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -650,7 +677,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.delete("/api/tasks/:id", async (req, res) => {
+  router.delete("/tasks/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -665,7 +692,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Comment routes
-  router.get("/api/tasks/:taskId/comments", async (req, res) => {
+  router.get("/tasks/:taskId/comments", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -679,7 +706,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/tasks/:taskId/comments", async (req, res) => {
+  router.post("/tasks/:taskId/comments", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -711,7 +738,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Checklist routes
-  router.get("/api/tasks/:taskId/checklist", async (req, res) => {
+  router.get("/tasks/:taskId/checklist", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -725,7 +752,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/tasks/:taskId/checklist", async (req, res) => {
+  router.post("/tasks/:taskId/checklist", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -756,7 +783,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.patch("/api/checklist/:id", async (req, res) => {
+  router.patch("/checklist/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid checklist item ID" });
@@ -770,7 +797,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.delete("/api/checklist/:id", async (req, res) => {
+  router.delete("/checklist/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid checklist item ID" });
@@ -785,7 +812,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Activity Log routes
-  router.get("/api/tasks/:taskId/activities", async (req, res) => {
+  router.get("/tasks/:taskId/activities", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -799,7 +826,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/tasks/:taskId/activities", async (req, res) => {
+  router.post("/tasks/:taskId/activities", async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -831,7 +858,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Column routes
-  router.get("/api/boards/:boardId/columns", async (req, res) => {
+  router.get("/boards/:boardId/columns", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -845,7 +872,7 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.post("/api/boards/:boardId/columns", async (req, res) => {
+  router.post("/boards/:boardId/columns", async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -867,7 +894,8 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.patch("/api/columns/:id", async(req, res) => {const id = parseInt(req.params.id);
+  router.patch("/columns/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
     }
@@ -880,10 +908,10 @@ export async function registerRoutes(router: Router) {
     }
   });
 
-  router.delete("/api/columns/:id", async (req, res) => {
+  router.delete("/columns/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid column ID" });
+      return res.status(400).json({ message: "Invalid column ID"});
     }
 
     try {
@@ -895,7 +923,7 @@ export async function registerRoutes(router: Router) {
   });
 
   // Avatar upload route
-  router.post("/api/profile/avatar", upload.single('avatar'), async (req, res) => {
+  router.post("/profile/avatar", upload.single('avatar'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -924,9 +952,9 @@ export async function registerRoutes(router: Router) {
   // Register productivity routes
   registerProductivityRoutes(router);
 
-  // Register OKR routes (already exists)
+  // Register OKR routes
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(router);
 
-  return createServer(router);
+  return router;
 }
