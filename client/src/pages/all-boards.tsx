@@ -29,6 +29,9 @@ export default function AllBoards() {
     queryFn: async () => {
       // Fetch all boards first
       const allBoardsRes = await fetch('/api/boards');
+      if (!allBoardsRes.ok) {
+        throw new Error('Failed to fetch boards');
+      }
       const allBoards = await allBoardsRes.json();
       
       // Map project titles to boards
@@ -39,8 +42,6 @@ export default function AllBoards() {
           projectTitle: project?.title || 'Kein Projekt'
         };
       });
-
-      return allBoards.flat();
     },
     enabled: !!projects
   });
