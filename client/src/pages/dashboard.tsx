@@ -26,11 +26,21 @@ export default function Dashboard() {
   const { data: objectives = [], isLoading: objectivesLoading } = useQuery({
     queryKey: ["/api/objectives"],
     queryFn: async () => {
-      const response = await fetch("/api/objectives");
-      if (!response.ok) {
-        throw new Error("Failed to fetch objectives");
+      try {
+        console.log("Fetching objectives");
+        const response = await fetch("/api/objectives");
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Failed to fetch objectives:", errorText);
+          return [];
+        }
+        const data = await response.json();
+        console.log("Received objectives:", data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching objectives:", error);
+        return [];
       }
-      return response.json();
     },
     enabled: !!user?.id,
   });
@@ -40,20 +50,29 @@ export default function Dashboard() {
     queryFn: async () => {
       if (!projects) return [];
 
-      const allBoards = await Promise.all(
-        projects.map(async (project) => {
-          const res = await fetch(`/api/projects/${project.id}/boards`);
-          if (!res.ok) return [];
-          const boards = await res.json();
-          return boards.map((board: Board) => ({
-            ...board,
-            projectTitle: project.title,
-            projectId: project.id
-          }));
-        })
-      );
+      try {
+        const allBoards = await Promise.all(
+          projects.map(async (project) => {
+            console.log(`Fetching boards for project ${project.id}`);
+            const res = await fetch(`/api/projects/${project.id}/boards`);
+            if (!res.ok) {
+              console.error(`Failed to fetch boards for project ${project.id}:`, await res.text());
+              return [];
+            }
+            const boards = await res.json();
+            return boards.map((board: Board) => ({
+              ...board,
+              projectTitle: project.title,
+              projectId: project.id
+            }));
+          })
+        );
 
-      return allBoards.flat();
+        return allBoards.flat();
+      } catch (error) {
+        console.error("Error fetching boards:", error);
+        return [];
+      }
     },
     enabled: !!projects
   });
