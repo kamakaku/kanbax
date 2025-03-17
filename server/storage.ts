@@ -169,7 +169,8 @@ export class DatabaseStorage implements IStorage {
 
       // Clean up the data before insertion
       const boardData = {
-        ...insertBoard,
+        title: insertBoard.title,
+        description: insertBoard.description || null,
         projectId: insertBoard.projectId || null,
       };
 

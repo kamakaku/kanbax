@@ -70,16 +70,13 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         // Prepare the data
         const submitData = {
           ...data,
-          projectId: data.projectId || undefined,
+          projectId: data.projectId || null,
         };
 
         console.log("Processed submit data:", submitData);
 
-        // Construct the correct API endpoint
-        const endpoint = data.projectId 
-          ? `/api/projects/${data.projectId}/boards`
-          : '/api/boards';
-
+        // Construct the API endpoint
+        const endpoint = '/api/boards';
         console.log("Sending request to endpoint:", endpoint);
 
         const res = await fetch(endpoint, {
@@ -93,27 +90,13 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         if (!res.ok) {
           const errorText = await res.text();
           console.error("Server error response:", errorText);
-
-          let errorMessage: string;
-          try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.message || "Fehler beim Erstellen des Boards";
-          } catch (e) {
-            errorMessage = errorText || "Fehler beim Erstellen des Boards";
-          }
-
-          throw new Error(errorMessage);
+          throw new Error("Fehler beim Erstellen des Boards");
         }
 
         const newBoard = await res.json();
         console.log("Server response with new board:", newBoard);
 
         queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
-        if (data.projectId) {
-          queryClient.invalidateQueries({ 
-            queryKey: [`/api/projects/${data.projectId}/boards`] 
-          });
-        }
 
         toast({ title: "Board erfolgreich erstellt" });
         form.reset();
@@ -180,7 +163,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                 <FormItem>
                   <FormLabel>Projekt (Optional)</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(value === "0" ? undefined : parseInt(value))}
+                    onValueChange={(value) => field.onChange(value === "0" ? null : parseInt(value))}
                     defaultValue={field.value?.toString() || "0"}
                   >
                     <FormControl>
