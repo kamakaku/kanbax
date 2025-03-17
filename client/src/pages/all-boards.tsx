@@ -25,16 +25,14 @@ export default function AllBoards() {
   });
 
   const boardQueries = useQuery({
-    queryKey: ["all-boards", projects?.map(p => p.id)],
+    queryKey: ["all-boards"],
     queryFn: async () => {
-      // Fetch all boards first
       const allBoardsRes = await fetch('/api/boards');
       if (!allBoardsRes.ok) {
         throw new Error('Failed to fetch boards');
       }
       const allBoards = await allBoardsRes.json();
       
-      // Map project titles to boards
       return allBoards.map((board: Board) => {
         const project = projects?.find(p => p.id === board.projectId);
         return {
@@ -43,7 +41,7 @@ export default function AllBoards() {
         };
       });
     },
-    enabled: !!projects
+    enabled: true
   });
 
   const handleBoardClick = (board: Board, projectId: number) => {
