@@ -114,6 +114,7 @@ export class DatabaseStorage implements IStorage {
     const projectData = {
       ...updateProject,
       teamIds: Array.isArray(updateProject.teamIds) ? updateProject.teamIds : [],
+      isFavorite: updateProject.isFavorite ?? undefined,
     };
 
     console.log("Updating project with data:", projectData); // Debug log
@@ -225,9 +226,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
+    const boardData = {
+      ...updateBoard,
+      isFavorite: updateBoard.isFavorite ?? undefined,
+    };
+    
     const [board] = await db
       .update(boards)
-      .set(updateBoard)
+      .set(boardData)
       .where(eq(boards.id, id))
       .returning();
 
