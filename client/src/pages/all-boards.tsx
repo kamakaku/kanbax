@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { type Project, type Board } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -85,54 +86,57 @@ export default function AllBoards() {
           <p className="text-muted-foreground">Keine Boards vorhanden</p>
         </div>
       ) : (
-        <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Favorisierte Boards</h2>
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {allBoards.filter(b => b.isFavorite).map((board) => (
-            <Card
-              key={board.id}
-              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20 h-[120px]"
-              onClick={() => handleBoardClick(board, board.projectId)}
-            >
-              <CardHeader className="p-4 space-y-2">
-                <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                  {board.title}
-                </CardTitle>
-                <CardDescription className="text-sm space-y-1">
-                  <div className="line-clamp-1">{board.description}</div>
-                  <div className="text-xs text-primary/80">
-                    {board.projectTitle}
-                  </div>
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </div>
+        <>
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">Favorisierte Boards</h2>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {allBoards.filter(b => b.isFavorite).map((board) => (
+                <Card
+                  key={board.id}
+                  className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20 h-[120px]"
+                  onClick={() => handleBoardClick(board, board.projectId)}
+                >
+                  <CardHeader className="p-4 space-y-2">
+                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                      {board.title}
+                    </CardTitle>
+                    <CardDescription className="text-sm space-y-1">
+                      <div className="line-clamp-1">{board.description}</div>
+                      <div className="text-xs text-primary/80">
+                        {board.projectTitle}
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          </div>
 
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Alle Boards</h2>
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {allBoards.map((board) => (
-            <Card
-              key={board.id}
-              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
-              onClick={() => handleBoardClick(board, board.projectId)}
-            >
-              <CardHeader className="p-4 space-y-2">
-                <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                  {board.title}
-                </CardTitle>
-                <CardDescription className="text-sm space-y-1">
-                  <div className="line-clamp-1">{board.description}</div>
-                  <div className="text-xs text-primary/80">
-                    {board.projectTitle}
-                  </div>
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">Alle Boards</h2>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {allBoards.map((board) => (
+                <Card
+                  key={board.id}
+                  className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
+                  onClick={() => handleBoardClick(board, board.projectId)}
+                >
+                  <CardHeader className="p-4 space-y-2">
+                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                      {board.title}
+                    </CardTitle>
+                    <CardDescription className="text-sm space-y-1">
+                      <div className="line-clamp-1">{board.description}</div>
+                      <div className="text-xs text-primary/80">
+                        {board.projectTitle}
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       <BoardForm
