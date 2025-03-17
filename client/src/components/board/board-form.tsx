@@ -72,10 +72,8 @@ export function BoardForm({ open, onClose, onSubmit, defaultValues }: BoardFormP
 
   const handleSubmit = async (formData: InsertBoard) => {
     try {
-      console.log("Form data before submission:", formData);
+      console.log("Submitting form with data:", formData);
       await onSubmit(formData);
-      form.reset();
-      onClose();
     } catch (error) {
       console.error("Form submission error:", error);
       toast({

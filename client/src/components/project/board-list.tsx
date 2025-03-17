@@ -68,12 +68,12 @@ export function BoardList({ projectId }: BoardListProps) {
     },
   });
 
-  const handleCreateBoard = async (data: InsertBoard): Promise<void> => {
+  const handleSubmit = async (data: InsertBoard): Promise<void> => {
     try {
-      console.log("Handling board creation with data:", data);
+      console.log("Handling board submission:", data);
       await createBoard.mutateAsync(data);
     } catch (error) {
-      console.error("Error in handleCreateBoard:", error);
+      console.error("Error in handleSubmit:", error);
       throw error;
     }
   };
@@ -132,7 +132,7 @@ export function BoardList({ projectId }: BoardListProps) {
           setShowForm(false);
           setEditingBoard(null);
         }}
-        onSubmit={handleCreateBoard}
+        onSubmit={handleSubmit}
         defaultValues={editingBoard || undefined}
       />
     </div>
