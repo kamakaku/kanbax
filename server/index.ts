@@ -14,50 +14,63 @@ app.use(express.urlencoded({ extended: false }));
 // Create API router
 const apiRouter = express.Router();
 
-// API request logging middleware
+// Force JSON Content-Type for API responses
 apiRouter.use((req, res, next) => {
-  const start = Date.now();
-  console.log(`[API] ${req.method} ${req.originalUrl} - Request received`);
-
-  const originalJson = res.json;
-  res.json = function(body) {
-    console.log(`[API] ${req.method} ${req.originalUrl} - Sending JSON response in ${Date.now() - start}ms`);
-    return originalJson.call(this, body);
-  };
-
+  res.contentType('application/json');
   next();
 });
 
-// Initialize API routes first
+// API request logging middleware
+apiRouter.use((req, res, next) => {
+  const start = Date.now();
+  log(`[API] ${req.method} ${req.originalUrl}`);
+  const originalJson = res.json;
+  res.json = function(body) {
+    log(`[API] Response sent for ${req.method} ${req.originalUrl} in ${Date.now() - start}ms`);
+    return originalJson.call(this, body);
+  };
+  next();
+});
+
+// Initialize API routes
 registerRoutes(apiRouter).then((server) => {
-  // Mount API router before any other middleware
-  app.use("/api", apiRouter);
-
-  // API error handling middleware.  This was moved here to be after the apiRouter.use
-  apiRouter.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    console.error("[API Error]:", err);
-    res.status(status).json({ message });
-  });
-
   // Serve uploaded files
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+  // Mount the API router at the absolute path
+  app.use("/api", (req, res, next) => {
+    res.setHeader('Content-Type', 'application/json');
+    apiRouter(req, res, next);
+  });
+
+  // API error handling middleware
+  app.use("/api", (err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    log("[API Error]", err);
+    res.status(status).json({ message });
+  });
 
   // Health check endpoint (not under /api)
   app.get("/health", (_req, res) => {
     res.json({ status: "healthy" });
   });
 
-
   // Set development environment
   process.env.NODE_ENV = "development";
   log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
 
-  // Setup Vite after API routes
+  // Setup Vite last after all API routes are mounted
   if (process.env.NODE_ENV === "development") {
     log("Setting up Vite for development...");
-    setupVite(app, server);
+    app.use((req, res, next) => {
+      if (req.path.startsWith('/api/')) {
+        log(`[Debug] API request intercepted before Vite: ${req.method} ${req.path}`);
+        return next();
+      }
+      setupVite(app, server);
+      next();
+    });
     log("Vite setup completed");
   } else {
     log("Setting up static serving for production...");
@@ -72,14 +85,11 @@ registerRoutes(apiRouter).then((server) => {
     while (attempts < maxAttempts) {
       try {
         log(`Attempting to start server on port ${currentPort} (attempt ${attempts + 1}/${maxAttempts})`);
-
-        // Force close previous listeners if they exist
         server.close();
 
         await new Promise<void>((resolve, reject) => {
           server.listen(currentPort, host, () => {
             log(`Server successfully started on ${host}:${currentPort}`);
-            log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
             resolve();
           });
 
@@ -88,14 +98,13 @@ registerRoutes(apiRouter).then((server) => {
               log(`Port ${currentPort} is in use, trying next port...`);
               currentPort++;
               attempts++;
-              resolve(); // Continue to next attempt
+              resolve();
             } else {
               reject(e);
             }
           });
         });
 
-        // If we get here, the server started successfully
         break;
       } catch (error) {
         console.error(`Failed to start server on port ${currentPort}:`, error);
@@ -104,13 +113,11 @@ registerRoutes(apiRouter).then((server) => {
           log('Failed to start server after maximum attempts');
           process.exit(1);
         }
-        // Try next port
         currentPort++;
       }
     }
   };
 
-  // Get initial port from environment or use 5000 as default
   const initialPort = parseInt(process.env.PORT || "5000", 10);
   log(`Starting server with initial port ${initialPort}`);
   startServer(initialPort);
