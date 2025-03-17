@@ -32,6 +32,16 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
     },
   });
 
+  const handleSubmit = form.handleSubmit(async (data) => {
+    try {
+      await onSubmit(data);
+      form.reset();
+      onClose();
+    } catch (error) {
+      console.error("Form submission error:", error);
+    }
+  });
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
@@ -39,7 +49,7 @@ export function BoardForm({ open, onClose, onSubmit }: BoardFormProps) {
           <DialogTitle>Neues Board erstellen</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <FormField
               control={form.control}
               name="title"

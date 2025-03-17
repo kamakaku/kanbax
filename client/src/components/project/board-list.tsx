@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { type Board, type InsertBoard } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useStore } from "@/lib/store";
 import { BoardForm } from "@/components/board/board-form";
+import { queryClient } from "@/lib/queryClient";
 
 interface BoardListProps {
   projectId: number;
@@ -17,7 +18,6 @@ interface BoardListProps {
 export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const { setCurrentBoard } = useStore();
 
@@ -34,15 +34,11 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const handleFormSubmit = async (data: InsertBoard) => {
     try {
-      const response = await apiRequest(
+      const response = await apiRequest<Board>(
         "POST",
         `/api/projects/${projectId}/boards`,
         { ...data, projectId }
       );
-
-      if (!response) {
-        throw new Error("Fehler beim Erstellen des Boards");
-      }
 
       queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
