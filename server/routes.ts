@@ -1,54 +1,15 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema, teamMembers } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
-import type { User } from "@shared/schema";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { registerProductivityRoutes } from "./productivityRoutes";
-import { requireAccess, hasProjectAccess, hasBoardAccess, hasObjectiveAccess } from "./permissions";
+import passport from "passport";
 import { isAuthenticated } from "./auth";
 
-// Configure multer for avatar uploads
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: './uploads/avatars',
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-  }),
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'));
-    }
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  }
-});
-
-// Ensure upload directory exists
-if (!fs.existsSync('./uploads/avatars')) {
-  fs.mkdirSync('./uploads/avatars', { recursive: true });
-}
-
 export async function registerRoutes(app: Express) {
-  // Add isAuthenticated middleware to protect all API routes except auth routes
-  app.use('/api', (req, res, next) => {
-    if (req.path.startsWith('/auth') || req.path === '/health') {
-      return next();
-    }
-    isAuthenticated(req, res, next);
-  });
-
-  // Authentication routes
+  // AUTH ROUTES - Must come before protection middleware
   app.post("/api/auth/register", async (req, res) => {
+    console.log("Register attempt:", req.body);
     const result = insertUserSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -72,38 +33,72 @@ export async function registerRoutes(app: Express) {
         passwordHash,
       });
 
-      // Remove password hash from response
-      const { passwordHash: _, ...userWithoutPassword } = user;
-      res.status(201).json(userWithoutPassword);
+      // Log in the user after registration
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Login after registration failed:", err);
+          return res.status(500).json({ message: "Failed to login after registration" });
+        }
+        // Remove password hash from response
+        const { passwordHash: _, ...userWithoutPassword } = user;
+        res.status(201).json(userWithoutPassword);
+      });
     } catch (error) {
       console.error("Failed to create user:", error);
       res.status(500).json({ message: "Failed to create user" });
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-
-    try {
-      // Find user
-      const user = await storage.getUserByEmail(email);
+  app.post("/api/auth/login", (req, res, next) => {
+    console.log("Login attempt:", req.body);
+    passport.authenticate("local", (err, user, info) => {
+      if (err) {
+        console.error("Login error:", err);
+        return next(err);
+      }
       if (!user) {
-        return res.status(400).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
       }
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Session creation error:", err);
+          return next(err);
+        }
+        const { passwordHash: _, ...userWithoutPassword } = user;
+        console.log("Login successful, session:", req.session);
+        return res.json(userWithoutPassword);
+      });
+    })(req, res, next);
+  });
 
-      // Verify password
-      const isValid = await bcrypt.compare(password, user.passwordHash);
-      if (!isValid) {
-        return res.status(400).json({ message: "Invalid credentials" });
+  app.post("/api/auth/logout", (req, res) => {
+    console.log("Logout attempt, session:", req.session);
+    req.logout((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Failed to logout" });
       }
+      res.sendStatus(200);
+    });
+  });
 
-      // Remove password hash from response
-      const { passwordHash: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      console.error("Failed to login:", error);
-      res.status(500).json({ message: "Failed to login" });
+  // Add route to check current user
+  app.get("/api/auth/me", (req, res) => {
+    console.log("Auth check request, session:", req.session);
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
     }
+    const { passwordHash: _, ...userWithoutPassword } = req.user;
+    res.json(userWithoutPassword);
+  });
+
+  // AUTH CHECK MIDDLEWARE - Comes after auth routes
+  app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/auth') || req.path === '/health') {
+      return next();
+    }
+    console.log("Auth check for:", req.path, "Session:", req.session);
+    isAuthenticated(req, res, next);
   });
 
   // Add new route to get all users
