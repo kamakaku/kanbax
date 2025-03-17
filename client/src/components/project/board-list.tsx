@@ -129,6 +129,7 @@ export function BoardList({ projectId }: BoardListProps) {
           setEditingBoard(null);
         }}
         onSubmit={handleCreateBoard}
+        defaultValues={editingBoard || undefined}
       />
     </div>
   );
