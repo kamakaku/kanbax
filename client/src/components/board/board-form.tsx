@@ -84,7 +84,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       projectId: currentProject?.id,
       memberIds: [],
       teamIds: [],
-      guestEmails: [],
     },
   });
 
@@ -102,7 +101,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           projectId: data.projectId || undefined,
           memberIds: data.memberIds?.map(id => Number(id)) || [],
           teamIds: data.teamIds?.map(id => Number(id)) || [],
-          guestEmails: data.guestEmails || []
         };
 
         console.log("Processed submit data:", submitData);
@@ -333,53 +331,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                       );
                     })}
                   </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="guestEmails"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gäste (E-Mail-Adressen)</FormLabel>
-                  <FormControl>
-                    <div className="space-y-2">
-                      <Input
-                        type="email"
-                        placeholder="beispiel@domain.de"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const input = e.currentTarget;
-                            const email = input.value.trim();
-                            if (email && !field.value?.includes(email)) {
-                              field.onChange([...(field.value || []), email]);
-                              input.value = '';
-                            }
-                          }
-                        }}
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        {field.value?.map((email) => (
-                          <Badge key={email} variant="secondary">
-                            {email}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 ml-1"
-                              onClick={() => {
-                                field.onChange(field.value?.filter((e) => e !== email));
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

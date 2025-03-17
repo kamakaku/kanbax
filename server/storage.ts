@@ -178,9 +178,6 @@ export class DatabaseStorage implements IStorage {
           : [],
         teamIds: Array.isArray(insertBoard.teamIds)
           ? insertBoard.teamIds.map(id => Number(id))
-          : [],
-        guestEmails: Array.isArray(insertBoard.guestEmails)
-          ? insertBoard.guestEmails
           : []
       };
 
@@ -226,9 +223,6 @@ export class DatabaseStorage implements IStorage {
             : [],
           teamIds: Array.isArray(board.teamIds)
             ? board.teamIds.map(Number)
-            : [],
-          guestEmails: Array.isArray(board.guestEmails)
-            ? board.guestEmails
             : []
         };
 

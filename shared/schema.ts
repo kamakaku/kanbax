@@ -45,7 +45,6 @@ export const boards = pgTable("boards", {
   projectId: integer("project_id"), // Remove .notNull()
   memberIds: integer("member_ids").array().default([]),
   teamIds: integer("team_ids").array().default([]),
-  guestEmails: text("guest_emails").array().default([]),
 });
 
 export const columns = pgTable("columns", {
@@ -145,7 +144,6 @@ export const insertBoardSchema = createInsertSchema(boards)
     projectId: z.number().int().positive("Project ID must be positive").optional(),
     memberIds: z.array(z.number().int().positive()).optional(),
     teamIds: z.array(z.number().int().positive()).optional(),
-    guestEmails: z.array(z.string().email()).optional(),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -394,7 +392,12 @@ export const insertOkrCommentSchema = createInsertSchema(okrComments)
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertBoard = z.infer<typeof insertBoardSchema>;
-export type Board = typeof boards.$inferSelect;
+export type Board = typeof boards.$inferSelect & {
+  project?: {
+    id: number;
+    title: string;
+  } | null;
+};
 export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
