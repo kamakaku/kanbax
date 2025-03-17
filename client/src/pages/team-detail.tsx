@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Pencil, Users, Kanban, Target, LineChart } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { TeamForm } from "@/components/team/team-form";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -23,7 +23,8 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch(`/api/teams/${teamId}`);
       if (!res.ok) {
-        throw new Error(await res.text() || "Failed to fetch team");
+        console.error("Failed to fetch team:", await res.text());
+        throw new Error("Failed to fetch team");
       }
       return res.json();
     },
@@ -35,10 +36,11 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch("/api/projects");
       if (!res.ok) {
-        throw new Error(await res.text() || "Failed to fetch projects");
+        console.error("Failed to fetch projects:", await res.text());
+        throw new Error("Failed to fetch projects");
       }
       const allProjects = await res.json();
-      return allProjects.filter((project: Project) =>
+      return allProjects.filter((project: Project) => 
         project.teamIds?.includes(teamId)
       );
     },
@@ -46,64 +48,61 @@ export default function TeamDetail() {
   });
 
   // Fetch boards associated with this team
-  const { data: boards = [], error: boardsError } = useQuery<Board[]>({
-    queryKey: [`/api/teams/${teamId}/boards`],
+  const { data: boards = [] } = useQuery<Board[]>({
+    queryKey: ["/api/boards"],
     queryFn: async () => {
-      const res = await fetch(`/api/teams/${teamId}/boards`);
+      const res = await fetch("/api/boards");
       if (!res.ok) {
-        throw new Error(await res.text() || "Failed to fetch team boards");
+        console.error("Failed to fetch boards:", await res.text());
+        throw new Error("Failed to fetch boards");
       }
-      return res.json();
+      const allBoards = await res.json();
+      return allBoards.filter((board: Board) => 
+        board.teamIds?.includes(teamId)
+      );
     },
     enabled: !!teamId,
-    retry: 1,
   });
 
   // Fetch team members
   const { data: members = [], error: membersError } = useQuery<User[]>({
     queryKey: [`/api/teams/${teamId}/members`],
     queryFn: async () => {
+      console.log("Fetching members for team:", teamId);
       const res = await fetch(`/api/teams/${teamId}/members`);
       if (!res.ok) {
-        throw new Error(await res.text() || "Failed to fetch team members");
+        const errorText = await res.text();
+        console.error("Failed to fetch team members:", errorText);
+        throw new Error(errorText || "Failed to fetch team members");
       }
-      return res.json();
+      const data = await res.json();
+      console.log("Received members data:", data);
+      return data;
     },
     enabled: !!teamId,
-    retry: 1,
+    onError: (error) => {
+      console.error("Members query error:", error);
+      toast({
+        title: "Fehler",
+        description: "Teammitglieder konnten nicht geladen werden",
+        variant: "destructive",
+      });
+    },
   });
 
   // Fetch team OKRs
-  const { data: objectives = [], error: objectivesError } = useQuery<Objective[]>({
+  const { data: objectives = [] } = useQuery<Objective[]>({
     queryKey: [`/api/teams/${teamId}/objectives`],
     queryFn: async () => {
       const res = await fetch(`/api/teams/${teamId}/objectives`);
       if (!res.ok) {
-        throw new Error(await res.text() || "Failed to fetch team objectives");
+        console.error("Failed to fetch team objectives:", await res.text());
+        throw new Error("Failed to fetch team objectives");
       }
       return res.json();
     },
     enabled: !!teamId,
-    retry: 1,
   });
-
-  // Handle errors in useEffect to prevent render loop
-  useEffect(() => {
-    const handleError = (error: Error | null, type: string) => {
-      if (error) {
-        console.error(`Error fetching ${type}:`, error);
-        toast({
-          title: "Fehler",
-          description: `${type} konnten nicht geladen werden`,
-          variant: "destructive",
-        });
-      }
-    };
-
-    handleError(boardsError as Error, "Boards");
-    handleError(membersError as Error, "Teammitglieder");
-    handleError(objectivesError as Error, "OKRs");
-  }, [boardsError, membersError, objectivesError, toast]);
 
   if (isTeamLoading) {
     return (
@@ -183,22 +182,16 @@ export default function TeamDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            {projects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Keine Projekte gefunden
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {projects.map((project) => (
-                  <Link key={project.id} href={`/projects/${project.id}`}>
-                    <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                      <h3 className="font-medium">{project.title}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <div className="space-y-4">
+              {projects.map((project) => (
+                <Link key={project.id} href={`/projects/${project.id}`}>
+                  <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                    <h3 className="font-medium">{project.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -211,28 +204,16 @@ export default function TeamDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            {boardsError ? (
-              <p className="text-sm text-destructive">
-                Fehler beim Laden der Boards
-              </p>
-            ) : boards.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Keine Boards gefunden
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {boards.map((board) => (
-                  <Link key={board.id} href={`/boards/${board.id}`}>
-                    <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                      <h3 className="font-medium">{board.title}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {board.description}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <div className="space-y-4">
+              {boards.map((board) => (
+                <Link key={board.id} href={`/boards/${board.id}`}>
+                  <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                    <h3 className="font-medium">{board.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{board.description}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -245,30 +226,20 @@ export default function TeamDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            {objectivesError ? (
-              <p className="text-sm text-destructive">
-                Fehler beim Laden der OKRs
-              </p>
-            ) : objectives.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Keine OKRs gefunden
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {objectives.map((objective) => (
-                  <Link key={objective.id} href={`/okr/${objective.id}`}>
-                    <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                      <h3 className="font-medium">{objective.title}</h3>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={objective.status === 'completed' ? 'default' : 'secondary'}>
-                          {objective.status === 'completed' ? 'Abgeschlossen' : 'In Bearbeitung'}
-                        </Badge>
-                      </div>
+            <div className="space-y-4">
+              {objectives.map((objective) => (
+                <Link key={objective.id} href={`/okr/${objective.id}`}>
+                  <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                    <h3 className="font-medium">{objective.title}</h3>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant={objective.status === 'completed' ? 'default' : 'secondary'}>
+                        {objective.status === 'completed' ? 'Abgeschlossen' : 'In Bearbeitung'}
+                      </Badge>
                     </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>

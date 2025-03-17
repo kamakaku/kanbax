@@ -1,4 +1,4 @@
-import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog, boardMembers, boardTeams, type BoardMember, type InsertBoardMember, type BoardTeam, type InsertBoardTeam, objectives, type Objective } from "@shared/schema";
+import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog, boardMembers, boardTeams, type BoardMember, type InsertBoardMember, type BoardTeam, type InsertBoardTeam } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -82,11 +82,9 @@ export interface IStorage {
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team>;
   deleteTeam(id: number): Promise<void>;
-  getTeamMembers(teamId: number): Promise<TeamMember[]>;
 
-  // Add new methods for team-related data
-  getObjectivesByTeam(teamId: number): Promise<Objective[]>;
-  getBoardsByTeam(teamId: number): Promise<Board[]>;
+  // Team member operations
+  getTeamMembers(): Promise<TeamMember[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -723,34 +721,8 @@ export class DatabaseStorage implements IStorage {
     }
   }
   // Team member operations
-  async getTeamMembers(teamId: number): Promise<TeamMember[]> {
-    return await db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.teamId, teamId));
-  }
-
-  // Add implementation for getting objectives by team
-  async getObjectivesByTeam(teamId: number): Promise<Objective[]> {
-    console.log(`Getting objectives for team ${teamId}`);
-    return await db
-      .select()
-      .from(objectives)
-      .where(eq(objectives.teamId, teamId));
-  }
-
-  // Add implementation for getting boards by team
-  async getBoardsByTeam(teamId: number): Promise<Board[]> {
-    console.log(`Getting boards for team ${teamId}`);
-
-    // Get all boards where this team is assigned via teamIds array
-    const boardsForTeam = await db
-      .select()
-      .from(boards)
-      .where(sql`${boards.teamIds} @> ARRAY[${teamId}]::int[]`);
-
-    console.log(`Found ${boardsForTeam.length} boards for team ${teamId}`);
-    return boardsForTeam;
+  async getTeamMembers(): Promise<TeamMember[]> {
+    return await db.select().from(teamMembers);
   }
 }
 
