@@ -240,7 +240,7 @@ export const insertTeamSchema = createInsertSchema(teams)
   })
   .extend({
     name: z.string().min(1, "Team name is required"),
-    memberIds: z.array(z.string()).optional(),
+    memberIds: z.array(z.number().int().positive()).optional(),
   });
 
 export const insertTeamMemberSchema = createInsertSchema(teamMembers)

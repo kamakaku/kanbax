@@ -59,11 +59,32 @@ export function TeamForm({ open, onClose, existingTeam }: TeamFormProps) {
   // Reset form when existingTeam changes
   useEffect(() => {
     if (existingTeam) {
-      form.reset({
-        name: existingTeam.name,
-        description: existingTeam.description,
-        memberIds: existingTeam.memberIds,
-      });
+      console.log("Resetting form with existing team:", existingTeam);
+      // Get team members for this team
+      const getTeamMembers = async () => {
+        try {
+          const response = await fetch(`/api/teams/${existingTeam.id}/members`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch team members");
+          }
+          const members = await response.json();
+          const memberIds = members.map((member: { userId: number }) => member.userId);
+
+          form.reset({
+            name: existingTeam.name,
+            description: existingTeam.description,
+            memberIds: memberIds,
+          });
+        } catch (error) {
+          console.error("Error fetching team members:", error);
+          toast({
+            title: "Fehler",
+            description: "Teammitglieder konnten nicht geladen werden",
+            variant: "destructive",
+          });
+        }
+      };
+      getTeamMembers();
     } else {
       form.reset({
         name: "",
@@ -71,14 +92,16 @@ export function TeamForm({ open, onClose, existingTeam }: TeamFormProps) {
         memberIds: [],
       });
     }
-  }, [existingTeam, form]);
+  }, [existingTeam, form, toast]);
 
   const createTeam = useMutation({
     mutationFn: async (data: InsertTeam) => {
-      return await apiRequest("POST", "/api/teams", {
+      const payload = {
         ...data,
-        memberIds: data.memberIds?.map(id => parseInt(id)) || []
-      });
+        memberIds: data.memberIds?.map(Number) || []
+      };
+      console.log("Creating team with payload:", payload);
+      return await apiRequest("POST", "/api/teams", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
@@ -100,13 +123,17 @@ export function TeamForm({ open, onClose, existingTeam }: TeamFormProps) {
     mutationFn: async (data: Partial<InsertTeam>) => {
       if (!existingTeam) return;
 
+      const payload = {
+        ...data,
+        memberIds: data.memberIds?.map(Number) || []
+      };
+
+      console.log("Updating team with payload:", payload);
+
       return await apiRequest(
         "PATCH",
         `/api/teams/${existingTeam.id}`,
-        {
-          ...data,
-          memberIds: data.memberIds?.map(id => parseInt(id)) || []
-        }
+        payload
       );
     },
     onSuccess: () => {
@@ -125,6 +152,7 @@ export function TeamForm({ open, onClose, existingTeam }: TeamFormProps) {
   });
 
   const onSubmit = async (data: InsertTeam) => {
+    console.log("Form data before submission:", data);
     if (existingTeam) {
       await updateTeam.mutateAsync(data);
     } else {
@@ -183,8 +211,13 @@ export function TeamForm({ open, onClose, existingTeam }: TeamFormProps) {
                   <FormControl>
                     <MultiSelect
                       options={userOptions}
-                      selected={field.value || []}
-                      onChange={field.onChange}
+                      selected={field.value?.map(String) || []}
+                      onChange={(values) => {
+                        console.log("MultiSelect onChange values:", values);
+                        const numberValues = values.map(Number);
+                        console.log("Converted to numbers:", numberValues);
+                        field.onChange(numberValues);
+                      }}
                       placeholder="Mitglieder auswählen"
                     />
                   </FormControl>
