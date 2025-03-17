@@ -93,6 +93,9 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       if (onSubmit) {
         await onSubmit(data);
       } else {
+        // Log the raw form data
+        console.log("Raw form data:", data);
+
         // Prepare the data
         const submitData = {
           ...data,
@@ -102,12 +105,14 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           guestEmails: data.guestEmails || []
         };
 
-        console.log("Submitting board data:", submitData);
+        console.log("Processed submit data:", submitData);
 
         // Construct the correct API endpoint
         const endpoint = data.projectId 
           ? `/api/projects/${data.projectId}/boards`
           : '/api/boards';
+
+        console.log("Sending request to endpoint:", endpoint);
 
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -118,12 +123,23 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         });
 
         if (!res.ok) {
-          const errorData = await res.text();
-          console.error("Server response:", errorData);
-          throw new Error(errorData || "Fehler beim Erstellen des Boards");
+          const errorText = await res.text();
+          console.error("Server error response:", errorText);
+
+          let errorMessage: string;
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || "Fehler beim Erstellen des Boards";
+          } catch (e) {
+            errorMessage = errorText || "Fehler beim Erstellen des Boards";
+          }
+
+          throw new Error(errorMessage);
         }
 
         const newBoard = await res.json();
+        console.log("Server response with new board:", newBoard);
+
         queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
         if (data.projectId) {
           queryClient.invalidateQueries({ 

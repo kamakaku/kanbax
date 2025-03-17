@@ -164,50 +164,83 @@ export class DatabaseStorage implements IStorage {
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
     try {
+      // Log incoming data
+      console.log("Received board data:", insertBoard);
+      console.log("memberIds type:", typeof insertBoard.memberIds, "value:", insertBoard.memberIds);
+      console.log("teamIds type:", typeof insertBoard.teamIds, "value:", insertBoard.teamIds);
+
       // Clean up the data before insertion
       const boardData = {
         ...insertBoard,
         projectId: insertBoard.projectId || null,
-        memberIds: Array.isArray(insertBoard.memberIds) ? insertBoard.memberIds.map(Number) : [],
-        teamIds: Array.isArray(insertBoard.teamIds) ? insertBoard.teamIds.map(Number) : [],
-        guestEmails: Array.isArray(insertBoard.guestEmails) ? insertBoard.guestEmails : []
+        memberIds: Array.isArray(insertBoard.memberIds)
+          ? insertBoard.memberIds.map(id => Number(id))
+          : [],
+        teamIds: Array.isArray(insertBoard.teamIds)
+          ? insertBoard.teamIds.map(id => Number(id))
+          : [],
+        guestEmails: Array.isArray(insertBoard.guestEmails)
+          ? insertBoard.guestEmails
+          : []
       };
 
-      console.log("Creating board with data:", boardData);
+      console.log("Processed board data for insertion:", boardData);
 
-      const [board] = await db
-        .insert(boards)
-        .values(boardData)
-        .returning();
+      try {
+        const [board] = await db
+          .insert(boards)
+          .values(boardData)
+          .returning();
 
-      if (!board) {
-        throw new Error("Failed to create board");
+        console.log("Database response after board creation:", board);
+
+        if (!board) {
+          console.error("Board creation failed - no board returned from database");
+          throw new Error("Failed to create board - database returned no data");
+        }
+
+        // Create default columns for the new board
+        const defaultColumns = [
+          { title: "Backlog", order: 0 },
+          { title: "To Do", order: 1 },
+          { title: "In Progress", order: 2 },
+          { title: "Done", order: 3 },
+        ];
+
+        console.log("Creating default columns for board:", board.id);
+
+        for (const column of defaultColumns) {
+          await db.insert(columns).values({
+            title: column.title,
+            boardId: board.id,
+            order: column.order,
+          });
+        }
+
+        console.log("Default columns created successfully");
+
+        const processedBoard = {
+          ...board,
+          memberIds: Array.isArray(board.memberIds)
+            ? board.memberIds.map(Number)
+            : [],
+          teamIds: Array.isArray(board.teamIds)
+            ? board.teamIds.map(Number)
+            : [],
+          guestEmails: Array.isArray(board.guestEmails)
+            ? board.guestEmails
+            : []
+        };
+
+        console.log("Final processed board data:", processedBoard);
+        return processedBoard;
+
+      } catch (dbError) {
+        console.error("Database error during board creation:", dbError);
+        throw new Error(`Failed to create board - Database error: ${dbError.message}`);
       }
-
-      // Create default columns for the new board
-      const defaultColumns = [
-        { title: "Backlog", order: 0 },
-        { title: "To Do", order: 1 },
-        { title: "In Progress", order: 2 },
-        { title: "Done", order: 3 },
-      ];
-
-      for (const column of defaultColumns) {
-        await db.insert(columns).values({
-          title: column.title,
-          boardId: board.id,
-          order: column.order,
-        });
-      }
-
-      return {
-        ...board,
-        memberIds: Array.isArray(board.memberIds) ? board.memberIds.map(Number) : [],
-        teamIds: Array.isArray(board.teamIds) ? board.teamIds.map(Number) : [],
-        guestEmails: Array.isArray(board.guestEmails) ? board.guestEmails : []
-      };
     } catch (error) {
-      console.error("Error creating board:", error);
+      console.error("Error in createBoard:", error);
       throw error;
     }
   }
