@@ -7,6 +7,7 @@ import { projects, type Project, type InsertProject, type UpdateProject } from "
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
+import { objectives, type Objective } from "@shared/schema"; // Added import for objectives
 
 const PostgresSessionStore = connectPg(session);
 
@@ -89,6 +90,8 @@ export interface IStorage {
 
   // Team member operations
   getTeamMembers(): Promise<TeamMember[]>;
+  //Objective operations
+  getObjectives(): Promise<Objective[]>; // Added getObjectives method signature
   sessionStore: session.Store;
 }
 
@@ -158,14 +161,15 @@ export class DatabaseStorage implements IStorage {
 
   // Board operations
   async getBoards(): Promise<Board[]> {
-    return await db.select().from(boards);
+    return await db.select().from(boards).orderBy(boards.id);
   }
 
   async getBoardsByProject(projectId: number): Promise<Board[]> {
     return await db
       .select()
       .from(boards)
-      .where(eq(boards.projectId, projectId));
+      .where(eq(boards.projectId, projectId))
+      .orderBy(boards.id);
   }
 
   async getBoard(id: number): Promise<Board> {
@@ -737,6 +741,13 @@ export class DatabaseStorage implements IStorage {
   // Team member operations
   async getTeamMembers(): Promise<TeamMember[]> {
     return await db.select().from(teamMembers);
+  }
+  // Objective operations
+  async getObjectives(): Promise<Objective[]> { // Added getObjectives method
+    return await db
+      .select()
+      .from(objectives)
+      .orderBy(objectives.id);
   }
 }
 
