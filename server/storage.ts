@@ -167,9 +167,9 @@ export class DatabaseStorage implements IStorage {
     const boardData = {
       ...insertBoard,
       projectId: insertBoard.projectId || null,
-      memberIds: insertBoard.memberIds || [],
-      teamIds: insertBoard.teamIds || [],
-      guestEmails: insertBoard.guestEmails || []
+      memberIds: Array.isArray(insertBoard.memberIds) ? insertBoard.memberIds : [],
+      teamIds: Array.isArray(insertBoard.teamIds) ? insertBoard.teamIds : [],
+      guestEmails: Array.isArray(insertBoard.guestEmails) ? insertBoard.guestEmails : []
     };
 
     console.log("Creating board with data:", boardData);
@@ -195,7 +195,12 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    return board;
+    return {
+      ...board,
+      memberIds: Array.isArray(board.memberIds) ? board.memberIds : [],
+      teamIds: Array.isArray(board.teamIds) ? board.teamIds : [],
+      guestEmails: Array.isArray(board.guestEmails) ? board.guestEmails : []
+    };
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
