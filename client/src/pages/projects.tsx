@@ -52,8 +52,33 @@ export default function Projects() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {projects?.map((project) => (
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Favoriten</h2>
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {projects?.filter(p => p.isFavorite).map((project) => (
+            <Link key={project.id} href={`/projects/${project.id}`}>
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-[140px] border-primary/20">
+                <CardHeader className="p-4">
+                  <CardTitle className="text-base line-clamp-1">{project.title}</CardTitle>
+                  <CardDescription className="text-sm line-clamp-2">
+                    {project.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <p className="text-xs text-muted-foreground">
+                    Erstellt: {new Date(project.createdAt).toLocaleDateString()}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-semibold mb-4">Alle Projekte</h2>
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {projects?.map((project) => (
           <Link key={project.id} href={`/projects/${project.id}`}>
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-[140px]">
               <CardHeader className="p-4">
