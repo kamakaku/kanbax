@@ -285,12 +285,10 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      console.log(`[GET /api/projects/${projectId}/boards] Fetching boards...`);
       const boards = await storage.getBoardsByProject(projectId);
-      console.log(`[GET /api/projects/${projectId}/boards] Found ${boards.length} boards:`, boards);
       res.json(boards);
     } catch (error) {
-      console.error(`[GET /api/projects/${projectId}/boards] Error:`, error);
+      console.error("Failed to fetch boards:", error);
       res.status(500).json({ message: "Failed to fetch boards" });
     }
   });
@@ -301,18 +299,9 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid project ID" });
     }
 
-    console.log("Creating board with data:", { 
-      ...req.body, 
-      projectId,
-      creatorId: (req.user as { id: number }).id 
-    });
+    console.log("Creating board:", { ...req.body, projectId });
 
-    const result = insertBoardSchema.safeParse({ 
-      ...req.body, 
-      projectId,
-      creatorId: (req.user as { id: number }).id 
-    });
-
+    const result = insertBoardSchema.safeParse({ ...req.body, projectId });
     if (!result.success) {
       console.error("Board validation failed:", result.error);
       return res.status(400).json({
@@ -322,9 +311,7 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      console.log("Validated board data:", result.data);
       const board = await storage.createBoard(result.data);
-      console.log("Created board:", board);
 
       // Create board members for assigned users
       if (result.data.memberIds) {
@@ -352,6 +339,39 @@ export async function registerRoutes(app: Express) {
         );
       }
 
+      // Create board members for guest emails
+      if (result.data.guestEmails) {
+        await Promise.all(
+          result.data.guestEmails.map(async (email) => {
+            // Check if user exists with this email
+            let user = await storage.getUserByEmail(email);
+
+            if (!user) {
+              // Create a new user with guest role
+              const tempPassword = Math.random().toString(36).slice(-8);
+              const salt = await bcrypt.genSalt(10);
+              const passwordHash = await bcrypt.hash(tempPassword, salt);
+
+              user = await storage.createUser({
+                email,
+                username: email.split("@")[0],
+                passwordHash,
+              });
+
+              // TODO: Send invitation email with temporary password
+            }
+
+            // Add as board member with guest role
+            await storage.createBoardMember({
+              boardId: board.id,
+              userId: user.id,
+              role: "guest",
+            });
+          })
+        );
+      }
+
+      console.log("Created board:", board);
       res.status(201).json(board);
     } catch (error) {
       console.error("Failed to create board:", error);
@@ -865,7 +885,7 @@ export async function registerRoutes(app: Express) {
 
     try {
       console.log("Validated activity log data:", result.data);
-      const log= await storage.createActivityLog(result.data);
+      const log = await storage.createActivityLog(result.data);
       console.log("Created activity log:", log);
       res.status(201).json(log);
     } catch (error) {
