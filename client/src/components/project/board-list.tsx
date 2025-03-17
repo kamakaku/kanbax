@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Board, type InsertBoard, insertBoardSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,6 @@ interface BoardListProps {
 
 export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
-  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -92,21 +91,21 @@ export function BoardList({ projectId }: BoardListProps) {
     },
   });
 
-  const onSubmit = async (data: InsertBoard) => {
-    console.log("Form submitted with data:", data);
+  const handleSubmit = form.handleSubmit(async (data) => {
+    console.log("Form handleSubmit called with data:", data);
     try {
       const validatedData = insertBoardSchema.parse({ ...data, projectId });
-      console.log("Validated data:", validatedData);
+      console.log("Data validated successfully:", validatedData);
       await createBoard.mutateAsync(validatedData);
     } catch (error) {
-      console.error("Validation error:", error);
+      console.error("Error in handleSubmit:", error);
       toast({
-        title: "Validierungsfehler",
+        title: "Fehler",
         description: "Bitte überprüfen Sie Ihre Eingaben",
         variant: "destructive",
       });
     }
-  };
+  });
 
   const handleBoardClick = (board: Board) => {
     setCurrentBoard(board);
@@ -127,7 +126,6 @@ export function BoardList({ projectId }: BoardListProps) {
         <h2 className="text-2xl font-semibold">Boards</h2>
         <Button onClick={() => {
           console.log("Opening new board form");
-          setEditingBoard(null);
           form.reset({
             title: "",
             description: "",
@@ -158,12 +156,10 @@ export function BoardList({ projectId }: BoardListProps) {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingBoard ? "Board bearbeiten" : "Neues Board erstellen"}
-            </DialogTitle>
+            <DialogTitle>Neues Board erstellen</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <FormField
                 control={form.control}
                 name="title"
@@ -188,7 +184,6 @@ export function BoardList({ projectId }: BoardListProps) {
                       <Textarea
                         placeholder="Beschreiben Sie Ihr Board..."
                         {...field}
-                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -197,7 +192,7 @@ export function BoardList({ projectId }: BoardListProps) {
               />
 
               <Button type="submit" className="w-full">
-                {editingBoard ? "Board aktualisieren" : "Board erstellen"}
+                Board erstellen
               </Button>
             </form>
           </Form>
