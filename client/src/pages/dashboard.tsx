@@ -98,7 +98,10 @@ export default function Dashboard() {
 
       <div className="grid gap-8">
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg">
+          <Card 
+            className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+            onClick={() => setLocation("/projects")}
+          >
             <CardHeader className="py-4">
               <CardTitle>Projekte</CardTitle>
               <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
