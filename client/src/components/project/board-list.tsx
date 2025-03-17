@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Board, type InsertBoard } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +16,6 @@ interface BoardListProps {
 
 export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
-  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -25,56 +24,41 @@ export function BoardList({ projectId }: BoardListProps) {
   const { data: boards, isLoading } = useQuery<Board[]>({
     queryKey: [`/api/projects/${projectId}/boards`],
     queryFn: async () => {
-      console.log("Fetching boards for project:", projectId);
       const res = await fetch(`/api/projects/${projectId}/boards`);
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Failed to fetch boards:", errorText);
-        throw new Error(errorText || "Failed to fetch boards");
+        throw new Error("Failed to fetch boards");
       }
       return res.json();
     },
   });
 
-  const createBoard = useMutation({
-    mutationFn: async (board: InsertBoard) => {
-      console.log("Creating board with data:", { ...board, projectId });
+  const handleFormSubmit = async (data: InsertBoard) => {
+    try {
       const response = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
-        { ...board, projectId }
+        { ...data, projectId }
       );
+
       if (!response) {
-        throw new Error("Failed to create board");
+        throw new Error("Fehler beim Erstellen des Boards");
       }
-      return response;
-    },
-    onSuccess: (newBoard) => {
+
       queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
-      setCurrentBoard(newBoard);
+
+      setCurrentBoard(response);
       setLocation("/board");
       toast({ title: "Board erfolgreich erstellt" });
       setShowForm(false);
-    },
-    onError: (error) => {
+    } catch (error) {
       console.error("Error creating board:", error);
       toast({
         title: "Fehler beim Erstellen des Boards",
         description: error instanceof Error ? error.message : "Unbekannter Fehler",
         variant: "destructive",
       });
-    },
-  });
-
-  const handleSubmit = async (data: InsertBoard): Promise<void> => {
-    try {
-      console.log("Handling board submission:", data);
-      await createBoard.mutateAsync(data);
-    } catch (error) {
-      console.error("Error in handleSubmit:", error);
-      throw error;
     }
   };
 
@@ -106,18 +90,6 @@ export function BoardList({ projectId }: BoardListProps) {
               setLocation("/board");
             }}
           >
-            <Button
-              size="icon"
-              variant="ghost"
-              className="absolute top-2 right-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingBoard(board);
-                setShowForm(true);
-              }}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
             <CardHeader>
               <CardTitle>{board.title}</CardTitle>
               <CardDescription>{board.description}</CardDescription>
@@ -128,12 +100,8 @@ export function BoardList({ projectId }: BoardListProps) {
 
       <BoardForm
         open={showForm}
-        onClose={() => {
-          setShowForm(false);
-          setEditingBoard(null);
-        }}
-        onSubmit={handleSubmit}
-        defaultValues={editingBoard || undefined}
+        onClose={() => setShowForm(false)}
+        onSubmit={handleFormSubmit}
       />
     </div>
   );
