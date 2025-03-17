@@ -35,17 +35,15 @@ export const projects = pgTable("projects", {
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   teamIds: integer("team_ids").array().default([]),
-  isFavorite: boolean("is_favorite").default(false).notNull(),
 });
 
-// Update boards table to include projectId, creatorId and isFavorite
+// Update boards table to include projectId and creatorId
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   projectId: integer("project_id"),
   creatorId: integer("creator_id").notNull(),
-  isFavorite: boolean("is_favorite").default(false),
 });
 
 export const columns = pgTable("columns", {
