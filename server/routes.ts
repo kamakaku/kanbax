@@ -1032,6 +1032,33 @@ export async function registerRoutes(app: Express) {
       res.status(500).json({ message: "Failed to fetch team members" });
     }
   });
+  // Add team member routes
+  app.get("/api/teams/:teamId/members", async (req, res) => {
+    const teamId = parseInt(req.params.teamId);
+    if (isNaN(teamId)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    try {
+      console.log(`Fetching members for team ${teamId}`);
+      const teamMembers = await storage.getTeamMembers(teamId);
+
+      // Get full user details for each team member
+      const members = await Promise.all(
+        teamMembers.map(async (tm) => {
+          const user = await storage.getUser(tm.userId);
+          const { passwordHash, ...userWithoutPassword } = user;
+          return userWithoutPassword;
+        })
+      );
+
+      console.log(`Found ${members.length} members for team ${teamId}`);
+      res.json(members);
+    } catch (error) {
+      console.error(`Error fetching team members for team ${teamId}:`, error);
+      res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
 
   return createServer(app);
 }

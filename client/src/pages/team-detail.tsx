@@ -9,11 +9,13 @@ import { useState } from "react";
 import { TeamForm } from "@/components/team/team-form";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TeamDetail() {
   const params = useParams();
   const teamId = parseInt(params.id as string);
   const [showEditForm, setShowEditForm] = useState(false);
+  const { toast } = useToast();
 
   // Fetch team details
   const { data: team, isLoading: isTeamLoading } = useQuery<Team>({
@@ -21,6 +23,7 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch(`/api/teams/${teamId}`);
       if (!res.ok) {
+        console.error("Failed to fetch team:", await res.text());
         throw new Error("Failed to fetch team");
       }
       return res.json();
@@ -33,6 +36,7 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch("/api/projects");
       if (!res.ok) {
+        console.error("Failed to fetch projects:", await res.text());
         throw new Error("Failed to fetch projects");
       }
       const allProjects = await res.json();
@@ -49,6 +53,7 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch("/api/boards");
       if (!res.ok) {
+        console.error("Failed to fetch boards:", await res.text());
         throw new Error("Failed to fetch boards");
       }
       const allBoards = await res.json();
@@ -60,16 +65,29 @@ export default function TeamDetail() {
   });
 
   // Fetch team members
-  const { data: members = [] } = useQuery<User[]>({
+  const { data: members = [], error: membersError } = useQuery<User[]>({
     queryKey: [`/api/teams/${teamId}/members`],
     queryFn: async () => {
+      console.log("Fetching members for team:", teamId);
       const res = await fetch(`/api/teams/${teamId}/members`);
       if (!res.ok) {
-        throw new Error("Failed to fetch team members");
+        const errorText = await res.text();
+        console.error("Failed to fetch team members:", errorText);
+        throw new Error(errorText || "Failed to fetch team members");
       }
-      return res.json();
+      const data = await res.json();
+      console.log("Received members data:", data);
+      return data;
     },
     enabled: !!teamId,
+    onError: (error) => {
+      console.error("Members query error:", error);
+      toast({
+        title: "Fehler",
+        description: "Teammitglieder konnten nicht geladen werden",
+        variant: "destructive",
+      });
+    },
   });
 
   // Fetch team OKRs
@@ -78,6 +96,7 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch(`/api/teams/${teamId}/objectives`);
       if (!res.ok) {
+        console.error("Failed to fetch team objectives:", await res.text());
         throw new Error("Failed to fetch team objectives");
       }
       return res.json();
@@ -127,20 +146,30 @@ export default function TeamDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {members.map((member) => (
-                <div key={member.id} className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={member.avatarUrl || ""} />
-                    <AvatarFallback>{member.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{member.username}</p>
-                    <p className="text-sm text-muted-foreground">{member.email}</p>
+            {membersError ? (
+              <p className="text-sm text-destructive">
+                Fehler beim Laden der Teammitglieder
+              </p>
+            ) : members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Keine Teammitglieder gefunden
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {members.map((member) => (
+                  <div key={member.id} className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarImage src={member.avatarUrl || ""} />
+                      <AvatarFallback>{member.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{member.username}</p>
+                      <p className="text-sm text-muted-foreground">{member.email}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
