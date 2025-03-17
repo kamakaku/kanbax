@@ -24,7 +24,6 @@ import Profile from "@/pages/profile";
 import OKRPage from "@/pages/okr";
 import OKRDetailPage from "@/pages/okr-detail";
 import TeamsPage from "@/pages/teams";
-import TeamDetail from "@/pages/team-detail";
 import { ProductivityPage } from "@/pages/productivity";
 import { cn } from "@/lib/utils";
 
@@ -160,7 +159,6 @@ function AuthenticatedApp() {
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/teams" component={() => <ProtectedRoute component={TeamsPage} />} />
-      <Route path="/teams/:id" component={() => <ProtectedRoute component={TeamDetail} />} />
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />
