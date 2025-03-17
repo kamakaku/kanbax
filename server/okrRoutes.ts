@@ -65,8 +65,23 @@ export function registerOkrRoutes(app: Express) {
   // Objectives Endpunkte
   app.get("/api/objectives", async (_req: Request, res: Response) => {
     try {
-      const objectives = await db.query.objectives.findMany();
-      res.json(objectives);
+      console.log("Fetching objectives...");
+      const result = await db.select({
+        id: objectives.id,
+        title: objectives.title,
+        description: objectives.description,
+        status: objectives.status,
+        progress: objectives.progress,
+        projectId: objectives.projectId,
+        cycleId: objectives.cycleId,
+        teamId: objectives.teamId,
+        userId: objectives.userId,
+        createdAt: objectives.createdAt,
+        updatedAt: objectives.updatedAt
+      }).from(objectives);
+
+      console.log("Fetched objectives:", result);
+      res.json(result);
     } catch (error) {
       console.error("Fehler beim Abrufen der Objectives:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Objectives" });
