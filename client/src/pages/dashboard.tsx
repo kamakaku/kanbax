@@ -36,26 +36,23 @@ export default function Dashboard() {
   });
 
   const boardQueries = useQuery({
-    queryKey: ["all-boards", projects?.map(p => p.id)],
+    queryKey: ["dashboard-boards"],
     queryFn: async () => {
-      if (!projects) return [];
+      const allBoardsRes = await fetch('/api/boards');
+      if (!allBoardsRes.ok) {
+        throw new Error('Failed to fetch boards');
+      }
+      const allBoards = await allBoardsRes.json();
 
-      const allBoards = await Promise.all(
-        projects.map(async (project) => {
-          const res = await fetch(`/api/projects/${project.id}/boards`);
-          if (!res.ok) return [];
-          const boards = await res.json();
-          return boards.map((board: Board) => ({
-            ...board,
-            projectTitle: project.title,
-            projectId: project.id
-          }));
-        })
-      );
-
-      return allBoards.flat();
+      return allBoards.map((board: Board) => {
+        const project = projects?.find(p => p.id === board.projectId);
+        return {
+          ...board,
+          projectTitle: project?.title || 'Kein Projekt'
+        };
+      });
     },
-    enabled: !!projects
+    enabled: true
   });
 
   const handleBoardClick = (board: Board & { projectId: number, projectTitle: string }) => {
