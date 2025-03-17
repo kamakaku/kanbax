@@ -69,9 +69,7 @@ export function setupAuth(app: Express) {
 // Auth middleware for protecting routes
 export function isAuthenticated(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
   if (req.isAuthenticated()) {
-    console.log("User is authenticated, proceeding...");
     return next();
   }
-  console.log("Authentication required, rejecting request");
-  res.status(401).json({ message: "Nicht authentifiziert" });
+  res.status(401).json({ message: "Not authenticated" });
 }

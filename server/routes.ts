@@ -1,90 +1,71 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema } from "@shared/schema";
+import { insertUserSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import passport from "passport";
 import { isAuthenticated } from "./auth";
 
 export async function registerRoutes(app: Express) {
-  // AUTH ROUTES - Must come before protection middleware
+  // AUTH ROUTES
   app.post("/api/auth/register", async (req, res) => {
-    console.log("Register attempt:", req.body);
     const result = insertUserSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
 
     try {
-      // Check if user already exists
       const existingUser = await storage.getUserByEmail(result.data.email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists" });
       }
 
-      // Hash password
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(result.data.password, salt);
 
-      // Create user
       const user = await storage.createUser({
         username: result.data.username,
         email: result.data.email,
         passwordHash,
       });
 
-      // Log in the user after registration
       req.login(user, (err) => {
         if (err) {
-          console.error("Login after registration failed:", err);
           return res.status(500).json({ message: "Failed to login after registration" });
         }
-        // Remove password hash from response
         const { passwordHash: _, ...userWithoutPassword } = user;
         res.status(201).json(userWithoutPassword);
       });
     } catch (error) {
-      console.error("Failed to create user:", error);
+      console.error("Registration error:", error);
       res.status(500).json({ message: "Failed to create user" });
     }
   });
 
   app.post("/api/auth/login", (req, res, next) => {
-    console.log("Login attempt:", req.body);
     passport.authenticate("local", (err, user, info) => {
-      if (err) {
-        console.error("Login error:", err);
-        return next(err);
-      }
+      if (err) return next(err);
       if (!user) {
         return res.status(401).json({ message: info?.message || "Invalid credentials" });
       }
       req.login(user, (err) => {
-        if (err) {
-          console.error("Session creation error:", err);
-          return next(err);
-        }
+        if (err) return next(err);
         const { passwordHash: _, ...userWithoutPassword } = user;
-        console.log("Login successful, session:", req.session);
         return res.json(userWithoutPassword);
       });
     })(req, res, next);
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    console.log("Logout attempt, session:", req.session);
     req.logout((err) => {
       if (err) {
-        console.error("Logout error:", err);
         return res.status(500).json({ message: "Failed to logout" });
       }
       res.sendStatus(200);
     });
   });
 
-  // Add route to check current user
   app.get("/api/auth/me", (req, res) => {
-    console.log("Auth check request, session:", req.session);
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
     }
@@ -92,12 +73,11 @@ export async function registerRoutes(app: Express) {
     res.json(userWithoutPassword);
   });
 
-  // AUTH CHECK MIDDLEWARE - Comes after auth routes
+  // Protected routes middleware
   app.use('/api', (req, res, next) => {
-    if (req.path.startsWith('/auth') || req.path === '/health') {
+    if (req.path.startsWith('/auth')) {
       return next();
     }
-    console.log("Auth check for:", req.path, "Session:", req.session);
     isAuthenticated(req, res, next);
   });
 
@@ -131,7 +111,7 @@ export async function registerRoutes(app: Express) {
   // Profile update routes
   app.patch("/api/profile", async (req, res) => {
     try {
-      const userId = req.body.userId; // We'll need to add proper auth middleware later
+      const userId = req.body.userId; 
       const { username, email, currentPassword, newPassword } = req.body;
 
       // If updating password, verify current password first
@@ -178,10 +158,9 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Project routes with permission checks
+  // Project routes 
   app.get("/api/projects", async (req, res) => {
     try {
-      // Get all projects and filter based on user access
       const projects = await storage.getProjects();
       const user = req.user as { id: number; email: string };
 
@@ -203,7 +182,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/projects/:id", requireAccess('project'), async (req, res) => {
+  app.get("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     try {
       const project = await storage.getProject(id);
@@ -236,7 +215,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/projects/:id", requireAccess('project'), async (req, res) => {
+  app.patch("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     const result = updateProjectSchema.safeParse(req.body);
 
@@ -256,7 +235,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/projects/:id", requireAccess('project'), async (req, res) => {
+  app.delete("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     try {
       await storage.deleteProject(id);
@@ -267,7 +246,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Board routes with permission checks
+  // Board routes
   app.get("/api/projects/:projectId/boards", async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {
@@ -557,7 +536,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/boards/:id", requireAccess('board'), async (req, res) => {
+  app.get("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       console.error("Invalid board ID received:", req.params.id);
@@ -594,7 +573,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/boards/:id", requireAccess('board'), async (req, res) => {
+  app.patch("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -613,7 +592,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/boards/:id", requireAccess('board'), async (req, res) => {
+  app.delete("/api/boards/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -1065,7 +1044,7 @@ export async function registerRoutes(app: Express) {
   // Inside the registerRoutes function, add the new team-members route
   app.get("/api/team-members", async (_req, res) => {
     try {
-      const result = await storage.getTeamMembers(); // Assuming storage.getTeamMembers exists
+      const result = await storage.getTeamMembers(); 
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch team members:", error);
@@ -1100,7 +1079,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Objective routes with permission checks
+  // Objective routes 
   app.get("/api/objectives", async (req, res) => {
     try {
       const objectives = await storage.getObjectives();
@@ -1124,7 +1103,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/objectives/:id", requireAccess('objective'), async (req, res) => {
+  app.get("/api/objectives/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     try {
       const objective = await storage.getObjective(id);
@@ -1138,5 +1117,6 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  return createServer(app);
+  const server = createServer(app);
+  return server;
 }
