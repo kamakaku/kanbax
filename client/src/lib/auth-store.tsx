@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { User } from "@shared/schema";
-import React, { createContext, useContext, type ReactNode } from "react";
+import { apiRequest } from "./api-request";
+import { createContext, useContext, ReactNode } from 'react';
 
 interface AuthState {
   user: User | null;
@@ -14,11 +15,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   setUser: (user) => set({ user }),
   login: async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const res = await apiRequest("POST", "/api/auth/login", { email, password });
 
     if (!res.ok) {
       const error = await res.json();
@@ -29,11 +26,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user });
   },
   register: async (username: string, email: string, password: string) => {
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password }),
-    });
+    const res = await apiRequest("POST", "/api/auth/register", { username, email, password });
 
     if (!res.ok) {
       const error = await res.json();

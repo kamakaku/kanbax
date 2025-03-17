@@ -7,6 +7,7 @@ export async function apiRequest(
 ) {
   const options: RequestInit = {
     method,
+    credentials: "include", // Add cookie support
     headers: {
       "Content-Type": "application/json",
     },
