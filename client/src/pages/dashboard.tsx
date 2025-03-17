@@ -180,37 +180,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold">Aktuelle Boards</h2>
-            <Button variant="outline" onClick={() => setLocation("/boards")} size="sm">
-              Alle Boards ansehen
-            </Button>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {allBoards.map((board) => (
-              <Card
-                key={board.id}
-                className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
-                onClick={() => handleBoardClick(board)}
-              >
-                <CardHeader className="p-4 space-y-2">
-                  <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                    {board.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm space-y-1">
-                    <div className="line-clamp-1">{board.description}</div>
-                    <div className="text-xs text-primary/80">
-                      {board.projectTitle}
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </div>
-
         {projects && projects.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-6">
