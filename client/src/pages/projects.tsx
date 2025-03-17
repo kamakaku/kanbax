@@ -11,6 +11,13 @@ export default function Projects() {
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Failed to fetch projects");
+      }
+      return response.json();
+    }
   });
 
   const handleProjectClick = (projectId: number) => {
@@ -34,51 +41,24 @@ export default function Projects() {
           <p className="text-muted-foreground">Keine Projekte vorhanden</p>
         </div>
       ) : (
-        <>
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Projekte</h2>
-            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {projects.map((project) => (
-                <Card
-                  key={project.id}
-                  className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20 h-[120px]"
-                  onClick={() => handleProjectClick(project.id)}
-                >
-                  <CardHeader className="p-4 space-y-2">
-                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                      {project.title}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {project.description}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Alle Projekte</h2>
-            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {projects.map((project) => (
-                <Card
-                  key={project.id}
-                  className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
-                  onClick={() => handleProjectClick(project.id)}
-                >
-                  <CardHeader className="p-4 space-y-2">
-                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                      {project.title}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {project.description}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </>
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {projects.map((project) => (
+            <Card
+              key={project.id}
+              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20 h-[120px]"
+              onClick={() => handleProjectClick(project.id)}
+            >
+              <CardHeader className="p-4 space-y-2">
+                <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                  {project.title}
+                </CardTitle>
+                <CardDescription className="line-clamp-2">
+                  {project.description}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
       )}
 
       <ProjectForm
