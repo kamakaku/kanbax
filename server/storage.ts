@@ -4,7 +4,11 @@ import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { teams, teamMembers, type Team, type InsertTeam, type TeamMember } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
-import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
+
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   // Project operations
@@ -85,9 +89,19 @@ export interface IStorage {
 
   // Team member operations
   getTeamMembers(): Promise<TeamMember[]>;
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+      tableName: 'user_sessions'
+    });
+  }
   // Project operations
   async getProjects(): Promise<Project[]> {
     return await db.select().from(projects);

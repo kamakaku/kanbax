@@ -3,11 +3,18 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite.js";
 import path from "path";
 import cors from "cors";
+import { setupAuth } from "./auth";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Set up authentication before routes
+setupAuth(app);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -24,6 +31,8 @@ app.use((req, res, next) => {
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   console.log(`[${new Date().toISOString()}] Incoming ${req.method} request for ${req.url}`);
+  console.log("Session:", req.session);
+  console.log("User:", req.user);
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {

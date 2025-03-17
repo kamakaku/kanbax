@@ -9,6 +9,7 @@ import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
 import { requireAccess, hasProjectAccess, hasBoardAccess, hasObjectiveAccess } from "./permissions";
+import { isAuthenticated } from "./auth";
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -38,6 +39,14 @@ if (!fs.existsSync('./uploads/avatars')) {
 }
 
 export async function registerRoutes(app: Express) {
+  // Add isAuthenticated middleware to protect all API routes except auth routes
+  app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/auth') || req.path === '/health') {
+      return next();
+    }
+    isAuthenticated(req, res, next);
+  });
+
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
