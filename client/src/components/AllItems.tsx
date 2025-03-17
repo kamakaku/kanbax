@@ -22,11 +22,16 @@ export function AllItems() {
     queryKey: ['/api/objectives'],
   });
 
-  const toggleFavorite = async (type: 'project' | 'board' | 'objective', id: number, currentValue: boolean) => {
-    await apiRequest(`/api/${type}s/${id}/favorite`, {
+  const toggleFavorite = async (type: 'project' | 'board' | 'objective', id: number, currentValue: boolean | null | undefined) => {
+    const options: RequestInit = {
       method: 'PATCH',
-      body: JSON.stringify({ isFavorite: !currentValue }),
-    });
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isFavorite: !(currentValue ?? false) }),
+    };
+
+    await apiRequest(`/api/${type}s/${id}/favorite`, options);
     queryClient.invalidateQueries({ queryKey: [`/api/${type}s`] });
   };
 
