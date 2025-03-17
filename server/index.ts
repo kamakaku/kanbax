@@ -53,9 +53,13 @@ app.use((req, res, next) => {
 (async () => {
   try {
     log("Starting server initialization...");
-    const server = await registerRoutes(app);
-    log("Routes registered successfully");
 
+    // Register API routes first
+    log("Registering API routes...");
+    const server = await registerRoutes(app);
+    log("API routes registered successfully");
+
+    // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";

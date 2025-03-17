@@ -23,8 +23,7 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch(`/api/teams/${teamId}`);
       if (!res.ok) {
-        console.error("Failed to fetch team:", await res.text());
-        throw new Error("Failed to fetch team");
+        throw new Error(await res.text() || "Failed to fetch team");
       }
       return res.json();
     },
@@ -36,8 +35,7 @@ export default function TeamDetail() {
     queryFn: async () => {
       const res = await fetch("/api/projects");
       if (!res.ok) {
-        console.error("Failed to fetch projects:", await res.text());
-        throw new Error("Failed to fetch projects");
+        throw new Error(await res.text() || "Failed to fetch projects");
       }
       const allProjects = await res.json();
       return allProjects.filter((project: Project) =>
@@ -51,78 +49,42 @@ export default function TeamDetail() {
   const { data: boards = [], error: boardsError } = useQuery<Board[]>({
     queryKey: [`/api/teams/${teamId}/boards`],
     queryFn: async () => {
-      console.log("Fetching boards for team:", teamId);
       const res = await fetch(`/api/teams/${teamId}/boards`);
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Failed to fetch team boards:", errorText);
-        throw new Error(errorText || "Failed to fetch team boards");
+        throw new Error(await res.text() || "Failed to fetch team boards");
       }
-      const data = await res.json();
-      console.log("Received boards data:", data);
-      return data;
+      return res.json();
     },
     enabled: !!teamId,
-    onError: (error) => {
-      console.error("Boards query error:", error);
-      toast({
-        title: "Fehler",
-        description: "Boards konnten nicht geladen werden",
-        variant: "destructive",
-      });
-    },
+    retry: 1,
   });
 
   // Fetch team members
   const { data: members = [], error: membersError } = useQuery<User[]>({
     queryKey: [`/api/teams/${teamId}/members`],
     queryFn: async () => {
-      console.log("Fetching members for team:", teamId);
       const res = await fetch(`/api/teams/${teamId}/members`);
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Failed to fetch team members:", errorText);
-        throw new Error(errorText || "Failed to fetch team members");
+        throw new Error(await res.text() || "Failed to fetch team members");
       }
-      const data = await res.json();
-      console.log("Received members data:", data);
-      return data;
+      return res.json();
     },
     enabled: !!teamId,
-    onError: (error) => {
-      console.error("Members query error:", error);
-      toast({
-        title: "Fehler",
-        description: "Teammitglieder konnten nicht geladen werden",
-        variant: "destructive",
-      });
-    },
+    retry: 1,
   });
 
   // Fetch team OKRs
   const { data: objectives = [], error: objectivesError } = useQuery<Objective[]>({
     queryKey: [`/api/teams/${teamId}/objectives`],
     queryFn: async () => {
-      console.log("Fetching objectives for team:", teamId);
       const res = await fetch(`/api/teams/${teamId}/objectives`);
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Failed to fetch team objectives:", errorText);
-        throw new Error(errorText || "Failed to fetch team objectives");
+        throw new Error(await res.text() || "Failed to fetch team objectives");
       }
-      const data = await res.json();
-      console.log("Received objectives data:", data);
-      return data;
+      return res.json();
     },
     enabled: !!teamId,
-    onError: (error) => {
-      console.error("Objectives query error:", error);
-      toast({
-        title: "Fehler",
-        description: "OKRs konnten nicht geladen werden",
-        variant: "destructive",
-      });
-    },
+    retry: 1,
   });
 
   if (isTeamLoading) {
@@ -140,6 +102,19 @@ export default function TeamDetail() {
       </div>
     );
   }
+
+  const handleError = (error: Error, type: string) => {
+    console.error(`Error fetching ${type}:`, error);
+    toast({
+      title: "Fehler",
+      description: `${type} konnten nicht geladen werden`,
+      variant: "destructive",
+    });
+  };
+
+  if (boardsError) handleError(boardsError as Error, "Boards");
+  if (membersError) handleError(membersError as Error, "Teammitglieder");
+  if (objectivesError) handleError(objectivesError as Error, "OKRs");
 
   return (
     <div className="container mx-auto p-8">
@@ -203,16 +178,22 @@ export default function TeamDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {projects.map((project) => (
-                <Link key={project.id} href={`/projects/${project.id}`}>
-                  <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                    <h3 className="font-medium">{project.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            {projects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Keine Projekte gefunden
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {projects.map((project) => (
+                  <Link key={project.id} href={`/projects/${project.id}`}>
+                    <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                      <h3 className="font-medium">{project.title}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

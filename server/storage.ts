@@ -743,31 +743,14 @@ export class DatabaseStorage implements IStorage {
   async getBoardsByTeam(teamId: number): Promise<Board[]> {
     console.log(`Getting boards for team ${teamId}`);
 
-    // First get all boards where this team is directly assigned via teamIds array
-    const boardsFromTeams = await db
+    // Get all boards where this team is assigned via teamIds array
+    const boardsForTeam = await db
       .select()
       .from(boards)
       .where(sql`${boards.teamIds} @> ARRAY[${teamId}]::int[]`);
 
-    // Then get all boards where this team is assigned via board_teams table
-    const boardTeamsResults = await db
-      .select({
-        board: boards,
-      })
-      .from(boardTeams)
-      .innerJoin(boards, eq(boardTeams.boardId, boards.id))
-      .where(eq(boardTeams.teamId, teamId));
-
-    const boardsFromBoardTeams = boardTeamsResults.map(result => result.board);
-
-    // Combine and deduplicate the results based on board ID
-    const allBoards = [...boardsFromTeams, ...boardsFromBoardTeams];
-    const uniqueBoards = Array.from(new Set(allBoards.map(b => b.id)))
-      .map(id => allBoards.find(b => b.id === id)!)
-      .sort((a, b) => b.id - a.id); // Sort by ID descending as a fallback
-
-    console.log(`Found ${uniqueBoards.length} unique boards for team ${teamId}`);
-    return uniqueBoards;
+    console.log(`Found ${boardsForTeam.length} boards for team ${teamId}`);
+    return boardsForTeam;
   }
 }
 
