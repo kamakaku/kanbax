@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Pencil, Users, Kanban, Target, LineChart } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TeamForm } from "@/components/team/team-form";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -87,6 +87,24 @@ export default function TeamDetail() {
     retry: 1,
   });
 
+  // Handle errors in useEffect to prevent render loop
+  useEffect(() => {
+    const handleError = (error: Error | null, type: string) => {
+      if (error) {
+        console.error(`Error fetching ${type}:`, error);
+        toast({
+          title: "Fehler",
+          description: `${type} konnten nicht geladen werden`,
+          variant: "destructive",
+        });
+      }
+    };
+
+    handleError(boardsError as Error, "Boards");
+    handleError(membersError as Error, "Teammitglieder");
+    handleError(objectivesError as Error, "OKRs");
+  }, [boardsError, membersError, objectivesError, toast]);
+
   if (isTeamLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -102,19 +120,6 @@ export default function TeamDetail() {
       </div>
     );
   }
-
-  const handleError = (error: Error, type: string) => {
-    console.error(`Error fetching ${type}:`, error);
-    toast({
-      title: "Fehler",
-      description: `${type} konnten nicht geladen werden`,
-      variant: "destructive",
-    });
-  };
-
-  if (boardsError) handleError(boardsError as Error, "Boards");
-  if (membersError) handleError(membersError as Error, "Teammitglieder");
-  if (objectivesError) handleError(objectivesError as Error, "OKRs");
 
   return (
     <div className="container mx-auto p-8">

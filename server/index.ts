@@ -9,13 +9,19 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Create a separate router for API routes
+const apiRouter = express.Router();
 
-// Health check endpoint
-app.get("/health", (_req, res) => {
+// Health check endpoint on the API router
+apiRouter.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
 });
+
+// Mount the API router under /api
+app.use("/api", apiRouter);
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Enhanced request logging middleware
 app.use((req, res, next) => {
@@ -56,7 +62,7 @@ app.use((req, res, next) => {
 
     // Register API routes first
     log("Registering API routes...");
-    const server = await registerRoutes(app);
+    const server = await registerRoutes(apiRouter); // Pass apiRouter instead of app
     log("API routes registered successfully");
 
     // Error handling middleware
