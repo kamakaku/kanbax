@@ -1065,9 +1065,6 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Register productivity routes
-  registerProductivityRoutes(app);
-
   // Register OKR routes (already exists)
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
