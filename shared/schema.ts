@@ -35,7 +35,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   teamIds: integer("team_ids").array().default([]),
-  isFavorite: boolean("is_favorite").default(false),
+  isFavorite: boolean("is_favorite").default(false).notNull(),
 });
 
 // Update boards table to include projectId, creatorId and isFavorite
