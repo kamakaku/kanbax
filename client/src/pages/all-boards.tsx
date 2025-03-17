@@ -27,19 +27,18 @@ export default function AllBoards() {
   const boardQueries = useQuery({
     queryKey: ["all-boards", projects?.map(p => p.id)],
     queryFn: async () => {
-      if (!projects) return [];
-
-      const allBoards = await Promise.all(
-        projects.map(async (project) => {
-          const res = await fetch(`/api/projects/${project.id}/boards`);
-          if (!res.ok) return [];
-          const boards = await res.json();
-          return boards.map((board: Board) => ({
-            ...board,
-            projectTitle: project.title
-          }));
-        })
-      );
+      // Fetch all boards first
+      const allBoardsRes = await fetch('/api/boards');
+      const allBoards = await allBoardsRes.json();
+      
+      // Map project titles to boards
+      return allBoards.map((board: Board) => {
+        const project = projects?.find(p => p.id === board.projectId);
+        return {
+          ...board,
+          projectTitle: project?.title || 'Kein Projekt'
+        };
+      });
 
       return allBoards.flat();
     },
