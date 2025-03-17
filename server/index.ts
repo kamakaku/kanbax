@@ -5,81 +5,80 @@ import path from "path";
 import cors from "cors";
 import { createServer } from "http";
 
-const app = express();
-const apiRouter = express.Router();
-const server = createServer(app);
+// Create separate app instances for API and frontend
+const apiApp = express();
+const frontendApp = express();
 
-// Basic middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Set up servers
+const apiServer = createServer(apiApp);
+const frontendServer = createServer(frontendApp);
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Basic middleware for API
+apiApp.use(cors({
+  origin: 'http://localhost:5000',
+  credentials: true
+}));
+apiApp.use(express.json());
+apiApp.use(express.urlencoded({ extended: false }));
 
-// Debug logging for all requests
-app.use((req, res, next) => {
-  log(`[DEBUG] Incoming request: ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// API Router setup
-apiRouter.use((req, res, next) => {
-  log(`[API] Router handling request: ${req.method} ${req.originalUrl}`);
+// API request logging
+apiApp.use((req, res, next) => {
+  log(`[API] ${req.method} ${req.originalUrl}`);
   res.setHeader('Content-Type', 'application/json');
   next();
 });
 
-// Register API routes
+// Setup frontend
+frontendApp.use(cors());
+
+// Set development environment
+process.env.NODE_ENV = "development";
+log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
+
+// Initialize API routes
 (async () => {
   try {
-    // Initialize routes on the API router
-    await registerRoutes(apiRouter);
-    log("[API] Routes registered successfully");
+    // Register API routes
+    const apiRouter = await registerRoutes(express.Router());
+    apiApp.use(apiRouter);
 
-    // Mount API router first
-    app.use("/api", apiRouter);
+    // Serve uploaded files
+    apiApp.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-    // API error handling middleware
-    app.use("/api", (err: any, _req: Request, res: Response, _next: NextFunction) => {
+    // API error handling
+    apiApp.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
       log("[API Error]", err);
       res.status(status).json({ message });
     });
 
-    // Health check endpoint (not under /api)
-    app.get("/health", (_req, res) => {
-      res.json({ status: "healthy" });
+    // Start API server
+    apiServer.listen(3001, '0.0.0.0', () => {
+      log(`API server running on http://0.0.0.0:3001`);
     });
 
-    // Set development environment
-    process.env.NODE_ENV = "development";
-    log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
-
-    // Setup Vite last, after API routes are mounted
+    // Setup frontend server
     if (process.env.NODE_ENV === "development") {
       log("Setting up Vite for development...");
-      app.use((req, res, next) => {
-        if (req.originalUrl.startsWith('/api')) {
-          log(`[DEBUG] Skipping Vite for API route: ${req.originalUrl}`);
-          return next();
-        }
-        log(`[DEBUG] Handling with Vite: ${req.originalUrl}`);
-        setupVite(app, server)(req, res, next);
-      });
+      setupVite(frontendApp, frontendServer);
       log("Vite setup completed");
     } else {
       log("Setting up static serving for production...");
-      serveStatic(app);
+      serveStatic(frontendApp);
     }
 
-    // Start server
-    server.listen(5000, '0.0.0.0', () => {
-      log(`Server running on http://0.0.0.0:5000`);
+    // Health check endpoint
+    frontendApp.get("/health", (_req, res) => {
+      res.json({ status: "healthy" });
+    });
+
+    // Start frontend server
+    frontendServer.listen(5000, '0.0.0.0', () => {
+      log(`Frontend server running on http://0.0.0.0:5000`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error("Failed to start servers:", error);
     process.exit(1);
   }
 })();
