@@ -293,8 +293,8 @@ export async function registerRoutes(app: Express) {
       return res.status(201).json(board);
     } catch (error) {
       console.error("5. Error in board creation:", error);
-      return res.status(500).json({ 
-        message: error instanceof Error ? error.message : "Failed to create board" 
+      return res.status(500).json({
+        message: error instanceof Error ? error.message : "Failed to create board"
       });
     }
   });
@@ -806,9 +806,6 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Register productivity routes
-  registerProductivityRoutes(app);
-
   // Add toggle favorite endpoints
   app.patch("/api/projects/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
@@ -852,6 +849,9 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Register productivity routes
+  registerProductivityRoutes(app);
+
   // Register OKR routes (already exists)
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
@@ -863,7 +863,7 @@ export async function registerRoutes(app: Express) {
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch team members:", error);
-      res.status(500).json({ message: "Failed to fetch team members" });
+      res.status(50).json({ message: "Failed to fetch team members" });
     }
   });
 
