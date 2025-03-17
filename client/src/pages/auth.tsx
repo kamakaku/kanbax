@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 import { RegisterForm } from "@/components/auth/register-form";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,15 @@ export default function Auth() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect to dashboard if already logged in
+  // Use useEffect to handle navigation after render
+  useEffect(() => {
+    if (user) {
+      setLocation("/dashboard");
+    }
+  }, [user, setLocation]);
+
+  // Return null immediately if user is authenticated
   if (user) {
-    setLocation("/dashboard");
     return null;
   }
 
