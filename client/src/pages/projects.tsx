@@ -36,9 +36,9 @@ export default function Projects() {
       ) : (
         <>
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Favorisierte Projekte</h2>
+            <h2 className="text-2xl font-semibold mb-4">Projekte</h2>
             <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {projects.filter(p => p.isFavorite).map((project) => (
+              {projects.map((project) => (
                 <Card
                   key={project.id}
                   className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20 h-[120px]"

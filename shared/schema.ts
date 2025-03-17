@@ -284,8 +284,7 @@ export const objectives = pgTable("objectives", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  status: text("status").notNull().default("active"),
-  isFavorite: boolean("is_favorite").default(false), // active, completed, archived
+  status: text("status").notNull().default("active"), // active, completed, archived
   progress: real("progress").default(0),
   // Optional associations
   projectId: integer("project_id"),
