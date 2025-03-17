@@ -141,7 +141,7 @@ export const insertBoardSchema = createInsertSchema(boards)
   })
   .extend({
     title: z.string().min(1, "Title is required"),
-    projectId: z.number().int().positive("Project ID must be positive").optional(),
+    projectId: z.number().int().positive("Project ID must be positive").nullable().optional(),
     creatorId: z.number().int().positive("Creator ID is required"),
   });
 
