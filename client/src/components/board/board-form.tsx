@@ -70,15 +70,10 @@ export function BoardForm({ open, onClose, onSubmit, defaultValues }: BoardFormP
     },
   });
 
-  const handleSubmit = async (data: InsertBoard) => {
-    if (!onSubmit) {
-      console.error("onSubmit handler is not defined");
-      return;
-    }
-
+  const handleSubmit = async (formData: InsertBoard) => {
     try {
-      console.log("Submitting form with data:", data);
-      await onSubmit(data);
+      console.log("Form data before submission:", formData);
+      await onSubmit(formData);
       form.reset();
       onClose();
     } catch (error) {

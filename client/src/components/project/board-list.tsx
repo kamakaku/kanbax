@@ -44,6 +44,9 @@ export function BoardList({ projectId }: BoardListProps) {
         `/api/projects/${projectId}/boards`,
         { ...board, projectId }
       );
+      if (!response) {
+        throw new Error("Failed to create board");
+      }
       return response;
     },
     onSuccess: (newBoard) => {
@@ -71,7 +74,7 @@ export function BoardList({ projectId }: BoardListProps) {
       await createBoard.mutateAsync(data);
     } catch (error) {
       console.error("Error in handleCreateBoard:", error);
-      throw error; // Let the form handle the error
+      throw error;
     }
   };
 
