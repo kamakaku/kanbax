@@ -167,14 +167,14 @@ export class DatabaseStorage implements IStorage {
   async getBoardsByProject(projectId: number): Promise<Board[]> {
     console.log(`[Storage] Getting boards for project ${projectId}`);
     try {
-      const boards = await db
+      const boardsList = await db
         .select()
         .from(boards)
         .where(eq(boards.projectId, projectId))
         .orderBy(boards.id);
 
-      console.log(`[Storage] Found ${boards.length} boards for project ${projectId}:`, boards);
-      return boards;
+      console.log(`[Storage] Found ${boardsList.length} boards for project ${projectId}:`, boardsList);
+      return boardsList;
     } catch (error) {
       console.error(`[Storage] Error getting boards for project ${projectId}:`, error);
       throw error;
