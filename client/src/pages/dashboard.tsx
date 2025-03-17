@@ -108,7 +108,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg">
+          <Card 
+            className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+            onClick={() => setLocation("/boards")}
+          >
             <CardHeader className="py-4">
               <CardTitle>Boards</CardTitle>
               <CardDescription>Gesamtzahl Ihrer Boards</CardDescription>
@@ -118,7 +121,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg">
+          <Card 
+            className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+            onClick={() => setLocation("/okr")}
+          >
             <CardHeader className="py-4">
               <CardTitle>OKR Progress</CardTitle>
               <CardDescription>Durchschnittlicher Fortschritt</CardDescription>
@@ -128,7 +134,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg">
+          <Card 
+            className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+            onClick={() => setLocation("/okr")}
+          >
             <CardHeader className="py-4">
               <CardTitle>Erreichte OKRs</CardTitle>
               <CardDescription>Abgeschlossene Objectives</CardDescription>
