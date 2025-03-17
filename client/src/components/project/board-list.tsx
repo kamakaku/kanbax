@@ -158,44 +158,42 @@ export function BoardList({ projectId }: BoardListProps) {
           <DialogHeader>
             <DialogTitle>Neues Board erstellen</DialogTitle>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Titel</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Mein neues Board" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Mein neues Board" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beschreibung</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Beschreiben Sie Ihr Board..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Beschreiben Sie Ihr Board..."
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <Button type="submit" className="w-full">
-                Board erstellen
-              </Button>
-            </form>
-          </Form>
+            <Button type="submit" className="w-full">
+              Board erstellen
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
