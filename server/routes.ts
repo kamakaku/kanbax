@@ -1,14 +1,13 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTaskSchema, updateTaskSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertTeamSchema, updateBoardSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema, teamMembers } from "@shared/schema";
 import bcrypt from "bcryptjs";
-import passport from "passport";
-import { isAuthenticated } from "./auth";
-import { hasProjectAccess, hasBoardAccess, hasObjectiveAccess } from "./permissions";
+import type { User } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { registerProductivityRoutes } from "./productivityRoutes";
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -38,7 +37,7 @@ if (!fs.existsSync('./uploads/avatars')) {
 }
 
 export async function registerRoutes(app: Express) {
-  // AUTH ROUTES
+  // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
     if (!result.success) {
@@ -46,70 +45,55 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
+      // Check if user already exists
       const existingUser = await storage.getUserByEmail(result.data.email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists" });
       }
 
+      // Hash password
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(result.data.password, salt);
 
+      // Create user
       const user = await storage.createUser({
         username: result.data.username,
         email: result.data.email,
         passwordHash,
       });
 
-      req.login(user, (err) => {
-        if (err) {
-          return res.status(500).json({ message: "Failed to login after registration" });
-        }
-        const { passwordHash: _, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
-      });
+      // Remove password hash from response
+      const { passwordHash: _, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("Failed to create user:", error);
       res.status(500).json({ message: "Failed to create user" });
     }
   });
 
-  app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
-      if (err) return next(err);
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+      // Find user
+      const user = await storage.getUserByEmail(email);
       if (!user) {
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+        return res.status(400).json({ message: "Invalid credentials" });
       }
-      req.login(user, (err) => {
-        if (err) return next(err);
-        const { passwordHash: _, ...userWithoutPassword } = user;
-        return res.json(userWithoutPassword);
-      });
-    })(req, res, next);
-  });
 
-  app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Failed to logout" });
+      // Verify password
+      const isValid = await bcrypt.compare(password, user.passwordHash);
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid credentials" });
       }
-      res.sendStatus(200);
-    });
-  });
 
-  app.get("/api/auth/me", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
+      // Remove password hash from response
+      const { passwordHash: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Failed to login:", error);
+      res.status(500).json({ message: "Failed to login" });
     }
-    const { passwordHash: _, ...userWithoutPassword } = req.user;
-    res.json(userWithoutPassword);
-  });
-
-  // Protected routes middleware
-  app.use('/api', (req, res, next) => {
-    if (req.path.startsWith('/auth')) {
-      return next();
-    }
-    isAuthenticated(req, res, next);
   });
 
   // Add new route to get all users
@@ -142,7 +126,7 @@ export async function registerRoutes(app: Express) {
   // Profile update routes
   app.patch("/api/profile", async (req, res) => {
     try {
-      const userId = req.body.userId;
+      const userId = req.body.userId; // We'll need to add proper auth middleware later
       const { username, email, currentPassword, newPassword } = req.body;
 
       // If updating password, verify current password first
@@ -189,24 +173,11 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Project routes 
-  app.get("/api/projects", async (req, res) => {
+  // Project routes
+  app.get("/api/projects", async (_req, res) => {
     try {
       const projects = await storage.getProjects();
-      const user = req.user as { id: number; email: string };
-
-      if (!user) {
-        return res.status(401).json({ message: "Nicht authentifiziert" });
-      }
-
-      const accessibleProjects = await Promise.all(
-        projects.map(async (project) => {
-          const hasAccess = await hasProjectAccess(user, project.id);
-          return hasAccess ? project : null;
-        })
-      );
-
-      res.json(accessibleProjects.filter((p) => p !== null));
+      res.json(projects);
     } catch (error) {
       console.error("Failed to fetch projects:", error);
       res.status(500).json({ message: "Failed to fetch projects" });
@@ -215,6 +186,10 @@ export async function registerRoutes(app: Express) {
 
   app.get("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
     try {
       const project = await storage.getProject(id);
       if (!project) {
@@ -228,11 +203,7 @@ export async function registerRoutes(app: Express) {
   });
 
   app.post("/api/projects", async (req, res) => {
-    const result = insertProjectSchema.safeParse({
-      ...req.body,
-      creatorId: (req.user as User).id,
-    });
-
+    const result = insertProjectSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
@@ -248,8 +219,11 @@ export async function registerRoutes(app: Express) {
 
   app.patch("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
-    const result = updateProjectSchema.safeParse(req.body);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
 
+    const result = updateProjectSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
@@ -268,6 +242,10 @@ export async function registerRoutes(app: Express) {
 
   app.delete("/api/projects/:id", async (req, res) => {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
     try {
       await storage.deleteProject(id);
       res.status(204).send();
@@ -306,7 +284,7 @@ export async function registerRoutes(app: Express) {
       console.error("Board validation failed:", result.error);
       return res.status(400).json({
         message: "Invalid board data",
-        errors: result.error.errors,
+        errors: result.error.errors
       });
     }
 
@@ -315,60 +293,54 @@ export async function registerRoutes(app: Express) {
 
       // Create board members for assigned users
       if (result.data.memberIds) {
-        await Promise.all(
-          result.data.memberIds.map((userId) =>
-            storage.createBoardMember({
-              boardId: board.id,
-              userId,
-              role: "member",
-            })
-          )
-        );
+        await Promise.all(result.data.memberIds.map(userId =>
+          storage.createBoardMember({
+            boardId: board.id,
+            userId,
+            role: "member"
+          })
+        ));
       }
 
       // Create board teams for assigned teams
       if (result.data.teamIds) {
-        await Promise.all(
-          result.data.teamIds.map((teamId) =>
-            storage.createBoardTeam({
-              boardId: board.id,
-              teamId,
-              role: "member",
-            })
-          )
-        );
+        await Promise.all(result.data.teamIds.map(teamId =>
+          storage.createBoardTeam({
+            boardId: board.id,
+            teamId,
+            role: "member"
+          })
+        ));
       }
 
       // Create board members for guest emails
       if (result.data.guestEmails) {
-        await Promise.all(
-          result.data.guestEmails.map(async (email) => {
-            // Check if user exists with this email
-            let user = await storage.getUserByEmail(email);
+        await Promise.all(result.data.guestEmails.map(async (email) => {
+          // Check if user exists with this email
+          let user = await storage.getUserByEmail(email);
 
-            if (!user) {
-              // Create a new user with guest role
-              const tempPassword = Math.random().toString(36).slice(-8);
-              const salt = await bcrypt.genSalt(10);
-              const passwordHash = await bcrypt.hash(tempPassword, salt);
+          if (!user) {
+            // Create a new user with guest role
+            const tempPassword = Math.random().toString(36).slice(-8);
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(tempPassword, salt);
 
-              user = await storage.createUser({
-                email,
-                username: email.split("@")[0],
-                passwordHash,
-              });
-
-              // TODO: Send invitation email with temporary password
-            }
-
-            // Add as board member with guest role
-            await storage.createBoardMember({
-              boardId: board.id,
-              userId: user.id,
-              role: "guest",
+            user = await storage.createUser({
+              email,
+              username: email.split('@')[0],
+              passwordHash,
             });
-          })
-        );
+
+            // TODO: Send invitation email with temporary password
+          }
+
+          // Add as board member with guest role
+          await storage.createBoardMember({
+            boardId: board.id,
+            userId: user.id,
+            role: "guest"
+          });
+        }));
       }
 
       console.log("Created board:", board);
@@ -388,7 +360,7 @@ export async function registerRoutes(app: Express) {
       console.error("Board validation failed:", result.error);
       return res.status(400).json({
         message: "Invalid board data",
-        errors: result.error.errors,
+        errors: result.error.errors
       });
     }
 
@@ -397,60 +369,54 @@ export async function registerRoutes(app: Express) {
 
       // Create board members for assigned users
       if (result.data.memberIds?.length) {
-        await Promise.all(
-          result.data.memberIds.map((userId) =>
-            storage.createBoardMember({
-              boardId: board.id,
-              userId,
-              role: "member",
-            })
-          )
-        );
+        await Promise.all(result.data.memberIds.map(userId =>
+          storage.createBoardMember({
+            boardId: board.id,
+            userId,
+            role: "member"
+          })
+        ));
       }
 
       // Create board teams for assigned teams
       if (result.data.teamIds?.length) {
-        await Promise.all(
-          result.data.teamIds.map((teamId) =>
-            storage.createBoardTeam({
-              boardId: board.id,
-              teamId,
-              role: "member",
-            })
-          )
-        );
+        await Promise.all(result.data.teamIds.map(teamId =>
+          storage.createBoardTeam({
+            boardId: board.id,
+            teamId,
+            role: "member"
+          })
+        ));
       }
 
       // Create board members for guest emails
       if (result.data.guestEmails?.length) {
-        await Promise.all(
-          result.data.guestEmails.map(async (email) => {
-            // Check if user exists with this email
-            let user = await storage.getUserByEmail(email);
+        await Promise.all(result.data.guestEmails.map(async (email) => {
+          // Check if user exists with this email
+          let user = await storage.getUserByEmail(email);
 
-            if (!user) {
-              // Create a new user with guest role
-              const tempPassword = Math.random().toString(36).slice(-8);
-              const salt = await bcrypt.genSalt(10);
-              const passwordHash = await bcrypt.hash(tempPassword, salt);
+          if (!user) {
+            // Create a new user with guest role
+            const tempPassword = Math.random().toString(36).slice(-8);
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(tempPassword, salt);
 
-              user = await storage.createUser({
-                email,
-                username: email.split("@")[0],
-                passwordHash,
-              });
-
-              // TODO: Send invitation email with temporary password
-            }
-
-            // Add as board member with guest role
-            await storage.createBoardMember({
-              boardId: board.id,
-              userId: user.id,
-              role: "guest",
+            user = await storage.createUser({
+              email,
+              username: email.split('@')[0],
+              passwordHash,
             });
-          })
-        );
+
+            // TODO: Send invitation email with temporary password
+          }
+
+          // Add as board member with guest role
+          await storage.createBoardMember({
+            boardId: board.id,
+            userId: user.id,
+            role: "guest"
+          });
+        }));
       }
 
       console.log("Successfully created board:", board);
@@ -534,32 +500,18 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/boards", async (req, res) => {
+  app.get("/api/boards", async (_req, res) => {
     try {
       const boards = await storage.getBoards();
-      const user = req.user as { id: number; email: string };
-
-      if (!user) {
-        return res.status(401).json({ message: "Nicht authentifiziert" });
-      }
-
-      const accessibleBoards = await Promise.all(
-        boards.map(async (board) => {
-          const hasAccess = await hasBoardAccess(user, board.id);
-          return hasAccess ? board : null;
-        })
-      );
-
       const boardsWithProjects = await Promise.all(
-        accessibleBoards.filter((b) => b !== null).map(async (board) => {
-          const project = board.projectId ? await storage.getProject(board.projectId) : null;
+        boards.map(async (board) => {
+          const project = await storage.getProject(board.projectId);
           return {
             ...board,
-            project,
+            project
           };
         })
       );
-
       res.json(boardsWithProjects);
     } catch (error) {
       console.error("Failed to fetch boards:", error);
@@ -589,9 +541,7 @@ export async function registerRoutes(app: Express) {
       const columns = await storage.getColumns(id);
       const tasks = await storage.getTasks(id);
 
-      console.log(
-        `[GET /api/boards/${id}] Found ${columns.length} columns and ${tasks.length} tasks`
-      );
+      console.log(`[GET /api/boards/${id}] Found ${columns.length} columns and ${tasks.length} tasks`);
 
       res.json({
         ...board,
@@ -658,7 +608,7 @@ export async function registerRoutes(app: Express) {
 
     console.log("Received task creation request:", {
       body: req.body,
-      boardId: boardId,
+      boardId: boardId
     });
 
     const result = insertTaskSchema.safeParse({ ...req.body, boardId });
@@ -666,7 +616,7 @@ export async function registerRoutes(app: Express) {
       console.error("Task validation failed:", result.error);
       return res.status(400).json({
         message: "Invalid task data",
-        errors: result.error.errors,
+        errors: result.error.errors
       });
     }
 
@@ -700,7 +650,7 @@ export async function registerRoutes(app: Express) {
       console.error("Task validation failed:", result.error);
       return res.status(400).json({
         message: result.error.message,
-        details: result.error.errors,
+        details: result.error.errors
       });
     }
 
@@ -751,7 +701,7 @@ export async function registerRoutes(app: Express) {
 
     console.log("Received comment creation request:", {
       body: req.body,
-      taskId: taskId,
+      taskId: taskId
     });
 
     const result = insertCommentSchema.safeParse({ ...req.body, taskId });
@@ -759,7 +709,7 @@ export async function registerRoutes(app: Express) {
       console.error("Comment validation failed:", result.error);
       return res.status(400).json({
         message: "Invalid comment data",
-        errors: result.error.errors,
+        errors: result.error.errors
       });
     }
 
@@ -797,7 +747,7 @@ export async function registerRoutes(app: Express) {
 
     console.log("Received checklist item creation request:", {
       body: req.body,
-      taskId: taskId,
+      taskId: taskId
     });
 
     const result = insertChecklistItemSchema.safeParse({ ...req.body, taskId });
@@ -805,7 +755,7 @@ export async function registerRoutes(app: Express) {
       console.error("Checklist item validation failed:", result.error);
       return res.status(400).json({
         message: "Invalid checklist item data",
-        errors: result.error.errors,
+        errors: result.error.errors
       });
     }
 
@@ -871,7 +821,7 @@ export async function registerRoutes(app: Express) {
 
     console.log("Received activity log creation request:", {
       body: req.body,
-      taskId: taskId,
+      taskId: taskId
     });
 
     const result = insertActivityLogSchema.safeParse({ ...req.body, taskId });
@@ -879,7 +829,7 @@ export async function registerRoutes(app: Express) {
       console.error("Activity log validation failed:", result.error);
       return res.status(400).json({
         message: "Invalid activity log data",
-        errors: result.error.errors,
+        errors: result.error.errors
       });
     }
 
@@ -919,7 +869,7 @@ export async function registerRoutes(app: Express) {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid column data",
-        errors: result.error.errors,
+        errors: result.error.errors
       });
     }
 
@@ -1065,6 +1015,9 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Register productivity routes
+  registerProductivityRoutes(app);
+
   // Register OKR routes (already exists)
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
@@ -1072,7 +1025,7 @@ export async function registerRoutes(app: Express) {
   // Inside the registerRoutes function, add the new team-members route
   app.get("/api/team-members", async (_req, res) => {
     try {
-      const result = await storage.getTeamMembers();
+      const result = await storage.getTeamMembers(); // Assuming storage.getTeamMembers exists
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch team members:", error);
@@ -1107,44 +1060,5 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Objective routes 
-  app.get("/api/objectives", async (req, res) => {
-    try {
-      const objectives = await storage.getObjectives();
-      const user = req.user as { id: number; email: string };
-
-      if (!user) {
-        return res.status(401).json({ message: "Nicht authentifiziert" });
-      }
-
-      const accessibleObjectives = await Promise.all(
-        objectives.map(async (objective) => {
-          const hasAccess = await hasObjectiveAccess(user, objective.id);
-          return hasAccess ? objective : null;
-        })
-      );
-
-      res.json(accessibleObjectives.filter((o) => o !== null));
-    } catch (error) {
-      console.error("Failed to fetch objectives:", error);
-      res.status(500).json({ message: "Failed to fetch objectives" });
-    }
-  });
-
-  app.get("/api/objectives/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    try {
-      const objective = await storage.getObjective(id);
-      if (!objective) {
-        return res.status(404).json({ message: "Objective not found" });
-      }
-      res.json(objective);
-    } catch (error) {
-      console.error("Failed to fetch objective:", error);
-      res.status(500).json({ message: "Failed to fetch objective" });
-    }
-  });
-
-  const server = createServer(app);
-  return server;
+  return createServer(app);
 }

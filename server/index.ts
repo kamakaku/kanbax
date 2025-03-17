@@ -3,113 +3,72 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite.js";
 import path from "path";
 import cors from "cors";
-import session from "express-session";
-import createMemoryStore from "memorystore";
-import { setupAuth } from "./auth";
-
-// Add global error handlers
-process.on('uncaughtException', (err) => {
-  console.error("Uncaught Exception:", err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
-});
 
 const app = express();
-const MemoryStore = createMemoryStore(session);
-
-console.log("Initializing server with basic middleware...");
-
-// Basic middleware setup
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-console.log("Setting up session middleware...");
-
-// Session configuration - must come before auth setup
-app.use(session({
-  secret: process.env.SESSION_SECRET || "your-secret-key",
-  resave: false,
-  saveUninitialized: false,
-  store: new MemoryStore({
-    checkPeriod: 86400000 // prune expired entries every 24h
-  }),
-  cookie: {
-    secure: false, // Set to true in production with HTTPS
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax'
-  },
-  name: "sid"
-}));
-
-console.log("Setting up authentication...");
-// Set up authentication after session
-setupAuth(app);
-
-// Test endpoint for session verification
-app.get("/api/test-session", (req, res) => {
-  console.log("Test session request received");
-  console.log("Current session:", req.session);
-
-  if (!req.session.testValue) {
-    req.session.testValue = "Hello, session!";
-    console.log("Setting new test value");
-  }
-
-  res.json({
-    sessionID: req.sessionID,
-    testValue: req.session.testValue,
-    cookies: req.headers.cookie
-  });
-});
-
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-// Debug middleware to log requests
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log("Session ID:", req.sessionID);
-  console.log("Session:", req.session);
-  console.log("Cookies:", req.headers.cookie);
-  console.log("Is Authenticated:", req.isAuthenticated());
-  if (req.user) {
-    console.log("User:", req.user);
-  }
-  next();
-});
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
 });
 
+// Enhanced request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  console.log(`[${new Date().toISOString()}] Incoming ${req.method} request for ${req.url}`);
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api") || path === "/health") {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
+
 (async () => {
   try {
-    console.log("Starting server initialization...");
+    log("Starting server initialization...");
     const server = await registerRoutes(app);
-    console.log("Routes registered successfully");
+    log("Routes registered successfully");
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      console.error("Server error:", err);
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
+
       res.status(status).json({ message });
+      console.error("Server error:", err);
     });
 
-    console.log("Setting up Vite configuration...");
+    // Always set NODE_ENV to development in Replit environment
     process.env.NODE_ENV = "development";
     log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
 
+    // In development, use Vite's development server
     if (process.env.NODE_ENV === "development") {
       log("Setting up Vite for development...");
       await setupVite(app, server);
@@ -119,11 +78,44 @@ app.get("/health", (_req, res) => {
       serveStatic(app);
     }
 
-    const port = parseInt(process.env.PORT || "5000", 10);
-    server.listen(port, '0.0.0.0', () => {
-      log(`Server successfully started on port ${port}`);
-    });
+    const startServer = (port: number = 5000, maxAttempts = 1) => {
+      const host = '0.0.0.0';
 
+      if (maxAttempts <= 0) {
+        log('Failed to start server on port 5000');
+        process.exit(1);
+        return;
+      }
+
+      try {
+        // Force close previous listeners if they exist
+        server.close();
+
+        server.listen(port, host, () => {
+          log(`Server successfully started on ${host}:${port}`);
+          log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+        });
+
+        server.once('error', (e: any) => {
+          if (e.code === 'EADDRINUSE') {
+            log(`Port ${port} is already in use. Please ensure no other server is running on port 5000.`);
+            process.exit(1);
+          } else {
+            console.error('Server error:', e);
+            log(`Server error: ${e.message}`);
+          }
+        });
+      } catch (error) {
+        console.error('Failed to start server:', error);
+        log(`Failed to start server: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(1);
+      }
+    };
+
+    // Get port from environment or use 5000 as default
+    const port = parseInt(process.env.PORT || "5000", 10);
+    log(`Starting server on port ${port}`);
+    startServer(port);
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

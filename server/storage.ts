@@ -4,12 +4,7 @@ import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { teams, teamMembers, type Team, type InsertTeam, type TeamMember } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
-import session from "express-session";
-import connectPg from "connect-pg-simple";
-import { pool } from "./db";
-import { objectives, type Objective } from "@shared/schema"; // Added import for objectives
-
-const PostgresSessionStore = connectPg(session);
+import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 
 export interface IStorage {
   // Project operations
@@ -90,21 +85,9 @@ export interface IStorage {
 
   // Team member operations
   getTeamMembers(): Promise<TeamMember[]>;
-  //Objective operations
-  getObjectives(): Promise<Objective[]>; // Added getObjectives method signature
-  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.Store;
-
-  constructor() {
-    this.sessionStore = new PostgresSessionStore({
-      pool,
-      createTableIfMissing: true,
-      tableName: 'user_sessions'
-    });
-  }
   // Project operations
   async getProjects(): Promise<Project[]> {
     return await db.select().from(projects);
@@ -161,15 +144,14 @@ export class DatabaseStorage implements IStorage {
 
   // Board operations
   async getBoards(): Promise<Board[]> {
-    return await db.select().from(boards).orderBy(boards.id);
+    return await db.select().from(boards);
   }
 
   async getBoardsByProject(projectId: number): Promise<Board[]> {
     return await db
       .select()
       .from(boards)
-      .where(eq(boards.projectId, projectId))
-      .orderBy(boards.id);
+      .where(eq(boards.projectId, projectId));
   }
 
   async getBoard(id: number): Promise<Board> {
@@ -741,13 +723,6 @@ export class DatabaseStorage implements IStorage {
   // Team member operations
   async getTeamMembers(): Promise<TeamMember[]> {
     return await db.select().from(teamMembers);
-  }
-  // Objective operations
-  async getObjectives(): Promise<Objective[]> { // Added getObjectives method
-    return await db
-      .select()
-      .from(objectives)
-      .orderBy(objectives.id);
   }
 }
 

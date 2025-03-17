@@ -28,25 +28,21 @@ export const teamMembers = pgTable("team_members", {
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
-// Update projects table
+// Projects table
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  creatorId: integer("creator_id").notNull(), // Add creator
   teamIds: integer("team_ids").array().default([]),
-  memberIds: integer("member_ids").array().default([]), // Add direct members
-  guestEmails: text("guest_emails").array().default([]), // Add guests
 });
 
-// Update boards table
+// Update boards table to include projectId
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  projectId: integer("project_id"),
-  creatorId: integer("creator_id").notNull(), // Add creator
+  projectId: integer("project_id"), // Remove .notNull()
   memberIds: integer("member_ids").array().default([]),
   teamIds: integer("team_ids").array().default([]),
   guestEmails: text("guest_emails").array().default([]),
@@ -128,17 +124,11 @@ export const insertProjectSchema = createInsertSchema(projects)
   .pick({
     title: true,
     description: true,
-    creatorId: true,
-    teamIds: true,
-    memberIds: true,
-    guestEmails: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
     description: z.string().optional(),
     teamIds: z.array(z.number().int().positive()).optional(),
-    memberIds: z.array(z.number().int().positive()).optional(),
-    guestEmails: z.array(z.string().email()).optional(),
   });
 
 export const updateProjectSchema = insertProjectSchema.partial();
@@ -149,10 +139,6 @@ export const insertBoardSchema = createInsertSchema(boards)
     title: true,
     description: true,
     projectId: true,
-    creatorId: true,
-    memberIds: true,
-    teamIds: true,
-    guestEmails: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
@@ -278,8 +264,25 @@ export const okrCycles = pgTable("okr_cycles", {
 });
 
 // Schema für das Einfügen eines neuen OKR-Zyklus
+export const insertOkrCycleSchema = createInsertSchema(okrCycles)
+  .pick({
+    title: true,
+    startDate: true,
+    endDate: true,
+    status: true,
+  })
+  .extend({
+    title: z.string().min(1, "Titel ist erforderlich"),
+    startDate: z.string().min(1, "Startdatum ist erforderlich"),
+    endDate: z.string().min(1, "Enddatum ist erforderlich"),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+  });
 
-// Update objectives table
+// Export des OKR-Zyklus-Typs
+export type OkrCycle = typeof okrCycles.$inferSelect;
+export type InsertOkrCycle = z.infer<typeof insertOkrCycleSchema>;
+
+// Objectives are now independent entities
 export const objectives = pgTable("objectives", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -290,7 +293,6 @@ export const objectives = pgTable("objectives", {
   projectId: integer("project_id"),
   cycleId: integer("cycle_id"),
   teamId: integer("team_id"),
-  creatorId: integer("creator_id").notNull(), // Add creator
   userId: integer("user_id"),
   userIds: integer("user_ids").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -359,7 +361,6 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     projectId: true,
     cycleId: true,
     teamId: true,
-    creatorId: true,
     userId: true,
     userIds: true,
     status: true,
@@ -605,22 +606,3 @@ export const insertProjectTeamSchema = createInsertSchema(projectTeams)
 // Export types for the new table
 export type ProjectTeam = typeof projectTeams.$inferSelect;
 export type InsertProjectTeam = z.infer<typeof insertProjectTeamSchema>;
-
-// Add permission types
-export const AccessRole = z.enum(["owner", "member", "guest"]);
-export type AccessRole = z.infer<typeof AccessRole>;
-
-// Define OKR cycle schema only once
-export const insertOkrCycleSchema = createInsertSchema(okrCycles)
-  .pick({
-    title: true,
-    startDate: true,
-    endDate: true,
-    status: true,
-  })
-  .extend({
-    title: z.string().min(1, "Titel ist erforderlich"),
-    startDate: z.date({required_error: 'Startdatum ist erforderlich'}),
-    endDate: z.date({required_error: 'Enddatum ist erforderlich'}),
-    status: z.enum(['active', 'completed', 'archived']).default('active'),
-  });
