@@ -736,31 +736,38 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(objectives)
-      .where(eq(objectives.teamId, teamId))
-      .orderBy(objectives.createdAt);
+      .where(eq(objectives.teamId, teamId));
   }
 
   // Add implementation for getting boards by team
   async getBoardsByTeam(teamId: number): Promise<Board[]> {
     console.log(`Getting boards for team ${teamId}`);
-    // Get boards where the team is a member through board_teams
-    const boardsWithTeam = await db
-      .select({
-        boardId: boardTeams.boardId
-      })
-      .from(boardTeams)
-      .where(eq(boardTeams.teamId, teamId));
 
-    const boardIds = boardsWithTeam.map(b => b.boardId);
-
-    if (boardIds.length === 0) {
-      return [];
-    }
-
-    return await db
+    // First get all boards where this team is directly assigned via teamIds array
+    const boardsFromTeams = await db
       .select()
       .from(boards)
-      .where(sql`${boards.id} = ANY(${boardIds})`);
+      .where(sql`${boards.teamIds} @> ARRAY[${teamId}]::int[]`);
+
+    // Then get all boards where this team is assigned via board_teams table
+    const boardTeamsResults = await db
+      .select({
+        board: boards,
+      })
+      .from(boardTeams)
+      .innerJoin(boards, eq(boardTeams.boardId, boards.id))
+      .where(eq(boardTeams.teamId, teamId));
+
+    const boardsFromBoardTeams = boardTeamsResults.map(result => result.board);
+
+    // Combine and deduplicate the results based on board ID
+    const allBoards = [...boardsFromTeams, ...boardsFromBoardTeams];
+    const uniqueBoards = Array.from(new Set(allBoards.map(b => b.id)))
+      .map(id => allBoards.find(b => b.id === id)!)
+      .sort((a, b) => b.id - a.id); // Sort by ID descending as a fallback
+
+    console.log(`Found ${uniqueBoards.length} unique boards for team ${teamId}`);
+    return uniqueBoards;
   }
 }
 
