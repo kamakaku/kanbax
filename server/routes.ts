@@ -1,10 +1,41 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTaskSchema, updateTaskSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertTeamSchema, updateBoardSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import passport from "passport";
 import { isAuthenticated } from "./auth";
+import { hasProjectAccess, hasBoardAccess, hasObjectiveAccess } from "./permissions";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for avatar uploads
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: './uploads/avatars',
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
+
+// Ensure upload directory exists
+if (!fs.existsSync('./uploads/avatars')) {
+  fs.mkdirSync('./uploads/avatars', { recursive: true });
+}
 
 export async function registerRoutes(app: Express) {
   // AUTH ROUTES
@@ -111,7 +142,7 @@ export async function registerRoutes(app: Express) {
   // Profile update routes
   app.patch("/api/profile", async (req, res) => {
     try {
-      const userId = req.body.userId; 
+      const userId = req.body.userId;
       const { username, email, currentPassword, newPassword } = req.body;
 
       // If updating password, verify current password first
@@ -1044,7 +1075,7 @@ export async function registerRoutes(app: Express) {
   // Inside the registerRoutes function, add the new team-members route
   app.get("/api/team-members", async (_req, res) => {
     try {
-      const result = await storage.getTeamMembers(); 
+      const result = await storage.getTeamMembers();
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch team members:", error);

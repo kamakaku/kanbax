@@ -4,8 +4,8 @@ import { setupVite, serveStatic, log } from "./vite.js";
 import path from "path";
 import cors from "cors";
 import session from "express-session";
+import createMemoryStore from "memorystore";
 import { setupAuth } from "./auth";
-import { storage } from "./storage";
 
 // Add global error handlers
 process.on('uncaughtException', (err) => {
@@ -17,6 +17,9 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
+const MemoryStore = createMemoryStore(session);
+
+console.log("Initializing server with basic middleware...");
 
 // Basic middleware setup
 app.use(cors({
@@ -29,12 +32,16 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+console.log("Setting up session middleware...");
+
 // Session configuration - must come before auth setup
 app.use(session({
   secret: process.env.SESSION_SECRET || "your-secret-key",
   resave: false,
   saveUninitialized: false,
-  store: storage.sessionStore,
+  store: new MemoryStore({
+    checkPeriod: 86400000 // prune expired entries every 24h
+  }),
   cookie: {
     secure: false, // Set to true in production with HTTPS
     httpOnly: true,
@@ -44,6 +51,7 @@ app.use(session({
   name: "sid"
 }));
 
+console.log("Setting up authentication...");
 // Set up authentication after session
 setupAuth(app);
 
@@ -85,12 +93,11 @@ app.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
 });
 
-
 (async () => {
   try {
-    log("Starting server initialization...");
+    console.log("Starting server initialization...");
     const server = await registerRoutes(app);
-    log("Routes registered successfully");
+    console.log("Routes registered successfully");
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error("Server error:", err);
@@ -99,6 +106,7 @@ app.get("/health", (_req, res) => {
       res.status(status).json({ message });
     });
 
+    console.log("Setting up Vite configuration...");
     process.env.NODE_ENV = "development";
     log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
 
