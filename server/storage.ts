@@ -5,6 +5,7 @@ import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { teams, teamMembers, type Team, type InsertTeam, type TeamMember } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
+import { objectives, type Objective, type InsertObjective } from "@shared/schema"; // Added import for objectives
 
 export interface IStorage {
   // Project operations
@@ -85,6 +86,11 @@ export interface IStorage {
 
   // Team member operations
   getTeamMembers(): Promise<TeamMember[]>;
+
+  // Favorite operations
+  toggleProjectFavorite(id: number): Promise<Project>;
+  toggleBoardFavorite(id: number): Promise<Board>;
+  toggleObjectiveFavorite(id: number): Promise<Objective>; // Added Objective type
 }
 
 export class DatabaseStorage implements IStorage {
@@ -230,7 +236,7 @@ export class DatabaseStorage implements IStorage {
       ...updateBoard,
       isFavorite: updateBoard.isFavorite ?? undefined,
     };
-    
+
     const [board] = await db
       .update(boards)
       .set(boardData)
@@ -755,6 +761,33 @@ export class DatabaseStorage implements IStorage {
   // Team member operations
   async getTeamMembers(): Promise<TeamMember[]> {
     return await db.select().from(teamMembers);
+  }
+
+  async toggleProjectFavorite(id: number): Promise<Project> {
+    const [project] = await db
+      .update(projects)
+      .set({ isFavorite: sql`NOT ${projects.isFavorite}` })
+      .where(eq(projects.id, id))
+      .returning();
+    return project;
+  }
+
+  async toggleBoardFavorite(id: number): Promise<Board> {
+    const [board] = await db
+      .update(boards)
+      .set({ isFavorite: sql`NOT ${boards.isFavorite}` })
+      .where(eq(boards.id, id))
+      .returning();
+    return board;
+  }
+
+  async toggleObjectiveFavorite(id: number): Promise<Objective> {
+    const [objective] = await db
+      .update(objectives)
+      .set({ isFavorite: sql`NOT ${objectives.isFavorite}` })
+      .where(eq(objectives.id, id))
+      .returning();
+    return objective;
   }
 }
 

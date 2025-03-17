@@ -35,6 +35,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   teamIds: integer("team_ids").array().default([]),
+  isFavorite: boolean("is_favorite").default(false),
 });
 
 // Update boards table to include projectId and creatorId
@@ -44,6 +45,7 @@ export const boards = pgTable("boards", {
   description: text("description"),
   projectId: integer("project_id"),
   creatorId: integer("creator_id").notNull(),
+  isFavorite: boolean("is_favorite").default(false),
 });
 
 export const columns = pgTable("columns", {
@@ -284,7 +286,8 @@ export const objectives = pgTable("objectives", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  status: text("status").notNull().default("active"), // active, completed, archived
+  status: text("status").notNull().default("active"),
+  isFavorite: boolean("is_favorite").default(false), // active, completed, archived
   progress: real("progress").default(0),
   // Optional associations
   projectId: integer("project_id"),

@@ -809,6 +809,49 @@ export async function registerRoutes(app: Express) {
   // Register productivity routes
   registerProductivityRoutes(app);
 
+  // Add toggle favorite endpoints
+  app.patch("/api/projects/:id/favorite", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
+    try {
+      const project = await storage.toggleProjectFavorite(id);
+      res.json(project);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite status" });
+    }
+  });
+
+  app.patch("/api/boards/:id/favorite", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    try {
+      const board = await storage.toggleBoardFavorite(id);
+      res.json(board);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite status" });
+    }
+  });
+
+  app.patch("/api/objectives/:id/favorite", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid objective ID" });
+    }
+
+    try {
+      const objective = await storage.toggleObjectiveFavorite(id);
+      res.json(objective);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite status" });
+    }
+  });
+
   // Register OKR routes (already exists)
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
