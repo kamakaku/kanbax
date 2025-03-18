@@ -338,6 +338,8 @@ export class DatabaseStorage implements IStorage {
       description: updateBoard.description,
       projectId: updateBoard.projectId,
       teamIds: updateBoard.teamIds || [],
+      member_ids: updateBoard.assignedUserIds || [], // Map assignedUserIds to member_ids
+      assignedUserIds: updateBoard.assignedUserIds || [], // Keep both for backwards compatibility
     };
     console.log("Prepared board data for update:", boardData);
 
