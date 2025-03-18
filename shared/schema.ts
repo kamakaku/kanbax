@@ -470,8 +470,8 @@ export type InsertOkrComment = z.infer<typeof insertOkrCommentSchema>;
 // Add new tables for board permissions after the existing tables
 export const boardMembers = pgTable("board_members", {
   id: serial("id").primaryKey(),
-  boardId: integer("board_id").notNull(),
-  userId: integer("user_id").notNull(),
+  boardId: integer("board_id").notNull().references(() => boards.id),
+  userId: integer("user_id").notNull().references(() => users.id),
   role: text("role").notNull().default("member"), // 'member', 'admin', or 'guest'
   invitedAt: timestamp("invited_at").defaultNow().notNull(),
   acceptedAt: timestamp("accepted_at"),
@@ -479,8 +479,8 @@ export const boardMembers = pgTable("board_members", {
 
 export const boardTeams = pgTable("board_teams", {
   id: serial("id").primaryKey(),
-  boardId: integer("board_id").notNull(),
-  teamId: integer("team_id").notNull(),
+  boardId: integer("board_id").notNull().references(() => boards.id),
+  teamId: integer("team_id").notNull().references(() => teams.id),
   role: text("role").notNull().default("member"), // 'member' or 'admin'
   addedAt: timestamp("added_at").defaultNow().notNull(),
 });
