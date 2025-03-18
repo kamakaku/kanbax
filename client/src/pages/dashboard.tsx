@@ -60,7 +60,7 @@ export default function Dashboard() {
     if (project) {
       setCurrentProject(project);
       setCurrentBoard(board);
-      setLocation("/board");
+      setLocation("/all-boards");
     }
   };
 

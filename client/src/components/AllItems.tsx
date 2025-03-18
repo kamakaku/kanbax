@@ -41,7 +41,7 @@ export function AllItems() {
     if (type === 'project') {
       setLocation(`/projects/${id}`);
     } else if (type === 'board') {
-      setLocation(`/board/${id}`);
+      setLocation(`/all-boards`); 
     } else {
       setLocation(`/okr/${id}`);
     }

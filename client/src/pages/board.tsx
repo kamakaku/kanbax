@@ -34,6 +34,7 @@ export default function Board() {
         title: "Bitte wählen Sie zuerst ein Board aus",
         description: "Sie müssen ein Board auswählen, bevor Sie es anzeigen können",
       });
+      return; // Added return statement for cleanup
     }
   }, [currentBoard, setLocation, toast]);
 

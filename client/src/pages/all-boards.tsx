@@ -52,7 +52,7 @@ export default function AllBoards() {
       setCurrentProject(project);
     }
     setCurrentBoard(board);
-    setLocation("/board");
+    setLocation("/all-boards");
   };
 
   const toggleFavorite = async (board: Board, e: React.MouseEvent) => {

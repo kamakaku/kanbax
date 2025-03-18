@@ -65,7 +65,7 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const handleBoardClick = (board: Board) => {
     setCurrentBoard(board);
-    setLocation("/board");
+    setLocation("/all-boards");
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -119,7 +119,7 @@ export function BoardList({ projectId }: BoardListProps) {
       setCurrentBoard(newBoard);
       setShowForm(false);
       form.reset();
-      setLocation("/board");
+      setLocation("/all-boards");
 
       toast({
         title: "Board erfolgreich erstellt",
