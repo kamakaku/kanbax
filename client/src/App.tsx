@@ -113,15 +113,6 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                   <span>Produktivität</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => setLocation("/profile")}
-                  tooltip="Profil"
-                >
-                  <UserCircle className="h-4 w-4" />
-                  <span>Profil</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
