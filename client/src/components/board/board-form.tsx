@@ -81,23 +81,29 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       creator_id: user?.id,
       team_ids: defaultValues?.team_ids || [],
       assigned_user_ids: defaultValues?.assigned_user_ids || [],
+      is_favorite: defaultValues?.is_favorite || false,
     },
   });
 
   const handleSubmit = async (data: InsertBoard) => {
     try {
-      console.log("Submitting form data:", JSON.stringify(data, null, 2));
+      // Ensure arrays are properly formatted as numbers
+      const formattedData = {
+        ...data,
+        creator_id: user?.id,
+        team_ids: data.team_ids.map(id => Number(id)),
+        assigned_user_ids: data.assigned_user_ids.map(id => Number(id)),
+      };
+
+      console.log("Submitting board data:", JSON.stringify(formattedData, null, 2));
 
       if (onSubmit) {
-        await onSubmit(data);
+        await onSubmit(formattedData);
       } else {
         const response = await fetch('/api/boards', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...data,
-            creator_id: user?.id,
-          })
+          body: JSON.stringify(formattedData)
         });
 
         if (!response.ok) throw new Error('Failed to create board');
@@ -206,7 +212,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                         value: String(team.id),
                         label: team.name
                       }))}
-                      onChange={(values) => field.onChange(values.map(Number))}
+                      onChange={(values) => field.onChange(values)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -228,7 +234,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                         value: String(user.id),
                         label: user.username
                       }))}
-                      onChange={(values) => field.onChange(values.map(Number))}
+                      onChange={(values) => field.onChange(values)}
                     />
                   </FormControl>
                   <FormMessage />

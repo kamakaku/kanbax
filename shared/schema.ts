@@ -454,6 +454,7 @@ export const updateBoardSchema = createInsertSchema(boards)
     project_id: true,
     team_ids: true,
     assigned_user_ids: true,
+    is_favorite: true,
   })
   .extend({
     title: z.string().optional(),
@@ -461,6 +462,7 @@ export const updateBoardSchema = createInsertSchema(boards)
     project_id: z.number().int().positive().nullable().optional(),
     team_ids: z.array(z.number().int()).default([]),
     assigned_user_ids: z.array(z.number().int()).default([]),
+    is_favorite: z.boolean().optional(),
   });
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;
 

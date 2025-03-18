@@ -332,13 +332,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
-    console.log("Update board request:", JSON.stringify(updateBoard, null, 2));
+    console.log("Raw update data received:", JSON.stringify(updateBoard, null, 2));
 
-    // Stelle sicher, dass die Arrays immer definiert sind
-    const team_ids = updateBoard.team_ids ?? [];
-    const assigned_user_ids = updateBoard.assigned_user_ids ?? [];
+    // Ensure we have arrays, even if empty
+    const team_ids = Array.isArray(updateBoard.team_ids) ? updateBoard.team_ids : [];
+    const assigned_user_ids = Array.isArray(updateBoard.assigned_user_ids) ? updateBoard.assigned_user_ids : [];
 
-    console.log("Arrays for update:", { team_ids, assigned_user_ids });
+    console.log("Processing arrays:", {
+      team_ids: team_ids,
+      assigned_user_ids: assigned_user_ids
+    });
 
     const [board] = await db
       .update(boards)
@@ -346,8 +349,9 @@ export class DatabaseStorage implements IStorage {
         title: updateBoard.title,
         description: updateBoard.description,
         project_id: updateBoard.project_id,
-        team_ids,
-        assigned_user_ids,
+        team_ids: team_ids,
+        assigned_user_ids: assigned_user_ids,
+        is_favorite: updateBoard.is_favorite
       })
       .where(eq(boards.id, id))
       .returning();
