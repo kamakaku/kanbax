@@ -17,13 +17,6 @@ export default function AllBoards() {
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) {
-        throw new Error("Failed to fetch projects");
-      }
-      return res.json();
-    },
   });
 
   const { data: boards = [], isLoading: boardsLoading } = useQuery({
@@ -47,11 +40,19 @@ export default function AllBoards() {
   });
 
   const handleBoardClick = (board: Board) => {
-    const project = projects?.find(p => p.id === board.projectId);
-    if (project) {
-      setCurrentProject(project);
+    console.log("Board clicked:", board);
+    // First set the current project if it exists
+    if (board.projectId) {
+      const project = projects?.find(p => p.id === board.projectId);
+      if (project) {
+        console.log("Setting current project:", project);
+        setCurrentProject(project);
+      }
     }
+    // Then set the current board
+    console.log("Setting current board");
     setCurrentBoard(board);
+    // Finally navigate to the board view
     setLocation("/all-boards");
   };
 
@@ -59,7 +60,6 @@ export default function AllBoards() {
     e.stopPropagation();
     try {
       await apiRequest('PATCH', `/api/boards/${board.id}/favorite`);
-      // Invalidate both the specific board and the general boards list
       await queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
@@ -179,7 +179,6 @@ export default function AllBoards() {
       <BoardForm
         open={showForm}
         onClose={() => setShowForm(false)}
-        projects={projects || []}
       />
     </div>
   );
