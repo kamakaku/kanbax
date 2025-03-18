@@ -81,23 +81,26 @@ export function BoardList({ projectId }: BoardListProps) {
     setShowForm(true);
   };
 
-  const onSubmit = async (data: InsertBoard) => {
+  const onSubmit = async (formData: InsertBoard) => {
     if (isSubmitting) return;
 
     try {
       setIsSubmitting(true);
-      const res = await apiRequest(
+
+      // Ensure projectId is included in the data
+      const data = {
+        ...formData,
+        projectId: projectId
+      };
+
+      const response = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
-        { ...data, projectId }
+        data
       );
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Fehler beim Erstellen des Boards");
-      }
+      const newBoard = await response.json();
 
-      const newBoard = await res.json();
       await queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
@@ -216,7 +219,6 @@ export function BoardList({ projectId }: BoardListProps) {
                       <Textarea
                         placeholder="Beschreiben Sie Ihr Board..."
                         {...field}
-                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
