@@ -52,7 +52,7 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
     defaultValues: {
       name: "",
       description: "",
-      memberIds: [],
+      member_ids: [], // Umbenannt von memberIds zu member_ids
     },
   });
 
@@ -62,19 +62,21 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
       form.reset({
         name: defaultValues.name,
         description: defaultValues.description,
-        memberIds: defaultValues.memberIds,
+        member_ids: defaultValues.member_ids, // Umbenannt von memberIds zu member_ids
       });
     } else {
       form.reset({
         name: "",
         description: "",
-        memberIds: [],
+        member_ids: [], // Umbenannt von memberIds zu member_ids
       });
     }
   }, [defaultValues, form.reset]);
 
   const handleSubmit = async (data: InsertTeam) => {
     try {
+      console.log("Submitting team data:", JSON.stringify(data, null, 2));
+
       if (onSubmit) {
         await onSubmit(data);
       } else {
@@ -85,7 +87,7 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
           },
           body: JSON.stringify({
             ...data,
-            memberIds: data.memberIds?.map(id => parseInt(id)) || []
+            member_ids: data.member_ids?.map(id => parseInt(id)) || [] // Umbenannt von memberIds zu member_ids
           })
         });
 
@@ -153,7 +155,7 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
 
             <FormField
               control={form.control}
-              name="memberIds"
+              name="member_ids"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Team-Mitglieder</FormLabel>

@@ -77,15 +77,17 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     defaultValues: {
       title: defaultValues?.title || "",
       description: defaultValues?.description || "",
-      projectId: defaultValues?.projectId || currentProject?.id,
-      creatorId: user?.id,
-      teamIds: defaultValues?.teamIds || [],
-      assignedUserIds: defaultValues?.assignedUserIds || [],
+      project_id: defaultValues?.project_id || currentProject?.id,
+      creator_id: user?.id,
+      team_ids: defaultValues?.team_ids || [],
+      assigned_user_ids: defaultValues?.assigned_user_ids || [],
     },
   });
 
   const handleSubmit = async (data: InsertBoard) => {
     try {
+      console.log("Submitting form data:", JSON.stringify(data, null, 2));
+
       if (onSubmit) {
         await onSubmit(data);
       } else {
@@ -94,7 +96,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...data,
-            creatorId: user?.id,
+            creator_id: user?.id,
           })
         });
 
@@ -163,7 +165,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
             <FormField
               control={form.control}
-              name="projectId"
+              name="project_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Projekt (Optional)</FormLabel>
@@ -192,7 +194,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
             <FormField
               control={form.control}
-              name="teamIds"
+              name="team_ids"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Teams zuweisen</FormLabel>
@@ -214,7 +216,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
             <FormField
               control={form.control}
-              name="assignedUserIds"
+              name="assigned_user_ids"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Benutzer zuweisen</FormLabel>

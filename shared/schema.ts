@@ -147,6 +147,7 @@ export const insertBoardSchema = createInsertSchema(boards)
   })
   .extend({
     title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
     project_id: z.number().int().positive("Project ID must be positive").nullable().optional(),
     creator_id: z.number().int().positive("Creator ID is required"),
     team_ids: z.array(z.number().int()).default([]),
@@ -245,7 +246,8 @@ export const insertTeamSchema = createInsertSchema(teams)
   })
   .extend({
     name: z.string().min(1, "Team name is required"),
-    memberIds: z.array(z.string()).optional(),
+    description: z.string().optional(),
+    member_ids: z.array(z.string()).optional(), // Changed from memberIds to member_ids
   });
 
 export const insertTeamMemberSchema = createInsertSchema(teamMembers)
