@@ -353,8 +353,8 @@ export class DatabaseStorage implements IStorage {
           title: boardData.title ?? currentBoard.title,
           description: boardData.description ?? currentBoard.description,
           projectId: boardData.projectId ?? currentBoard.projectId,
-          team_ids: sql`array[${sql.join(boardData.teamIds, ",")}]::integer[]`,
-          assigned_user_ids: sql`array[${sql.join(boardData.assignedUserIds, ",")}]::integer[]`,
+          teamIds: boardData.teamIds,
+          assignedUserIds: boardData.assignedUserIds,
         })
         .where(eq(boards.id, id))
         .returning();
