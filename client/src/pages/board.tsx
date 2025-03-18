@@ -87,8 +87,16 @@ export default function Board() {
       return await apiRequest('PATCH', `/api/boards/${currentBoard.id}/favorite`);
     },
     onSuccess: () => {
+      // Invalidate all board-related queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id] });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject?.id}/boards`] });
+      // Optimistically update the current board in the cache
+      if (currentBoard) {
+        queryClient.setQueryData(["/api/boards", currentBoard.id], {
+          ...currentBoard,
+          isFavorite: !currentBoard.isFavorite
+        });
+      }
       toast({ title: "Favoriten-Status aktualisiert" });
     },
   });
