@@ -611,3 +611,56 @@ export const insertProjectTeamSchema = createInsertSchema(projectTeams)
 // Export types for the new table
 export type ProjectTeam = typeof projectTeams.$inferSelect;
 export type InsertProjectTeam = z.infer<typeof insertProjectTeamSchema>;
+
+// Add notification tables after the existing tables
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(), // 'task', 'board', 'project', 'team', 'okr'
+  read: boolean("read").default(false),
+  link: text("link"), // URL to the related content
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const notificationSettings = pgTable("notification_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  taskAssigned: boolean("task_assigned").default(true),
+  taskDue: boolean("task_due").default(true),
+  boardInvite: boolean("board_invite").default(true),
+  teamInvite: boolean("team_invite").default(true),
+  projectUpdate: boolean("project_update").default(true),
+  okrProgress: boolean("okr_progress").default(true),
+});
+
+// Add schemas for the new tables
+export const insertNotificationSchema = createInsertSchema(notifications)
+  .pick({
+    userId: true,
+    title: true,
+    message: true,
+    type: true,
+    link: true,
+  })
+  .extend({
+    type: z.enum(["task", "board", "project", "team", "okr"]),
+  });
+
+export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings)
+  .pick({
+    userId: true,
+    taskAssigned: true,
+    taskDue: true,
+    boardInvite: true,
+    teamInvite: true,
+    projectUpdate: true,
+    okrProgress: true,
+  });
+
+// Export types for the new tables
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
+export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;

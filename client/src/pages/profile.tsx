@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, User } from "lucide-react";
 import { AvatarCropDialog } from "@/components/ui/avatar-crop-dialog";
+import { NotificationSettingsForm } from "@/components/profile/notification-settings";
 
 const profileSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -144,7 +145,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="container max-w-2xl py-10">
+    <div className="container max-w-2xl py-10 space-y-8">
       <Card>
         <CardHeader>
           <CardTitle>Profile Settings</CardTitle>
@@ -259,6 +260,9 @@ export default function Profile() {
           </Form>
         </CardContent>
       </Card>
+
+      {/* Notification Settings */}
+      <NotificationSettingsForm />
 
       <AvatarCropDialog
         open={isCropOpen}

@@ -22,6 +22,7 @@ import {
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type Board, type Project, type Objective } from "@shared/schema";
+import { NotificationDropdown } from "./notification-dropdown";
 
 export function Topbar() {
   const { user, logout } = useAuth();
@@ -82,9 +83,13 @@ export function Topbar() {
             strokeLinejoin="round"
             className="h-6 w-6"
           >
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M3 9h18" />
-            <path d="M9 21V9" />
+            {/* Kanban Board Logo */}
+            <path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+            <path d="M7 3v18" />
+            <path d="M14 3v18" />
+            <rect x="3" y="7" width="4" height="4" />
+            <rect x="8" y="7" width="6" height="7" />
+            <rect x="15" y="7" width="6" height="10" />
           </svg>
           Kanbax
         </div>
@@ -107,16 +112,7 @@ export function Topbar() {
 
       {/* Rechte Seite */}
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full text-[10px] text-white flex items-center justify-center">
-            2
-          </span>
-        </Button>
+        <NotificationDropdown />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -135,8 +131,8 @@ export function Topbar() {
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel>Mein Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              className="cursor-pointer" 
+            <DropdownMenuItem
+              className="cursor-pointer"
               onClick={() => setLocation("/profile")}
             >
               <Settings className="mr-2 h-4 w-4" />
