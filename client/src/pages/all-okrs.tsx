@@ -1,16 +1,21 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type Objective } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Star } from "lucide-react";
-import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ObjectiveForm } from "@/components/okr/objective-form";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AllOKRs() {
   const [, setLocation] = useLocation();
+  const [isObjectiveDialogOpen, setIsObjectiveDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const { data: objectives = [], isLoading } = useQuery<Objective[]>({
     queryKey: ["/api/objectives"],
@@ -24,7 +29,7 @@ export default function AllOKRs() {
   });
 
   const handleOKRClick = (objective: Objective) => {
-    setLocation(`/okr/${objective.id}`);
+    setLocation(`/all-okrs/${objective.id}`);
   };
 
   const toggleFavorite = async (objective: Objective, e: React.MouseEvent) => {
@@ -35,6 +40,12 @@ export default function AllOKRs() {
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
     }
+  };
+
+  const handleNewOKRClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    console.log("Opening new OKR dialog...");
+    setIsObjectiveDialogOpen(true);
   };
 
   if (isLoading) {
@@ -59,7 +70,7 @@ export default function AllOKRs() {
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren OKRs</p>
         </div>
-        <Button onClick={() => setLocation('/okr')} className="bg-primary/10 hover:bg-primary/20">
+        <Button onClick={handleNewOKRClick} className="bg-primary/10 hover:bg-primary/20">
           <Plus className="mr-2 h-4 w-4" />
           Neues OKR
         </Button>
@@ -148,6 +159,27 @@ export default function AllOKRs() {
           )}
         </>
       )}
+
+      <Dialog 
+        open={isObjectiveDialogOpen} 
+        onOpenChange={(open) => {
+          console.log("Dialog state changing to:", open);
+          setIsObjectiveDialogOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Neues Objective erstellen</DialogTitle>
+          </DialogHeader>
+          <ObjectiveForm 
+            onSuccess={() => {
+              console.log("Form submitted successfully, closing dialog");
+              setIsObjectiveDialogOpen(false);
+              toast({ title: "Objective erfolgreich erstellt" });
+            }} 
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

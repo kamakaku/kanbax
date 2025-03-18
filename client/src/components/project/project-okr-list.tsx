@@ -1,17 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { type Objective, type KeyResult } from "@shared/schema";
+import { type Objective } from "@shared/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Target } from "lucide-react";
 import { useLocation } from "wouter";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ObjectiveForm } from "@/components/okr/objective-form";
+import { useState } from "react";
 
 interface ProjectOKRListProps {
   projectId: number;
 }
 
 export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
-  const [_, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
+  const [isObjectiveDialogOpen, setIsObjectiveDialogOpen] = useState(false);
 
   const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
     queryKey: ["/api/objectives", projectId],
@@ -35,7 +39,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-semibold">OKRs</h3>
-        <Button onClick={() => setLocation(`/all-okrs`)} variant="outline">
+        <Button onClick={() => setIsObjectiveDialogOpen(true)} variant="outline">
           <Plus className="h-4 w-4 mr-2" />
           Neues OKR
         </Button>
@@ -49,7 +53,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
               Diesem Projekt sind noch keine OKRs zugeordnet.
             </p>
             <Button
-              onClick={() => setLocation(`/all-okrs`)}
+              onClick={() => setIsObjectiveDialogOpen(true)}
               variant="outline"
               className="mt-4"
             >
@@ -64,7 +68,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
             <Card
               key={objective.id}
               className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
-              onClick={() => setLocation(`/okr/${objective.id}`)}
+              onClick={() => setLocation(`/all-okrs/${objective.id}`)} //Corrected navigation
             >
               <CardHeader className="p-4">
                 <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
@@ -85,6 +89,15 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
           ))}
         </div>
       )}
+
+      <Dialog open={isObjectiveDialogOpen} onOpenChange={setIsObjectiveDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Neues Objective erstellen</DialogTitle>
+          </DialogHeader>
+          <ObjectiveForm onSuccess={() => setIsObjectiveDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

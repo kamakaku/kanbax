@@ -162,7 +162,7 @@ function AuthenticatedApp() {
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/all-boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/all-okrs" component={() => <ProtectedRoute component={AllOKRs} />} />
-      <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
+      <Route path="/all-okrs/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />

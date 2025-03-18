@@ -129,7 +129,7 @@ export function OkrTable() {
               </TableCell>
               <TableCell 
                 className="font-medium py-2 cursor-pointer"
-                onClick={() => setLocation(`/okr/${objective.id}`)}
+                onClick={() => setLocation(`/all-okrs/${objective.id}`)}
               >
                 <div className="flex items-center gap-2">
                   {objective.title}
