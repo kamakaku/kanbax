@@ -38,16 +38,16 @@ export const projects = pgTable("projects", {
   isFavorite: boolean("is_favorite").default(false),
 });
 
-// Update boards table to include correct array definition for assigned_user_ids
+// Update boards table definition
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  projectId: integer("project_id"),
-  creatorId: integer("creator_id").notNull(),
-  teamIds: integer("team_ids").array(),
-  assignedUserIds: integer("assigned_user_ids").array(),
-  isFavorite: boolean("is_favorite").default(false),
+  project_id: integer("project_id"),
+  creator_id: integer("creator_id").notNull(),
+  team_ids: integer("team_ids").array(),
+  assigned_user_ids: integer("assigned_user_ids").array(),
+  is_favorite: boolean("is_favorite").default(false),
 });
 
 export const columns = pgTable("columns", {
@@ -140,17 +140,17 @@ export const insertBoardSchema = createInsertSchema(boards)
   .pick({
     title: true,
     description: true,
-    projectId: true,
-    creatorId: true,
-    teamIds: true,
-    assignedUserIds: true,
+    project_id: true,
+    creator_id: true,
+    team_ids: true,
+    assigned_user_ids: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
-    projectId: z.number().int().positive("Project ID must be positive").nullable().optional(),
-    creatorId: z.number().int().positive("Creator ID is required"),
-    teamIds: z.array(z.number().int()).default([]),
-    assignedUserIds: z.array(z.number().int()).default([]),
+    project_id: z.number().int().positive("Project ID must be positive").nullable().optional(),
+    creator_id: z.number().int().positive("Creator ID is required"),
+    team_ids: z.array(z.number().int()).default([]),
+    assigned_user_ids: z.array(z.number().int()).default([]),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -445,17 +445,17 @@ export const updateTaskSchema = insertTaskSchema.partial();
 export type UpdateTask = z.infer<typeof updateTaskSchema>;
 
 // Update board schema
-export const updateBoardSchema = insertBoardSchema
+export const updateBoardSchema = createInsertSchema(boards)
   .pick({
     title: true,
     description: true,
-    projectId: true,
-    teamIds: true,
-    assignedUserIds: true,
+    project_id: true,
+    team_ids: true,
+    assigned_user_ids: true,
   })
   .extend({
-    teamIds: z.array(z.number().int()).default([]),
-    assignedUserIds: z.array(z.number().int()).default([]),
+    team_ids: z.array(z.number().int()).default([]),
+    assigned_user_ids: z.array(z.number().int()).default([]),
   })
   .partial();
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;

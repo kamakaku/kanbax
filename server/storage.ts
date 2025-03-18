@@ -332,30 +332,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
-    console.log("Updating board with data:", updateBoard);
+    console.log("Raw update data received:", JSON.stringify(updateBoard, null, 2));
 
-    // Get current board data first
-    const [currentBoard] = await db
-      .select()
-      .from(boards)
-      .where(eq(boards.id, id));
+    // Extrahiere die Arrays und stelle sicher, dass sie als Arrays vorliegen
+    const assignedUserIds = Array.isArray(updateBoard.assigned_user_ids)
+      ? updateBoard.assigned_user_ids
+      : (Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : []);
 
-    if (!currentBoard) {
+    const teamIds = Array.isArray(updateBoard.team_ids)
+      ? updateBoard.team_ids
+      : (Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : []);
+
+    console.log("Arrays to update:", {
+      assignedUserIds,
+      teamIds
+    });
+
+    // Direktes SQL-Update mit Array-Casting
+    const result = await db.execute(
+      sql`
+        UPDATE boards 
+        SET 
+          title = COALESCE(${updateBoard.title}, title),
+          description = COALESCE(${updateBoard.description}, description),
+          project_id = COALESCE(${updateBoard.project_id || updateBoard.projectId}, project_id),
+          assigned_user_ids = ${sql`ARRAY[${sql.join(assignedUserIds, ",")}]::integer[]`},
+          team_ids = ${sql`ARRAY[${sql.join(teamIds, ",")}]::integer[]`}
+        WHERE id = ${id}
+        RETURNING *;
+      `
+    );
+
+    console.log("SQL Update result:", result);
+
+    if (!result || !result.rows || result.rows.length === 0) {
       throw new Error(`Board ${id} not found`);
     }
-
-    // Simple update with the exact data we have
-    const [updatedBoard] = await db
-      .update(boards)
-      .set({
-        title: updateBoard.title ?? currentBoard.title,
-        description: updateBoard.description ?? currentBoard.description,
-        projectId: updateBoard.projectId ?? currentBoard.projectId,
-        assignedUserIds: updateBoard.assignedUserIds ?? currentBoard.assignedUserIds,
-        teamIds: updateBoard.teamIds ?? currentBoard.teamIds,
-      })
-      .where(eq(boards.id, id))
-      .returning();
 
     // Get fresh board data with all relations
     return await this.getBoard(id);
