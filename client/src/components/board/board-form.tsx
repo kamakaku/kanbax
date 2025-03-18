@@ -71,9 +71,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       if (onSubmit) {
         await onSubmit(data);
       } else {
-        // Log the raw form data
-        console.log("Raw form data:", data);
-
         const submitData = {
           title: data.title,
           description: data.description,
@@ -81,10 +78,20 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           creatorId: user.id
         };
 
-        console.log("Processed submit data:", submitData);
+        // Send the request
+        const response = await fetch('/api/boards', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(submitData)
+        });
 
-        const endpoint = '/api/boards';
-        console.log("Sending request to endpoint:", endpoint);
+        if (!response.ok) {
+          throw new Error('Failed to create board');
+        }
+
+        const newBoard = await response.json();
 
         const res = await fetch(endpoint, {
           method: 'POST',
