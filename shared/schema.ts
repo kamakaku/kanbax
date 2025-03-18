@@ -144,14 +144,22 @@ export const insertBoardSchema = createInsertSchema(boards)
     creator_id: true,
     team_ids: true,
     assigned_user_ids: true,
+    is_favorite: true,
   })
   .extend({
-    title: z.string().min(1, "Title is required"),
-    description: z.string().optional(),
-    project_id: z.number().int().positive("Project ID must be positive").nullable().optional(),
-    creator_id: z.number().int().positive("Creator ID is required"),
-    team_ids: z.array(z.number().int()).default([]),
-    assigned_user_ids: z.array(z.number().int()).default([]),
+    title: z.string().min(1, "Titel ist erforderlich"),
+    description: z.string().nullable().optional(),
+    project_id: z.number().int().positive("Projekt ID muss positiv sein").nullable().optional(),
+    creator_id: z.number().int().positive("Creator ID ist erforderlich").default(0),
+    team_ids: z.preprocess(
+      (val) => (Array.isArray(val) ? val : []).filter(Boolean).map(Number),
+      z.array(z.number().int().positive("Team ID muss eine positive Zahl sein"))
+    ).default([]),
+    assigned_user_ids: z.preprocess(
+      (val) => (Array.isArray(val) ? val : []).filter(Boolean).map(Number),
+      z.array(z.number().int().positive("Benutzer ID muss eine positive Zahl sein"))
+    ).default([]),
+    is_favorite: z.boolean().default(false),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -500,7 +508,6 @@ export const boardMembers = pgTable("board_members", {
   invitedAt: timestamp("invited_at").defaultNow().notNull(),
   acceptedAt: timestamp("accepted_at"),
 });
-
 
 // Add schemas for the new tables
 export const insertBoardMemberSchema = createInsertSchema(boardMembers)

@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { MultiSelect, type Option } from "@/components/ui/multi-select";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
@@ -41,6 +41,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
   const [, setLocation] = useLocation();
   const { user } = useAuth();
 
+  // Fetch teams and users data
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
     queryFn: async () => {
@@ -50,52 +51,63 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const response = await fetch("/api/projects");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Projekte");
-      }
-      return response.json();
-    },
-  });
-
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
+      if (!response.ok) throw new Error("Fehler beim Laden der Benutzer");
       return response.json();
     },
   });
+
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) throw new Error("Fehler beim Laden der Projekte");
+      return response.json();
+    },
+  });
+
+  // Prepare options for MultiSelect components
+  const userOptions: Option[] = users.map(user => ({
+    value: user.id.toString(),
+    label: user.username
+  }));
+
+  const teamOptions: Option[] = teams.map(team => ({
+    value: team.id.toString(),
+    label: team.name
+  }));
 
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
       title: defaultValues?.title || "",
-      description: defaultValues?.description || "",
-      project_id: defaultValues?.project_id || currentProject?.id,
-      creator_id: user?.id,
+      description: defaultValues?.description || null,
+      project_id: defaultValues?.project_id || currentProject?.id || null,
+      creator_id: defaultValues?.creator_id || user?.id || 0,
       team_ids: defaultValues?.team_ids || [],
       assigned_user_ids: defaultValues?.assigned_user_ids || [],
       is_favorite: defaultValues?.is_favorite || false,
     },
   });
 
+  console.log("Form values:", form.getValues());
+  console.log("Form errors:", form.formState.errors);
+
   const handleSubmit = async (data: InsertBoard) => {
     try {
-      // Ensure arrays are properly formatted as numbers
+      // Ensure arrays are properly formatted
       const formattedData = {
         ...data,
-        creator_id: user?.id,
-        team_ids: data.team_ids.map(id => Number(id)),
-        assigned_user_ids: data.assigned_user_ids.map(id => Number(id)),
+        creator_id: user?.id || 0,
+        team_ids: (data.team_ids || []).filter(Boolean).map(Number),
+        assigned_user_ids: (data.assigned_user_ids || []).filter(Boolean).map(Number),
+        is_favorite: Boolean(data.is_favorite),
       };
 
-      console.log("Submitting board data:", JSON.stringify(formattedData, null, 2));
+      console.log("Submitting board data:", formattedData);
 
       if (onSubmit) {
         await onSubmit(formattedData);
@@ -109,9 +121,9 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         if (!response.ok) throw new Error('Failed to create board');
 
         const newBoard = await response.json();
-        queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
         if (currentProject?.id) {
-          queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
+          await queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
         }
 
         toast({ title: "Board erfolgreich erstellt" });
@@ -120,7 +132,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         setLocation(`/boards/${newBoard.id}`);
       }
     } catch (error) {
-      console.error("Error creating/updating board:", error);
+      console.error("Error creating board:", error);
       toast({
         title: "Fehler beim Speichern des Boards",
         variant: "destructive",
@@ -137,6 +149,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {/* Title field */}
             <FormField
               control={form.control}
               name="title"
@@ -146,11 +159,14 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                   <FormControl>
                     <Input placeholder="Geben Sie einen Titel ein..." {...field} />
                   </FormControl>
-                  <FormMessage />
+                  {form.formState.errors.title && (
+                    <FormMessage>{form.formState.errors.title.message}</FormMessage>
+                  )}
                 </FormItem>
               )}
             />
 
+            {/* Description field */}
             <FormField
               control={form.control}
               name="description"
@@ -164,11 +180,14 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                       value={field.value || ""}
                     />
                   </FormControl>
-                  <FormMessage />
+                  {form.formState.errors.description && (
+                    <FormMessage>{form.formState.errors.description.message}</FormMessage>
+                  )}
                 </FormItem>
               )}
             />
 
+            {/* Project selection */}
             <FormField
               control={form.control}
               name="project_id"
@@ -193,11 +212,14 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
+                  {form.formState.errors.project_id && (
+                    <FormMessage>{form.formState.errors.project_id.message}</FormMessage>
+                  )}
                 </FormItem>
               )}
             />
 
+            {/* Team selection */}
             <FormField
               control={form.control}
               name="team_ids"
@@ -207,19 +229,25 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                   <FormControl>
                     <MultiSelect
                       placeholder="Teams auswählen..."
-                      selected={field.value.map(String)}
-                      options={teams.map(team => ({
-                        value: String(team.id),
-                        label: team.name
-                      }))}
-                      onChange={(values) => field.onChange(values)}
+                      options={teamOptions}
+                      selected={(field.value || []).map(String)}
+                      onChange={(values) => {
+                        console.log("Selected team values:", values);
+                        const numberValues = values.map(v => parseInt(v));
+                        console.log("Converted team values:", numberValues);
+                        field.onChange(numberValues);
+                      }}
                     />
                   </FormControl>
-                  <FormMessage />
+                  {/* Only show error message if there is an actual error */}
+                  {form.formState.errors.team_ids?.message && (
+                    <FormMessage>{form.formState.errors.team_ids.message}</FormMessage>
+                  )}
                 </FormItem>
               )}
             />
 
+            {/* User selection */}
             <FormField
               control={form.control}
               name="assigned_user_ids"
@@ -229,15 +257,20 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                   <FormControl>
                     <MultiSelect
                       placeholder="Benutzer auswählen..."
-                      selected={field.value.map(String)}
-                      options={users.map(user => ({
-                        value: String(user.id),
-                        label: user.username
-                      }))}
-                      onChange={(values) => field.onChange(values)}
+                      options={userOptions}
+                      selected={(field.value || []).map(String)}
+                      onChange={(values) => {
+                        console.log("Selected user values:", values);
+                        const numberValues = values.map(v => parseInt(v));
+                        console.log("Converted user values:", numberValues);
+                        field.onChange(numberValues);
+                      }}
                     />
                   </FormControl>
-                  <FormMessage />
+                  {/* Only show error message if there is an actual error */}
+                  {form.formState.errors.assigned_user_ids?.message && (
+                    <FormMessage>{form.formState.errors.assigned_user_ids.message}</FormMessage>
+                  )}
                 </FormItem>
               )}
             />
