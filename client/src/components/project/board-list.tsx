@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type Board } from "@shared/schema";
+import { type Board, type InsertBoard } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Plus, KanbanSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,17 +22,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
 import { queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/lib/auth-store";
 
 interface BoardListProps {
   projectId: number;
 }
 
-const boardFormSchema = z.object({
+// Form schema for validation
+const formSchema = z.object({
   title: z.string().min(1, "Titel wird benötigt"),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
 });
 
-type BoardFormValues = z.infer<typeof boardFormSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
@@ -40,9 +42,10 @@ export function BoardList({ projectId }: BoardListProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { setCurrentBoard } = useStore();
+  const { user } = useAuth();
 
-  const form = useForm<BoardFormValues>({
-    resolver: zodResolver(boardFormSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -65,34 +68,47 @@ export function BoardList({ projectId }: BoardListProps) {
     setLocation("/board");
   };
 
-  const onSubmit = async (values: BoardFormValues) => {
-    if (isSubmitting) return;
+  const onSubmit = async (values: FormValues) => {
+    if (isSubmitting || !user?.id) {
+      toast({
+        title: "Fehler",
+        description: "Sie müssen angemeldet sein, um ein Board zu erstellen",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setIsSubmitting(true);
-      console.log("Creating board with data:", { ...values, projectId });
 
-      // Use the /api/boards endpoint instead of the project-specific one
+      // Prepare complete board data according to InsertBoard type
+      const boardData: InsertBoard = {
+        title: values.title,
+        description: values.description || "",
+        projectId,
+        creatorId: Number(user.id),
+      };
+
+      console.log("Submitting board data:", boardData);
+
       const response = await fetch("/api/boards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...values,
-          projectId: Number(projectId),
-        }),
+        body: JSON.stringify(boardData),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create board");
+        const errorData = await response.json();
+        console.error("Server validation errors:", errorData);
+        throw new Error(errorData.message || "Failed to create board");
       }
 
       const newBoard = await response.json();
-      console.log("Created board:", newBoard);
+      console.log("Successfully created board:", newBoard);
 
-      // Invalidate both the all boards and project-specific boards queries
+      // Update cached data
       await queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
@@ -190,9 +206,9 @@ export function BoardList({ projectId }: BoardListProps) {
                   <FormItem>
                     <FormLabel>Titel</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Mein neues Board" 
-                        {...field} 
+                      <Input
+                        placeholder="Mein neues Board"
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
@@ -210,6 +226,7 @@ export function BoardList({ projectId }: BoardListProps) {
                       <Textarea
                         placeholder="Beschreiben Sie Ihr Board..."
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -222,8 +239,8 @@ export function BoardList({ projectId }: BoardListProps) {
                 className="w-full"
                 disabled={isSubmitting}
               >
-                {isSubmitting 
-                  ? "Board wird erstellt..." 
+                {isSubmitting
+                  ? "Board wird erstellt..."
                   : "Board erstellen"
                 }
               </Button>

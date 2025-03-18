@@ -271,28 +271,30 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // Simplified board creation route
+  // Add more detailed logging for board creation
   app.post("/api/boards", async (req, res) => {
     try {
       console.log("1. Received request body:", req.body);
 
       const result = insertBoardSchema.safeParse(req.body);
       if (!result.success) {
-        console.log("2. Validation failed:", result.error);
+        console.log("2. Validation failed. Errors:", result.error.errors);
+        console.log("3. Received data:", req.body);
         return res.status(400).json({
           message: "Invalid board data",
-          errors: result.error.errors
+          errors: result.error.errors,
+          received: req.body
         });
       }
 
-      console.log("3. Validated data:", result.data);
+      console.log("4. Validated data:", result.data);
 
       const board = await storage.createBoard(result.data);
-      console.log("4. Created board:", board);
+      console.log("5. Created board:", board);
 
       return res.status(201).json(board);
     } catch (error) {
-      console.error("5. Error in board creation:", error);
+      console.error("6. Error in board creation:", error);
       return res.status(500).json({
         message: error instanceof Error ? error.message : "Failed to create board"
       });
