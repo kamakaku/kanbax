@@ -5,8 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, ChevronDown, ChevronRight, Star } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
@@ -25,7 +25,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { CircularProgressIndicator } from "@/components/ui/circular-progress";
 
 interface ChecklistItem {
   title: string;
@@ -43,25 +42,39 @@ export function OKRDetailPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: objective, isLoading: isLoadingObjective } = useQuery<Objective>({
+  console.log("Rendering OKR detail page with ID:", objectiveId);
+
+  const { data: objective, isLoading: isLoadingObjective, error } = useQuery<Objective>({
     queryKey: ["/api/objectives", objectiveId],
     queryFn: async () => {
+      console.log("Fetching objective data for ID:", objectiveId);
       const response = await fetch(`/api/objectives/${objectiveId}`);
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Fehler beim Laden des Objectives");
+        console.error("Error response from API:", data);
+        throw new Error(data.message || "Fehler beim Laden des Objectives");
       }
-      return response.json();
+
+      console.log("Successfully received objective data:", data);
+      return data;
     },
+    enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
   const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/objectives", objectiveId, "key-results"],
     queryFn: async () => {
+      console.log("Fetching key results for objective:", objectiveId);
       const response = await fetch(`/api/objectives/${objectiveId}/key-results`);
       if (!response.ok) {
-        throw new Error("Fehler beim Laden der Key Results");
+        const errorData = await response.json();
+        console.error("Error fetching key results:", errorData);
+        throw new Error(errorData.message || "Fehler beim Laden der Key Results");
       }
-      return response.json();
+      const data = await response.json();
+      console.log("Received key results:", data);
+      return data;
     },
     enabled: !!objectiveId && !isNaN(objectiveId),
   });
@@ -178,9 +191,13 @@ export function OKRDetailPage() {
     },
   });
 
-
-  if (isLoadingObjective || isLoadingKeyResults) {
+  if (isLoadingObjective) {
     return <div className="text-center py-8">Lade OKR Details...</div>;
+  }
+
+  if (error) {
+    console.error("Query error:", error);
+    return <div className="text-center py-8">Fehler: {error.message}</div>;
   }
 
   if (!objective) {
@@ -189,8 +206,8 @@ export function OKRDetailPage() {
 
   const assignedUsers = objective.userIds
     ? users.filter(u => objective.userIds?.includes(u.id))
-    : objective.userId && users.find(u => u.id === objective.userId)
-    ? [users.find(u => u.id === objective.userId)]
+    : objective.userId 
+    ? [users.find(u => u.id === objective.userId)] 
     : [];
 
   const progress = keyResults.length > 0
@@ -272,7 +289,7 @@ export function OKRDetailPage() {
                   <Calendar className="h-4 w-4" />
                   Zyklus
                 </div>
-                <div>{objective.cycleId ? objective.cycle?.title : "Kein Zyklus"}</div>
+                <div>{objective.cycleId && objective.cycle ? objective.cycle.title : "Kein Zyklus"}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-muted-foreground">Verantwortlich</div>
@@ -306,12 +323,10 @@ export function OKRDetailPage() {
         <div className="flex justify-between items-center">
           <h4 className="text-lg font-semibold">Key Results</h4>
           <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Key Result hinzufügen
-              </Button>
-            </DialogTrigger>
+            <Button onClick={() => setIsKeyResultDialogOpen(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Key Result hinzufügen
+            </Button>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Neues Key Result erstellen</DialogTitle>
@@ -350,116 +365,41 @@ export function OKRDetailPage() {
                   : krProgress;
 
                 return (
-                  <>
-                    <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(kr.id)}>
-                      <TableCell>
-                        {expandedRows.has(kr.id) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium" style={{ minWidth: '200px', padding: '1rem 0' }}>
-                        <div className="flex items-center gap-4">
-                          <CircularProgressIndicator 
-                            value={krProgress} 
-                            size="sm"
-                            label={kr.type === "checkbox" 
-                              ? `${krProgress === 100 ? "1" : "0"}/1` 
-                              : `${currentValue}/${maxValue}`
-                            }
-                          />
-                          {kr.title}
-                        </div>
-                      </TableCell>
-                      <TableCell>{kr.description}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {kr.type === "checkbox" 
-                          ? `${krProgress === 100 ? "Erledigt" : "Offen"}`
-                          : `${Math.round(krProgress)}%`
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingKR(kr);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    {expandedRows.has(kr.id) && (
-                      <TableRow>
-                        <TableCell colSpan={5}>
-                          <div className="py-4 px-6 space-y-4">
-                            {kr.type === "checkbox" && (
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">
-                                  Status ändern
-                                </label>
-                                <Checkbox
-                                  checked={krProgress === 100}
-                                  onCheckedChange={(checked) =>
-                                    handleProgressUpdate(kr, checked === true)
-                                  }
-                                />
-                              </div>
-                            )}
-
-                            {kr.type !== "checkbox" && kr.type !== "checklist" && (
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">
-                                  Fortschritt anpassen
-                                </label>
-                                <Input
-                                  type="number"
-                                  className="w-24"
-                                  value={editingProgress[kr.id] !== undefined 
-                                    ? editingProgress[kr.id] 
-                                    : krProgress
-                                  }
-                                  onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                                  onBlur={() => handleProgressInputBlur(kr)}
-                                  min={0}
-                                  max={100}
-                                />
-                              </div>
-                            )}
-
-                            {kr.type === "checklist" && kr.checklistItems && (
-                              <div className="space-y-2">
-                                <h4 className="text-sm font-medium">Checkliste</h4>
-                                <div className="space-y-2">
-                                  {kr.checklistItems.map((item, index) => {
-                                    const checklistItem = typeof item === 'string' 
-                                      ? JSON.parse(item) 
-                                      : item;
-                                    return (
-                                      <div key={index} className="flex items-center gap-2">
-                                        <Checkbox
-                                          checked={checklistItem.completed}
-                                          onCheckedChange={(checked) =>
-                                            handleChecklistItemUpdate(kr, index, checked === true)
-                                          }
-                                        />
-                                        <span className="text-sm text-muted-foreground">
-                                          {checklistItem.title}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
+                  <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(kr.id)}>
+                    <TableCell>
+                      {progress === 100 && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">{kr.title}</TableCell>
+                    <TableCell>{kr.description}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Progress 
+                          value={krProgress} 
+                          className={cn(
+                            "flex-1",
+                            krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                          )} 
+                        />
+                        <span className="text-sm text-muted-foreground w-12 text-right">
+                          {krProgress}%
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingKR(kr);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
             </TableBody>
