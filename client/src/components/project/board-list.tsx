@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { type Board, type InsertBoard, insertBoardSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, KanbanSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import {
@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
 import { useStore } from "@/lib/store";
+import { queryClient } from "@/lib/queryClient";
 
 interface BoardListProps {
   projectId: number;
@@ -30,7 +31,6 @@ export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const { setCurrentBoard } = useStore();
 
@@ -82,15 +82,11 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const onSubmit = async (data: InsertBoard) => {
     try {
-      console.log("Submitting form with data:", { ...data, projectId });
-
       const res = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
         { ...data, projectId }
       );
-
-      console.log("Server response:", res);
 
       if (!res.ok) {
         const error = await res.json();
@@ -98,7 +94,6 @@ export function BoardList({ projectId }: BoardListProps) {
       }
 
       const newBoard = await res.json();
-
       queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
@@ -185,6 +180,9 @@ export function BoardList({ projectId }: BoardListProps) {
             <DialogTitle>
               {editingBoard ? "Board bearbeiten" : "Neues Board erstellen"}
             </DialogTitle>
+            <DialogDescription>
+              Fügen Sie hier die Details für Ihr Board hinzu. Ein Board hilft Ihnen, Aufgaben und deren Status zu organisieren.
+            </DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
