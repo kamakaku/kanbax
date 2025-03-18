@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ObjectiveForm } from "@/components/okr/objective-form";
 import { useToast } from "@/hooks/use-toast";
+import { GlassCard } from "@/components/ui/glass-card";
 
 export default function AllOKRs() {
   const [, setLocation] = useLocation();
@@ -76,7 +77,7 @@ export default function AllOKRs() {
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren OKRs</p>
         </div>
-        <Button onClick={handleNewOKRClick} className="bg-primary/10 hover:bg-primary/20">
+        <Button onClick={handleNewOKRClick} className="bg-primary/10 backdrop-blur-sm hover:bg-primary/20">
           <Plus className="mr-2 h-4 w-4" />
           Neues OKR
         </Button>
@@ -93,9 +94,9 @@ export default function AllOKRs() {
               <h2 className="text-2xl font-semibold mb-4">Favorisierte OKRs</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {favoriteOKRs.map((objective) => (
-                  <Card 
+                  <GlassCard 
                     key={objective.id} 
-                    className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20"
+                    className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
                     onClick={() => handleOKRClick(objective)}
                   >
                     <CardHeader className="p-4">
@@ -120,7 +121,7 @@ export default function AllOKRs() {
                         <Progress value={objective.progress || 0} className="h-2" />
                       </div>
                     </CardHeader>
-                  </Card>
+                  </GlassCard>
                 ))}
               </div>
             </div>
@@ -131,9 +132,9 @@ export default function AllOKRs() {
               <h2 className="text-2xl font-semibold mb-4">Weitere OKRs</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {nonFavoriteOKRs.map((objective) => (
-                  <Card 
+                  <GlassCard 
                     key={objective.id} 
-                    className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
+                    className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
                     onClick={() => handleOKRClick(objective)}
                   >
                     <CardHeader className="p-4">
@@ -158,7 +159,7 @@ export default function AllOKRs() {
                         <Progress value={objective.progress || 0} className="h-2" />
                       </div>
                     </CardHeader>
-                  </Card>
+                  </GlassCard>
                 ))}
               </div>
             </div>
@@ -168,12 +169,9 @@ export default function AllOKRs() {
 
       <Dialog 
         open={isObjectiveDialogOpen} 
-        onOpenChange={(open) => {
-          console.log("Dialog state changing to:", open);
-          setIsObjectiveDialogOpen(open);
-        }}
+        onOpenChange={setIsObjectiveDialogOpen}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
           <DialogHeader>
             <DialogTitle>Neues Objective erstellen</DialogTitle>
           </DialogHeader>

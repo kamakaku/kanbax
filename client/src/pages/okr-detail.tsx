@@ -2,6 +2,7 @@ import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Objective, type KeyResult, type User } from "@shared/schema";
 import { Card } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -202,11 +203,11 @@ export function OKRDetailPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-8">
-      <div className="flex justify-center">
-        <Card className={cn(
-          "w-2/3 p-6 relative",
-          progress === 100 && "bg-green-50"
-        )}>
+      <div className="flex justify-center relative">
+        {/* Background gradient for glassmorphism effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-lg -z-10" />
+
+        <GlassCard className="w-2/3 relative">
           <div className="absolute -left-3 top-1/2 w-1 h-24 bg-primary -translate-y-1/2" />
           <div className="space-y-6">
             <div className="flex items-start justify-between">
@@ -302,10 +303,12 @@ export function OKRDetailPage() {
               />
             </div>
           </div>
-        </Card>
+        </GlassCard>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-lg -z-10" />
+
         <div className="flex justify-between items-center">
           <h4 className="text-lg font-semibold">Key Results</h4>
           <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
@@ -313,7 +316,7 @@ export function OKRDetailPage() {
               <PlusCircle className="h-4 w-4 mr-2" />
               Key Result hinzufügen
             </Button>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
               <DialogHeader>
                 <DialogTitle>Neues Key Result erstellen</DialogTitle>
               </DialogHeader>
@@ -325,7 +328,7 @@ export function OKRDetailPage() {
           </Dialog>
         </div>
 
-        <Card>
+        <GlassCard intensity="low">
           <Table>
             <TableHeader>
               <TableRow>
@@ -454,11 +457,11 @@ export function OKRDetailPage() {
               })}
             </TableBody>
           </Table>
-        </Card>
+        </GlassCard>
       </div>
 
       <Dialog open={!!editingKR} onOpenChange={(open) => !open && setEditingKR(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
           <DialogHeader>
             <DialogTitle>Key Result bearbeiten</DialogTitle>
           </DialogHeader>
@@ -473,7 +476,7 @@ export function OKRDetailPage() {
       </Dialog>
 
       <Dialog open={isEditingObjective} onOpenChange={setIsEditingObjective}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
           <DialogHeader>
             <DialogTitle>Objective bearbeiten</DialogTitle>
           </DialogHeader>
