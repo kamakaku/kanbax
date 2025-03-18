@@ -23,16 +23,19 @@ export function AllItems() {
   });
 
   const toggleFavorite = async (type: 'project' | 'board' | 'objective', id: number, currentValue: boolean | null | undefined) => {
-    const options: RequestInit = {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ isFavorite: !(currentValue ?? false) }),
-    };
+    try {
+      await apiRequest(`/api/${type}s/${id}/favorite`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
 
-    await apiRequest(`/api/${type}s/${id}/favorite`, options);
-    queryClient.invalidateQueries({ queryKey: [`/api/${type}s`] });
+      // Invalidate the relevant query to refresh the data
+      await queryClient.invalidateQueries({ queryKey: [`/api/${type}s`] });
+    } catch (error) {
+      console.error(`Failed to toggle favorite for ${type}:`, error);
+    }
   };
 
   const filteredProjects = projects?.filter(p => !showFavorites || p.isFavorite);
@@ -46,10 +49,19 @@ export function AllItems() {
         <Button
           variant="outline"
           onClick={() => setShowFavorites(!showFavorites)}
-          className="flex gap-2 items-center"
+          className="flex gap-2 items-center px-4 py-2"
         >
-          {showFavorites ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />}
-          {showFavorites ? "Alle anzeigen" : "Nur Favoriten"}
+          {showFavorites ? (
+            <>
+              <StarOff className="h-5 w-5 text-gray-600" />
+              <span>Alle anzeigen</span>
+            </>
+          ) : (
+            <>
+              <Star className="h-5 w-5 text-yellow-400" />
+              <span>Nur Favoriten</span>
+            </>
+          )}
         </Button>
       </div>
 
@@ -63,21 +75,22 @@ export function AllItems() {
         <TabsContent value="projects">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredProjects?.map((project) => (
-              <Card key={project.id} className="p-4">
+              <Card key={project.id} className="p-4 relative">
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="flex-1 pr-10">
                     <h3 className="font-semibold">{project.title}</h3>
                     <p className="text-sm text-gray-500">{project.description}</p>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="absolute top-3 right-3 p-2 hover:bg-gray-100 rounded-full"
                     onClick={() => toggleFavorite('project', project.id, project.isFavorite)}
                   >
                     {project.isFavorite ? (
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <Star className="h-6 w-6 text-yellow-400 fill-yellow-400" />
                     ) : (
-                      <StarOff className="h-4 w-4" />
+                      <Star className="h-6 w-6 text-gray-400 hover:text-yellow-400" />
                     )}
                   </Button>
                 </div>
@@ -89,21 +102,22 @@ export function AllItems() {
         <TabsContent value="boards">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredBoards?.map((board) => (
-              <Card key={board.id} className="p-4">
+              <Card key={board.id} className="p-4 relative">
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="flex-1 pr-10">
                     <h3 className="font-semibold">{board.title}</h3>
                     <p className="text-sm text-gray-500">{board.description}</p>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="absolute top-3 right-3 p-2 hover:bg-gray-100 rounded-full"
                     onClick={() => toggleFavorite('board', board.id, board.isFavorite)}
                   >
                     {board.isFavorite ? (
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <Star className="h-6 w-6 text-yellow-400 fill-yellow-400" />
                     ) : (
-                      <StarOff className="h-4 w-4" />
+                      <Star className="h-6 w-6 text-gray-400 hover:text-yellow-400" />
                     )}
                   </Button>
                 </div>
@@ -115,9 +129,9 @@ export function AllItems() {
         <TabsContent value="objectives">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredObjectives?.map((objective) => (
-              <Card key={objective.id} className="p-4">
+              <Card key={objective.id} className="p-4 relative">
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="flex-1 pr-10">
                     <h3 className="font-semibold">{objective.title}</h3>
                     <p className="text-sm text-gray-500">{objective.description}</p>
                     <div className="mt-2">
@@ -133,12 +147,13 @@ export function AllItems() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="absolute top-3 right-3 p-2 hover:bg-gray-100 rounded-full"
                     onClick={() => toggleFavorite('objective', objective.id, objective.isFavorite)}
                   >
                     {objective.isFavorite ? (
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <Star className="h-6 w-6 text-yellow-400 fill-yellow-400" />
                     ) : (
-                      <StarOff className="h-4 w-4" />
+                      <Star className="h-6 w-6 text-gray-400 hover:text-yellow-400" />
                     )}
                   </Button>
                 </div>
