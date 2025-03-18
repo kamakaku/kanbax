@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star } from "lucide-react";
+import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
@@ -42,22 +42,14 @@ export function OKRDetailPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  console.log("Rendering OKR detail page with ID:", objectiveId);
-
   const { data: objective, isLoading: isLoadingObjective, error } = useQuery<Objective>({
     queryKey: ["/api/objectives", objectiveId],
     queryFn: async () => {
-      console.log("Fetching objective data for ID:", objectiveId);
       const response = await fetch(`/api/objectives/${objectiveId}`);
-      const data = await response.json();
-
       if (!response.ok) {
-        console.error("Error response from API:", data);
-        throw new Error(data.message || "Fehler beim Laden des Objectives");
+        throw new Error("Fehler beim Laden des Objectives");
       }
-
-      console.log("Successfully received objective data:", data);
-      return data;
+      return response.json();
     },
     enabled: !!objectiveId && !isNaN(objectiveId),
   });
@@ -65,16 +57,11 @@ export function OKRDetailPage() {
   const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
     queryKey: ["/api/objectives", objectiveId, "key-results"],
     queryFn: async () => {
-      console.log("Fetching key results for objective:", objectiveId);
       const response = await fetch(`/api/objectives/${objectiveId}/key-results`);
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error fetching key results:", errorData);
-        throw new Error(errorData.message || "Fehler beim Laden der Key Results");
+        throw new Error("Fehler beim Laden der Key Results");
       }
-      const data = await response.json();
-      console.log("Received key results:", data);
-      return data;
+      return response.json();
     },
     enabled: !!objectiveId && !isNaN(objectiveId),
   });
@@ -191,12 +178,11 @@ export function OKRDetailPage() {
     },
   });
 
-  if (isLoadingObjective) {
+  if (isLoadingObjective || isLoadingKeyResults) {
     return <div className="text-center py-8">Lade OKR Details...</div>;
   }
 
   if (error) {
-    console.error("Query error:", error);
     return <div className="text-center py-8">Fehler: {error.message}</div>;
   }
 
@@ -289,7 +275,7 @@ export function OKRDetailPage() {
                   <Calendar className="h-4 w-4" />
                   Zyklus
                 </div>
-                <div>{objective.cycleId && objective.cycle ? objective.cycle.title : "Kein Zyklus"}</div>
+                <div>{objective.cycleId ? objective.cycle?.title : "Kein Zyklus"}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-muted-foreground">Verantwortlich</div>
@@ -353,53 +339,117 @@ export function OKRDetailPage() {
             <TableBody>
               {keyResults.map((kr) => {
                 const krProgress = kr.currentValue || 0;
-                const maxValue = kr.type === "checklist" 
-                  ? kr.checklistItems?.length || 0
-                  : kr.targetValue;
-                const currentValue = kr.type === "checklist"
-                  ? kr.checklistItems?.filter(item => 
-                      typeof item === 'string' 
-                        ? JSON.parse(item).completed 
-                        : item.completed
-                    ).length || 0
-                  : krProgress;
+                const isExpanded = expandedRows.has(kr.id);
 
                 return (
-                  <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(kr.id)}>
-                    <TableCell>
-                      {progress === 100 && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{kr.title}</TableCell>
-                    <TableCell>{kr.description}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress 
-                          value={krProgress} 
-                          className={cn(
-                            "flex-1",
-                            krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                          )} 
-                        />
-                        <span className="text-sm text-muted-foreground w-12 text-right">
-                          {krProgress}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingKR(kr);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50">
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => toggleRow(kr.id)}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
+                        <div className="flex items-center gap-2">
+                          {kr.title}
+                          {krProgress === 100 && (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
+                      <TableCell onClick={() => toggleRow(kr.id)}>
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={krProgress} 
+                            className={cn(
+                              "flex-1",
+                              krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                            )} 
+                          />
+                          <span className="text-sm text-muted-foreground w-12 text-right">
+                            {krProgress}%
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingKR(kr);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+
+                    {isExpanded && (
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={5} className="p-4">
+                          <div className="space-y-4">
+                            {kr.type === "percentage" && (
+                              <div className="flex items-center gap-4">
+                                <span className="text-sm font-medium">Prozent:</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
+                                  onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                  onBlur={() => handleProgressInputBlur(kr)}
+                                  className="w-24"
+                                />
+                              </div>
+                            )}
+
+                            {kr.type === "checkbox" && (
+                              <div className="flex items-center gap-4">
+                                <Checkbox
+                                  checked={kr.currentValue === 100}
+                                  onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
+                                />
+                                <span className="text-sm">Abgeschlossen</span>
+                              </div>
+                            )}
+
+                            {kr.type === "checklist" && kr.checklistItems && (
+                              <div className="space-y-2">
+                                {kr.checklistItems.map((item, index) => {
+                                  const checklistItem = typeof item === 'string' 
+                                    ? JSON.parse(item) as ChecklistItem 
+                                    : item;
+
+                                  return (
+                                    <div key={index} className="flex items-center gap-4">
+                                      <Checkbox
+                                        checked={checklistItem.completed}
+                                        onCheckedChange={(checked) => 
+                                          handleChecklistItemUpdate(kr, index, checked as boolean)
+                                        }
+                                      />
+                                      <span className="text-sm">{checklistItem.title}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 );
               })}
             </TableBody>
