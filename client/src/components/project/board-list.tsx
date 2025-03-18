@@ -40,7 +40,7 @@ export function BoardList({ projectId }: BoardListProps) {
     defaultValues: {
       title: "",
       description: "",
-      projectId: projectId,
+      projectId: projectId, // Set the projectId in defaultValues
     },
   });
 
@@ -76,7 +76,7 @@ export function BoardList({ projectId }: BoardListProps) {
     form.reset({
       title: "",
       description: "",
-      projectId: projectId,
+      projectId: projectId, // Ensure projectId is set when creating new board
     });
     setShowForm(true);
   };
@@ -86,20 +86,33 @@ export function BoardList({ projectId }: BoardListProps) {
 
     try {
       setIsSubmitting(true);
+      console.log("Form data before submission:", formData); // Debug log
 
-      // Ensure projectId is included in the data
+      // Ensure projectId is explicitly set
       const data = {
         ...formData,
         projectId: projectId
       };
 
-      const response = await apiRequest(
-        "POST",
-        `/api/projects/${projectId}/boards`,
-        data
-      );
+      console.log("Data being sent to API:", data); // Debug log
+
+      const response = await fetch(`/api/projects/${projectId}/boards`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      console.log("API Response status:", response.status); // Debug log
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create board");
+      }
 
       const newBoard = await response.json();
+      console.log("Created board:", newBoard); // Debug log
 
       await queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
