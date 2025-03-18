@@ -10,6 +10,8 @@
   }
 
   body {
-    @apply font-urbanist antialiased bg-[#161a1b] text-[#e5e5e5];
+    @apply font-urbanist antialiased text-[#e5e5e5];
+    background: linear-gradient(135deg, #808586 0%, #526262 100%);
+    min-height: 100vh;
   }
 }
