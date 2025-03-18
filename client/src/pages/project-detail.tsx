@@ -44,12 +44,7 @@ export default function ProjectDetail() {
 
   const toggleFavorite = useMutation({
     mutationFn: async () => {
-      return await apiRequest(`/api/projects/${projectId}/favorite`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      return await apiRequest('PATCH', `/api/projects/${projectId}/favorite`);
     },
     onSuccess: () => {
       // Invalidate the project query to refresh the data

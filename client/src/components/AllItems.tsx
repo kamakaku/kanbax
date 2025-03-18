@@ -26,13 +26,7 @@ export function AllItems() {
 
   const toggleFavorite = async (type: 'project' | 'board' | 'objective', id: number, currentValue: boolean | null | undefined) => {
     try {
-      await apiRequest(`/api/${type}s/${id}/favorite`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
+      await apiRequest('PATCH', `/api/${type}s/${id}/favorite`);
       await queryClient.invalidateQueries({ queryKey: [`/api/${type}s`] });
     } catch (error) {
       console.error(`Failed to toggle favorite for ${type}:`, error);

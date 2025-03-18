@@ -174,12 +174,7 @@ export function OKRDetailPage() {
 
   const toggleFavorite = useMutation({
     mutationFn: async () => {
-      return await apiRequest(`/api/objectives/${objectiveId}/favorite`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      return await apiRequest('PATCH', `/api/objectives/${objectiveId}/favorite`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
