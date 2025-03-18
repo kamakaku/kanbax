@@ -9,11 +9,10 @@ import { useState } from "react";
 import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import Board from "./board";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
-  const { currentBoard, setCurrentBoard, setCurrentProject } = useStore();
+  const { setCurrentBoard, setCurrentProject } = useStore();
   const [showForm, setShowForm] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
@@ -44,22 +43,20 @@ export default function AllBoards() {
         };
       });
     },
-    enabled: true
+    enabled: !projectsLoading,
   });
 
   const handleBoardClick = (board: Board) => {
-    console.log("Board clicked:", board);
-    // First set the current project if it exists
+    // Set current project and board in store for context
     if (board.projectId) {
       const project = projects?.find(p => p.id === board.projectId);
       if (project) {
-        console.log("Setting current project:", project);
         setCurrentProject(project);
       }
     }
-    // Then set the current board
-    console.log("Setting current board");
     setCurrentBoard(board);
+    // Navigate to the board detail view
+    setLocation(`/boards/${board.id}`);
   };
 
   const toggleFavorite = async (board: Board, e: React.MouseEvent) => {
@@ -82,11 +79,6 @@ export default function AllBoards() {
     );
   }
 
-  // Wenn ein Board ausgewählt ist, zeige die Board-Detailansicht
-  if (currentBoard) {
-    return <Board />;
-  }
-
   const favoriteBoards = boards.filter(b => b.isFavorite);
   const nonFavoriteBoards = boards.filter(b => !b.isFavorite);
 
@@ -99,7 +91,7 @@ export default function AllBoards() {
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="bg-primary/10 hover:bg-primary/20">
+        <Button onClick={() => setShowForm(true)} className="bg-primary/10 backdrop-blur-sm hover:bg-primary/20">
           <Plus className="mr-2 h-4 w-4" />
           Neues Board
         </Button>

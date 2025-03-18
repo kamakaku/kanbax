@@ -24,6 +24,7 @@ import AllOKRs from "@/pages/all-okrs";
 import OKRDetailPage from "@/pages/okr-detail";
 import TeamsPage from "@/pages/teams";
 import { ProductivityPage } from "@/pages/productivity";
+import BoardDetail from "@/pages/board";
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -159,11 +160,13 @@ function AuthenticatedApp() {
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/teams" component={() => <ProtectedRoute component={TeamsPage} />} />
       <Route path="/all-boards" component={() => <ProtectedRoute component={AllBoards} />} />
+      <Route path="/boards/:id" component={() => <ProtectedRoute component={BoardDetail} />} />
       <Route path="/all-okrs" component={() => <ProtectedRoute component={AllOKRs} />} />
       <Route path="/all-okrs/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
+
       {/* Redirects */}
       <Route path="/boards" component={() => {
         setLocation("/all-boards");

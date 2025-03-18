@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useParams } from "wouter";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Board, type Column, type Task, type InsertBoard } from "@shared/schema";
@@ -8,10 +9,10 @@ import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Pencil, Star } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
+import { GlassCard } from "@/components/ui/glass-card";
 
 const defaultColumns = [
   { id: "backlog", title: "backlog" },
@@ -21,54 +22,54 @@ const defaultColumns = [
   { id: "done", title: "done" }
 ];
 
-export default function Board() {
+export function Board() {
+  const { id } = useParams<{ id: string }>();
+  const boardId = parseInt(id);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { currentBoard, currentProject, setCurrentBoard } = useStore();
+  const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
 
+  // Fetch board data
+  const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
+    queryKey: ["/api/boards", boardId],
+    queryFn: async () => {
+      const response = await fetch(`/api/boards/${boardId}`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden des Boards");
+      }
+      return response.json();
+    },
+    enabled: !!boardId && !isNaN(boardId),
+  });
+
+  // Update store when board data is loaded
   useEffect(() => {
-    if (!currentBoard) {
-      setLocation("/all-boards");
-      toast({
-        title: "Bitte wählen Sie zuerst ein Board aus",
-        description: "Sie müssen ein Board auswählen, bevor Sie es anzeigen können",
-      });
-      return; // Added return statement for cleanup
+    if (board) {
+      setCurrentBoard(board);
     }
-  }, [currentBoard, setLocation, toast]);
+  }, [board, setCurrentBoard]);
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
-    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    queryKey: ["/api/boards", boardId, "tasks"],
     queryFn: async () => {
-      const res = await fetch(`/api/boards/${currentBoard?.id}/tasks`);
+      const res = await fetch(`/api/boards/${boardId}/tasks`);
       if (!res.ok) {
         throw new Error("Fehler beim Laden der Tasks");
       }
       return res.json();
     },
-    enabled: !!currentBoard,
+    enabled: !!boardId && !isNaN(boardId),
   });
 
   const updateBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
-      if (!currentBoard?.id) return null;
-
-      const res = await apiRequest(
-        "PATCH",
-        `/api/boards/${currentBoard.id}`,
-        data
-      );
-
-      if (!res.ok) {
-        throw new Error("Fehler beim Aktualisieren des Boards");
-      }
-
-      return res.json();
+      if (!boardId) return null;
+      return await apiRequest("PATCH", `/api/boards/${boardId}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id],
+        queryKey: ["/api/boards", boardId],
       });
       toast({ title: "Board erfolgreich aktualisiert" });
       setShowEditForm(false);
@@ -84,39 +85,32 @@ export default function Board() {
 
   const toggleFavorite = useMutation({
     mutationFn: async () => {
-      if (!currentBoard?.id) return null;
-      return await apiRequest('PATCH', `/api/boards/${currentBoard.id}/favorite`);
+      if (!boardId) return null;
+      return await apiRequest('PATCH', `/api/boards/${boardId}/favorite`);
     },
     onSuccess: () => {
-      // Set the current board's favorite status optimistically
-      if (currentBoard) {
+      // Update the board data optimistically
+      if (board) {
         const updatedBoard = {
-          ...currentBoard,
-          isFavorite: !currentBoard.isFavorite
+          ...board,
+          isFavorite: !board.isFavorite
         };
         setCurrentBoard(updatedBoard);
       }
       // Invalidate queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
-      if (currentProject?.id) {
-        queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
       toast({ title: "Favoriten-Status aktualisiert" });
     },
   });
 
   const updateTask = useMutation({
     mutationFn: async (updatedTask: Task) => {
-      try {
-        return await apiRequest<Task>("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
-      } catch (error) {
-        console.error("Task update error:", error);
-        throw new Error("Fehler beim Aktualisieren des Tasks");
-      }
+      return await apiRequest<Task>("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+        queryKey: ["/api/boards", boardId, "tasks"],
       });
       toast({ title: "Task erfolgreich aktualisiert" });
     },
@@ -159,7 +153,7 @@ export default function Board() {
         task.order = index;
       });
 
-      queryClient.setQueryData(["/api/boards", currentBoard?.id, "tasks"], updatedTasks);
+      queryClient.setQueryData(["/api/boards", boardId, "tasks"], updatedTasks);
 
       await updateTask.mutateAsync({
         ...draggedTask,
@@ -169,7 +163,7 @@ export default function Board() {
     } catch (error) {
       console.error("Fehler beim Aktualisieren:", error);
       queryClient.invalidateQueries({
-        queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+        queryKey: ["/api/boards", boardId, "tasks"],
       });
       toast({
         title: "Fehler beim Verschieben",
@@ -183,12 +177,20 @@ export default function Board() {
     await updateTask.mutateAsync(updatedTask);
   };
 
-  if (!currentBoard) return null;
-
-  if (tasksLoading) {
+  if (isBoardLoading || tasksLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-lg text-muted-foreground">Laden...</p>
+      </div>
+    );
+  }
+
+  if (boardError || !board) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg text-muted-foreground">
+          Fehler: {boardError?.message || "Board nicht gefunden"}
+        </p>
       </div>
     );
   }
@@ -198,10 +200,10 @@ export default function Board() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{currentBoard.title}</h1>
-            {currentProject && (
+            <h1 className="text-3xl font-bold">{board.title}</h1>
+            {board.projectTitle && (
               <p className="text-sm text-muted-foreground mt-1">
-                Projekt: {currentProject.title}
+                Projekt: {board.projectTitle}
               </p>
             )}
           </div>
@@ -213,7 +215,7 @@ export default function Board() {
               className="hover:bg-yellow-100"
             >
               <Star
-                className={`h-5 w-5 ${currentBoard.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
+                className={`h-5 w-5 ${board.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
               />
             </Button>
             <Button
@@ -229,7 +231,8 @@ export default function Board() {
         <BoardSelector />
       </div>
 
-      <div className="flex-1 overflow-x-auto">
+      <div className="flex-1 overflow-x-auto relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-lg -z-10" />
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-6 pb-4">
             {defaultColumns.map((column) => {
@@ -253,9 +256,11 @@ export default function Board() {
       <BoardForm
         open={showEditForm}
         onClose={() => setShowEditForm(false)}
-        defaultValues={currentBoard}
+        defaultValues={board}
         onSubmit={(data) => updateBoard.mutate(data)}
       />
     </div>
   );
 }
+
+export default Board;
