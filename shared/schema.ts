@@ -38,7 +38,7 @@ export const projects = pgTable("projects", {
   isFavorite: boolean("is_favorite").default(false),
 });
 
-// Update boards table to include teamIds array
+// Update boards table to include teamIds array and assignedUserIds array
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -46,6 +46,7 @@ export const boards = pgTable("boards", {
   projectId: integer("project_id"),
   creatorId: integer("creator_id").notNull(),
   teamIds: integer("team_ids").array().default([]),
+  assignedUserIds: integer("assigned_user_ids").array().default([]),
   isFavorite: boolean("is_favorite").default(false),
 });
 
@@ -148,6 +149,7 @@ export const insertBoardSchema = createInsertSchema(boards)
     projectId: z.number().int().positive("Project ID must be positive").nullable().optional(),
     creatorId: z.number().int().positive("Creator ID is required"),
     teamIds: z.array(z.number().int()).default([]),
+    assignedUserIds: z.array(z.number().int()).default([]),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -448,9 +450,11 @@ export const updateBoardSchema = insertBoardSchema
     description: true,
     projectId: true,
     teamIds: true,
+    assignedUserIds: true,
   })
   .extend({
     teamIds: z.array(z.number().int()).default([]),
+    assignedUserIds: z.array(z.number().int()).default([]),
   });
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;
 

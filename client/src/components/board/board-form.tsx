@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertBoardSchema, type InsertBoard, type Project, type Team } from "@shared/schema";
+import { insertBoardSchema, type InsertBoard, type Project, type Team, type User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -61,6 +61,17 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
@@ -69,6 +80,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       projectId: defaultValues?.projectId || currentProject?.id,
       creatorId: user?.id,
       teamIds: defaultValues?.teamIds || [],
+      assignedUserIds: defaultValues?.assignedUserIds || [],
     },
   });
 
@@ -191,6 +203,28 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                       options={teams.map(team => ({
                         value: String(team.id),
                         label: team.name
+                      }))}
+                      onChange={(values) => field.onChange(values.map(Number))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="assignedUserIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Benutzer zuweisen</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      placeholder="Benutzer auswählen..."
+                      selected={field.value.map(String)}
+                      options={users.map(user => ({
+                        value: String(user.id),
+                        label: user.username
                       }))}
                       onChange={(values) => field.onChange(values.map(Number))}
                     />
