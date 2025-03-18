@@ -20,11 +20,16 @@ export default function AllOKRs() {
   const { data: objectives = [], isLoading } = useQuery<Objective[]>({
     queryKey: ["/api/objectives"],
     queryFn: async () => {
+      console.log("Fetching objectives...");
       const response = await fetch("/api/objectives");
       if (!response.ok) {
-        throw new Error("Failed to fetch objectives");
+        const error = await response.json();
+        console.error("Error fetching objectives:", error);
+        throw new Error(error.message || "Failed to fetch objectives");
       }
-      return response.json();
+      const data = await response.json();
+      console.log("Received objectives:", data);
+      return data;
     },
   });
 
@@ -58,6 +63,7 @@ export default function AllOKRs() {
     );
   }
 
+  console.log("Rendering objectives:", objectives);
   const favoriteOKRs = objectives.filter(o => o.isFavorite);
   const nonFavoriteOKRs = objectives.filter(o => !o.isFavorite);
 
