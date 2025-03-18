@@ -339,8 +339,8 @@ export class DatabaseStorage implements IStorage {
 
     const boardData = {
       ...updateBoard,
-      teamIds: Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : currentBoard.teamIds,
-      assignedUserIds: Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : currentBoard.assignedUserIds,
+      teamIds: Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : currentBoard.teamIds || [],
+      assignedUserIds: Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : currentBoard.assignedUserIds || [],
     };
 
     console.log("Prepared board data for update:", boardData);
@@ -354,7 +354,7 @@ export class DatabaseStorage implements IStorage {
           description: boardData.description ?? currentBoard.description,
           projectId: boardData.projectId ?? currentBoard.projectId,
           teamIds: boardData.teamIds,
-          assignedUserIds: boardData.assignedUserIds,
+          assignedUserIds: sql`array[${sql.join(boardData.assignedUserIds, ",")}]::integer[]`,
         })
         .where(eq(boards.id, id))
         .returning();
