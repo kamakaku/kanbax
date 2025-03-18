@@ -126,7 +126,7 @@ export default function Dashboard() {
 
           <Card 
             className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-            onClick={() => setLocation("/okr")}
+            onClick={() => setLocation("/all-okrs")}
           >
             <CardHeader className="py-4">
               <CardTitle>OKR Progress</CardTitle>
@@ -139,7 +139,7 @@ export default function Dashboard() {
 
           <Card 
             className="bg-gradient-to-br from-primary/5 to-primary/10 border-none shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-            onClick={() => setLocation("/okr")}
+            onClick={() => setLocation("/all-okrs")}
           >
             <CardHeader className="py-4">
               <CardTitle>Erreichte OKRs</CardTitle>

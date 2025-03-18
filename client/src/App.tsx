@@ -21,7 +21,6 @@ import NotFound from "@/pages/not-found";
 import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
 import Profile from "@/pages/profile";
-import OKRPage from "@/pages/okr";
 import AllOKRs from "@/pages/all-okrs";
 import OKRDetailPage from "@/pages/okr-detail";
 import TeamsPage from "@/pages/teams";
@@ -163,7 +162,6 @@ function AuthenticatedApp() {
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/all-boards" component={() => <ProtectedRoute component={AllBoards} />} />
       <Route path="/all-okrs" component={() => <ProtectedRoute component={AllOKRs} />} />
-      <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />
       <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />

@@ -24,52 +24,24 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
     },
   });
 
-  const { data: keyResults = [], isLoading: isLoadingKeyResults } = useQuery<KeyResult[]>({
-    queryKey: ["/api/key-results"],
-    queryFn: async () => {
-      const response = await fetch("/api/key-results");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Key Results");
-      }
-      return response.json();
-    },
-  });
-
-  if (isLoadingObjectives || isLoadingKeyResults) {
+  if (isLoadingObjectives) {
     return <div className="text-center py-8">Lade OKRs...</div>;
   }
 
   // Filter objectives for this project and that are not archived
   const activeObjectives = objectives.filter(obj => obj.projectId === projectId && obj.status !== "archived");
 
-  // Calculate progress for each objective based on its key results
-  const objectivesWithProgress = activeObjectives.map(objective => {
-    const objectiveKeyResults = keyResults.filter(kr => kr.objectiveId === objective.id);
-    let progress = 0;
-
-    if (objectiveKeyResults.length > 0) {
-      const totalProgress = objectiveKeyResults.reduce((sum, kr) => {
-        // Convert progress to percentage based on current and target values
-        const krProgress = kr.currentValue ? (kr.currentValue / kr.targetValue) * 100 : 0;
-        return sum + krProgress;
-      }, 0);
-      progress = Math.round(totalProgress / objectiveKeyResults.length);
-    }
-
-    return { ...objective, calculatedProgress: progress };
-  });
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-semibold">OKRs</h3>
-        <Button onClick={() => setLocation(`/okr?projectId=${projectId}`)} variant="outline">
+        <Button onClick={() => setLocation(`/all-okrs`)} variant="outline">
           <Plus className="h-4 w-4 mr-2" />
           Neues OKR
         </Button>
       </div>
 
-      {objectivesWithProgress.length === 0 ? (
+      {activeObjectives.length === 0 ? (
         <Card className="bg-muted/50">
           <CardContent className="py-6 text-center">
             <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -77,7 +49,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
               Diesem Projekt sind noch keine OKRs zugeordnet.
             </p>
             <Button
-              onClick={() => setLocation(`/okr?projectId=${projectId}`)}
+              onClick={() => setLocation(`/all-okrs`)}
               variant="outline"
               className="mt-4"
             >
@@ -88,7 +60,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {objectivesWithProgress.map((objective) => (
+          {activeObjectives.map((objective) => (
             <Card
               key={objective.id}
               className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
@@ -101,10 +73,10 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
                 <CardDescription className="text-sm mt-2">
                   <div className="flex items-center justify-between">
                     <span>Fortschritt</span>
-                    <span className="font-medium">{objective.calculatedProgress}%</span>
+                    <span className="font-medium">{objective.progress || 0}%</span>
                   </div>
                   <Progress 
-                    value={objective.calculatedProgress} 
+                    value={objective.progress || 0} 
                     className="h-2 mt-2"
                   />
                 </CardDescription>
