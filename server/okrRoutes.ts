@@ -7,7 +7,7 @@ import {
 import { eq } from 'drizzle-orm';
 
 export function registerOkrRoutes(app: Express) {
-  // Single Objective Endpoint (placing this first for priority)
+  // Single Objective Endpoint
   app.get("/api/objectives/:id", async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -54,6 +54,52 @@ export function registerOkrRoutes(app: Express) {
     } catch (error) {
       console.error("Error fetching objective:", error);
       res.status(500).json({ message: "Fehler beim Abrufen des Objectives" });
+    }
+  });
+
+  // Objectives Endpoint
+  app.get("/api/objectives", async (_req: Request, res: Response) => {
+    try {
+      console.log("Fetching all objectives with cycles");
+      const objectives = await db.query.objectives.findMany({
+        with: {
+          cycle: true
+        }
+      });
+
+      console.log(`Found ${objectives.length} objectives`);
+
+      // Load key results and calculate progress for each objective
+      const objectivesWithKeyResults = await Promise.all(
+        objectives.map(async (objective) => {
+          console.log(`Loading key results for objective ${objective.id}`);
+          const objectiveKeyResults = await db.select()
+            .from(keyResults)
+            .where(eq(keyResults.objectiveId, objective.id));
+
+          // Calculate progress
+          let progress = 0;
+          if (objectiveKeyResults.length > 0) {
+            const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
+              const krProgress = ((kr.currentValue || 0) / kr.targetValue) * 100;
+              return acc + krProgress;
+            }, 0);
+            progress = Math.round(totalProgress / objectiveKeyResults.length);
+          }
+
+          return {
+            ...objective,
+            progress,
+            keyResults: objectiveKeyResults
+          };
+        })
+      );
+
+      console.log("Successfully processed all objectives with progress");
+      res.json(objectivesWithKeyResults);
+    } catch (error) {
+      console.error("Error fetching objectives:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der Objectives" });
     }
   });
 
@@ -113,46 +159,6 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // Objectives Endpunkte
-  app.get("/api/objectives", async (_req: Request, res: Response) => {
-    try {
-      const objectives = await db.query.objectives.findMany({
-        with: {
-          cycle: true
-        }
-      });
-
-      // Lade KeyResults für jedes Objective
-      const objectivesWithKeyResults = await Promise.all(
-        objectives.map(async (objective) => {
-          const objectiveKeyResults = await db.select()
-            .from(keyResults)
-            .where(eq(keyResults.objectiveId, objective.id));
-
-          // Berechne den Fortschritt basierend auf den KeyResults
-          let progress = 0;
-          if (objectiveKeyResults.length > 0) {
-            const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
-              const krProgress = ((kr.currentValue || 0) / kr.targetValue) * 100;
-              return acc + krProgress;
-            }, 0);
-            progress = Math.round(totalProgress / objectiveKeyResults.length);
-          }
-
-          return {
-            ...objective,
-            progress,
-            keyResults: objectiveKeyResults
-          };
-        })
-      );
-
-      res.json(objectivesWithKeyResults);
-    } catch (error) {
-      console.error("Fehler beim Abrufen der Objectives:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der Objectives" });
-    }
-  });
-
   app.post("/api/objectives", async (req: Request, res: Response) => {
     const result = insertObjectiveSchema.safeParse(req.body);
     if (!result.success) {
