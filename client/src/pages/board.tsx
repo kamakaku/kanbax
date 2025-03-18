@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Board, type Column, type Task, type InsertBoard, type Team } from "@shared/schema";
+import { type Board, type Column, type Task, type InsertBoard } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
@@ -10,10 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star, Users } from "lucide-react";
+import { Pencil, Star } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { GlassCard } from "@/components/ui/glass-card";
-import { TeamAssignmentDialog } from "@/components/board/team-assignment-dialog";
 
 const defaultColumns = [
   { id: "backlog", title: "backlog" },
@@ -30,7 +29,6 @@ export function Board() {
   const [, setLocation] = useLocation();
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
-  const [showTeamDialog, setShowTeamDialog] = useState(false);
 
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
@@ -43,16 +41,6 @@ export function Board() {
       return response.json();
     },
     enabled: !!boardId && !isNaN(boardId),
-  });
-
-  // Fetch teams data
-  const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: ["/api/teams"],
-    queryFn: async () => {
-      const res = await fetch("/api/teams");
-      if (!res.ok) return [];
-      return res.json();
-    },
   });
 
   // Update store when board data is loaded
@@ -238,14 +226,6 @@ export function Board() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowTeamDialog(true)}
-              className="hover:bg-muted"
-            >
-              <Users className="h-4 w-4" />
-            </Button>
           </div>
         </div>
         <BoardSelector />
@@ -278,14 +258,6 @@ export function Board() {
         onClose={() => setShowEditForm(false)}
         defaultValues={board}
         onSubmit={(data) => updateBoard.mutate(data)}
-      />
-
-      <TeamAssignmentDialog
-        open={showTeamDialog}
-        onOpenChange={setShowTeamDialog}
-        boardId={boardId}
-        currentTeams={board?.teams || []}
-        allTeams={teams}
       />
     </div>
   );

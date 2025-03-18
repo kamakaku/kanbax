@@ -1,7 +1,6 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertBoardSchema, type InsertBoard, type Project } from "@shared/schema";
+import { insertBoardSchema, type InsertBoard, type Project, type Team } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -24,8 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface BoardFormProps {
   open: boolean;
@@ -56,17 +57,30 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
-  const form = useForm<InsertBoard>({
-    resolver: zodResolver(insertBoardSchema),
-    defaultValues: defaultValues || {
-      title: "",
-      description: "",
-      projectId: currentProject?.id,
-      creatorId: user.id,
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
+      }
+      return response.json();
     },
   });
 
-  const handleSubmit = async (data: InsertBoard) => {
+  const form = useForm<InsertBoard & { teamIds: number[] }>({
+    resolver: zodResolver(insertBoardSchema),
+    defaultValues: {
+      ...defaultValues,
+      title: defaultValues?.title || "",
+      description: defaultValues?.description || "",
+      projectId: defaultValues?.projectId || currentProject?.id,
+      creatorId: user.id,
+      teamIds: defaultValues?.teams?.map(t => t.id) || [],
+    },
+  });
+
+  const handleSubmit = async (data: InsertBoard & { teamIds: number[] }) => {
     try {
       if (onSubmit) {
         await onSubmit(data);
@@ -75,7 +89,8 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           title: data.title,
           description: data.description,
           projectId: data.projectId || null,
-          creatorId: user.id
+          creatorId: user.id,
+          teamIds: data.teamIds,
         };
 
         const response = await fetch('/api/boards', {
@@ -91,7 +106,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         }
 
         const newBoard = await response.json();
-        console.log("Server response with new board:", newBoard);
 
         queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
         if (currentProject?.id) {
@@ -178,6 +192,45 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="teamIds"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Teams zuweisen</FormLabel>
+                  <ScrollArea className="h-[200px] border rounded-md p-4">
+                    <div className="space-y-4">
+                      {teams.map((team) => (
+                        <div key={team.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`team-${team.id}`}
+                            checked={form.watch("teamIds")?.includes(team.id)}
+                            onCheckedChange={(checked) => {
+                              const currentTeams = form.getValues("teamIds") || [];
+                              if (checked) {
+                                form.setValue("teamIds", [...currentTeams, team.id]);
+                              } else {
+                                form.setValue(
+                                  "teamIds",
+                                  currentTeams.filter((id) => id !== team.id)
+                                );
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`team-${team.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {team.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </FormItem>
               )}
             />
