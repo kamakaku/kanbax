@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type Board, type InsertBoard, insertBoardSchema } from "@shared/schema";
+import { type Board } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, KanbanSquare } from "lucide-react";
+import { Plus, KanbanSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import {
   Form,
   FormControl,
@@ -26,24 +27,29 @@ interface BoardListProps {
   projectId: number;
 }
 
+const boardFormSchema = z.object({
+  title: z.string().min(1, "Titel wird benötigt"),
+  description: z.string().optional(),
+});
+
+type BoardFormValues = z.infer<typeof boardFormSchema>;
+
 export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
-  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { setCurrentBoard } = useStore();
 
-  const form = useForm<InsertBoard>({
-    resolver: zodResolver(insertBoardSchema),
+  const form = useForm<BoardFormValues>({
+    resolver: zodResolver(boardFormSchema),
     defaultValues: {
       title: "",
       description: "",
-      projectId,
     },
   });
 
-  const { data: boards, isLoading } = useQuery<Board[]>({
+  const { data: boards = [], isLoading } = useQuery<Board[]>({
     queryKey: [`/api/projects/${projectId}/boards`],
     queryFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/boards`);
@@ -59,68 +65,49 @@ export function BoardList({ projectId }: BoardListProps) {
     setLocation("/board");
   };
 
-  const handleEditClick = (e: React.MouseEvent, board: Board) => {
-    e.stopPropagation();
-    setEditingBoard(board);
-    form.reset({
-      title: board.title,
-      description: board.description || "",
-      projectId: board.projectId,
-    });
-    setShowForm(true);
-  };
-
-  const handleCreateBoard = () => {
-    setEditingBoard(null);
-    form.reset({
-      title: "",
-      description: "",
-      projectId,
-    });
-    setShowForm(true);
-  };
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: BoardFormValues) => {
     if (isSubmitting) return;
 
     try {
       setIsSubmitting(true);
-      const formData = form.getValues();
-
-      // Ensure projectId is included
-      const data = {
-        ...formData,
-        projectId,
-      };
+      console.log("Creating board with data:", { ...values, projectId });
 
       const response = await fetch(`/api/projects/${projectId}/boards`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...values,
+          projectId: Number(projectId),
+        }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to create board");
+        throw new Error(error.message || "Fehler beim Erstellen des Boards");
       }
 
       const newBoard = await response.json();
+      console.log("Created board:", newBoard);
+
       await queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
 
       setCurrentBoard(newBoard);
-      setLocation("/board");
-      toast({ title: "Board erfolgreich erstellt" });
       setShowForm(false);
       form.reset();
-    } catch (error) {
-      console.error("Error:", error);
+      setLocation("/board");
+
       toast({
-        title: "Fehler",
+        title: "Board erfolgreich erstellt",
+        description: `Das Board "${newBoard.title}" wurde erstellt.`,
+      });
+    } catch (error) {
+      console.error("Error creating board:", error);
+      toast({
+        title: "Fehler beim Erstellen des Boards",
         description: error instanceof Error ? error.message : "Ein unerwarteter Fehler ist aufgetreten",
         variant: "destructive",
       });
@@ -141,13 +128,13 @@ export function BoardList({ projectId }: BoardListProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Boards</h2>
-        <Button onClick={handleCreateBoard}>
+        <Button onClick={() => setShowForm(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Neues Board
         </Button>
       </div>
 
-      {!boards?.length ? (
+      {!boards.length ? (
         <Card className="bg-muted/50">
           <CardContent className="py-6 text-center">
             <KanbanSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -155,7 +142,7 @@ export function BoardList({ projectId }: BoardListProps) {
               Diesem Projekt sind noch keine Boards zugeordnet.
             </p>
             <Button
-              onClick={handleCreateBoard}
+              onClick={() => setShowForm(true)}
               variant="outline"
               className="mt-4"
             >
@@ -170,21 +157,12 @@ export function BoardList({ projectId }: BoardListProps) {
             <Card
               key={board.id}
               className="relative hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => handleBoardClick(board)}
             >
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-2 bg-background/80 hover:bg-background"
-                onClick={(e) => handleEditClick(e, board)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <div onClick={() => handleBoardClick(board)}>
-                <CardHeader>
-                  <CardTitle>{board.title}</CardTitle>
-                  <CardDescription>{board.description}</CardDescription>
-                </CardHeader>
-              </div>
+              <CardHeader>
+                <CardTitle>{board.title}</CardTitle>
+                <CardDescription>{board.description}</CardDescription>
+              </CardHeader>
             </Card>
           ))}
         </div>
@@ -193,56 +171,59 @@ export function BoardList({ projectId }: BoardListProps) {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingBoard ? "Board bearbeiten" : "Neues Board erstellen"}
-            </DialogTitle>
+            <DialogTitle>Neues Board erstellen</DialogTitle>
             <DialogDescription>
               Fügen Sie hier die Details für Ihr Board hinzu. Ein Board hilft Ihnen, Aufgaben und deren Status zu organisieren.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Mein neues Board" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titel</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Mein neues Board" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Beschreiben Sie Ihr Board..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beschreibung</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Beschreiben Sie Ihr Board..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting 
-                ? "Board wird erstellt..." 
-                : (editingBoard ? "Board aktualisieren" : "Board erstellen")
-              }
-            </Button>
-          </form>
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting 
+                  ? "Board wird erstellt..." 
+                  : "Board erstellen"
+                }
+              </Button>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
