@@ -74,17 +74,15 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         // Log the raw form data
         console.log("Raw form data:", data);
 
-        // Prepare the data
         const submitData = {
           title: data.title,
           description: data.description,
           projectId: data.projectId || null,
-          creatorId: user.id, // Ensure creator ID is set
+          creatorId: user.id
         };
 
         console.log("Processed submit data:", submitData);
 
-        // Use the simplified endpoint
         const endpoint = '/api/boards';
         console.log("Sending request to endpoint:", endpoint);
 
@@ -106,6 +104,9 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         console.log("Server response with new board:", newBoard);
 
         queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+        if (currentProject?.id) {
+          queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
+        }
 
         toast({ title: "Board erfolgreich erstellt" });
         form.reset();
