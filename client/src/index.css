@@ -36,3 +36,69 @@
   background: linear-gradient(135deg, #191f1f 0%, #1f2525 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
+
+/* Enhanced glassmorphism and material design styles */
+.card {
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1),
+              0 8px 24px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2),
+              0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+/* Primary color accents and gradients */
+.text-primary {
+  color: #ffff01 !important;
+}
+
+.bg-primary\/10 {
+  background: rgba(255, 255, 1, 0.1) !important;
+}
+
+.bg-primary\/20 {
+  background: rgba(255, 255, 1, 0.2) !important;
+}
+
+/* Button styles */
+.btn-primary {
+  background: linear-gradient(135deg, rgba(255, 255, 1, 0.9), rgba(255, 255, 1, 0.7)) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 1, 0.2) !important;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 1, 1), rgba(255, 255, 1, 0.8)) !important;
+  transform: translateY(-1px);
+}
+
+/* Dialog and modal styles */
+.dialog-content,
+.modal-content {
+  background: linear-gradient(135deg, rgba(25, 31, 31, 0.95), rgba(31, 37, 37, 0.95)) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Input and form field styles */
+.input,
+.select,
+.textarea {
+  background: rgba(25, 31, 31, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: rgba(255, 255, 1, 0.3) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 1, 0.1);
+}
