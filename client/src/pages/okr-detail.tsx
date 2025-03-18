@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Objective, type KeyResult, type User } from "@shared/schema";
@@ -7,7 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star, ChevronDown, ChevronRight } from "lucide-react";
+import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star } from "lucide-react";
+import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
 import { format } from "date-fns";
@@ -25,7 +25,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import React from 'react';
 
 interface ChecklistItem {
   title: string;
@@ -352,40 +351,39 @@ export function OKRDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {keyResults.map((kr) => (
-                <React.Fragment key={kr.id}>
-                  <TableRow 
-                    className={cn(
-                      "cursor-pointer hover:bg-muted/50",
-                      kr.currentValue === 100 && "bg-green-50 hover:bg-green-100"
-                    )} 
-                    onClick={() => toggleRow(kr.id)}
-                  >
+              {keyResults.map((kr) => {
+                const krProgress = kr.currentValue || 0;
+                const maxValue = kr.type === "checklist" 
+                  ? kr.checklistItems?.length || 0
+                  : kr.targetValue;
+                const currentValue = kr.type === "checklist"
+                  ? kr.checklistItems?.filter(item => 
+                      typeof item === 'string' 
+                        ? JSON.parse(item).completed 
+                        : item.completed
+                    ).length || 0
+                  : krProgress;
+
+                return (
+                  <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(kr.id)}>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        {expandedRows.has(kr.id) ? (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        {kr.currentValue === 100 && (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        )}
-                      </div>
+                      {progress === 100 && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{kr.title}</TableCell>
                     <TableCell>{kr.description}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Progress 
-                          value={kr.currentValue || 0} 
+                          value={krProgress} 
                           className={cn(
                             "flex-1",
-                            kr.currentValue === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                            krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
                           )} 
                         />
                         <span className="text-sm text-muted-foreground w-12 text-right">
-                          {(kr.currentValue || 0)}%
+                          {krProgress}%
                         </span>
                       </div>
                     </TableCell>
@@ -402,69 +400,8 @@ export function OKRDetailPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                  {expandedRows.has(kr.id) && (
-                    <TableRow className="bg-muted/30">
-                      <TableCell colSpan={5}>
-                        <div className="pl-8 py-2">
-                          {kr.type === "checklist" && kr.checklistItems && (
-                            <div className="space-y-2">
-                              {kr.checklistItems.map((item, index) => {
-                                const checklistItem = typeof item === 'string' ? JSON.parse(item) : item;
-                                return (
-                                  <div key={index} className="flex items-center gap-2">
-                                    <Checkbox
-                                      checked={checklistItem.completed}
-                                      onCheckedChange={(checked) => handleChecklistItemUpdate(kr, index, checked as boolean)}
-                                    />
-                                    <span className={cn(
-                                      "text-sm",
-                                      checklistItem.completed && "line-through text-muted-foreground"
-                                    )}>
-                                      {checklistItem.title}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                          {kr.type === "number" && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-4">
-                                <span className="text-sm text-muted-foreground">Aktueller Wert:</span>
-                                <Input
-                                  type="number"
-                                  value={editingProgress[kr.id] ?? kr.currentValue}
-                                  onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                                  onBlur={() => handleProgressInputBlur(kr)}
-                                  className="w-24"
-                                />
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <span className="text-sm text-muted-foreground">Zielwert:</span>
-                                <span className="text-sm">{kr.targetValue}</span>
-                              </div>
-                            </div>
-                          )}
-                          {kr.type === "binary" && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-4">
-                                <span className="text-sm text-muted-foreground">Status:</span>
-                                <Checkbox
-                                  checked={kr.currentValue === 100}
-                                  onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
-                                />
-                                <span className="text-sm">
-                                  {kr.currentValue === 100 ? "Abgeschlossen" : "Offen"}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </React.Fragment>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
