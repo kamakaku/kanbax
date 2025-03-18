@@ -33,7 +33,6 @@ export function Board() {
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
 
-  // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
     queryKey: ["/api/boards", boardId],
     queryFn: async () => {
@@ -46,7 +45,6 @@ export function Board() {
     enabled: !!boardId && !isNaN(boardId),
   });
 
-  // Update store when board data is loaded
   useEffect(() => {
     if (board) {
       setCurrentBoard(board);
@@ -72,17 +70,16 @@ export function Board() {
         title: data.title,
         description: data.description,
         projectId: data.projectId,
-        teamIds: data.teamIds,
+        teamIds: data.teamIds || [],
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/boards", boardId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
       toast({ title: "Board erfolgreich aktualisiert" });
       setShowEditForm(false);
     },
     onError: (error) => {
+      console.error("Update error:", error);
       toast({
         title: "Fehler beim Aktualisieren",
         description: error.message,
@@ -97,7 +94,6 @@ export function Board() {
       return await apiRequest('PATCH', `/api/boards/${boardId}/favorite`);
     },
     onSuccess: () => {
-      // Update the board data optimistically
       if (board) {
         const updatedBoard = {
           ...board,
@@ -105,7 +101,6 @@ export function Board() {
         };
         setCurrentBoard(updatedBoard);
       }
-      // Invalidate queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
       toast({ title: "Favoriten-Status aktualisiert" });
@@ -215,9 +210,7 @@ export function Board() {
               </p>
             )}
 
-            {/* Teams and Users Display */}
             <div className="flex flex-col gap-2 mt-4">
-              {/* Teams */}
               {board?.teams && board.teams.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Teams:</span>
@@ -231,7 +224,6 @@ export function Board() {
                 </div>
               )}
 
-              {/* Users */}
               {board?.users && board.users.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Zugewiesen an:</span>
@@ -302,7 +294,10 @@ export function Board() {
       <BoardForm
         open={showEditForm}
         onClose={() => setShowEditForm(false)}
-        defaultValues={board}
+        defaultValues={{
+          ...board,
+          teamIds: board?.teams?.map(team => team.id) || [],
+        }}
         onSubmit={async (data) => {
           await updateBoard.mutateAsync(data);
         }}

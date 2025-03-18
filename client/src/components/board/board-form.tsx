@@ -30,7 +30,7 @@ import { useLocation } from "wouter";
 interface BoardFormProps {
   open: boolean;
   onClose: () => void;
-  defaultValues?: Partial<InsertBoard & { teams?: Team[] }>;
+  defaultValues?: Partial<InsertBoard>;
   onSubmit?: (data: InsertBoard) => Promise<void>;
 }
 
@@ -41,9 +41,14 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
   const [, setLocation] = useLocation();
   const { user } = useAuth();
 
-  if (!user) {
-    return null;
-  }
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) throw new Error("Fehler beim Laden der Teams");
+      return response.json();
+    },
+  });
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -56,25 +61,14 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
-  const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: ["/api/teams"],
-    queryFn: async () => {
-      const response = await fetch("/api/teams");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Teams");
-      }
-      return response.json();
-    },
-  });
-
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
       title: defaultValues?.title || "",
       description: defaultValues?.description || "",
       projectId: defaultValues?.projectId || currentProject?.id,
-      creatorId: user.id,
-      teamIds: defaultValues?.teams?.map(t => t.id) || [],
+      creatorId: user?.id,
+      teamIds: defaultValues?.teamIds || [],
     },
   });
 
@@ -85,21 +79,14 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       } else {
         const response = await fetch('/api/boards', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: data.title,
-            description: data.description,
-            projectId: data.projectId || null,
-            creatorId: user.id,
-            teamIds: data.teamIds,
+            ...data,
+            creatorId: user?.id,
           })
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to create board');
-        }
+        if (!response.ok) throw new Error('Failed to create board');
 
         const newBoard = await response.json();
         queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
