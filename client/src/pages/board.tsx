@@ -24,7 +24,7 @@ const defaultColumns = [
 export default function Board() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { currentBoard, currentProject } = useStore();
+  const { currentBoard, currentProject, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
 
   useEffect(() => {
@@ -87,15 +87,18 @@ export default function Board() {
       return await apiRequest('PATCH', `/api/boards/${currentBoard.id}/favorite`);
     },
     onSuccess: () => {
-      // Invalidate all board-related queries to ensure UI updates
-      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject?.id}/boards`] });
-      // Optimistically update the current board in the cache
+      // Set the current board's favorite status optimistically
       if (currentBoard) {
-        queryClient.setQueryData(["/api/boards", currentBoard.id], {
+        const updatedBoard = {
           ...currentBoard,
           isFavorite: !currentBoard.isFavorite
-        });
+        };
+        setCurrentBoard(updatedBoard);
+      }
+      // Invalidate queries to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      if (currentProject?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
       }
       toast({ title: "Favoriten-Status aktualisiert" });
     },
@@ -195,6 +198,11 @@ export default function Board() {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold">{currentBoard.title}</h1>
+            {currentProject && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Projekt: {currentProject.title}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Button
@@ -203,7 +211,7 @@ export default function Board() {
               onClick={() => toggleFavorite.mutate()}
               className="hover:bg-yellow-100"
             >
-              <Star 
+              <Star
                 className={`h-5 w-5 ${currentBoard.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
               />
             </Button>
