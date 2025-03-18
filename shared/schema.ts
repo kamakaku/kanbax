@@ -145,6 +145,8 @@ export const insertBoardSchema = createInsertSchema(boards)
     title: z.string().min(1, "Title is required"),
     projectId: z.number().int().positive("Project ID must be positive").nullable().optional(),
     creatorId: z.number().int().positive("Creator ID is required"),
+    teamIds: z.array(z.number().int().positive()).optional(),
+    userIds: z.array(z.number().int().positive()).optional(),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)

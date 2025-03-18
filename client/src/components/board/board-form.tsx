@@ -81,7 +81,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
   const form = useForm<InsertBoard & { teamIds: number[]; userIds: number[] }>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
-      ...defaultValues,
       title: defaultValues?.title || "",
       description: defaultValues?.description || "",
       projectId: defaultValues?.projectId || currentProject?.id,
@@ -96,21 +95,19 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       if (onSubmit) {
         await onSubmit(data);
       } else {
-        const submitData = {
-          title: data.title,
-          description: data.description,
-          projectId: data.projectId || null,
-          creatorId: user.id,
-          teamIds: data.teamIds,
-          userIds: data.userIds,
-        };
-
         const response = await fetch('/api/boards', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(submitData)
+          body: JSON.stringify({
+            title: data.title,
+            description: data.description,
+            projectId: data.projectId || null,
+            creatorId: user.id,
+            teamIds: data.teamIds,
+            userIds: data.userIds,
+          })
         });
 
         if (!response.ok) {
@@ -118,7 +115,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         }
 
         const newBoard = await response.json();
-
         queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
         if (currentProject?.id) {
           queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
@@ -130,9 +126,9 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         setLocation(`/boards/${newBoard.id}`);
       }
     } catch (error) {
-      console.error("Error creating board:", error);
+      console.error("Error creating/updating board:", error);
       toast({
-        title: "Fehler beim Erstellen des Boards",
+        title: "Fehler beim Speichern des Boards",
         variant: "destructive",
       });
     }

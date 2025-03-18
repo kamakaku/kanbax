@@ -66,9 +66,15 @@ export function Board() {
   });
 
   const updateBoard = useMutation({
-    mutationFn: async (data: InsertBoard & { teamIds?: number[]; userIds?: number[] }) => {
+    mutationFn: async (data: InsertBoard & { teamIds: number[]; userIds: number[] }) => {
       if (!boardId) return null;
-      return await apiRequest("PATCH", `/api/boards/${boardId}`, data);
+      return await apiRequest("PATCH", `/api/boards/${boardId}`, {
+        title: data.title,
+        description: data.description,
+        projectId: data.projectId,
+        teamIds: data.teamIds,
+        userIds: data.userIds,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -300,7 +306,6 @@ export function Board() {
         defaultValues={board}
         onSubmit={async (data) => {
           await updateBoard.mutateAsync(data);
-          queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
         }}
       />
     </div>
