@@ -16,6 +16,9 @@ export default {
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        slate: {
+          50: "linear-gradient(135deg, #808586 0%, #526262 100%)",
+        },
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
