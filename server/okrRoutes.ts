@@ -70,24 +70,24 @@ export function registerOkrRoutes(app: Express) {
       // Lade KeyResults für jedes Objective
       const objectivesWithKeyResults = await Promise.all(
         objectives.map(async (objective) => {
-          const keyResults = await db.select()
+          const objectiveKeyResults = await db.select()
             .from(keyResults)
             .where(eq(keyResults.objectiveId, objective.id));
 
           // Berechne den Fortschritt basierend auf den KeyResults
           let progress = 0;
-          if (keyResults.length > 0) {
-            const totalProgress = keyResults.reduce((acc, kr) => {
+          if (objectiveKeyResults.length > 0) {
+            const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
               const krProgress = (kr.currentValue / kr.targetValue) * 100;
               return acc + krProgress;
             }, 0);
-            progress = Math.round(totalProgress / keyResults.length);
+            progress = Math.round(totalProgress / objectiveKeyResults.length);
           }
 
           return {
             ...objective,
             progress,
-            keyResults
+            keyResults: objectiveKeyResults
           };
         })
       );
