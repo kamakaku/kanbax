@@ -65,7 +65,11 @@ export function registerOkrRoutes(app: Express) {
   // Objectives Endpunkte
   app.get("/api/objectives", async (_req: Request, res: Response) => {
     try {
-      const objectives = await db.query.objectives.findMany();
+      const objectives = await db.query.objectives.findMany({
+        with: {
+          cycle: true
+        }
+      });
 
       // Lade KeyResults für jedes Objective
       const objectivesWithKeyResults = await Promise.all(
@@ -78,7 +82,7 @@ export function registerOkrRoutes(app: Express) {
           let progress = 0;
           if (objectiveKeyResults.length > 0) {
             const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
-              const krProgress = (kr.currentValue / kr.targetValue) * 100;
+              const krProgress = ((kr.currentValue || 0) / kr.targetValue) * 100;
               return acc + krProgress;
             }, 0);
             progress = Math.round(totalProgress / objectiveKeyResults.length);
@@ -303,6 +307,52 @@ export function registerOkrRoutes(app: Express) {
     } catch (error) {
       console.error("Fehler beim Abrufen der Key Results:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Key Results" });
+    }
+  });
+
+  app.get("/api/objectives/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Objective-ID" });
+    }
+
+    try {
+      const objective = await db.query.objectives.findFirst({
+        where: (objectives, { eq }) => eq(objectives.id, id),
+        with: {
+          cycle: true
+        }
+      });
+
+      if (!objective) {
+        return res.status(404).json({ message: "Objective nicht gefunden" });
+      }
+
+      // Load key results for this objective
+      const objectiveKeyResults = await db.select()
+        .from(keyResults)
+        .where(eq(keyResults.objectiveId, objective.id));
+
+      // Calculate progress based on key results
+      let progress = 0;
+      if (objectiveKeyResults.length > 0) {
+        const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
+          const krProgress = ((kr.currentValue || 0) / kr.targetValue) * 100;
+          return acc + krProgress;
+        }, 0);
+        progress = Math.round(totalProgress / objectiveKeyResults.length);
+      }
+
+      const response = {
+        ...objective,
+        progress,
+        keyResults: objectiveKeyResults
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error("Fehler beim Abrufen des Objectives:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen des Objectives" });
     }
   });
 }

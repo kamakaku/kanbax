@@ -43,13 +43,12 @@ export function OKRDetailPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch all necessary data
-  const { data: objectives = [], isLoading: isLoadingObjectives } = useQuery<Objective[]>({
-    queryKey: ["/api/objectives"],
+  const { data: objective, isLoading: isLoadingObjective } = useQuery<Objective>({
+    queryKey: ["/api/objectives", objectiveId],
     queryFn: async () => {
-      const response = await fetch("/api/objectives");
+      const response = await fetch(`/api/objectives/${objectiveId}`);
       if (!response.ok) {
-        throw new Error("Fehler beim Laden der Objectives");
+        throw new Error("Fehler beim Laden des Objectives");
       }
       return response.json();
     },
@@ -110,7 +109,6 @@ export function OKRDetailPage() {
     if (kr.type === "checkbox") {
       updateData.currentValue = value ? 100 : 0;
     } else if (kr.type === "checklist" && kr.checklistItems) {
-      // Parse checklist items if they're stored as strings
       const items = kr.checklistItems.map(item => 
         typeof item === 'string' ? JSON.parse(item) as ChecklistItem : item
       );
@@ -145,7 +143,6 @@ export function OKRDetailPage() {
   const handleChecklistItemUpdate = async (kr: KeyResult, itemIndex: number, completed: boolean) => {
     if (!kr.checklistItems) return;
 
-    // Parse checklist items if they're stored as strings
     const items = kr.checklistItems.map(item => 
       typeof item === 'string' ? JSON.parse(item) as ChecklistItem : item
     );
@@ -182,11 +179,10 @@ export function OKRDetailPage() {
   });
 
 
-  if (isLoadingObjectives || isLoadingKeyResults) {
+  if (isLoadingObjective || isLoadingKeyResults) {
     return <div className="text-center py-8">Lade OKR Details...</div>;
   }
 
-  const objective = objectives.find(obj => obj.id === objectiveId);
   if (!objective) {
     return <div className="text-center py-8">Objective nicht gefunden.</div>;
   }
@@ -197,14 +193,12 @@ export function OKRDetailPage() {
     ? [users.find(u => u.id === objective.userId)]
     : [];
 
-  // Calculate overall progress based on key results
   const progress = keyResults.length > 0
     ? Math.round(keyResults.reduce((sum, kr) => sum + (kr.currentValue || 0), 0) / keyResults.length)
     : 0;
 
   return (
     <div className="container mx-auto py-6 space-y-8">
-      {/* Objective Card */}
       <div className="flex justify-center">
         <Card className={cn(
           "w-2/3 p-6 relative",
@@ -219,10 +213,27 @@ export function OKRDetailPage() {
                   {progress === 100 && (
                     <CheckCircle2 className="h-5 w-5 text-green-500" />
                   )}
+                </div>
+                <p className="text-muted-foreground">{objective.description}</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="flex -space-x-2 mr-4">
+                  {assignedUsers.map((user) => user && (
+                    <Avatar key={user.id} className="h-10 w-10 border-2 border-background">
+                      {user.avatarUrl ? (
+                        <AvatarImage src={user.avatarUrl} alt={user.username} />
+                      ) : (
+                        <AvatarFallback>
+                          <UserCircle className="h-5 w-5" />
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="ml-2"
                     onClick={() => setIsEditingObjective(true)}
                   >
                     <Edit className="h-4 w-4" />
@@ -238,24 +249,10 @@ export function OKRDetailPage() {
                     />
                   </Button>
                 </div>
-                <p className="text-muted-foreground">{objective.description}</p>
-              </div>
-              <div className="flex -space-x-2">
-                {assignedUsers.map((user) => user && (
-                  <Avatar key={user.id} className="h-12 w-12 border-2 border-background">
-                    {user.avatarUrl ? (
-                      <AvatarImage src={user.avatarUrl} alt={user.username} />
-                    ) : (
-                      <AvatarFallback>
-                        <UserCircle className="h-6 w-6" />
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-4 gap-4 text-sm">
               <div className="space-y-1">
                 <div className="text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
@@ -269,6 +266,13 @@ export function OKRDetailPage() {
                   Status
                 </div>
                 <div>{objective.status}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Zyklus
+                </div>
+                <div>{objective.cycleId ? objective.cycle?.title : "Kein Zyklus"}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-muted-foreground">Verantwortlich</div>
@@ -286,13 +290,18 @@ export function OKRDetailPage() {
                 <span className="text-sm font-medium">Gesamtfortschritt</span>
                 <span className="text-sm text-muted-foreground">{progress}%</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress 
+                value={progress} 
+                className={cn(
+                  "h-2",
+                  progress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                )} 
+              />
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Key Results Section */}
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h4 className="text-lg font-semibold">Key Results</h4>
@@ -458,7 +467,6 @@ export function OKRDetailPage() {
         </Card>
       </div>
 
-      {/* Edit Dialog */}
       <Dialog open={!!editingKR} onOpenChange={(open) => !open && setEditingKR(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -474,7 +482,6 @@ export function OKRDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Objective Dialog */}
       <Dialog open={isEditingObjective} onOpenChange={setIsEditingObjective}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
