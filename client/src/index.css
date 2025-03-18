@@ -20,3 +20,8 @@
     background: linear-gradient(135deg, #808586 0%, #526262 100%);
   }
 }
+
+/* Custom styles */
+[data-component-name="Sidebar"] {
+  background: transparent !important;
+}
