@@ -92,22 +92,26 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
   const handleSubmit = async (data: InsertBoard & { teamIds: number[]; userIds: number[] }) => {
     try {
+      // Assuming MultiSelect components populate selectedTeams and selectedUsers
+      const selectedTeams = teams.filter(team => data.teamIds.includes(team.id));
+      const selectedUsers = users.filter(user => data.userIds.includes(user.id));
+
+
+      const payload = {
+        ...data,
+        teamIds: selectedTeams.map(t => t.id),
+        userIds: selectedUsers.map(u => u.id)
+      };
+
       if (onSubmit) {
-        await onSubmit(data);
+        await onSubmit(payload);
       } else {
         const response = await fetch('/api/boards', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            title: data.title,
-            description: data.description,
-            projectId: data.projectId || null,
-            creatorId: user.id,
-            teamIds: data.teamIds,
-            userIds: data.userIds,
-          })
+          body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
