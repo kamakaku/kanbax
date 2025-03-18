@@ -60,7 +60,7 @@ export default function AllBoards() {
     console.log("Setting current board");
     setCurrentBoard(board);
     // Finally navigate to the board view
-    setLocation("/board");
+    setLocation("/all-boards");
   };
 
   const toggleFavorite = async (board: Board, e: React.MouseEvent) => {

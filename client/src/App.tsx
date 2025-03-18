@@ -13,7 +13,6 @@ import {
   SidebarTrigger 
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target, LineChart, Users } from "lucide-react";
-import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
 import AllProjects from "@/pages/all-projects";
 import Auth from "@/pages/auth";
@@ -172,6 +171,10 @@ function AuthenticatedApp() {
       }} />
       <Route path="/projects" component={() => {
         setLocation("/all-projects");
+        return null;
+      }} />
+      <Route path="/board" component={() => {
+        setLocation("/all-boards");
         return null;
       }} />
       <Route component={NotFound} />
