@@ -59,7 +59,7 @@ export function BoardList({ projectId }: BoardListProps) {
       const res = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
-        data
+        { ...data, projectId }
       );
 
       if (!res.ok) {
@@ -80,6 +80,7 @@ export function BoardList({ projectId }: BoardListProps) {
       form.reset();
     },
     onError: (error: Error) => {
+      console.error("Board creation error:", error);
       toast({
         title: "Fehler beim Erstellen des Boards",
         description: error.message,
@@ -114,6 +115,7 @@ export function BoardList({ projectId }: BoardListProps) {
       form.reset();
     },
     onError: (error: Error) => {
+      console.error("Board update error:", error);
       toast({
         title: "Fehler beim Aktualisieren des Boards",
         description: error.message,
@@ -123,10 +125,14 @@ export function BoardList({ projectId }: BoardListProps) {
   });
 
   const onSubmit = async (data: InsertBoard) => {
-    if (editingBoard) {
-      await updateBoard.mutateAsync({ ...data, id: editingBoard.id });
-    } else {
-      await createBoard.mutateAsync(data);
+    try {
+      if (editingBoard) {
+        await updateBoard.mutateAsync({ ...data, id: editingBoard.id });
+      } else {
+        await createBoard.mutateAsync(data);
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
     }
   };
 
