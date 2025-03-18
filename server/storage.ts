@@ -335,7 +335,7 @@ export class DatabaseStorage implements IStorage {
     console.log("Updating board, received data:", updateBoard);
 
     try {
-      // Get current board
+      // Get current board data
       const [currentBoard] = await db
         .select()
         .from(boards)
@@ -345,34 +345,21 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      // Ensure we have arrays even if they're empty
-      const assignedUserIds = Array.isArray(updateBoard.assignedUserIds) 
-        ? updateBoard.assignedUserIds 
-        : (currentBoard.assignedUserIds || []);
-
-      const teamIds = Array.isArray(updateBoard.teamIds)
-        ? updateBoard.teamIds
-        : (currentBoard.teamIds || []);
-
       // Prepare update data
       const updateData = {
         title: updateBoard.title ?? currentBoard.title,
         description: updateBoard.description ?? currentBoard.description,
         projectId: updateBoard.projectId ?? currentBoard.projectId,
-        teamIds: teamIds,
-        assignedUserIds: assignedUserIds
+        teamIds: updateBoard.teamIds ?? currentBoard.teamIds,
+        assignedUserIds: updateBoard.assignedUserIds ?? currentBoard.assignedUserIds,
       };
 
       console.log("Prepared update data:", updateData);
 
-      // Perform update with raw SQL for arrays
+      // Perform update
       const [updatedBoard] = await db
         .update(boards)
-        .set({
-          ...updateData,
-          assignedUserIds: sql`array[${sql.join(assignedUserIds, ",")}]::integer[]`,
-          teamIds: sql`array[${sql.join(teamIds, ",")}]::integer[]`
-        })
+        .set(updateData)
         .where(eq(boards.id, id))
         .returning();
 

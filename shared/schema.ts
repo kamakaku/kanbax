@@ -38,15 +38,15 @@ export const projects = pgTable("projects", {
   isFavorite: boolean("is_favorite").default(false),
 });
 
-// Update boards table to include teamIds array and assignedUserIds array
+// Update boards table to include correct array definition for assigned_user_ids
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   projectId: integer("project_id"),
   creatorId: integer("creator_id").notNull(),
-  teamIds: integer("team_ids").array().default([]),
-  assignedUserIds: integer("assigned_user_ids").array().default([]),
+  teamIds: integer("team_ids").array(),
+  assignedUserIds: integer("assigned_user_ids").array(),
   isFavorite: boolean("is_favorite").default(false),
 });
 
