@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertBoardSchema, type InsertBoard, type Project, type Team } from "@shared/schema";
+import { insertBoardSchema, type InsertBoard, type Project, type Team, type User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -23,10 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface BoardFormProps {
   open: boolean;
@@ -68,7 +67,18 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
-  const form = useForm<InsertBoard & { teamIds: number[] }>({
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
+  const form = useForm<InsertBoard & { teamIds: number[]; userIds: number[] }>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
       ...defaultValues,
@@ -77,10 +87,11 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       projectId: defaultValues?.projectId || currentProject?.id,
       creatorId: user.id,
       teamIds: defaultValues?.teams?.map(t => t.id) || [],
+      userIds: defaultValues?.users?.map(u => u.id) || [],
     },
   });
 
-  const handleSubmit = async (data: InsertBoard & { teamIds: number[] }) => {
+  const handleSubmit = async (data: InsertBoard & { teamIds: number[]; userIds: number[] }) => {
     try {
       if (onSubmit) {
         await onSubmit(data);
@@ -91,6 +102,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           projectId: data.projectId || null,
           creatorId: user.id,
           teamIds: data.teamIds,
+          userIds: data.userIds,
         };
 
         const response = await fetch('/api/boards', {
@@ -199,38 +211,43 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
             <FormField
               control={form.control}
               name="teamIds"
-              render={() => (
+              render={({ field }) => (
                 <FormItem>
                   <FormLabel>Teams zuweisen</FormLabel>
-                  <ScrollArea className="h-[200px] border rounded-md p-4">
-                    <div className="space-y-4">
-                      {teams.map((team) => (
-                        <div key={team.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`team-${team.id}`}
-                            checked={form.watch("teamIds")?.includes(team.id)}
-                            onCheckedChange={(checked) => {
-                              const currentTeams = form.getValues("teamIds") || [];
-                              if (checked) {
-                                form.setValue("teamIds", [...currentTeams, team.id]);
-                              } else {
-                                form.setValue(
-                                  "teamIds",
-                                  currentTeams.filter((id) => id !== team.id)
-                                );
-                              }
-                            }}
-                          />
-                          <label
-                            htmlFor={`team-${team.id}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {team.name}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
+                  <FormControl>
+                    <MultiSelect
+                      placeholder="Teams auswählen..."
+                      selected={field.value}
+                      options={teams.map(team => ({
+                        value: team.id,
+                        label: team.name
+                      }))}
+                      onChange={(values) => field.onChange(values)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="userIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Benutzer zuweisen</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      placeholder="Benutzer auswählen..."
+                      selected={field.value}
+                      options={users.map(user => ({
+                        value: user.id,
+                        label: user.username
+                      }))}
+                      onChange={(values) => field.onChange(values)}
+                    />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Board, type Column, type Task, type InsertBoard } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Star } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { GlassCard } from "@/components/ui/glass-card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const defaultColumns = [
   { id: "backlog", title: "backlog" },
@@ -206,6 +209,43 @@ export function Board() {
                 Projekt: {board.project.title}
               </p>
             )}
+
+            {/* Teams and Users Display */}
+            <div className="flex flex-col gap-2 mt-4">
+              {/* Teams */}
+              {board.teams && board.teams.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Teams:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {board.teams.map((team) => (
+                      <Badge key={team.id} variant="secondary">
+                        {team.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Users */}
+              {board.users && board.users.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Zugewiesen an:</span>
+                  <div className="flex -space-x-2">
+                    {board.users.map((user) => (
+                      <Avatar key={user.id} className="h-8 w-8 border-2 border-background">
+                        {user.avatarUrl ? (
+                          <AvatarImage src={user.avatarUrl} alt={user.username} />
+                        ) : (
+                          <AvatarFallback>
+                            <UserCircle className="h-4 w-4" />
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
             <Button
@@ -257,7 +297,7 @@ export function Board() {
         open={showEditForm}
         onClose={() => setShowEditForm(false)}
         defaultValues={board}
-        onSubmit={(data) => updateBoard.mutate(data)}
+        onSubmit={async (data) => updateBoard.mutate(data)}
       />
     </div>
   );
