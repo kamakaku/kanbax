@@ -399,6 +399,17 @@ export type Board = typeof boards.$inferSelect & {
     id: number;
     title: string;
   } | null;
+  teams?: {
+    id: number;
+    name: string;
+    role: string;
+  }[];
+  users?: {
+    id: number;
+    username: string;
+    email: string;
+    avatarUrl?: string;
+  }[];
 };
 export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
