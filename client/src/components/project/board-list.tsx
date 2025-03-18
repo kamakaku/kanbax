@@ -54,96 +54,6 @@ export function BoardList({ projectId }: BoardListProps) {
     },
   });
 
-  const createBoard = useMutation({
-    mutationFn: async (data: InsertBoard) => {
-      console.log("Creating board with data:", data); // Debug log
-
-      const res = await apiRequest(
-        "POST",
-        `/api/projects/${projectId}/boards`,
-        { ...data, projectId }
-      );
-
-      console.log("Create board response:", res); // Debug log
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to create board");
-      }
-
-      const newBoard = await res.json();
-      console.log("Created new board:", newBoard); // Debug log
-      return newBoard;
-    },
-    onSuccess: (newBoard) => {
-      console.log("Board creation successful:", newBoard); // Debug log
-      queryClient.invalidateQueries({
-        queryKey: [`/api/projects/${projectId}/boards`],
-      });
-      setCurrentBoard(newBoard);
-      setLocation("/board");
-      toast({ title: "Board erfolgreich erstellt" });
-      setShowForm(false);
-      form.reset();
-    },
-    onError: (error: Error) => {
-      console.error("Board creation error:", error);
-      toast({
-        title: "Fehler beim Erstellen des Boards",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateBoard = useMutation({
-    mutationFn: async (data: InsertBoard & { id: number }) => {
-      const { id, ...updateData } = data;
-      const res = await apiRequest(
-        "PATCH",
-        `/api/boards/${id}`,
-        updateData
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to update board");
-      }
-
-      return res.json();
-    },
-    onSuccess: (updatedBoard) => {
-      queryClient.invalidateQueries({
-        queryKey: [`/api/projects/${projectId}/boards`],
-      });
-      toast({ title: "Board erfolgreich aktualisiert" });
-      setShowForm(false);
-      setEditingBoard(null);
-      form.reset();
-    },
-    onError: (error: Error) => {
-      console.error("Board update error:", error);
-      toast({
-        title: "Fehler beim Aktualisieren des Boards",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = async (data: InsertBoard) => {
-    console.log("Form submitted with data:", data); // Debug log
-    try {
-      if (editingBoard) {
-        await updateBoard.mutateAsync({ ...data, id: editingBoard.id });
-      } else {
-        await createBoard.mutateAsync(data);
-      }
-    } catch (error) {
-      console.error("Form submission error:", error);
-    }
-  };
-
   const handleBoardClick = (board: Board) => {
     setCurrentBoard(board);
     setLocation("/board");
@@ -168,6 +78,44 @@ export function BoardList({ projectId }: BoardListProps) {
       projectId: projectId,
     });
     setShowForm(true);
+  };
+
+  const onSubmit = async (data: InsertBoard) => {
+    try {
+      console.log("Submitting form with data:", { ...data, projectId });
+
+      const res = await apiRequest(
+        "POST",
+        `/api/projects/${projectId}/boards`,
+        { ...data, projectId }
+      );
+
+      console.log("Server response:", res);
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Fehler beim Erstellen des Boards");
+      }
+
+      const newBoard = await res.json();
+
+      queryClient.invalidateQueries({
+        queryKey: [`/api/projects/${projectId}/boards`],
+      });
+
+      setCurrentBoard(newBoard);
+      setLocation("/board");
+      toast({ title: "Board erfolgreich erstellt" });
+      setShowForm(false);
+      form.reset();
+    } catch (error) {
+      console.error("Error creating board:", error);
+      toast({
+        title: "Fehler beim Erstellen des Boards",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -275,13 +223,8 @@ export function BoardList({ projectId }: BoardListProps) {
               <Button 
                 type="submit" 
                 className="w-full"
-                disabled={createBoard.isPending || updateBoard.isPending}
               >
-                {createBoard.isPending || updateBoard.isPending ? (
-                  "Wird gespeichert..."
-                ) : (
-                  editingBoard ? "Board aktualisieren" : "Board erstellen"
-                )}
+                {editingBoard ? "Board aktualisieren" : "Board erstellen"}
               </Button>
             </form>
           </Form>
