@@ -29,3 +29,10 @@
 .bg-white\/30 {
   background: transparent !important;
 }
+
+/* Card styles */
+.card,
+[class*="bg-gradient-to-br from-primary"] {
+  background: linear-gradient(135deg, #191f1f 0%, #1f2525 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
