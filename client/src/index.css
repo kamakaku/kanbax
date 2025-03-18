@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --primary-rgb: 87, 132, 255; /* Entspricht der oklch(65% 0.15 250) Farbe */
+  }
+
   * {
     @apply border-border;
   }

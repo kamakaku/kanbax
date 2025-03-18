@@ -24,7 +24,7 @@ import AllOKRs from "@/pages/all-okrs";
 import OKRDetailPage from "@/pages/okr-detail";
 import TeamsPage from "@/pages/teams";
 import { ProductivityPage } from "@/pages/productivity";
-import BoardDetail from "@/pages/board";
+import { Board } from "@/pages/board";
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -33,6 +33,23 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full overflow-hidden bg-slate-50">
+        {/* Animated Background Pattern */}
+        <div 
+          className="fixed inset-0 -z-10 opacity-20"
+          style={{
+            backgroundImage: `
+              radial-gradient(circle at 50% 50%, rgba(var(--primary-rgb), 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 0% 0%, rgba(var(--primary-rgb), 0.05) 0%, transparent 50%),
+              radial-gradient(circle at 100% 100%, rgba(var(--primary-rgb), 0.05) 0%, transparent 50%),
+              linear-gradient(45deg, transparent 45%, rgba(var(--primary-rgb), 0.02) 50%, transparent 55%),
+              linear-gradient(-45deg, transparent 45%, rgba(var(--primary-rgb), 0.02) 50%, transparent 55%)
+            `,
+            backgroundSize: '100% 100%, 50% 50%, 50% 50%, 20px 20px, 20px 20px',
+            backgroundPosition: 'center, top left, bottom right, center, center',
+            backgroundRepeat: 'no-repeat, no-repeat, no-repeat, repeat, repeat',
+          }}
+        />
+
         <Sidebar className="shrink-0 z-30">
           <div className="flex items-center justify-end px-2 h-12">
             <SidebarTrigger />
@@ -160,7 +177,7 @@ function AuthenticatedApp() {
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/teams" component={() => <ProtectedRoute component={TeamsPage} />} />
       <Route path="/all-boards" component={() => <ProtectedRoute component={AllBoards} />} />
-      <Route path="/boards/:id" component={() => <ProtectedRoute component={BoardDetail} />} />
+      <Route path="/boards/:id" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/all-okrs" component={() => <ProtectedRoute component={AllOKRs} />} />
       <Route path="/all-okrs/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
