@@ -345,21 +345,34 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
+      // Ensure we have arrays even if they're empty
+      const assignedUserIds = Array.isArray(updateBoard.assignedUserIds) 
+        ? updateBoard.assignedUserIds 
+        : (currentBoard.assignedUserIds || []);
+
+      const teamIds = Array.isArray(updateBoard.teamIds)
+        ? updateBoard.teamIds
+        : (currentBoard.teamIds || []);
+
       // Prepare update data
       const updateData = {
         title: updateBoard.title ?? currentBoard.title,
         description: updateBoard.description ?? currentBoard.description,
         projectId: updateBoard.projectId ?? currentBoard.projectId,
-        teamIds: updateBoard.teamIds !== undefined ? updateBoard.teamIds : currentBoard.teamIds,
-        assignedUserIds: updateBoard.assignedUserIds !== undefined ? updateBoard.assignedUserIds : currentBoard.assignedUserIds,
+        teamIds: teamIds,
+        assignedUserIds: assignedUserIds
       };
 
       console.log("Prepared update data:", updateData);
 
-      // Perform update
+      // Perform update with raw SQL for arrays
       const [updatedBoard] = await db
         .update(boards)
-        .set(updateData)
+        .set({
+          ...updateData,
+          assignedUserIds: sql`array[${sql.join(assignedUserIds, ",")}]::integer[]`,
+          teamIds: sql`array[${sql.join(teamIds, ",")}]::integer[]`
+        })
         .where(eq(boards.id, id))
         .returning();
 
