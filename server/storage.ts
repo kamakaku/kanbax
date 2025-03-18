@@ -5,8 +5,7 @@ import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
-import { objectives, type Objective, type InsertObjective } from "@shared/schema"; // Added import for objectives
-
+import { objectives, type Objective, type InsertObjective } from "@shared/schema";
 
 export interface IStorage {
   // Project operations
@@ -23,7 +22,6 @@ export interface IStorage {
   createBoard(board: InsertBoard): Promise<Board>;
   updateBoard(id: number, board: UpdateBoard): Promise<Board>;
   deleteBoard(id: number): Promise<void>;
-  updateBoardUsers(boardId: number, userIds: number[]): Promise<void>;
 
   // Column operations
   getColumns(boardId: number): Promise<Column[]>;
@@ -61,23 +59,6 @@ export interface IStorage {
   updateUserEmail(id: number, email: string): Promise<User>;
   getUsers(): Promise<User[]>;
 
-  // Productivity metrics operations
-  getUserProductivityMetrics(userId: number, days: number): Promise<UserProductivityMetrics[]>;
-  createUserProductivityMetrics(metrics: InsertUserProductivityMetrics): Promise<UserProductivityMetrics>;
-  getTaskDistribution(userId: number): Promise<{ name: string; value: number; }[]>;
-
-  // Task time tracking
-  createTaskTimeEntry(entry: InsertTaskTimeEntry): Promise<TaskTimeEntry>;
-  updateTaskTimeEntry(id: number, endTime: Date): Promise<TaskTimeEntry>;
-
-  // Task state changes
-  createTaskStateChange(change: InsertTaskStateChange): Promise<TaskStateChange>;
-
-  // Board permission operations
-  createBoardMember(member: InsertBoardMember): Promise<BoardMember>;
-  getBoardMembers(boardId: number): Promise<BoardMember[]>;
-
-
   // Team operations
   getTeams(): Promise<Team[]>;
   getTeam(id: number): Promise<Team>;
@@ -85,13 +66,10 @@ export interface IStorage {
   updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team>;
   deleteTeam(id: number): Promise<void>;
 
-  // Team member operations
-  getTeamMembers(): Promise<TeamMember[]>;
-
   // Favorite operations
   toggleProjectFavorite(id: number): Promise<Project>;
   toggleBoardFavorite(id: number): Promise<Board>;
-  toggleObjectiveFavorite(id: number): Promise<Objective>; // Added Objective type
+  toggleObjectiveFavorite(id: number): Promise<Objective>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -234,9 +212,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
+    console.log("Updating board with data:", updateBoard);
     const boardData = {
       ...updateBoard,
-      isFavorite: updateBoard.isFavorite ?? undefined,
       teamIds: updateBoard.teamIds || [],
     };
 

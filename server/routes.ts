@@ -353,13 +353,14 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
+    console.log("Received board update request:", req.body);
     const result = updateBoardSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
 
     try {
-      // Directly update the board with teamIds array
+      console.log("Updating board with data:", result.data);
       const board = await storage.updateBoard(id, result.data);
       const updatedBoard = await storage.getBoard(id);
       res.json(updatedBoard);
@@ -863,7 +864,7 @@ export async function registerRoutes(app: Express) {
 
   // Inside the registerRoutes function, add the new team-members route
   app.get("/api/team-members", async (_req, res) => {
-    try {
+        try {
       const result = await storage.getTeamMembers(); // Assuming storage.getTeamMembers exists
       res.json(result);
     } catch (error) {
