@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import React from 'react';
 
 interface ChecklistItem {
   title: string;
@@ -351,23 +352,17 @@ export function OKRDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {keyResults.map((kr) => {
-                const krProgress = kr.currentValue || 0;
-                const maxValue = kr.type === "checklist" 
-                  ? kr.checklistItems?.length || 0
-                  : kr.targetValue;
-                const currentValue = kr.type === "checklist"
-                  ? kr.checklistItems?.filter(item => 
-                      typeof item === 'string' 
-                        ? JSON.parse(item).completed 
-                        : item.completed
-                    ).length || 0
-                  : krProgress;
-
-                return (
-                  <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(kr.id)}>
+              {keyResults.map((kr) => (
+                <React.Fragment key={kr.id}>
+                  <TableRow 
+                    className={cn(
+                      "cursor-pointer hover:bg-muted/50",
+                      kr.currentValue === 100 && "bg-green-50 hover:bg-green-100"
+                    )} 
+                    onClick={() => toggleRow(kr.id)}
+                  >
                     <TableCell>
-                      {progress === 100 && (
+                      {kr.currentValue === 100 && (
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                       )}
                     </TableCell>
@@ -376,14 +371,14 @@ export function OKRDetailPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Progress 
-                          value={krProgress} 
+                          value={kr.currentValue || 0} 
                           className={cn(
                             "flex-1",
-                            krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                            kr.currentValue === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
                           )} 
                         />
                         <span className="text-sm text-muted-foreground w-12 text-right">
-                          {krProgress}%
+                          {(kr.currentValue || 0)}%
                         </span>
                       </div>
                     </TableCell>
@@ -400,8 +395,33 @@ export function OKRDetailPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                );
-              })}
+                  {expandedRows.has(kr.id) && kr.type === "checklist" && kr.checklistItems && (
+                    <TableRow className="bg-muted/30">
+                      <TableCell colSpan={5}>
+                        <div className="pl-8 py-2 space-y-2">
+                          {kr.checklistItems.map((item, index) => {
+                            const checklistItem = typeof item === 'string' ? JSON.parse(item) : item;
+                            return (
+                              <div key={index} className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={checklistItem.completed}
+                                  onCheckedChange={(checked) => handleChecklistItemUpdate(kr, index, checked)}
+                                />
+                                <span className={cn(
+                                  "text-sm",
+                                  checklistItem.completed && "line-through text-muted-foreground"
+                                )}>
+                                  {checklistItem.title}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              ))}
             </TableBody>
           </Table>
         </Card>
