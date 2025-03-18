@@ -16,16 +16,23 @@ export function registerOkrRoutes(app: Express) {
 
     try {
       console.log(`Fetching objective with ID: ${id}`);
-      const objective = await db.query.objectives.findFirst({
-        where: (objectives, { eq }) => eq(objectives.id, id),
-        with: {
-          cycle: true
-        }
-      });
+
+      // First get the objective
+      const [objective] = await db.select()
+        .from(objectives)
+        .where(eq(objectives.id, id));
 
       if (!objective) {
         console.log(`No objective found with ID: ${id}`);
         return res.status(404).json({ message: "Objective nicht gefunden" });
+      }
+
+      // Then get the cycle if it exists
+      let cycle = null;
+      if (objective.cycleId) {
+        [cycle] = await db.select()
+          .from(okrCycles)
+          .where(eq(okrCycles.id, objective.cycleId));
       }
 
       // Load key results for this objective
@@ -37,7 +44,7 @@ export function registerOkrRoutes(app: Express) {
       let progress = 0;
       if (objectiveKeyResults.length > 0) {
         const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
-          const krProgress = ((kr.currentValue || 0) / kr.targetValue) * 100;
+          const krProgress = ((kr.currentValue || 0) / (kr.targetValue || 100)) * 100;
           return acc + krProgress;
         }, 0);
         progress = Math.round(totalProgress / objectiveKeyResults.length);
@@ -45,6 +52,7 @@ export function registerOkrRoutes(app: Express) {
 
       const response = {
         ...objective,
+        cycle,
         progress,
         keyResults: objectiveKeyResults
       };
