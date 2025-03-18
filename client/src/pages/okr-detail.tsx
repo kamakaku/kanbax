@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, ChevronDown, ChevronRight, Star } from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
@@ -172,6 +172,21 @@ export function OKRDetailPage() {
     });
   };
 
+  const toggleFavorite = useMutation({
+    mutationFn: async () => {
+      return await apiRequest(`/api/objectives/${objectiveId}/favorite`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
+    },
+  });
+
+
   if (isLoadingObjectives || isLoadingKeyResults) {
     return <div className="text-center py-8">Lade OKR Details...</div>;
   }
@@ -216,6 +231,16 @@ export function OKRDetailPage() {
                     onClick={() => setIsEditingObjective(true)}
                   >
                     <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleFavorite.mutate()}
+                    className="hover:bg-yellow-100"
+                  >
+                    <Star 
+                      className={`h-5 w-5 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
+                    />
                   </Button>
                 </div>
                 <p className="text-muted-foreground">{objective.description}</p>
