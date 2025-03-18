@@ -63,7 +63,8 @@ export function BoardList({ projectId }: BoardListProps) {
       );
 
       if (!res.ok) {
-        throw new Error("Failed to create board");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to create board");
       }
 
       return res.json();
@@ -78,7 +79,7 @@ export function BoardList({ projectId }: BoardListProps) {
       setShowForm(false);
       form.reset();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Fehler beim Erstellen des Boards",
         description: error.message,
@@ -97,7 +98,8 @@ export function BoardList({ projectId }: BoardListProps) {
       );
 
       if (!res.ok) {
-        throw new Error("Failed to update board");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update board");
       }
 
       return res.json();
@@ -111,7 +113,7 @@ export function BoardList({ projectId }: BoardListProps) {
       setEditingBoard(null);
       form.reset();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Fehler beim Aktualisieren des Boards",
         description: error.message,
@@ -120,11 +122,11 @@ export function BoardList({ projectId }: BoardListProps) {
     },
   });
 
-  const onSubmit = (data: InsertBoard) => {
+  const onSubmit = async (data: InsertBoard) => {
     if (editingBoard) {
-      updateBoard.mutate({ ...data, id: editingBoard.id });
+      await updateBoard.mutateAsync({ ...data, id: editingBoard.id });
     } else {
-      createBoard.mutate({ ...data, projectId });
+      await createBoard.mutateAsync(data);
     }
   };
 
@@ -144,14 +146,6 @@ export function BoardList({ projectId }: BoardListProps) {
     setShowForm(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <p className="text-lg text-muted-foreground">Lade Boards...</p>
-      </div>
-    );
-  }
-
   const handleCreateBoard = () => {
     setEditingBoard(null);
     form.reset({
@@ -161,6 +155,14 @@ export function BoardList({ projectId }: BoardListProps) {
     });
     setShowForm(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <p className="text-lg text-muted-foreground">Lade Boards...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -256,8 +258,16 @@ export function BoardList({ projectId }: BoardListProps) {
                 )}
               />
 
-              <Button type="submit" className="w-full">
-                {editingBoard ? "Board aktualisieren" : "Board erstellen"}
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={createBoard.isPending || updateBoard.isPending}
+              >
+                {createBoard.isPending || updateBoard.isPending ? (
+                  "Wird gespeichert..."
+                ) : (
+                  editingBoard ? "Board aktualisieren" : "Board erstellen"
+                )}
               </Button>
             </form>
           </Form>
