@@ -66,7 +66,7 @@ export function Board() {
   });
 
   const updateBoard = useMutation({
-    mutationFn: async (data: InsertBoard) => {
+    mutationFn: async (data: InsertBoard & { teamIds?: number[]; userIds?: number[] }) => {
       if (!boardId) return null;
       return await apiRequest("PATCH", `/api/boards/${boardId}`, data);
     },
@@ -203,8 +203,8 @@ export function Board() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{board.title}</h1>
-            {board.project && (
+            <h1 className="text-3xl font-bold">{board?.title}</h1>
+            {board?.project && (
               <p className="text-sm text-muted-foreground mt-1">
                 Projekt: {board.project.title}
               </p>
@@ -213,7 +213,7 @@ export function Board() {
             {/* Teams and Users Display */}
             <div className="flex flex-col gap-2 mt-4">
               {/* Teams */}
-              {board.teams && board.teams.length > 0 && (
+              {board?.teams && board.teams.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Teams:</span>
                   <div className="flex flex-wrap gap-2">
@@ -227,7 +227,7 @@ export function Board() {
               )}
 
               {/* Users */}
-              {board.users && board.users.length > 0 && (
+              {board?.users && board.users.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Zugewiesen an:</span>
                   <div className="flex -space-x-2">
@@ -247,6 +247,7 @@ export function Board() {
               )}
             </div>
           </div>
+
           <div className="flex gap-2">
             <Button
               variant="ghost"
@@ -255,7 +256,7 @@ export function Board() {
               className="hover:bg-yellow-100"
             >
               <Star
-                className={`h-5 w-5 ${board.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
+                className={`h-5 w-5 ${board?.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
               />
             </Button>
             <Button
@@ -297,7 +298,10 @@ export function Board() {
         open={showEditForm}
         onClose={() => setShowEditForm(false)}
         defaultValues={board}
-        onSubmit={async (data) => updateBoard.mutate(data)}
+        onSubmit={async (data) => {
+          await updateBoard.mutateAsync(data);
+          queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
+        }}
       />
     </div>
   );

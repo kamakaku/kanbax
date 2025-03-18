@@ -30,12 +30,12 @@ import { useLocation } from "wouter";
 interface BoardFormProps {
   open: boolean;
   onClose: () => void;
-  defaultValues?: Partial<InsertBoard>;
-  onSubmit?: (data: InsertBoard) => Promise<void>;
+  defaultValues?: Partial<InsertBoard & { teams?: Team[]; users?: User[] }>;
+  onSubmit?: (data: InsertBoard & { teamIds: number[]; userIds: number[] }) => Promise<void>;
 }
 
 export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormProps) {
-  const { currentProject, setCurrentBoard } = useStore();
+  const { currentProject } = useStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -217,12 +217,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                   <FormControl>
                     <MultiSelect
                       placeholder="Teams auswählen..."
-                      selected={field.value}
+                      selected={field.value.map(String)}
                       options={teams.map(team => ({
-                        value: team.id,
+                        value: String(team.id),
                         label: team.name
                       }))}
-                      onChange={(values) => field.onChange(values)}
+                      onChange={(values) => field.onChange(values.map(Number))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -239,12 +239,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                   <FormControl>
                     <MultiSelect
                       placeholder="Benutzer auswählen..."
-                      selected={field.value}
+                      selected={field.value.map(String)}
                       options={users.map(user => ({
-                        value: user.id,
+                        value: String(user.id),
                         label: user.username
                       }))}
-                      onChange={(values) => field.onChange(values)}
+                      onChange={(values) => field.onChange(values.map(Number))}
                     />
                   </FormControl>
                   <FormMessage />
