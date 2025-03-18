@@ -334,9 +334,7 @@ export class DatabaseStorage implements IStorage {
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
     console.log("Updating board, received data:", updateBoard);
     const boardData = {
-      title: updateBoard.title,
-      description: updateBoard.description,
-      projectId: updateBoard.projectId,
+      ...updateBoard,
       teamIds: Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : [],
       assignedUserIds: Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : [],
     };

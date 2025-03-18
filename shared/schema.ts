@@ -455,7 +455,8 @@ export const updateBoardSchema = insertBoardSchema
   .extend({
     teamIds: z.array(z.number().int()).default([]),
     assignedUserIds: z.array(z.number().int()).default([]),
-  });
+  })
+  .partial();
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;
 
 export type Team = typeof teams.$inferSelect;
