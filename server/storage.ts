@@ -237,6 +237,7 @@ export class DatabaseStorage implements IStorage {
     const boardData = {
       ...updateBoard,
       isFavorite: updateBoard.isFavorite ?? undefined,
+      teamIds: updateBoard.teamIds || [],
     };
 
     const [board] = await db
