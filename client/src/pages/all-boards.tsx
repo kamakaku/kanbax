@@ -17,6 +17,13 @@ export default function AllBoards() {
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const res = await fetch("/api/projects");
+      if (!res.ok) {
+        throw new Error("Failed to fetch projects");
+      }
+      return res.json();
+    },
   });
 
   const { data: boards = [], isLoading: boardsLoading } = useQuery({
@@ -53,7 +60,7 @@ export default function AllBoards() {
     console.log("Setting current board");
     setCurrentBoard(board);
     // Finally navigate to the board view
-    setLocation("/all-boards");
+    setLocation("/board");
   };
 
   const toggleFavorite = async (board: Board, e: React.MouseEvent) => {
