@@ -9,10 +9,11 @@ import { useState } from "react";
 import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import Board from "./board";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
-  const { setCurrentBoard, setCurrentProject } = useStore();
+  const { currentBoard, setCurrentBoard, setCurrentProject } = useStore();
   const [showForm, setShowForm] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
@@ -59,8 +60,6 @@ export default function AllBoards() {
     // Then set the current board
     console.log("Setting current board");
     setCurrentBoard(board);
-    // Finally navigate to the board view
-    setLocation("/all-boards");
   };
 
   const toggleFavorite = async (board: Board, e: React.MouseEvent) => {
@@ -81,6 +80,11 @@ export default function AllBoards() {
         </div>
       </div>
     );
+  }
+
+  // Wenn ein Board ausgewählt ist, zeige die Board-Detailansicht
+  if (currentBoard) {
+    return <Board />;
   }
 
   const favoriteBoards = boards.filter(b => b.isFavorite);
