@@ -81,8 +81,8 @@ export default function AllOKRs() {
                     className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20"
                     onClick={() => handleOKRClick(objective)}
                   >
-                    <CardHeader className="p-4 space-y-2">
-                      <div className="flex items-start justify-between">
+                    <CardHeader className="p-4">
+                      <div className="flex items-start justify-between mb-4">
                         <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
                           {objective.title}
                         </CardTitle>
@@ -95,16 +95,13 @@ export default function AllOKRs() {
                           <Star className={`h-5 w-5 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
                         </Button>
                       </div>
-                      <CardDescription className="text-sm space-y-2">
-                        <div className="line-clamp-2">{objective.description}</div>
-                        <div className="mt-2">
-                          <div className="flex items-center justify-between text-sm mb-1">
-                            <span>Fortschritt</span>
-                            <span>{objective.progress}%</span>
-                          </div>
-                          <Progress value={objective.progress} className="h-2" />
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-muted-foreground">Fortschritt</span>
+                          <span className="font-medium">{objective.progress}%</span>
                         </div>
-                      </CardDescription>
+                        <Progress value={objective.progress} className="h-2" />
+                      </div>
                     </CardHeader>
                   </Card>
                 ))}
@@ -122,8 +119,8 @@ export default function AllOKRs() {
                     className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
                     onClick={() => handleOKRClick(objective)}
                   >
-                    <CardHeader className="p-4 space-y-2">
-                      <div className="flex items-start justify-between">
+                    <CardHeader className="p-4">
+                      <div className="flex items-start justify-between mb-4">
                         <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
                           {objective.title}
                         </CardTitle>
@@ -136,16 +133,13 @@ export default function AllOKRs() {
                           <Star className={`h-5 w-5 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
                         </Button>
                       </div>
-                      <CardDescription className="text-sm space-y-2">
-                        <div className="line-clamp-2">{objective.description}</div>
-                        <div className="mt-2">
-                          <div className="flex items-center justify-between text-sm mb-1">
-                            <span>Fortschritt</span>
-                            <span>{objective.progress}%</span>
-                          </div>
-                          <Progress value={objective.progress} className="h-2" />
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-muted-foreground">Fortschritt</span>
+                          <span className="font-medium">{objective.progress}%</span>
                         </div>
-                      </CardDescription>
+                        <Progress value={objective.progress} className="h-2" />
+                      </div>
                     </CardHeader>
                   </Card>
                 ))}
