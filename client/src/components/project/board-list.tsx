@@ -72,7 +72,8 @@ export function BoardList({ projectId }: BoardListProps) {
       setIsSubmitting(true);
       console.log("Creating board with data:", { ...values, projectId });
 
-      const response = await fetch(`/api/projects/${projectId}/boards`, {
+      // Use the /api/boards endpoint instead of the project-specific one
+      const response = await fetch("/api/boards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,14 +86,18 @@ export function BoardList({ projectId }: BoardListProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Fehler beim Erstellen des Boards");
+        throw new Error(error.message || "Failed to create board");
       }
 
       const newBoard = await response.json();
       console.log("Created board:", newBoard);
 
+      // Invalidate both the all boards and project-specific boards queries
       await queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/boards"],
       });
 
       setCurrentBoard(newBoard);
