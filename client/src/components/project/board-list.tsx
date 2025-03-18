@@ -30,6 +30,7 @@ interface BoardListProps {
 export function BoardList({ projectId }: BoardListProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { setCurrentBoard } = useStore();
@@ -81,7 +82,10 @@ export function BoardList({ projectId }: BoardListProps) {
   };
 
   const onSubmit = async (data: InsertBoard) => {
+    if (isSubmitting) return;
+
     try {
+      setIsSubmitting(true);
       const res = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
@@ -94,7 +98,7 @@ export function BoardList({ projectId }: BoardListProps) {
       }
 
       const newBoard = await res.json();
-      queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
 
@@ -110,6 +114,8 @@ export function BoardList({ projectId }: BoardListProps) {
         description: error instanceof Error ? error.message : "Unbekannter Fehler",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -221,8 +227,12 @@ export function BoardList({ projectId }: BoardListProps) {
               <Button 
                 type="submit" 
                 className="w-full"
+                disabled={isSubmitting}
               >
-                {editingBoard ? "Board aktualisieren" : "Board erstellen"}
+                {isSubmitting 
+                  ? "Board wird erstellt..." 
+                  : (editingBoard ? "Board aktualisieren" : "Board erstellen")
+                }
               </Button>
             </form>
           </Form>
