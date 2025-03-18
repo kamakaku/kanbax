@@ -334,41 +334,39 @@ export class DatabaseStorage implements IStorage {
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
     console.log("Updating board, received data:", updateBoard);
 
-    // Ensure we have the current board data
-    const currentBoard = await this.getBoard(id);
-
-    const boardData = {
-      ...updateBoard,
-      teamIds: Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : currentBoard.teamIds || [],
-      assignedUserIds: Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : currentBoard.assignedUserIds || [],
-    };
-
-    console.log("Prepared board data for update:", boardData);
-
     try {
-      // Update the board
-      const [updatedBoard] = await db
-        .update(boards)
-        .set({
-          title: boardData.title ?? currentBoard.title,
-          description: boardData.description ?? currentBoard.description,
-          projectId: boardData.projectId ?? currentBoard.projectId,
-          teamIds: boardData.teamIds,
-          assignedUserIds: boardData.assignedUserIds,
-        })
-        .where(eq(boards.id, id))
-        .returning();
+      // Get current board
+      const [currentBoard] = await db
+        .select()
+        .from(boards)
+        .where(eq(boards.id, id));
 
-      if (!updatedBoard) {
+      if (!currentBoard) {
         throw new Error(`Board ${id} not found`);
       }
 
-      console.log("Updated board in database:", updatedBoard);
+      // Prepare update data
+      const updateData = {
+        title: updateBoard.title ?? currentBoard.title,
+        description: updateBoard.description ?? currentBoard.description,
+        projectId: updateBoard.projectId ?? currentBoard.projectId,
+        teamIds: updateBoard.teamIds !== undefined ? updateBoard.teamIds : currentBoard.teamIds,
+        assignedUserIds: updateBoard.assignedUserIds !== undefined ? updateBoard.assignedUserIds : currentBoard.assignedUserIds,
+      };
 
-      // Fetch the complete board with all relations
-      const completeBoard = await this.getBoard(id);
-      console.log("Returning complete board:", completeBoard);
-      return completeBoard;
+      console.log("Prepared update data:", updateData);
+
+      // Perform update
+      const [updatedBoard] = await db
+        .update(boards)
+        .set(updateData)
+        .where(eq(boards.id, id))
+        .returning();
+
+      console.log("Board updated in database:", updatedBoard);
+
+      // Return complete board with relations
+      return await this.getBoard(id);
     } catch (error) {
       console.error("Error updating board:", error);
       throw error;
