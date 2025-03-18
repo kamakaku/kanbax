@@ -56,20 +56,27 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const createBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
+      console.log("Creating board with data:", data); // Debug log
+
       const res = await apiRequest(
         "POST",
         `/api/projects/${projectId}/boards`,
         { ...data, projectId }
       );
 
+      console.log("Create board response:", res); // Debug log
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Failed to create board");
       }
 
-      return res.json();
+      const newBoard = await res.json();
+      console.log("Created new board:", newBoard); // Debug log
+      return newBoard;
     },
     onSuccess: (newBoard) => {
+      console.log("Board creation successful:", newBoard); // Debug log
       queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });
@@ -125,6 +132,7 @@ export function BoardList({ projectId }: BoardListProps) {
   });
 
   const onSubmit = async (data: InsertBoard) => {
+    console.log("Form submitted with data:", data); // Debug log
     try {
       if (editingBoard) {
         await updateBoard.mutateAsync({ ...data, id: editingBoard.id });
