@@ -332,44 +332,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
-    console.log("Raw update data received:", JSON.stringify(updateBoard, null, 2));
+    console.log("Update board request:", JSON.stringify(updateBoard, null, 2));
 
-    // Extrahiere die Arrays und stelle sicher, dass sie als Arrays vorliegen
-    const assignedUserIds = Array.isArray(updateBoard.assigned_user_ids)
-      ? updateBoard.assigned_user_ids
-      : (Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : []);
+    // Stelle sicher, dass die Arrays immer definiert sind
+    const team_ids = updateBoard.team_ids ?? [];
+    const assigned_user_ids = updateBoard.assigned_user_ids ?? [];
 
-    const teamIds = Array.isArray(updateBoard.team_ids)
-      ? updateBoard.team_ids
-      : (Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : []);
+    console.log("Arrays for update:", { team_ids, assigned_user_ids });
 
-    console.log("Arrays to update:", {
-      assignedUserIds,
-      teamIds
-    });
+    const [board] = await db
+      .update(boards)
+      .set({
+        title: updateBoard.title,
+        description: updateBoard.description,
+        project_id: updateBoard.project_id,
+        team_ids,
+        assigned_user_ids,
+      })
+      .where(eq(boards.id, id))
+      .returning();
 
-    // Direktes SQL-Update mit Array-Casting
-    const result = await db.execute(
-      sql`
-        UPDATE boards 
-        SET 
-          title = COALESCE(${updateBoard.title}, title),
-          description = COALESCE(${updateBoard.description}, description),
-          project_id = COALESCE(${updateBoard.project_id || updateBoard.projectId}, project_id),
-          assigned_user_ids = ${sql`ARRAY[${sql.join(assignedUserIds, ",")}]::integer[]`},
-          team_ids = ${sql`ARRAY[${sql.join(teamIds, ",")}]::integer[]`}
-        WHERE id = ${id}
-        RETURNING *;
-      `
-    );
-
-    console.log("SQL Update result:", result);
-
-    if (!result || !result.rows || result.rows.length === 0) {
+    if (!board) {
       throw new Error(`Board ${id} not found`);
     }
 
-    // Get fresh board data with all relations
+    console.log("Updated board:", board);
     return await this.getBoard(id);
   }
 

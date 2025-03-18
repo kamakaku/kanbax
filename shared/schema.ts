@@ -45,8 +45,8 @@ export const boards = pgTable("boards", {
   description: text("description"),
   project_id: integer("project_id"),
   creator_id: integer("creator_id").notNull(),
-  team_ids: integer("team_ids").array(),
-  assigned_user_ids: integer("assigned_user_ids").array(),
+  team_ids: integer("team_ids").array().default([]),
+  assigned_user_ids: integer("assigned_user_ids").array().default([]),
   is_favorite: boolean("is_favorite").default(false),
 });
 
@@ -454,10 +454,12 @@ export const updateBoardSchema = createInsertSchema(boards)
     assigned_user_ids: true,
   })
   .extend({
+    title: z.string().optional(),
+    description: z.string().nullable().optional(),
+    project_id: z.number().int().positive().nullable().optional(),
     team_ids: z.array(z.number().int()).default([]),
     assigned_user_ids: z.array(z.number().int()).default([]),
-  })
-  .partial();
+  });
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;
 
 export type Team = typeof teams.$inferSelect;
