@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Objective, type KeyResult, type User } from "@shared/schema";
@@ -6,8 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star } from "lucide-react";
-import { useState } from "react";
+import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star, ChevronDown, ChevronRight } from "lucide-react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
 import { format } from "date-fns";
@@ -362,9 +362,16 @@ export function OKRDetailPage() {
                     onClick={() => toggleRow(kr.id)}
                   >
                     <TableCell>
-                      {kr.currentValue === 100 && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        {expandedRows.has(kr.id) ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        {kr.currentValue === 100 && (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">{kr.title}</TableCell>
                     <TableCell>{kr.description}</TableCell>
@@ -395,27 +402,63 @@ export function OKRDetailPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                  {expandedRows.has(kr.id) && kr.type === "checklist" && kr.checklistItems && (
+                  {expandedRows.has(kr.id) && (
                     <TableRow className="bg-muted/30">
                       <TableCell colSpan={5}>
-                        <div className="pl-8 py-2 space-y-2">
-                          {kr.checklistItems.map((item, index) => {
-                            const checklistItem = typeof item === 'string' ? JSON.parse(item) : item;
-                            return (
-                              <div key={index} className="flex items-center gap-2">
-                                <Checkbox
-                                  checked={checklistItem.completed}
-                                  onCheckedChange={(checked) => handleChecklistItemUpdate(kr, index, checked)}
+                        <div className="pl-8 py-2">
+                          {kr.type === "checklist" && kr.checklistItems && (
+                            <div className="space-y-2">
+                              {kr.checklistItems.map((item, index) => {
+                                const checklistItem = typeof item === 'string' ? JSON.parse(item) : item;
+                                return (
+                                  <div key={index} className="flex items-center gap-2">
+                                    <Checkbox
+                                      checked={checklistItem.completed}
+                                      onCheckedChange={(checked) => handleChecklistItemUpdate(kr, index, checked as boolean)}
+                                    />
+                                    <span className={cn(
+                                      "text-sm",
+                                      checklistItem.completed && "line-through text-muted-foreground"
+                                    )}>
+                                      {checklistItem.title}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {kr.type === "number" && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-4">
+                                <span className="text-sm text-muted-foreground">Aktueller Wert:</span>
+                                <Input
+                                  type="number"
+                                  value={editingProgress[kr.id] ?? kr.currentValue}
+                                  onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                  onBlur={() => handleProgressInputBlur(kr)}
+                                  className="w-24"
                                 />
-                                <span className={cn(
-                                  "text-sm",
-                                  checklistItem.completed && "line-through text-muted-foreground"
-                                )}>
-                                  {checklistItem.title}
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className="text-sm text-muted-foreground">Zielwert:</span>
+                                <span className="text-sm">{kr.targetValue}</span>
+                              </div>
+                            </div>
+                          )}
+                          {kr.type === "binary" && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-4">
+                                <span className="text-sm text-muted-foreground">Status:</span>
+                                <Checkbox
+                                  checked={kr.currentValue === 100}
+                                  onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
+                                />
+                                <span className="text-sm">
+                                  {kr.currentValue === 100 ? "Abgeschlossen" : "Offen"}
                                 </span>
                               </div>
-                            );
-                          })}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
