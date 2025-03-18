@@ -10,7 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Star } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 
 const defaultColumns = [
@@ -29,10 +29,10 @@ export default function Board() {
 
   useEffect(() => {
     if (!currentBoard) {
-      setLocation("/projects");
+      setLocation("/all-boards");
       toast({
-        title: "Bitte wählen Sie zuerst ein Projekt aus",
-        description: "Sie müssen ein Projekt auswählen, bevor Sie Boards anzeigen können",
+        title: "Bitte wählen Sie zuerst ein Board aus",
+        description: "Sie müssen ein Board auswählen, bevor Sie es anzeigen können",
       });
     }
   }, [currentBoard, setLocation, toast]);
@@ -78,6 +78,18 @@ export default function Board() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const toggleFavorite = useMutation({
+    mutationFn: async () => {
+      if (!currentBoard?.id) return null;
+      return await apiRequest('PATCH', `/api/boards/${currentBoard.id}/favorite`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", currentBoard?.id] });
+      toast({ title: "Favoriten-Status aktualisiert" });
     },
   });
 
@@ -175,20 +187,27 @@ export default function Board() {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold">{currentBoard.title}</h1>
-            {currentProject && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Projekt: {currentProject.title}
-              </p>
-            )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowEditForm(true)}
-            className="hover:bg-muted"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleFavorite.mutate()}
+              className="hover:bg-yellow-100"
+            >
+              <Star 
+                className={`h-5 w-5 ${currentBoard.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowEditForm(true)}
+              className="hover:bg-muted"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <BoardSelector />
       </div>
