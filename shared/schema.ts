@@ -38,14 +38,14 @@ export const projects = pgTable("projects", {
   isFavorite: boolean("is_favorite").default(false),
 });
 
-// Update boards table to include projectId and creatorId
+// Update boards table to include teamIds array
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   projectId: integer("project_id"),
   creatorId: integer("creator_id").notNull(),
-  teamIds: integer("team_ids").array(), // Array of team IDs
+  teamIds: integer("team_ids").array().default([]),
   isFavorite: boolean("is_favorite").default(false),
 });
 
@@ -405,13 +405,6 @@ export type Board = typeof boards.$inferSelect & {
   teams?: {
     id: number;
     name: string;
-    role?: string;
-  }[];
-  users?: {
-    id: number;
-    username: string;
-    email: string;
-    avatarUrl?: string;
   }[];
 };
 export type InsertColumn = z.infer<typeof insertColumnSchema>;
@@ -478,13 +471,6 @@ export const boardMembers = pgTable("board_members", {
   acceptedAt: timestamp("accepted_at"),
 });
 
-export const boardTeams = pgTable("board_teams", {
-  id: serial("id").primaryKey(),
-  boardId: integer("board_id").notNull().references(() => boards.id),
-  teamId: integer("team_id").notNull().references(() => teams.id),
-  role: text("role").notNull().default("member"), // 'member' or 'admin'
-  addedAt: timestamp("added_at").defaultNow().notNull(),
-});
 
 // Add schemas for the new tables
 export const insertBoardMemberSchema = createInsertSchema(boardMembers)
@@ -497,21 +483,10 @@ export const insertBoardMemberSchema = createInsertSchema(boardMembers)
     role: z.enum(["member", "admin", "guest"]).default("member"),
   });
 
-export const insertBoardTeamSchema = createInsertSchema(boardTeams)
-  .pick({
-    boardId: true,
-    teamId: true,
-    role: true,
-  })
-  .extend({
-    role: z.enum(["member", "admin"]).default("member"),
-  });
 
 // Export types for the new tables
 export type BoardMember = typeof boardMembers.$inferSelect;
 export type InsertBoardMember = z.infer<typeof insertBoardMemberSchema>;
-export type BoardTeam = typeof boardTeams.$inferSelect;
-export type InsertBoardTeam = z.infer<typeof insertBoardTeamSchema>;
 
 
 // Add new tables for productivity insights after the existing tables

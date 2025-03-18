@@ -1,11 +1,12 @@
-import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog, boardMembers, boardTeams, type BoardMember, type InsertBoardMember, type BoardTeam, type InsertBoardTeam } from "@shared/schema";
+import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
-import { teams, teamMembers, type Team, type InsertTeam, type TeamMember } from "@shared/schema";
+import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 import { objectives, type Objective, type InsertObjective } from "@shared/schema"; // Added import for objectives
+
 
 export interface IStorage {
   // Project operations
@@ -22,7 +23,6 @@ export interface IStorage {
   createBoard(board: InsertBoard): Promise<Board>;
   updateBoard(id: number, board: UpdateBoard): Promise<Board>;
   deleteBoard(id: number): Promise<void>;
-  updateBoardTeams(boardId: number, teamIds: number[]): Promise<void>;
   updateBoardUsers(boardId: number, userIds: number[]): Promise<void>;
 
   // Column operations
@@ -75,9 +75,8 @@ export interface IStorage {
 
   // Board permission operations
   createBoardMember(member: InsertBoardMember): Promise<BoardMember>;
-  createBoardTeam(team: InsertBoardTeam): Promise<BoardTeam>;
   getBoardMembers(boardId: number): Promise<BoardMember[]>;
-  getBoardTeams(boardId: number): Promise<BoardTeam[]>;
+
 
   // Team operations
   getTeams(): Promise<Team[]>;
@@ -186,7 +185,8 @@ export class DatabaseStorage implements IStorage {
         title: insertBoard.title,
         description: insertBoard.description || null,
         projectId: insertBoard.projectId || null,
-        creatorId: insertBoard.creatorId
+        creatorId: insertBoard.creatorId,
+        teamIds: insertBoard.teamIds || []
       };
 
       console.log("Storage: Inserting board with data:", boardData);
@@ -253,20 +253,6 @@ export class DatabaseStorage implements IStorage {
     return board;
   }
 
-  async updateBoardTeams(boardId: number, teamIds: number[]): Promise<void> {
-    // First delete existing team assignments
-    await db.delete(boardTeams).where(eq(boardTeams.boardId, boardId));
-
-    // Then insert new team assignments
-    if (teamIds.length > 0) {
-      await db.insert(boardTeams).values(teamIds.map(teamId => ({
-        boardId,
-        teamId,
-        role: 'member'
-      })));
-    }
-  }
-
   async updateBoardUsers(boardId: number, userIds: number[]): Promise<void> {
     // First delete existing user assignments
     await db.delete(boardMembers).where(eq(boardMembers.boardId, boardId));
@@ -301,14 +287,6 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
-  async createBoardTeam(team: InsertBoardTeam): Promise<BoardTeam> {
-    const [record] = await db
-      .insert(boardTeams)
-      .values(team)
-      .returning();
-    return record;
-  }
-
   async getBoardMembers(boardId: number): Promise<BoardMember[]> {
     return await db
       .select()
@@ -317,13 +295,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(boardMembers.invitedAt);
   }
 
-  async getBoardTeams(boardId: number): Promise<BoardTeam[]> {
-    return await db
-      .select()
-      .from(boardTeams)
-      .where(eq(boardTeams.boardId, boardId))
-      .orderBy(boardTeams.addedAt);
-  }
 
   // Column operations
   async getColumns(boardId: number): Promise<Column[]> {

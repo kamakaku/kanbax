@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertBoardTeamSchema, insertTeamSchema, teamMembers } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertTeamSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
@@ -359,23 +359,13 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      const { teamIds, userIds, ...boardData } = result.data;
-      const board = await storage.updateBoard(id, boardData);
-      
-      // Update team assignments if provided
-      if (teamIds) {
-        await storage.updateBoardTeams(id, teamIds);
-      }
-      
-      // Update user assignments if provided
-      if (userIds) {
-        await storage.updateBoardUsers(id, userIds);
-      }
-
+      // Directly update the board with teamIds array
+      const board = await storage.updateBoard(id, result.data);
       const updatedBoard = await storage.getBoard(id);
       res.json(updatedBoard);
     } catch (error) {
-      res.status(404).json({ message: (error as Error).message });
+      console.error("Failed to update board:", error);
+      res.status(500).json({ message: (error as Error).message });
     }
   });
 
