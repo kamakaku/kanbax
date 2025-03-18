@@ -19,9 +19,22 @@ export default function AllOKRs() {
       if (!response.ok) {
         throw new Error("Failed to fetch objectives");
       }
-      return response.json();
+      const objectives = await response.json();
+      return objectives.map((obj: Objective) => ({
+        ...obj,
+        progress: calculateProgress(obj)
+      }));
     },
   });
+
+  const calculateProgress = (objective: Objective) => {
+    const totalProgress = objective.keyResults?.reduce((acc, kr) => {
+      return acc + (kr.progress || 0);
+    }, 0) || 0;
+
+    const keyResultCount = objective.keyResults?.length || 1;
+    return Math.round(totalProgress / keyResultCount);
+  };
 
   const handleOKRClick = (objective: Objective) => {
     setLocation(`/okr/${objective.id}`);
@@ -76,8 +89,8 @@ export default function AllOKRs() {
               <h2 className="text-2xl font-semibold mb-4">Favorisierte OKRs</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {favoriteOKRs.map((objective) => (
-                  <Card
-                    key={objective.id}
+                  <Card 
+                    key={objective.id} 
                     className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20"
                     onClick={() => handleOKRClick(objective)}
                   >
@@ -98,9 +111,9 @@ export default function AllOKRs() {
                       <div>
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="text-muted-foreground">Fortschritt</span>
-                          <span className="font-medium">{objective.progress}%</span>
+                          <span className="font-medium">{objective.progress || 0}%</span>
                         </div>
-                        <Progress value={objective.progress} className="h-2" />
+                        <Progress value={objective.progress || 0} className="h-2" />
                       </div>
                     </CardHeader>
                   </Card>
@@ -114,8 +127,8 @@ export default function AllOKRs() {
               <h2 className="text-2xl font-semibold mb-4">Weitere OKRs</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {nonFavoriteOKRs.map((objective) => (
-                  <Card
-                    key={objective.id}
+                  <Card 
+                    key={objective.id} 
                     className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
                     onClick={() => handleOKRClick(objective)}
                   >
@@ -136,9 +149,9 @@ export default function AllOKRs() {
                       <div>
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="text-muted-foreground">Fortschritt</span>
-                          <span className="font-medium">{objective.progress}%</span>
+                          <span className="font-medium">{objective.progress || 0}%</span>
                         </div>
-                        <Progress value={objective.progress} className="h-2" />
+                        <Progress value={objective.progress || 0} className="h-2" />
                       </div>
                     </CardHeader>
                   </Card>
