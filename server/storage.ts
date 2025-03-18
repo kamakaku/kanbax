@@ -141,11 +141,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBoard(id: number): Promise<Board> {
+    // Get the board
     const [board] = await db.select().from(boards).where(eq(boards.id, id));
     if (!board) {
       throw new Error(`Board ${id} not found`);
     }
-    return board;
+
+    console.log("Retrieved board with teamIds:", board.teamIds);
+
+    // Get the full team objects for each team ID
+    let teamsData: Team[] = [];
+    if (board.teamIds && board.teamIds.length > 0) {
+      console.log("Fetching teams for IDs:", board.teamIds);
+      teamsData = await db
+        .select()
+        .from(teams)
+        .where(sql`${teams.id} = ANY(${board.teamIds})`);
+      console.log("Retrieved teams data:", teamsData);
+    }
+
+    // Get the project if it exists
+    let projectData = null;
+    if (board.projectId) {
+      const [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, board.projectId));
+      projectData = project;
+    }
+
+    // Return the complete board object
+    const completeBoard = {
+      ...board,
+      teams: teamsData,
+      project: projectData,
+    };
+    console.log("Returning complete board:", completeBoard);
+    return completeBoard;
   }
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
@@ -212,11 +244,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
-    console.log("Updating board with data:", updateBoard);
+    console.log("Updating board, received data:", updateBoard);
     const boardData = {
-      ...updateBoard,
+      title: updateBoard.title,
+      description: updateBoard.description,
+      projectId: updateBoard.projectId,
       teamIds: updateBoard.teamIds || [],
     };
+    console.log("Prepared board data for update:", boardData);
 
     const [board] = await db
       .update(boards)
@@ -228,6 +263,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Board ${id} not found`);
     }
 
+    console.log("Updated board result:", board);
     return board;
   }
 

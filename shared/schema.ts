@@ -396,7 +396,7 @@ export const insertOkrCommentSchema = createInsertSchema(okrComments)
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type InsertBoard = z.infer<typeof insertBoardSchema>;
+// Update Board type definition
 export type Board = typeof boards.$inferSelect & {
   project?: {
     id: number;
@@ -405,8 +405,10 @@ export type Board = typeof boards.$inferSelect & {
   teams?: {
     id: number;
     name: string;
+    description: string | null;
   }[];
 };
+export type InsertBoard = z.infer<typeof insertBoardSchema>;
 export type InsertColumn = z.infer<typeof insertColumnSchema>;
 export type Column = typeof columns.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
@@ -433,7 +435,17 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 export const updateTaskSchema = insertTaskSchema.partial();
 export type UpdateTask = z.infer<typeof updateTaskSchema>;
 
-export const updateBoardSchema = insertBoardSchema.partial();
+// Update board schema
+export const updateBoardSchema = insertBoardSchema
+  .pick({
+    title: true,
+    description: true,
+    projectId: true,
+    teamIds: true,
+  })
+  .extend({
+    teamIds: z.array(z.number().int()).default([]),
+  });
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;
 
 export type Team = typeof teams.$inferSelect;
