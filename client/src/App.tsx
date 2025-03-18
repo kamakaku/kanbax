@@ -25,6 +25,7 @@ import OKRDetailPage from "@/pages/okr-detail";
 import TeamsPage from "@/pages/teams";
 import { ProductivityPage } from "@/pages/productivity";
 import { Board } from "@/pages/board";
+import { Topbar } from "@/components/ui/topbar";
 import { cn } from "@/lib/utils";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,8 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             backgroundRepeat: 'no-repeat, no-repeat, no-repeat, repeat, repeat',
           }}
         />
+
+        <Topbar />
 
         <Sidebar className="shrink-0 z-30">
           <div className="flex items-center justify-end px-2 h-12">
@@ -126,7 +129,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
           <main 
             className={cn(
               "min-h-screen w-full",
-              "px-6 py-6 mr-12",
+              "px-6 py-6 mr-12 mt-16", 
               "bg-white/30 backdrop-blur-[2px]",
               "transition-[width] duration-300 ease-in-out"
             )}
