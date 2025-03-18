@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -147,7 +147,7 @@ export const insertBoardSchema = createInsertSchema(boards)
     title: z.string().min(1, "Title is required"),
     projectId: z.number().int().positive("Project ID must be positive").nullable().optional(),
     creatorId: z.number().int().positive("Creator ID is required"),
-    teamIds: z.array(z.number().int().positive()).default([]),
+    teamIds: z.array(z.number().int()).default([]),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -291,7 +291,7 @@ export const objectives = pgTable("objectives", {
   description: text("description"),
   status: text("status").notNull().default("active"),
   isFavorite: boolean("is_favorite").default(false), // active, completed, archived
-  progress: real("progress").default(0),
+  progress: boolean("progress").default(0),
   // Optional associations
   projectId: integer("project_id"),
   cycleId: integer("cycle_id"),
@@ -309,9 +309,9 @@ export const keyResults = pgTable("key_results", {
   description: text("description"),
   objectiveId: integer("objective_id").notNull(),
   type: text("type").notNull(), // percentage, checkbox, progress, checklist
-  targetValue: real("target_value").notNull(),
-  currentValue: real("current_value").default(0),
-  progress: real("progress").default(0),
+  targetValue: boolean("target_value").notNull(),
+  currentValue: boolean("current_value").default(0),
+  progress: boolean("progress").default(0),
   linkedTaskIds: integer("linked_task_ids").array(),
   status: text("status").notNull().default("active"), // active, completed, archived
   checklistItems: text("checklist_items").array(), // Store JSON stringified checklist items
@@ -405,7 +405,7 @@ export type Board = typeof boards.$inferSelect & {
   teams?: {
     id: number;
     name: string;
-    role: string;
+    role?: string;
   }[];
   users?: {
     id: number;
