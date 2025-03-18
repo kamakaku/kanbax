@@ -143,6 +143,7 @@ export const insertBoardSchema = createInsertSchema(boards)
     projectId: true,
     creatorId: true,
     teamIds: true,
+    assignedUserIds: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
@@ -505,7 +506,6 @@ export const insertBoardMemberSchema = createInsertSchema(boardMembers)
   .extend({
     role: z.enum(["member", "admin", "guest"]).default("member"),
   });
-
 
 // Export types for the new tables
 export type BoardMember = typeof boardMembers.$inferSelect;

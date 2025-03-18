@@ -333,29 +333,46 @@ export class DatabaseStorage implements IStorage {
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
     console.log("Updating board, received data:", updateBoard);
+
+    // Ensure we have the current board data
+    const currentBoard = await this.getBoard(id);
+
     const boardData = {
       ...updateBoard,
-      teamIds: Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : [],
-      assignedUserIds: Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : [],
+      teamIds: Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : currentBoard.teamIds,
+      assignedUserIds: Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : currentBoard.assignedUserIds,
     };
+
     console.log("Prepared board data for update:", boardData);
 
-    // Update the board
-    const [board] = await db
-      .update(boards)
-      .set(boardData)
-      .where(eq(boards.id, id))
-      .returning();
+    try {
+      // Update the board
+      const [updatedBoard] = await db
+        .update(boards)
+        .set({
+          title: boardData.title ?? currentBoard.title,
+          description: boardData.description ?? currentBoard.description,
+          projectId: boardData.projectId ?? currentBoard.projectId,
+          teamIds: boardData.teamIds,
+          assignedUserIds: boardData.assignedUserIds,
+        })
+        .where(eq(boards.id, id))
+        .returning();
 
-    if (!board) {
-      throw new Error(`Board ${id} not found`);
+      if (!updatedBoard) {
+        throw new Error(`Board ${id} not found`);
+      }
+
+      console.log("Updated board in database:", updatedBoard);
+
+      // Fetch the complete board with all relations
+      const completeBoard = await this.getBoard(id);
+      console.log("Returning complete board:", completeBoard);
+      return completeBoard;
+    } catch (error) {
+      console.error("Error updating board:", error);
+      throw error;
     }
-
-    console.log("Updated board result:", board);
-
-    // Fetch the complete board with all relations
-    const completeBoard = await this.getBoard(id);
-    return completeBoard;
   }
 
   async updateBoardUsers(boardId: number, userIds: number[]): Promise<void> {
@@ -800,7 +817,7 @@ export class DatabaseStorage implements IStorage {
       const memberEntries = memberIds.map(id => ({
         teamId: team.id,
         userId: parseInt(id),
-        role: 'member' as const
+        role: 'member'
       }));
 
       await db
@@ -837,7 +854,7 @@ export class DatabaseStorage implements IStorage {
         const memberEntries = memberIds.map(memberId => ({
           teamId: id,
           userId: parseInt(memberId),
-          role: 'member' as const
+          role: 'member'
         }));
 
         await db
