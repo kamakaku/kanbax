@@ -343,7 +343,10 @@ export async function registerRoutes(app: Express) {
       });
     } catch (error) {
       console.error(`[GET /api/boards/${id}] Error fetching board:`, error);
-      res.status(500).json({ message: "Failed to fetch board" });
+      res.status(500).json({ 
+        message: "Failed to fetch board",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -864,7 +867,7 @@ export async function registerRoutes(app: Express) {
 
   // Inside the registerRoutes function, add the new team-members route
   app.get("/api/team-members", async (_req, res) => {
-        try {
+    try {
       const result = await storage.getTeamMembers(); // Assuming storage.getTeamMembers exists
       res.json(result);
     } catch (error) {

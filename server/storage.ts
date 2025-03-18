@@ -1,7 +1,8 @@
 import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, sql, type SQL } from "drizzle-orm";
+import { PgArray } from "drizzle-orm/pg-core";
 import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
@@ -154,10 +155,12 @@ export class DatabaseStorage implements IStorage {
       let teamsData: Team[] = [];
       if (board.teamIds && Array.isArray(board.teamIds) && board.teamIds.length > 0) {
         console.log("Fetching teams for IDs:", board.teamIds);
+
         teamsData = await db
           .select()
           .from(teams)
-          .where(sql`${teams.id} = ANY(${sql.array(board.teamIds, 'int4')})`);
+          .where(sql`${teams.id} = ANY(${sql`ARRAY[${board.teamIds.join(',')}]::int[]`})`);
+
         console.log("Retrieved teams data:", teamsData);
       }
 
