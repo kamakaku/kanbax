@@ -19,22 +19,9 @@ export default function AllOKRs() {
       if (!response.ok) {
         throw new Error("Failed to fetch objectives");
       }
-      const objectives = await response.json();
-      return objectives.map((obj: Objective) => ({
-        ...obj,
-        progress: calculateProgress(obj)
-      }));
+      return response.json();
     },
   });
-
-  const calculateProgress = (objective: Objective) => {
-    const totalProgress = objective.keyResults?.reduce((acc, kr) => {
-      return acc + (kr.progress || 0);
-    }, 0) || 0;
-
-    const keyResultCount = objective.keyResults?.length || 1;
-    return Math.round(totalProgress / keyResultCount);
-  };
 
   const handleOKRClick = (objective: Objective) => {
     setLocation(`/okr/${objective.id}`);

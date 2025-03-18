@@ -66,7 +66,33 @@ export function registerOkrRoutes(app: Express) {
   app.get("/api/objectives", async (_req: Request, res: Response) => {
     try {
       const objectives = await db.query.objectives.findMany();
-      res.json(objectives);
+
+      // Lade KeyResults für jedes Objective
+      const objectivesWithKeyResults = await Promise.all(
+        objectives.map(async (objective) => {
+          const keyResults = await db.select()
+            .from(keyResults)
+            .where(eq(keyResults.objectiveId, objective.id));
+
+          // Berechne den Fortschritt basierend auf den KeyResults
+          let progress = 0;
+          if (keyResults.length > 0) {
+            const totalProgress = keyResults.reduce((acc, kr) => {
+              const krProgress = (kr.currentValue / kr.targetValue) * 100;
+              return acc + krProgress;
+            }, 0);
+            progress = Math.round(totalProgress / keyResults.length);
+          }
+
+          return {
+            ...objective,
+            progress,
+            keyResults
+          };
+        })
+      );
+
+      res.json(objectivesWithKeyResults);
     } catch (error) {
       console.error("Fehler beim Abrufen der Objectives:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Objectives" });
