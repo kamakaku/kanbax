@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Board, type InsertBoard, insertBoardSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, KanbanSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -152,47 +152,68 @@ export function BoardList({ projectId }: BoardListProps) {
     );
   }
 
+  const handleCreateBoard = () => {
+    setEditingBoard(null);
+    form.reset({
+      title: "",
+      description: "",
+      projectId: projectId,
+    });
+    setShowForm(true);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Boards</h2>
-        <Button onClick={() => {
-          setEditingBoard(null);
-          form.reset({
-            title: "",
-            description: "",
-            projectId: projectId,
-          });
-          setShowForm(true);
-        }}>
+        <Button onClick={handleCreateBoard}>
           <Plus className="mr-2 h-4 w-4" />
           Neues Board
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {boards?.map((board) => (
-          <Card
-            key={board.id}
-            className="relative hover:bg-muted/50 transition-colors cursor-pointer"
-          >
+      {!boards?.length ? (
+        <Card className="bg-muted/50">
+          <CardContent className="py-6 text-center">
+            <KanbanSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">
+              Diesem Projekt sind noch keine Boards zugeordnet.
+            </p>
             <Button
-              size="icon"
-              variant="ghost"
-              className="absolute top-2 right-2 bg-background/80 hover:bg-background"
-              onClick={(e) => handleEditClick(e, board)}
+              onClick={handleCreateBoard}
+              variant="outline"
+              className="mt-4"
             >
-              <Pencil className="h-4 w-4" />
+              <Plus className="h-4 w-4 mr-2" />
+              Board erstellen
             </Button>
-            <div onClick={() => handleBoardClick(board)}>
-              <CardHeader>
-                <CardTitle>{board.title}</CardTitle>
-                <CardDescription>{board.description}</CardDescription>
-              </CardHeader>
-            </div>
-          </Card>
-        ))}
-      </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {boards.map((board) => (
+            <Card
+              key={board.id}
+              className="relative hover:bg-muted/50 transition-colors cursor-pointer"
+            >
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute top-2 right-2 bg-background/80 hover:bg-background"
+                onClick={(e) => handleEditClick(e, board)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <div onClick={() => handleBoardClick(board)}>
+                <CardHeader>
+                  <CardTitle>{board.title}</CardTitle>
+                  <CardDescription>{board.description}</CardDescription>
+                </CardHeader>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>
