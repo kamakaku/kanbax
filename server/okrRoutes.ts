@@ -60,43 +60,38 @@ export function registerOkrRoutes(app: Express) {
   // Objectives Endpoint
   app.get("/api/objectives", async (_req: Request, res: Response) => {
     try {
-      console.log("Fetching all objectives with cycles");
-      const objectives = await db.query.objectives.findMany({
-        with: {
-          cycle: true
-        }
-      });
+      const allObjectives = await db.select().from(objectives);
 
-      console.log(`Found ${objectives.length} objectives`);
-
-      // Load key results and calculate progress for each objective
-      const objectivesWithKeyResults = await Promise.all(
-        objectives.map(async (objective) => {
-          console.log(`Loading key results for objective ${objective.id}`);
+      const objectivesWithData = await Promise.all(
+        allObjectives.map(async (objective) => {
           const objectiveKeyResults = await db.select()
             .from(keyResults)
             .where(eq(keyResults.objectiveId, objective.id));
 
-          // Calculate progress
+          const cycle = objective.cycleId 
+            ? await db.query.okrCycles.findFirst({
+                where: (cycles, { eq }) => eq(cycles.id, objective.cycleId!)
+              })
+            : null;
+
           let progress = 0;
           if (objectiveKeyResults.length > 0) {
             const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
-              const krProgress = ((kr.currentValue || 0) / kr.targetValue) * 100;
-              return acc + krProgress;
+              return acc + ((kr.currentValue || 0) / (kr.targetValue || 100)) * 100;
             }, 0);
             progress = Math.round(totalProgress / objectiveKeyResults.length);
           }
 
           return {
             ...objective,
+            cycle,
             progress,
             keyResults: objectiveKeyResults
           };
         })
       );
 
-      console.log("Successfully processed all objectives with progress");
-      res.json(objectivesWithKeyResults);
+      res.json(objectivesWithData);
     } catch (error) {
       console.error("Error fetching objectives:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Objectives" });
