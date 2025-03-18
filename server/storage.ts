@@ -164,6 +164,25 @@ export class DatabaseStorage implements IStorage {
         console.log("Retrieved teams data:", teamsData);
       }
 
+      // Get assigned users if any
+      let assignedUsers = [];
+      if (board.assignedUserIds && Array.isArray(board.assignedUserIds) && board.assignedUserIds.length > 0) {
+        console.log("Fetching assigned users for IDs:", board.assignedUserIds);
+
+        const users = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(sql`${users.id} = ANY(${sql`ARRAY[${board.assignedUserIds.join(',')}]::int[]`})`);
+
+        assignedUsers = users;
+        console.log("Retrieved assigned users:", assignedUsers);
+      }
+
       // Get the project if it exists
       let projectData = null;
       if (board.projectId) {
@@ -182,6 +201,7 @@ export class DatabaseStorage implements IStorage {
         ...board,
         teams: teamsData,
         project: projectData,
+        assignedUsers: assignedUsers
       };
       console.log("Returning complete board:", completeBoard);
       return completeBoard;
