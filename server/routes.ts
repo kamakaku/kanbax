@@ -304,11 +304,16 @@ export async function registerRoutes(app: Express) {
 
   app.get("/api/boards", async (_req, res) => {
     try {
+      console.log("Starting boards fetch...");
       const boards = await storage.getBoards();
+      console.log(`Successfully retrieved ${boards.length} boards:`, boards);
       res.json(boards);
     } catch (error) {
       console.error("Failed to fetch boards:", error);
-      res.status(500).json({ message: "Failed to fetch boards" });
+      res.status(500).json({ 
+        message: "Failed to fetch boards",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

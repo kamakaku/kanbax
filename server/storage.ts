@@ -131,7 +131,64 @@ export class DatabaseStorage implements IStorage {
 
   // Board operations
   async getBoards(): Promise<Board[]> {
-    return await db.select().from(boards);
+    try {
+      console.log("Fetching all boards...");
+      const boardResults = await db.select().from(boards);
+      console.log("Retrieved boards:", boardResults);
+
+      // Process each board to include teams and project data
+      const processedBoards = await Promise.all(boardResults.map(async (board) => {
+        // Get teams data
+        let teamsData: Team[] = [];
+        if (board.teamIds && Array.isArray(board.teamIds) && board.teamIds.length > 0) {
+          teamsData = await db
+            .select()
+            .from(teams)
+            .where(sql`${teams.id} = ANY(${sql`ARRAY[${board.teamIds.join(',')}]::int[]`})`);
+        }
+
+        // Get assigned users data
+        let assignedUsers = [];
+        if (board.assignedUserIds && Array.isArray(board.assignedUserIds) && board.assignedUserIds.length > 0) {
+          const users = await db
+            .select({
+              id: users.id,
+              username: users.username,
+              email: users.email,
+              avatarUrl: users.avatarUrl
+            })
+            .from(users)
+            .where(sql`${users.id} = ANY(${sql`ARRAY[${board.assignedUserIds.join(',')}]::int[]`})`);
+          assignedUsers = users;
+        }
+
+        // Get project data if exists
+        let projectData = null;
+        if (board.projectId) {
+          const [project] = await db
+            .select({
+              id: projects.id,
+              title: projects.title,
+            })
+            .from(projects)
+            .where(eq(projects.id, board.projectId));
+          projectData = project;
+        }
+
+        return {
+          ...board,
+          teams: teamsData,
+          assignedUsers: assignedUsers,
+          project: projectData,
+        };
+      }));
+
+      console.log("Processed boards with related data:", processedBoards);
+      return processedBoards;
+    } catch (error) {
+      console.error("Error in getBoards:", error);
+      throw error;
+    }
   }
 
   async getBoardsByProject(projectId: number): Promise<Board[]> {
