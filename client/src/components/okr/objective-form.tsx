@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLocation } from "wouter";
 
 const objectiveFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
@@ -30,6 +31,7 @@ interface ObjectiveFormProps {
 export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   // Generate a list of years (current year + 5 years)
   const currentYear = new Date().getFullYear();
@@ -141,7 +143,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
         console.log("Creating objective with payload:", payload);
 
-        await apiRequest("POST", "/api/objectives", payload);
+        const newObjective = await apiRequest<{ id: number }>("POST", "/api/objectives", payload);
 
         await queryClient.invalidateQueries({ 
           queryKey: ["/api/objectives"]
@@ -153,6 +155,10 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         toast({ title: "Objective erfolgreich erstellt" });
         form.reset();
         onSuccess?.();
+
+        // Redirect to the new objective's detail page
+        setLocation(`/all-okrs/${newObjective.id}`);
+
       } catch (error) {
         console.error("Error in cycle creation:", error);
         toast({

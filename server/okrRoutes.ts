@@ -169,8 +169,40 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const [objective] = await db.insert(objectives).values(result.data).returning();
-      res.status(201).json(objective);
+      const [objective] = await db.insert(objectives)
+        .values(result.data)
+        .returning();
+
+      // Get key results to calculate progress
+      const objectiveKeyResults = await db.select()
+        .from(keyResults)
+        .where(eq(keyResults.objectiveId, objective.id));
+
+      // Get cycle data
+      let cycle = null;
+      if (objective.cycleId) {
+        [cycle] = await db.select()
+          .from(okrCycles)
+          .where(eq(okrCycles.id, objective.cycleId));
+      }
+
+      // Calculate initial progress
+      let progress = 0;
+      if (objectiveKeyResults.length > 0) {
+        const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
+          return acc + ((kr.currentValue || 0) / (kr.targetValue || 100)) * 100;
+        }, 0);
+        progress = Math.round(totalProgress / objectiveKeyResults.length);
+      }
+
+      const response = {
+        ...objective,
+        cycle,
+        progress,
+        keyResults: objectiveKeyResults
+      };
+
+      res.status(201).json(response);
     } catch (error) {
       console.error("Fehler beim Erstellen des Objective:", error);
       res.status(500).json({ message: "Fehler beim Erstellen des Objective" });
