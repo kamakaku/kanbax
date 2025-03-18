@@ -39,7 +39,7 @@ export function BoardList({ projectId }: BoardListProps) {
     defaultValues: {
       title: "",
       description: "",
-      projectId: projectId,
+      projectId,
     },
   });
 
@@ -75,63 +75,46 @@ export function BoardList({ projectId }: BoardListProps) {
     form.reset({
       title: "",
       description: "",
-      projectId: projectId,
+      projectId,
     });
     setShowForm(true);
   };
 
-  const onSubmit = async (formData: InsertBoard) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (isSubmitting) return;
 
     try {
       setIsSubmitting(true);
+      const formData = form.getValues();
 
-      if (editingBoard) {
-        const response = await fetch(`/api/boards/${editingBoard.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
+      // Ensure projectId is included
+      const data = {
+        ...formData,
+        projectId,
+      };
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || "Failed to update board");
-        }
+      const response = await fetch(`/api/projects/${projectId}/boards`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-        await queryClient.invalidateQueries({
-          queryKey: [`/api/projects/${projectId}/boards`],
-        });
-
-        toast({ title: "Board erfolgreich aktualisiert" });
-      } else {
-        const response = await fetch(`/api/projects/${projectId}/boards`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...formData,
-            projectId,
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || "Failed to create board");
-        }
-
-        const newBoard = await response.json();
-        await queryClient.invalidateQueries({
-          queryKey: [`/api/projects/${projectId}/boards`],
-        });
-
-        setCurrentBoard(newBoard);
-        setLocation("/board");
-        toast({ title: "Board erfolgreich erstellt" });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create board");
       }
 
+      const newBoard = await response.json();
+      await queryClient.invalidateQueries({
+        queryKey: [`/api/projects/${projectId}/boards`],
+      });
+
+      setCurrentBoard(newBoard);
+      setLocation("/board");
+      toast({ title: "Board erfolgreich erstellt" });
       setShowForm(false);
       form.reset();
     } catch (error) {
@@ -217,51 +200,49 @@ export function BoardList({ projectId }: BoardListProps) {
               Fügen Sie hier die Details für Ihr Board hinzu. Ein Board hilft Ihnen, Aufgaben und deren Status zu organisieren.
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Titel</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Mein neues Board" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <form onSubmit={onSubmit} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Mein neues Board" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beschreibung</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Beschreiben Sie Ihr Board..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Beschreiben Sie Ihr Board..."
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={isSubmitting}
-              >
-                {isSubmitting 
-                  ? "Board wird erstellt..." 
-                  : (editingBoard ? "Board aktualisieren" : "Board erstellen")
-                }
-              </Button>
-            </form>
-          </Form>
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting 
+                ? "Board wird erstellt..." 
+                : (editingBoard ? "Board aktualisieren" : "Board erstellen")
+              }
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
