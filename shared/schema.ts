@@ -45,6 +45,7 @@ export const boards = pgTable("boards", {
   description: text("description"),
   projectId: integer("project_id"),
   creatorId: integer("creator_id").notNull(),
+  teamIds: integer("team_ids").array(), // Array of team IDs
   isFavorite: boolean("is_favorite").default(false),
 });
 
@@ -140,13 +141,13 @@ export const insertBoardSchema = createInsertSchema(boards)
     description: true,
     projectId: true,
     creatorId: true,
+    teamIds: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
     projectId: z.number().int().positive("Project ID must be positive").nullable().optional(),
     creatorId: z.number().int().positive("Creator ID is required"),
-    teamIds: z.array(z.number().int().positive()).optional(),
-    userIds: z.array(z.number().int().positive()).optional(),
+    teamIds: z.array(z.number().int().positive()).default([]),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)

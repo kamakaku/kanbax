@@ -66,14 +66,13 @@ export function Board() {
   });
 
   const updateBoard = useMutation({
-    mutationFn: async (data: InsertBoard & { teamIds: number[]; userIds: number[] }) => {
+    mutationFn: async (data: InsertBoard) => {
       if (!boardId) return null;
       return await apiRequest("PATCH", `/api/boards/${boardId}`, {
         title: data.title,
         description: data.description,
         projectId: data.projectId,
         teamIds: data.teamIds,
-        userIds: data.userIds,
       });
     },
     onSuccess: () => {

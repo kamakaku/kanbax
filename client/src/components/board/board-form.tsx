@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertBoardSchema, type InsertBoard, type Project, type Team, type User } from "@shared/schema";
+import { insertBoardSchema, type InsertBoard, type Project, type Team } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -30,8 +30,8 @@ import { useLocation } from "wouter";
 interface BoardFormProps {
   open: boolean;
   onClose: () => void;
-  defaultValues?: Partial<InsertBoard & { teams?: Team[]; users?: User[] }>;
-  onSubmit?: (data: InsertBoard & { teamIds: number[]; userIds: number[] }) => Promise<void>;
+  defaultValues?: Partial<InsertBoard & { teams?: Team[] }>;
+  onSubmit?: (data: InsertBoard) => Promise<void>;
 }
 
 export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormProps) {
@@ -67,18 +67,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden der Benutzer");
-      }
-      return response.json();
-    },
-  });
-
-  const form = useForm<InsertBoard & { teamIds: number[]; userIds: number[] }>({
+  const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
       title: defaultValues?.title || "",
@@ -86,32 +75,26 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       projectId: defaultValues?.projectId || currentProject?.id,
       creatorId: user.id,
       teamIds: defaultValues?.teams?.map(t => t.id) || [],
-      userIds: defaultValues?.users?.map(u => u.id) || [],
     },
   });
 
-  const handleSubmit = async (data: InsertBoard & { teamIds: number[]; userIds: number[] }) => {
+  const handleSubmit = async (data: InsertBoard) => {
     try {
-      // Assuming MultiSelect components populate selectedTeams and selectedUsers
-      const selectedTeams = teams.filter(team => data.teamIds.includes(team.id));
-      const selectedUsers = users.filter(user => data.userIds.includes(user.id));
-
-
-      const payload = {
-        ...data,
-        teamIds: selectedTeams.map(t => t.id),
-        userIds: selectedUsers.map(u => u.id)
-      };
-
       if (onSubmit) {
-        await onSubmit(payload);
+        await onSubmit(data);
       } else {
         const response = await fetch('/api/boards', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            title: data.title,
+            description: data.description,
+            projectId: data.projectId || null,
+            creatorId: user.id,
+            teamIds: data.teamIds,
+          })
         });
 
         if (!response.ok) {
@@ -221,28 +204,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                       options={teams.map(team => ({
                         value: String(team.id),
                         label: team.name
-                      }))}
-                      onChange={(values) => field.onChange(values.map(Number))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="userIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Benutzer zuweisen</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      placeholder="Benutzer auswählen..."
-                      selected={field.value.map(String)}
-                      options={users.map(user => ({
-                        value: String(user.id),
-                        label: user.username
                       }))}
                       onChange={(values) => field.onChange(values.map(Number))}
                     />
