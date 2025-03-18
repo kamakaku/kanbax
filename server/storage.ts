@@ -332,45 +332,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
-    console.log("Updating board, received data:", updateBoard);
+    console.log("Updating board with data:", updateBoard);
 
-    try {
-      // Get current board data
-      const [currentBoard] = await db
-        .select()
-        .from(boards)
-        .where(eq(boards.id, id));
+    // Get current board data first
+    const [currentBoard] = await db
+      .select()
+      .from(boards)
+      .where(eq(boards.id, id));
 
-      if (!currentBoard) {
-        throw new Error(`Board ${id} not found`);
-      }
+    if (!currentBoard) {
+      throw new Error(`Board ${id} not found`);
+    }
 
-      // Prepare update data
-      const updateData = {
+    // Simple update with the exact data we have
+    const [updatedBoard] = await db
+      .update(boards)
+      .set({
         title: updateBoard.title ?? currentBoard.title,
         description: updateBoard.description ?? currentBoard.description,
         projectId: updateBoard.projectId ?? currentBoard.projectId,
-        teamIds: updateBoard.teamIds ?? currentBoard.teamIds,
         assignedUserIds: updateBoard.assignedUserIds ?? currentBoard.assignedUserIds,
-      };
+        teamIds: updateBoard.teamIds ?? currentBoard.teamIds,
+      })
+      .where(eq(boards.id, id))
+      .returning();
 
-      console.log("Prepared update data:", updateData);
-
-      // Perform update
-      const [updatedBoard] = await db
-        .update(boards)
-        .set(updateData)
-        .where(eq(boards.id, id))
-        .returning();
-
-      console.log("Board updated in database:", updatedBoard);
-
-      // Return complete board with relations
-      return await this.getBoard(id);
-    } catch (error) {
-      console.error("Error updating board:", error);
-      throw error;
-    }
+    // Get fresh board data with all relations
+    return await this.getBoard(id);
   }
 
   async updateBoardUsers(boardId: number, userIds: number[]): Promise<void> {
