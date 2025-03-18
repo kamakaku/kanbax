@@ -1,13 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border tracking-wide;
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-urbanist antialiased bg-[#161a1b] text-[#e5e5e5];
   }
 }
