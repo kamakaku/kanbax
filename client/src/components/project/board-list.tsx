@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { apiRequest } from "@/lib/queryClient";
 import { useStore } from "@/lib/store";
 import { queryClient } from "@/lib/queryClient";
 
@@ -40,7 +39,7 @@ export function BoardList({ projectId }: BoardListProps) {
     defaultValues: {
       title: "",
       description: "",
-      projectId: projectId, // Set the projectId in defaultValues
+      projectId: projectId,
     },
   });
 
@@ -76,7 +75,7 @@ export function BoardList({ projectId }: BoardListProps) {
     form.reset({
       title: "",
       description: "",
-      projectId: projectId, // Ensure projectId is set when creating new board
+      projectId: projectId,
     });
     setShowForm(true);
   };
@@ -86,48 +85,60 @@ export function BoardList({ projectId }: BoardListProps) {
 
     try {
       setIsSubmitting(true);
-      console.log("Form data before submission:", formData); // Debug log
 
-      // Ensure projectId is explicitly set
-      const data = {
-        ...formData,
-        projectId: projectId
-      };
+      if (editingBoard) {
+        const response = await fetch(`/api/boards/${editingBoard.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
 
-      console.log("Data being sent to API:", data); // Debug log
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to update board");
+        }
 
-      const response = await fetch(`/api/projects/${projectId}/boards`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+        await queryClient.invalidateQueries({
+          queryKey: [`/api/projects/${projectId}/boards`],
+        });
 
-      console.log("API Response status:", response.status); // Debug log
+        toast({ title: "Board erfolgreich aktualisiert" });
+      } else {
+        const response = await fetch(`/api/projects/${projectId}/boards`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...formData,
+            projectId,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create board");
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to create board");
+        }
+
+        const newBoard = await response.json();
+        await queryClient.invalidateQueries({
+          queryKey: [`/api/projects/${projectId}/boards`],
+        });
+
+        setCurrentBoard(newBoard);
+        setLocation("/board");
+        toast({ title: "Board erfolgreich erstellt" });
       }
 
-      const newBoard = await response.json();
-      console.log("Created board:", newBoard); // Debug log
-
-      await queryClient.invalidateQueries({
-        queryKey: [`/api/projects/${projectId}/boards`],
-      });
-
-      setCurrentBoard(newBoard);
-      setLocation("/board");
-      toast({ title: "Board erfolgreich erstellt" });
       setShowForm(false);
       form.reset();
     } catch (error) {
-      console.error("Error creating board:", error);
+      console.error("Error:", error);
       toast({
-        title: "Fehler beim Erstellen des Boards",
-        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Ein unerwarteter Fehler ist aufgetreten",
         variant: "destructive",
       });
     } finally {
