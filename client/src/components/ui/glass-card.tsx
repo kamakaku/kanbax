@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
-import { Card, type CardProps } from "./card";
+import { Card } from "./card";
+import type { ComponentPropsWithoutRef } from "react";
 
-interface GlassCardProps extends CardProps {
+interface GlassCardProps extends ComponentPropsWithoutRef<typeof Card> {
   intensity?: "low" | "medium" | "high";
 }
 

@@ -101,7 +101,7 @@ export function NotificationSettingsForm() {
             </div>
             <Switch
               id={id}
-              checked={settings[id as keyof NotificationSettings]}
+              checked={settings[id as keyof NotificationSettings] ?? false}
               onCheckedChange={() => handleToggle(id as keyof NotificationSettings)}
             />
           </div>

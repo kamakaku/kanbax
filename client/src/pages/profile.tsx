@@ -154,7 +154,7 @@ export default function Profile() {
           <div className="flex items-center gap-6 mb-8">
             <div className="relative">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={user?.avatarUrl} />
+                {user?.avatarUrl && <AvatarImage src={user.avatarUrl} />}
                 <AvatarFallback className="bg-primary/10">
                   <User className="h-10 w-10" />
                 </AvatarFallback>
