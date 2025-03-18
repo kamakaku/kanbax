@@ -359,8 +359,21 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      const board = await storage.updateBoard(id, result.data);
-      res.json(board);
+      const { teamIds, userIds, ...boardData } = result.data;
+      const board = await storage.updateBoard(id, boardData);
+      
+      // Update team assignments if provided
+      if (teamIds) {
+        await storage.updateBoardTeams(id, teamIds);
+      }
+      
+      // Update user assignments if provided
+      if (userIds) {
+        await storage.updateBoardUsers(id, userIds);
+      }
+
+      const updatedBoard = await storage.getBoard(id);
+      res.json(updatedBoard);
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
     }

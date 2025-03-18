@@ -22,6 +22,8 @@ export interface IStorage {
   createBoard(board: InsertBoard): Promise<Board>;
   updateBoard(id: number, board: UpdateBoard): Promise<Board>;
   deleteBoard(id: number): Promise<void>;
+  updateBoardTeams(boardId: number, teamIds: number[]): Promise<void>;
+  updateBoardUsers(boardId: number, userIds: number[]): Promise<void>;
 
   // Column operations
   getColumns(boardId: number): Promise<Column[]>;
@@ -248,6 +250,34 @@ export class DatabaseStorage implements IStorage {
     }
 
     return board;
+  }
+
+  async updateBoardTeams(boardId: number, teamIds: number[]): Promise<void> {
+    // First delete existing team assignments
+    await db.delete(boardTeams).where(eq(boardTeams.boardId, boardId));
+
+    // Then insert new team assignments
+    if (teamIds.length > 0) {
+      await db.insert(boardTeams).values(teamIds.map(teamId => ({
+        boardId,
+        teamId,
+        role: 'member'
+      })));
+    }
+  }
+
+  async updateBoardUsers(boardId: number, userIds: number[]): Promise<void> {
+    // First delete existing user assignments
+    await db.delete(boardMembers).where(eq(boardMembers.boardId, boardId));
+
+    // Then insert new user assignments
+    if (userIds.length > 0) {
+      await db.insert(boardMembers).values(userIds.map(userId => ({
+        boardId,
+        userId,
+        role: 'member'
+      })));
+    }
   }
 
   async deleteBoard(id: number): Promise<void> {
