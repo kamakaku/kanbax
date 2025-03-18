@@ -337,11 +337,12 @@ export class DatabaseStorage implements IStorage {
       title: updateBoard.title,
       description: updateBoard.description,
       projectId: updateBoard.projectId,
-      teamIds: updateBoard.teamIds || [],
-      assignedUserIds: updateBoard.assignedUserIds || [],
+      teamIds: Array.isArray(updateBoard.teamIds) ? updateBoard.teamIds : [],
+      assignedUserIds: Array.isArray(updateBoard.assignedUserIds) ? updateBoard.assignedUserIds : [],
     };
     console.log("Prepared board data for update:", boardData);
 
+    // Update the board
     const [board] = await db
       .update(boards)
       .set(boardData)
@@ -353,7 +354,10 @@ export class DatabaseStorage implements IStorage {
     }
 
     console.log("Updated board result:", board);
-    return board;
+
+    // Fetch the complete board with all relations
+    const completeBoard = await this.getBoard(id);
+    return completeBoard;
   }
 
   async updateBoardUsers(boardId: number, userIds: number[]): Promise<void> {
