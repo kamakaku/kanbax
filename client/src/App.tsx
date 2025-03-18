@@ -15,13 +15,14 @@ import {
 import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target, LineChart, Users } from "lucide-react";
 import Board from "@/pages/board";
 import Dashboard from "@/pages/dashboard";
-import Projects from "@/pages/projects";
+import AllProjects from "@/pages/all-projects";
 import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
 import ProjectDetail from "@/pages/project-detail";
 import AllBoards from "@/pages/all-boards";
 import Profile from "@/pages/profile";
 import OKRPage from "@/pages/okr";
+import AllOKRs from "@/pages/all-okrs";
 import OKRDetailPage from "@/pages/okr-detail";
 import TeamsPage from "@/pages/teams";
 import { ProductivityPage } from "@/pages/productivity";
@@ -50,7 +51,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => setLocation("/projects")}
+                  onClick={() => setLocation("/all-projects")}
                   tooltip="Projekte"
                 >
                   <Folder className="h-4 w-4" />
@@ -68,7 +69,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => setLocation("/boards")}
+                  onClick={() => setLocation("/all-boards")}
                   tooltip="Boards"
                 >
                   <KanbanSquare className="h-4 w-4" />
@@ -77,7 +78,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => setLocation("/okr")}
+                  onClick={() => setLocation("/all-okrs")}
                   tooltip="OKRs"
                 >
                   <Target className="h-4 w-4" />
@@ -156,11 +157,12 @@ function AuthenticatedApp() {
     <Switch>
       <Route path="/auth" component={Auth} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
-      <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
+      <Route path="/all-projects" component={() => <ProtectedRoute component={AllProjects} />} />
       <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
       <Route path="/teams" component={() => <ProtectedRoute component={TeamsPage} />} />
       <Route path="/board" component={() => <ProtectedRoute component={Board} />} />
-      <Route path="/boards" component={() => <ProtectedRoute component={AllBoards} />} />
+      <Route path="/all-boards" component={() => <ProtectedRoute component={AllBoards} />} />
+      <Route path="/all-okrs" component={() => <ProtectedRoute component={AllOKRs} />} />
       <Route path="/okr" component={() => <ProtectedRoute component={OKRPage} />} />
       <Route path="/okr/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
