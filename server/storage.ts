@@ -141,43 +141,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBoard(id: number): Promise<Board> {
-    // Get the board
-    const [board] = await db.select().from(boards).where(eq(boards.id, id));
-    if (!board) {
-      throw new Error(`Board ${id} not found`);
+    try {
+      // Get the board
+      const [board] = await db.select().from(boards).where(eq(boards.id, id));
+      if (!board) {
+        throw new Error(`Board ${id} not found`);
+      }
+
+      console.log("Retrieved board:", board);
+
+      // Get the full team objects for each team ID
+      let teamsData: Team[] = [];
+      if (board.teamIds && Array.isArray(board.teamIds) && board.teamIds.length > 0) {
+        console.log("Fetching teams for IDs:", board.teamIds);
+        teamsData = await db
+          .select()
+          .from(teams)
+          .where(sql`${teams.id} = ANY(${sql.array(board.teamIds, 'int4')})`);
+        console.log("Retrieved teams data:", teamsData);
+      }
+
+      // Get the project if it exists
+      let projectData = null;
+      if (board.projectId) {
+        const [project] = await db
+          .select({
+            id: projects.id,
+            title: projects.title,
+          })
+          .from(projects)
+          .where(eq(projects.id, board.projectId));
+        projectData = project;
+      }
+
+      // Return the complete board object
+      const completeBoard = {
+        ...board,
+        teams: teamsData,
+        project: projectData,
+      };
+      console.log("Returning complete board:", completeBoard);
+      return completeBoard;
+    } catch (error) {
+      console.error("Error in getBoard:", error);
+      throw error;
     }
-
-    console.log("Retrieved board with teamIds:", board.teamIds);
-
-    // Get the full team objects for each team ID
-    let teamsData: Team[] = [];
-    if (board.teamIds && board.teamIds.length > 0) {
-      console.log("Fetching teams for IDs:", board.teamIds);
-      teamsData = await db
-        .select()
-        .from(teams)
-        .where(sql`${teams.id} = ANY(${board.teamIds})`);
-      console.log("Retrieved teams data:", teamsData);
-    }
-
-    // Get the project if it exists
-    let projectData = null;
-    if (board.projectId) {
-      const [project] = await db
-        .select()
-        .from(projects)
-        .where(eq(projects.id, board.projectId));
-      projectData = project;
-    }
-
-    // Return the complete board object
-    const completeBoard = {
-      ...board,
-      teams: teamsData,
-      project: projectData,
-    };
-    console.log("Returning complete board:", completeBoard);
-    return completeBoard;
   }
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
