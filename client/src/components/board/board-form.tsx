@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertBoardSchema, type InsertBoard, type Project } from "@shared/schema";
@@ -41,10 +42,9 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
   const { user } = useAuth();
 
   if (!user) {
-    return null; // Don't render the form if there's no user
+    return null;
   }
 
-  // Fetch projects
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
     queryFn: async () => {
@@ -62,7 +62,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       title: "",
       description: "",
       projectId: currentProject?.id,
-      creatorId: user.id, // Set the creator ID from the current user
+      creatorId: user.id,
     },
   });
 
@@ -78,7 +78,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           creatorId: user.id
         };
 
-        // Send the request
         const response = await fetch('/api/boards', {
           method: 'POST',
           headers: {
@@ -92,22 +91,6 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         }
 
         const newBoard = await response.json();
-
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(submitData)
-        });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error("Server error response:", errorText);
-          throw new Error("Fehler beim Erstellen des Boards");
-        }
-
-        const newBoard = await res.json();
         console.log("Server response with new board:", newBoard);
 
         queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
@@ -118,14 +101,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         toast({ title: "Board erfolgreich erstellt" });
         form.reset();
         onClose();
-        setCurrentBoard(newBoard);
-        setLocation("/board");
+        setLocation(`/boards/${newBoard.id}`);
       }
     } catch (error) {
-      console.error("Form submission error:", error);
+      console.error("Error creating board:", error);
       toast({
-        title: "Fehler",
-        description: error instanceof Error ? error.message : "Das Board konnte nicht erstellt werden",
+        title: "Fehler beim Erstellen des Boards",
         variant: "destructive",
       });
     }
@@ -133,12 +114,11 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {defaultValues ? "Board bearbeiten" : "Neues Board erstellen"}
-          </DialogTitle>
+          <DialogTitle>{defaultValues ? "Board bearbeiten" : "Neues Board erstellen"}</DialogTitle>
         </DialogHeader>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
@@ -148,7 +128,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                 <FormItem>
                   <FormLabel>Titel</FormLabel>
                   <FormControl>
-                    <Input placeholder="Mein Board" {...field} />
+                    <Input placeholder="Geben Sie einen Titel ein..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
