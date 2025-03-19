@@ -13,8 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Star, Users, Building2, Calendar } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
@@ -218,108 +216,112 @@ export function Board() {
   const { teams: boardTeams, users: boardUsers } = getTeamAndUserInfo();
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-start gap-6">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              {board?.title}
-            </h1>
-            {board?.project && (
-              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Projekt: {board.project.title}
-              </p>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-background to-background/90">
+      <div className="absolute inset-0 bg-[radial-gradient(at_80%_0%,rgb(24,29,40)_0px,transparent_50%),radial-gradient(at_0%_50%,rgb(26,32,44)_0px,transparent_50%)] pointer-events-none" />
 
-            <div className="flex gap-4 mt-4">
-              {/* Teams Section */}
-              {boardTeams.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-wrap gap-1">
-                    {boardTeams.map((team) => (
-                      <Badge key={team.id} variant="outline" className="bg-primary/10 text-primary hover:bg-primary/20">
-                        {team.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+      <div className="relative p-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-start gap-6">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                {board?.title}
+              </h1>
+              {board?.project && (
+                <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Projekt: {board.project.title}
+                </p>
               )}
 
-              {/* Users Section */}
-              {boardUsers.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-wrap gap-1">
-                    {boardUsers.map((user) => (
-                      <Badge key={user.id} variant="outline" className="bg-secondary/10 text-secondary hover:bg-secondary/20">
-                        {user.username}
-                      </Badge>
-                    ))}
+              <div className="flex gap-4 mt-4">
+                {/* Teams Section */}
+                {boardTeams.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex flex-wrap gap-1">
+                      {boardTeams.map((team) => (
+                        <Badge key={team.id} variant="outline" className="bg-primary/10 text-primary hover:bg-primary/20">
+                          {team.name}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* Users Section */}
+                {boardUsers.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex flex-wrap gap-1">
+                      {boardUsers.map((user) => (
+                        <Badge key={user.id} variant="outline" className="bg-secondary/10 text-secondary hover:bg-secondary/20">
+                          {user.username}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => toggleFavorite.mutate()}
+                className="hover:bg-yellow-100/10"
+              >
+                <Star
+                  className={`h-5 w-5 ${board?.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowEditForm(true)}
+                className="hover:bg-muted/10"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => toggleFavorite.mutate()}
-              className="hover:bg-yellow-100"
-            >
-              <Star
-                className={`h-5 w-5 ${board?.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
-              />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowEditForm(true)}
-              className="hover:bg-muted"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </div>
+          <BoardSelector />
         </div>
-        <BoardSelector />
+
+        <div className="flex-1 overflow-x-auto relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-lg -z-10" />
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="flex gap-6 pb-4">
+              {defaultColumns.map((column) => {
+                const columnTasks = tasks
+                  .filter(task => task.status === column.id)
+                  .sort((a, b) => a.order - b.order);
+
+                return (
+                  <ColumnComponent
+                    key={column.id}
+                    column={column}
+                    tasks={columnTasks}
+                    onUpdate={updateTask.mutate}
+                  />
+                );
+              })}
+            </div>
+          </DragDropContext>
+        </div>
+
+        <BoardForm
+          open={showEditForm}
+          onClose={() => setShowEditForm(false)}
+          defaultValues={{
+            ...board,
+            team_ids: board?.team_ids || [],
+          }}
+          onSubmit={async (data) => {
+            await updateBoard.mutateAsync(data);
+          }}
+        />
       </div>
-
-      <div className="flex-1 overflow-x-auto relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-lg -z-10" />
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 pb-4">
-            {defaultColumns.map((column) => {
-              const columnTasks = tasks
-                .filter(task => task.status === column.id)
-                .sort((a, b) => a.order - b.order);
-
-              return (
-                <ColumnComponent
-                  key={column.id}
-                  column={column}
-                  tasks={columnTasks}
-                  onUpdate={updateTask.mutate}
-                />
-              );
-            })}
-          </div>
-        </DragDropContext>
-      </div>
-
-      <BoardForm
-        open={showEditForm}
-        onClose={() => setShowEditForm(false)}
-        defaultValues={{
-          ...board,
-          team_ids: board?.team_ids || [],
-        }}
-        onSubmit={async (data) => {
-          await updateBoard.mutateAsync(data);
-        }}
-      />
     </div>
   );
 }

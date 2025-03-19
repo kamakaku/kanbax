@@ -17,29 +17,29 @@ interface ColumnProps {
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
   backlog: { 
-    bg: "bg-slate-900/30",
+    bg: "bg-slate-900/20",
     text: "text-slate-200",
-    border: "border-slate-700"
+    border: "border-slate-700/30"
   },
   todo: { 
-    bg: "bg-blue-900/30",
+    bg: "bg-blue-900/20",
     text: "text-blue-200",
-    border: "border-blue-700"
+    border: "border-blue-700/30"
   },
   "in-progress": { 
-    bg: "bg-amber-900/30",
+    bg: "bg-amber-900/20",
     text: "text-amber-200",
-    border: "border-amber-700"
+    border: "border-amber-700/30"
   },
   review: { 
-    bg: "bg-purple-900/30",
+    bg: "bg-purple-900/20",
     text: "text-purple-200",
-    border: "border-purple-700"
+    border: "border-purple-700/30"
   },
   done: { 
-    bg: "bg-green-900/30",
+    bg: "bg-green-900/20",
     text: "text-green-200",
-    border: "border-green-700"
+    border: "border-green-700/30"
   }
 };
 
@@ -56,7 +56,15 @@ export function Column({ column, tasks, onUpdate }: ColumnProps) {
   const displayTitle = column.title || "Untitled";
 
   return (
-    <div className={`min-w-[280px] max-w-[280px] glass-card ${columnStyle.bg} ${columnStyle.border} rounded-xl border backdrop-blur-lg`}>
+    <div className={`
+      min-w-[280px] max-w-[280px] 
+      backdrop-blur-xl 
+      ${columnStyle.bg} 
+      ${columnStyle.border} 
+      rounded-xl border 
+      bg-gradient-to-b from-white/5 to-transparent
+      shadow-[0_8px_32px_0_rgba(0,0,0,0.1)]
+    `}>
       <div className="p-3 pb-2">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
