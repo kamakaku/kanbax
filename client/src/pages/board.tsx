@@ -12,12 +12,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Pencil, Star, Users, Building2 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
-import { GlassCard } from "@/components/ui/glass-card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function Board() {
   const { id } = useParams<{ id: string }>();
@@ -30,16 +25,37 @@ export function Board() {
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
     queryKey: ["/api/boards", boardId],
+    queryFn: async () => {
+      const response = await fetch(`/api/boards/${boardId}`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden des Boards");
+      }
+      return response.json();
+    },
   });
 
   // Fetch teams data
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
+      }
+      return response.json();
+    },
   });
 
   // Fetch users data
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
   });
 
   // Get team and user names
