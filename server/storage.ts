@@ -340,39 +340,42 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      // Update only the fields that are provided
+      console.log("Existing board:", existingBoard);
+      console.log("Update data received:", updateBoard);
+
+      // Create update data while preserving arrays
       const boardData = {
-        ...(updateBoard.title !== undefined && { title: updateBoard.title }),
-        ...(updateBoard.description !== undefined && { description: updateBoard.description }),
-        ...(updateBoard.project_id !== undefined && { project_id: updateBoard.project_id }),
-        ...(updateBoard.team_ids !== undefined && { 
-          team_ids: Array.isArray(updateBoard.team_ids) 
-            ? updateBoard.team_ids.filter(id => id > 0)
-            : existingBoard.team_ids 
-        }),
-        ...(updateBoard.assigned_user_ids !== undefined && {
-          assigned_user_ids: Array.isArray(updateBoard.assigned_user_ids)
-            ? updateBoard.assigned_user_ids.filter(id => id > 0)
-            : existingBoard.assigned_user_ids
-        }),
-        ...(updateBoard.is_favorite !== undefined && { is_favorite: updateBoard.is_favorite })
+        title: updateBoard.title ?? existingBoard.title,
+        description: updateBoard.description ?? existingBoard.description,
+        project_id: updateBoard.project_id ?? existingBoard.project_id,
+        creator_id: existingBoard.creator_id, // Don't allow changing creator
+        team_ids: updateBoard.team_ids ?? existingBoard.team_ids,
+        assigned_user_ids: updateBoard.assigned_user_ids ?? existingBoard.assigned_user_ids,
+        is_favorite: updateBoard.is_favorite ?? existingBoard.is_favorite
       };
 
-      console.log("Storage: Updating board with data:", boardData);
+      console.log("Final update data:", boardData);
 
-      const [board] = await db
+      // Update the board
+      const [updatedBoard] = await db
         .update(boards)
         .set(boardData)
         .where(eq(boards.id, id))
         .returning();
 
-      if (!board) {
-        throw new Error(`Board ${id} not found`);
+      if (!updatedBoard) {
+        throw new Error(`Failed to update board ${id}`);
       }
 
-      return await this.getBoard(id);
+      console.log("Board updated in database:", updatedBoard);
+
+      // Fetch the complete board with all associations
+      const completeBoard = await this.getBoard(id);
+      console.log("Returning complete board:", completeBoard);
+
+      return completeBoard;
     } catch (error) {
-      console.error("Storage: Error in updateBoard:", error);
+      console.error("Error in updateBoard:", error);
       throw error;
     }
   }

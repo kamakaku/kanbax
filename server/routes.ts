@@ -378,25 +378,16 @@ export async function registerRoutes(app: Express) {
     console.log("Received board update request:", req.body);
     const result = updateBoardSchema.safeParse(req.body);
     if (!result.success) {
+      console.error("Validation failed:", result.error);
       return res.status(400).json({ message: result.error.message });
     }
 
     try {
-      // Ensure arrays are properly formatted
-      const boardData = {
-        ...result.data,
-        team_ids: Array.isArray(result.data.team_ids)
-          ? result.data.team_ids.filter(id => id > 0)
-          : result.data.team_ids,
-        assigned_user_ids: Array.isArray(result.data.assigned_user_ids)
-          ? result.data.assigned_user_ids.filter(id => id > 0)
-          : result.data.assigned_user_ids
-      };
-
-      console.log("Updating board with data:", boardData);
-      const board = await storage.updateBoard(id, boardData);
-      const updatedBoard = await storage.getBoard(id);
-      res.json(updatedBoard);
+      // Pass the validated data directly to storage
+      console.log("Validated update data:", result.data);
+      const board = await storage.updateBoard(id, result.data);
+      console.log("Board updated successfully:", board);
+      res.json(board);
     } catch (error) {
       console.error("Failed to update board:", error);
       res.status(500).json({ message: (error as Error).message });
@@ -872,9 +863,7 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
-  });
-
-  app.patch("/api/objectives/:id/favorite", async (req, res) => {
+  });app.patch("/api/objectives/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid objective ID" });
