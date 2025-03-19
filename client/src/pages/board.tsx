@@ -14,6 +14,15 @@ import { Pencil, Star, Users, Building2 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
 
+// Define the default columns for the Kanban board
+const defaultColumns = [
+  { id: "backlog", title: "Backlog" },
+  { id: "todo", title: "To Do" },
+  { id: "in-progress", title: "In Progress" },
+  { id: "review", title: "Review" },
+  { id: "done", title: "Done" }
+];
+
 export function Board() {
   const { id } = useParams<{ id: string }>();
   const boardId = parseInt(id);
