@@ -216,7 +216,7 @@ export class DatabaseStorage implements IStorage {
         teamsList = await db
           .select()
           .from(teams)
-          .where(sql`${teams.id} = ANY(ARRAY[${sql.join(board.team_ids)}]::int[])`);
+          .where(sql`${teams.id} = ANY(${board.team_ids}::int[])`);
 
         console.log("Retrieved teams data:", teamsList);
       }
@@ -234,7 +234,7 @@ export class DatabaseStorage implements IStorage {
             avatarUrl: users.avatarUrl
           })
           .from(users)
-          .where(sql`${users.id} = ANY(ARRAY[${sql.join(board.assigned_user_ids)}]::int[])`);
+          .where(sql`${users.id} = ANY(${board.assigned_user_ids}::int[])`);
 
         console.log("Retrieved assigned users:", usersList);
       }
