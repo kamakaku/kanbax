@@ -1,8 +1,7 @@
 import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, type SQL } from "drizzle-orm";
-import { PgArray } from "drizzle-orm/pg-core";
+import { eq, desc, and, gte, inArray, type SQL } from "drizzle-orm";
 import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
@@ -144,7 +143,7 @@ export class DatabaseStorage implements IStorage {
           teamsData = await db
             .select()
             .from(teams)
-            .where(sql`${teams.id} = ANY(${board.teamIds})`);
+            .where(inArray(teams.id, board.teamIds));
         }
 
         // Get assigned users data
@@ -158,7 +157,7 @@ export class DatabaseStorage implements IStorage {
               avatarUrl: users.avatarUrl
             })
             .from(users)
-            .where(sql`${users.id} = ANY(${board.assignedUserIds})`);
+            .where(inArray(users.id, board.assignedUserIds));
           assignedUsers = users;
         }
 
@@ -200,6 +199,7 @@ export class DatabaseStorage implements IStorage {
 
   async getBoard(id: number): Promise<Board> {
     try {
+      // Get base board
       const [board] = await db
         .select()
         .from(boards)
@@ -215,16 +215,21 @@ export class DatabaseStorage implements IStorage {
         boardTeams = await db
           .select()
           .from(teams)
-          .where(sql`teams.id = ANY(${board.team_ids}::int[])`);
+          .where(inArray(teams.id, board.team_ids));
       }
 
       // Get users if assigned_user_ids exist
       let boardUsers: User[] = [];
       if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
         boardUsers = await db
-          .select()
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
           .from(users)
-          .where(sql`users.id = ANY(${board.assigned_user_ids}::int[])`);
+          .where(inArray(users.id, board.assigned_user_ids));
       }
 
       // Get project if exists
