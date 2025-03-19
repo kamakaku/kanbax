@@ -65,20 +65,22 @@ export function BoardList({ projectId }: BoardListProps) {
 
   const handleBoardClick = async (board: Board) => {
     try {
-      // Benutze die vorhandenen team_ids und assigned_user_ids
+      // Stelle sicher, dass wir die korrekten Array-Felder senden
+      const updateData = {
+        title: board.title,
+        description: board.description,
+        project_id: projectId,
+        team_ids: board.team_ids || [],
+        assigned_user_ids: board.assigned_user_ids || [],
+        is_favorite: board.is_favorite
+      };
+
       const response = await fetch(`/api/boards/${board.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: board.title,
-          description: board.description,
-          project_id: projectId,
-          team_ids: board.team_ids,
-          assigned_user_ids: board.assigned_user_ids,
-          is_favorite: board.is_favorite
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) {

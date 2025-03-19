@@ -340,19 +340,14 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      // Update-Objekt erstellen mit Erhaltung der Array-Werte
+      // Simples Update mit Beibehaltung der Arrays wenn sie leer sind
       const updateData = {
-        title: updateBoard.title ?? existingBoard.title,
+        title: updateBoard.title || existingBoard.title,
         description: updateBoard.description ?? existingBoard.description,
         project_id: updateBoard.project_id ?? existingBoard.project_id,
         creator_id: existingBoard.creator_id,
-        // Behalte existierende Arrays bei, wenn keine neuen oder leere Arrays übergeben werden
-        team_ids: (Array.isArray(updateBoard.team_ids) && updateBoard.team_ids.length > 0)
-          ? updateBoard.team_ids
-          : existingBoard.team_ids,
-        assigned_user_ids: (Array.isArray(updateBoard.assigned_user_ids) && updateBoard.assigned_user_ids.length > 0)
-          ? updateBoard.assigned_user_ids
-          : existingBoard.assigned_user_ids,
+        team_ids: updateBoard.team_ids?.length ? updateBoard.team_ids : existingBoard.team_ids,
+        assigned_user_ids: updateBoard.assigned_user_ids?.length ? updateBoard.assigned_user_ids : existingBoard.assigned_user_ids,
         is_favorite: updateBoard.is_favorite ?? existingBoard.is_favorite
       };
 
@@ -367,8 +362,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Failed to update board ${id}`);
       }
 
-      // Vollständiges Board mit allen Beziehungen zurückgeben
-      return await this.getBoard(id);
+      return updatedBoard;
     } catch (error) {
       console.error("Error in updateBoard:", error);
       throw error;
