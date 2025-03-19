@@ -69,8 +69,10 @@ export function Board() {
       return await apiRequest("PATCH", `/api/boards/${boardId}`, {
         title: data.title,
         description: data.description,
-        projectId: data.projectId,
-        teamIds: data.teamIds || [],
+        project_id: data.project_id,
+        team_ids: data.team_ids || [],
+        assigned_user_ids: data.assigned_user_ids || [],
+        is_favorite: data.is_favorite
       });
     },
     onSuccess: () => {
