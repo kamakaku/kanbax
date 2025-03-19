@@ -1,7 +1,7 @@
 import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, sql, type SQL } from "drizzle-orm";
+import { eq, desc, and, gte, type SQL } from "drizzle-orm";
 import { PgArray } from "drizzle-orm/pg-core";
 import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
@@ -212,22 +212,24 @@ export class DatabaseStorage implements IStorage {
       let teamsList: Team[] = [];
       if (board.team_ids && board.team_ids.length > 0) {
         console.log("Getting teams for board:", board.team_ids);
-        const teamsQuery = sql`
-          SELECT * FROM teams 
-          WHERE id = ANY(${board.team_ids}::int[])
+        const teamsQuery = `
+          SELECT t.* FROM teams t
+          WHERE t.id = ANY($1)
         `;
-        teamsList = await db.execute(teamsQuery);
+        const teamsResult = await db.execute(teamsQuery, [board.team_ids]);
+        teamsList = teamsResult.rows;
       }
 
       // Get users data
       let usersList: User[] = [];
       if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
         console.log("Getting users for board:", board.assigned_user_ids);
-        const usersQuery = sql`
-          SELECT * FROM users 
-          WHERE id = ANY(${board.assigned_user_ids}::int[])
+        const usersQuery = `
+          SELECT u.* FROM users u
+          WHERE u.id = ANY($1)
         `;
-        usersList = await db.execute(usersQuery);
+        const usersResult = await db.execute(usersQuery, [board.assigned_user_ids]);
+        usersList = usersResult.rows;
       }
 
       // Get project data
