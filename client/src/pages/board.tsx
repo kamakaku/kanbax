@@ -212,38 +212,53 @@ export function Board() {
               </p>
             )}
 
-            <div className="flex flex-col gap-2 mt-4">
-              {board?.teams && board.teams.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Teams:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {board.teams.map((team) => (
-                      <Badge key={team.id} variant="secondary">
-                        {team.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="flex flex-col gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Teams Section */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Zugewiesene Teams</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {board?.team_ids && board.team_ids.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {board.team_ids.map((teamId) => (
+                          <Badge key={teamId} variant="secondary">
+                            Team {teamId}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Keine Teams zugewiesen</p>
+                    )}
+                  </CardContent>
+                </Card>
 
-              {board?.users && board.users.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Zugewiesen an:</span>
-                  <div className="flex -space-x-2">
-                    {board.users.map((user) => (
-                      <Avatar key={user.id} className="h-8 w-8 border-2 border-background">
-                        {user.avatarUrl ? (
-                          <AvatarImage src={user.avatarUrl} alt={user.username} />
-                        ) : (
-                          <AvatarFallback>
-                            <UserCircle className="h-4 w-4" />
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                    ))}
-                  </div>
-                </div>
-              )}
+                {/* Users Section */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Zugewiesene Benutzer</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {board?.assigned_user_ids && board.assigned_user_ids.length > 0 ? (
+                      <div className="flex flex-wrap gap-3">
+                        {board.assigned_user_ids.map((userId) => (
+                          <div key={userId} className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8 border-2 border-background">
+                              <AvatarFallback>
+                                <UserCircle className="h-4 w-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">Benutzer {userId}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Keine Benutzer zugewiesen</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
 
