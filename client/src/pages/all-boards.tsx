@@ -60,7 +60,7 @@ export default function AllBoards() {
   const BoardCard = ({ board }: { board: Board }) => (
     <Card
       key={board.id}
-      className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
+      className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm"
       onClick={() => handleBoardClick(board)}
     >
       <CardHeader className="p-4">
@@ -90,12 +90,12 @@ export default function AllBoards() {
     <div className="container mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-slate-900">
             Alle Boards
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="bg-primary/10 backdrop-blur-sm hover:bg-primary/20">
+        <Button onClick={() => setShowForm(true)} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200">
           <Plus className="mr-2 h-4 w-4" />
           Neues Board
         </Button>
@@ -109,7 +109,7 @@ export default function AllBoards() {
         <>
           {favoriteBoards.length > 0 && (
             <div className="mb-8">
-              <h2 className="text-2xl font-semibold mb-4">Favorisierte Boards</h2>
+              <h2 className="text-2xl font-semibold mb-4 text-slate-900">Favorisierte Boards</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {favoriteBoards.map((board) => (
                   <BoardCard key={board.id} board={board} />
@@ -120,7 +120,7 @@ export default function AllBoards() {
 
           {nonFavoriteBoards.length > 0 && (
             <div>
-              <h2 className="text-2xl font-semibold mb-4">Weitere Boards</h2>
+              <h2 className="text-2xl font-semibold mb-4 text-slate-900">Weitere Boards</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {nonFavoriteBoards.map((board) => (
                   <BoardCard key={board.id} board={board} />
