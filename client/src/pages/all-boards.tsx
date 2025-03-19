@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { type Project, type Board } from "@shared/schema";
+import { type Project, type Board, type Team, type User } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
@@ -10,6 +10,7 @@ import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
@@ -20,15 +21,15 @@ export default function AllBoards() {
     queryKey: ["/api/projects"],
   });
 
-  const { data: teams = [], isLoading: teamsLoading } = useQuery({
+  const { data: teams = [], isLoading: teamsLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
   });
 
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
 
-  const { data: boards = [], isLoading: boardsLoading } = useQuery({
+  const { data: boards = [], isLoading: boardsLoading } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
   });
 
@@ -65,14 +66,14 @@ export default function AllBoards() {
 
   const getTeamNames = (teamIds: number[]) => {
     return teams
-      .filter(team => teamIds.includes(team.id))
+      .filter(team => team && teamIds.includes(team.id))
       .map(team => team.name)
       .join(", ");
   };
 
   const getUserNames = (userIds: number[]) => {
     return users
-      .filter(user => userIds.includes(user.id))
+      .filter(user => user && userIds.includes(user.id))
       .map(user => user.username)
       .join(", ");
   };
@@ -83,11 +84,11 @@ export default function AllBoards() {
   const BoardCard = ({ board }: { board: Board }) => (
     <Card
       key={board.id}
-      className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
+      className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
       onClick={() => handleBoardClick(board)}
     >
-      <CardHeader className="p-4 space-y-2">
-        <div className="flex items-start justify-between">
+      <CardHeader className="p-4">
+        <div className="flex items-start justify-between mb-2">
           <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
             {board.title}
           </CardTitle>
@@ -100,16 +101,18 @@ export default function AllBoards() {
             <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
           </Button>
         </div>
-        <CardDescription className="text-sm space-y-1">
-          <div className="line-clamp-1">{board.description}</div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
+        <CardDescription className="text-sm">
+          {board.description && (
+            <p className="line-clamp-2 mb-2">{board.description}</p>
+          )}
+          <div className="flex flex-wrap gap-2 mt-1">
             {board.team_ids && board.team_ids.length > 0 && (
               <Tooltip>
-                <TooltipTrigger>
-                  <div className="flex items-center gap-1">
-                    <Building2 className="h-3.5 w-3.5" />
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
                     <span>{board.team_ids.length}</span>
-                  </div>
+                  </Badge>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Teams: {getTeamNames(board.team_ids)}</p>
@@ -118,11 +121,11 @@ export default function AllBoards() {
             )}
             {board.assigned_user_ids && board.assigned_user_ids.length > 0 && (
               <Tooltip>
-                <TooltipTrigger>
-                  <div className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
                     <span>{board.assigned_user_ids.length}</span>
-                  </div>
+                  </Badge>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Benutzer: {getUserNames(board.assigned_user_ids)}</p>
