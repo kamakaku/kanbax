@@ -4,11 +4,12 @@ import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Plus, Star } from "lucide-react";
+import { Plus, Star, Users, Building2 } from "lucide-react";
 import { useState } from "react";
 import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
@@ -17,45 +18,28 @@ export default function AllBoards() {
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) {
-        throw new Error("Failed to fetch projects");
-      }
-      return res.json();
-    },
+  });
+
+  const { data: teams = [], isLoading: teamsLoading } = useQuery({
+    queryKey: ["/api/teams"],
+  });
+
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["/api/users"],
   });
 
   const { data: boards = [], isLoading: boardsLoading } = useQuery({
     queryKey: ["/api/boards"],
-    queryFn: async () => {
-      const allBoardsRes = await fetch('/api/boards');
-      if (!allBoardsRes.ok) {
-        throw new Error('Failed to fetch boards');
-      }
-      const allBoards = await allBoardsRes.json();
-
-      return allBoards.map((board: Board) => {
-        const project = projects?.find(p => p.id === board.projectId);
-        return {
-          ...board,
-          projectTitle: project?.title || 'Kein Projekt'
-        };
-      });
-    },
-    enabled: !projectsLoading,
   });
 
   const handleBoardClick = (board: Board) => {
-    // Set current project and board in store for context
-    if (board.projectId) {
-      const project = projects?.find(p => p.id === board.projectId);
+    if (board.project_id) {
+      const project = projects?.find(p => p.id === board.project_id);
       if (project) {
         setCurrentProject(project);
       }
     }
     setCurrentBoard(board);
-    // Navigate to the board detail view
     setLocation(`/boards/${board.id}`);
   };
 
@@ -69,7 +53,7 @@ export default function AllBoards() {
     }
   };
 
-  if (projectsLoading || boardsLoading) {
+  if (projectsLoading || boardsLoading || teamsLoading || usersLoading) {
     return (
       <div className="container mx-auto p-8">
         <div className="text-center py-12">
@@ -79,8 +63,77 @@ export default function AllBoards() {
     );
   }
 
-  const favoriteBoards = boards.filter(b => b.isFavorite);
-  const nonFavoriteBoards = boards.filter(b => !b.isFavorite);
+  const getTeamNames = (teamIds: number[]) => {
+    return teams
+      .filter(team => teamIds.includes(team.id))
+      .map(team => team.name)
+      .join(", ");
+  };
+
+  const getUserNames = (userIds: number[]) => {
+    return users
+      .filter(user => userIds.includes(user.id))
+      .map(user => user.username)
+      .join(", ");
+  };
+
+  const favoriteBoards = boards.filter(b => b.is_favorite);
+  const nonFavoriteBoards = boards.filter(b => !b.is_favorite);
+
+  const BoardCard = ({ board }: { board: Board }) => (
+    <Card
+      key={board.id}
+      className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
+      onClick={() => handleBoardClick(board)}
+    >
+      <CardHeader className="p-4 space-y-2">
+        <div className="flex items-start justify-between">
+          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+            {board.title}
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="p-1 hover:bg-yellow-100"
+            onClick={(e) => toggleFavorite(board, e)}
+          >
+            <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+          </Button>
+        </div>
+        <CardDescription className="text-sm space-y-1">
+          <div className="line-clamp-1">{board.description}</div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
+            {board.team_ids && board.team_ids.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex items-center gap-1">
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>{board.team_ids.length}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Teams: {getTeamNames(board.team_ids)}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {board.assigned_user_ids && board.assigned_user_ids.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex items-center gap-1">
+                    <Users className="h-3.5 w-3.5" />
+                    <span>{board.assigned_user_ids.length}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Benutzer: {getUserNames(board.assigned_user_ids)}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </CardDescription>
+      </CardHeader>
+    </Card>
+  );
 
   return (
     <div className="container mx-auto p-8">
@@ -108,33 +161,7 @@ export default function AllBoards() {
               <h2 className="text-2xl font-semibold mb-4">Favorisierte Boards</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {favoriteBoards.map((board) => (
-                  <Card
-                    key={board.id}
-                    className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/20 h-[120px]"
-                    onClick={() => handleBoardClick(board)}
-                  >
-                    <CardHeader className="p-4 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                          {board.title}
-                        </CardTitle>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="p-1 hover:bg-yellow-100"
-                          onClick={(e) => toggleFavorite(board, e)}
-                        >
-                          <Star className={`h-5 w-5 ${board.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-                        </Button>
-                      </div>
-                      <CardDescription className="text-sm space-y-1">
-                        <div className="line-clamp-1">{board.description}</div>
-                        <div className="text-xs text-primary/80">
-                          {board.projectTitle}
-                        </div>
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <BoardCard key={board.id} board={board} />
                 ))}
               </div>
             </div>
@@ -145,33 +172,7 @@ export default function AllBoards() {
               <h2 className="text-2xl font-semibold mb-4">Weitere Boards</h2>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {nonFavoriteBoards.map((board) => (
-                  <Card
-                    key={board.id}
-                    className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 h-[120px]"
-                    onClick={() => handleBoardClick(board)}
-                  >
-                    <CardHeader className="p-4 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                          {board.title}
-                        </CardTitle>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="p-1 hover:bg-yellow-100"
-                          onClick={(e) => toggleFavorite(board, e)}
-                        >
-                          <Star className={`h-5 w-5 ${board.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-                        </Button>
-                      </div>
-                      <CardDescription className="text-sm space-y-1">
-                        <div className="line-clamp-1">{board.description}</div>
-                        <div className="text-xs text-primary/80">
-                          {board.projectTitle}
-                        </div>
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <BoardCard key={board.id} board={board} />
                 ))}
               </div>
             </div>
