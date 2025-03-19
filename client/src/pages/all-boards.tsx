@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { type Project, type Board, type Team, type User } from "@shared/schema";
+import { type Project, type Board } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
@@ -10,40 +10,6 @@ import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 
-const getTeamAndUserInfo = (board: Board) => {
-  // Nur die benötigten Array-Typen verwenden
-  const teamIds = Array.isArray(board.team_ids) ? board.team_ids : [];
-  const userIds = Array.isArray(board.assigned_user_ids) ? board.assigned_user_ids : [];
-
-  console.log('Teams:', teams); // Debug-Log
-  console.log('Users:', users); // Debug-Log
-  console.log('Board Team IDs:', teamIds); // Debug-Log
-  console.log('Board User IDs:', userIds); // Debug-Log
-
-  const teamNames = teamIds
-    .map(id => {
-      const team = teams.find(t => t.id === id);
-      console.log('Found team:', team); // Debug-Log
-      return team?.name;
-    })
-    .filter(Boolean)
-    .join(', ');
-
-  const userNames = userIds
-    .map(id => {
-      const user = users.find(u => u.id === id);
-      console.log('Found user:', user); // Debug-Log
-      return user?.username;
-    })
-    .filter(Boolean)
-    .join(', ');
-
-  return {
-    teamNames: teamNames || 'Keine Teams',
-    userNames: userNames || 'Keine Benutzer'
-  };
-};
-
 export default function AllBoards() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
@@ -53,18 +19,9 @@ export default function AllBoards() {
     queryKey: ["/api/projects"],
   });
 
-  const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: ["/api/teams"],
-  });
-
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-  });
-
   const { data: boards = [], isLoading: boardsLoading } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
   });
-
 
   const handleBoardClick = (board: Board) => {
     if (board.project_id) {
@@ -100,42 +57,34 @@ export default function AllBoards() {
   const favoriteBoards = boards.filter(b => b.is_favorite);
   const nonFavoriteBoards = boards.filter(b => !b.is_favorite);
 
-  const BoardCard = ({ board }: { board: Board }) => {
-    const { teamNames, userNames } = getTeamAndUserInfo(board);
-
-    return (
-      <Card
-        key={board.id}
-        className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
-        onClick={() => handleBoardClick(board)}
-      >
-        <CardHeader className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-              {board.title}
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="p-1 hover:bg-yellow-100"
-              onClick={(e) => toggleFavorite(board, e)}
-            >
-              <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-            </Button>
-          </div>
-          <CardDescription className="text-sm">
-            {board.description && (
-              <p className="line-clamp-2 mb-2">{board.description}</p>
-            )}
-            <div className="text-xs text-muted-foreground">
-              <p>Teams: {teamNames}</p>
-              <p>Benutzer: {userNames}</p>
-            </div>
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  };
+  const BoardCard = ({ board }: { board: Board }) => (
+    <Card
+      key={board.id}
+      className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
+      onClick={() => handleBoardClick(board)}
+    >
+      <CardHeader className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+            {board.title}
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="p-1 hover:bg-yellow-100"
+            onClick={(e) => toggleFavorite(board, e)}
+          >
+            <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+          </Button>
+        </div>
+        <CardDescription className="text-sm">
+          {board.description && (
+            <p className="line-clamp-2">{board.description}</p>
+          )}
+        </CardDescription>
+      </CardHeader>
+    </Card>
+  );
 
   return (
     <div className="container mx-auto p-8">
