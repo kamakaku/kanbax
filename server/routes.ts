@@ -387,11 +387,10 @@ export async function registerRoutes(app: Express) {
         ...result.data,
         team_ids: Array.isArray(result.data.team_ids)
           ? result.data.team_ids.filter(id => id > 0)
-          : [],
+          : result.data.team_ids,
         assigned_user_ids: Array.isArray(result.data.assigned_user_ids)
           ? result.data.assigned_user_ids.filter(id => id > 0)
-          : [],
-        is_favorite: result.data.is_favorite || false
+          : result.data.assigned_user_ids
       };
 
       console.log("Updating board with data:", boardData);

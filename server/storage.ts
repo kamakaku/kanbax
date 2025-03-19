@@ -340,17 +340,21 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      // Ensure arrays are properly handled and contain only valid IDs
+      // Update only the fields that are provided
       const boardData = {
-        ...(updateBoard.title && { title: updateBoard.title }),
+        ...(updateBoard.title !== undefined && { title: updateBoard.title }),
         ...(updateBoard.description !== undefined && { description: updateBoard.description }),
         ...(updateBoard.project_id !== undefined && { project_id: updateBoard.project_id }),
-        team_ids: Array.isArray(updateBoard.team_ids) 
-          ? updateBoard.team_ids.filter(id => id > 0)
-          : existingBoard.team_ids,
-        assigned_user_ids: Array.isArray(updateBoard.assigned_user_ids)
-          ? updateBoard.assigned_user_ids.filter(id => id > 0)
-          : existingBoard.assigned_user_ids,
+        ...(updateBoard.team_ids !== undefined && { 
+          team_ids: Array.isArray(updateBoard.team_ids) 
+            ? updateBoard.team_ids.filter(id => id > 0)
+            : existingBoard.team_ids 
+        }),
+        ...(updateBoard.assigned_user_ids !== undefined && {
+          assigned_user_ids: Array.isArray(updateBoard.assigned_user_ids)
+            ? updateBoard.assigned_user_ids.filter(id => id > 0)
+            : existingBoard.assigned_user_ids
+        }),
         ...(updateBoard.is_favorite !== undefined && { is_favorite: updateBoard.is_favorite })
       };
 
