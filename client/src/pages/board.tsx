@@ -216,18 +216,18 @@ export function Board() {
   const { teams: boardTeams, users: boardUsers } = getTeamAndUserInfo();
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(120deg,rgb(26,32,44)_0%,rgb(24,29,40)_100%)]">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
       {/* Background gradients */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(at_80%_0%,rgb(24,29,40)_0px,transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(at_0%_50%,rgb(26,32,44)_0px,transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(at_80%_0%,rgb(248,250,252)_0px,transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(at_0%_50%,rgb(241,245,249)_0px,transparent_50%)]" />
       </div>
 
       <div className="relative p-8">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-start gap-6">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold text-slate-900">
                 {board?.title}
               </h1>
               {board?.project && (
@@ -244,7 +244,7 @@ export function Board() {
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <div className="flex flex-wrap gap-1">
                       {boardTeams.map((team) => (
-                        <Badge key={team.id} variant="outline" className="bg-primary/10 text-primary hover:bg-primary/20 backdrop-blur-sm">
+                        <Badge key={team.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
                           {team.name}
                         </Badge>
                       ))}
@@ -258,7 +258,7 @@ export function Board() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <div className="flex flex-wrap gap-1">
                       {boardUsers.map((user) => (
-                        <Badge key={user.id} variant="outline" className="bg-secondary/10 text-secondary hover:bg-secondary/20 backdrop-blur-sm">
+                        <Badge key={user.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
                           {user.username}
                         </Badge>
                       ))}
@@ -273,17 +273,17 @@ export function Board() {
                 variant="ghost"
                 size="icon"
                 onClick={() => toggleFavorite.mutate()}
-                className="hover:bg-yellow-100/10"
+                className="hover:bg-slate-100"
               >
                 <Star
-                  className={`h-5 w-5 ${board?.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`}
+                  className={`h-5 w-5 ${board?.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-slate-400"}`}
                 />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowEditForm(true)}
-                className="hover:bg-muted/10"
+                className="hover:bg-slate-100"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -292,8 +292,7 @@ export function Board() {
           <BoardSelector />
         </div>
 
-        <div className="flex-1 overflow-x-auto relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-lg -z-10" />
+        <div className="flex-1 overflow-x-auto">
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {

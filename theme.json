@@ -1,25 +1,24 @@
 {
-  "variant": "vibrant",
-  "primary": "oklch(65% 0.2 250)",
-  "appearance": "dark",
+  "variant": "professional",
+  "primary": "oklch(65% 0.15 250)",
+  "appearance": "light",
   "radius": 1.2,
-  "background": "linear-gradient(120deg, rgb(26, 32, 44) 0%, rgb(24, 29, 40) 100%)",
   "glass": {
-    "background": "rgba(26, 32, 44, 0.7)",
-    "border": "rgba(255, 255, 255, 0.05)",
-    "backdrop": "blur(10px)"
+    "background": "rgba(255, 255, 255, 0.7)",
+    "border": "rgba(0, 0, 0, 0.05)",
+    "backdrop": "blur(8px)"
   },
   "colors": {
-    "primary": "rgb(0, 117, 255)",
-    "secondary": "rgb(132, 90, 223)",
-    "accent": "rgb(0, 208, 255)",
-    "success": "rgb(1, 181, 116)",
-    "warning": "rgb(255, 180, 0)",
-    "error": "rgb(255, 84, 84)",
-    "background": "rgb(17, 20, 28)",
-    "card": "rgba(26, 32, 44, 0.7)",
-    "border": "rgba(226, 232, 240, 0.1)",
-    "text": "rgb(226, 232, 240)",
-    "muted": "rgb(160, 174, 192)"
+    "primary": "rgb(59, 130, 246)",
+    "secondary": "rgb(99, 102, 241)",
+    "accent": "rgb(14, 165, 233)",
+    "success": "rgb(34, 197, 94)",
+    "warning": "rgb(234, 179, 8)",
+    "error": "rgb(239, 68, 68)",
+    "background": "rgb(249, 250, 251)",
+    "card": "rgba(255, 255, 255, 0.8)",
+    "border": "rgba(226, 232, 240, 0.8)",
+    "text": "rgb(15, 23, 42)",
+    "muted": "rgb(100, 116, 139)"
   }
 }
