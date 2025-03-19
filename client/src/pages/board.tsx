@@ -10,9 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star, Users, Building2 } from "lucide-react";
+import { Pencil, Star, Users, Building2, Calendar } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
@@ -92,20 +94,12 @@ export function Board() {
       }
       return res.json();
     },
-    enabled: !!boardId && !isNaN(boardId),
   });
 
   const updateBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
       if (!boardId) return null;
-      return await apiRequest("PATCH", `/api/boards/${boardId}`, {
-        title: data.title,
-        description: data.description,
-        project_id: data.project_id,
-        team_ids: data.team_ids || [],
-        assigned_user_ids: data.assigned_user_ids || [],
-        is_favorite: data.is_favorite
-      });
+      return await apiRequest("PATCH", `/api/boards/${boardId}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
@@ -128,13 +122,6 @@ export function Board() {
       return await apiRequest('PATCH', `/api/boards/${boardId}/favorite`);
     },
     onSuccess: () => {
-      if (board) {
-        const updatedBoard = {
-          ...board,
-          isFavorite: !board.isFavorite
-        };
-        setCurrentBoard(updatedBoard);
-      }
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
       toast({ title: "Favoriten-Status aktualisiert" });
@@ -210,10 +197,6 @@ export function Board() {
     }
   };
 
-  const handleTaskUpdate = async (updatedTask: Task) => {
-    await updateTask.mutateAsync(updatedTask);
-  };
-
   if (isBoardLoading || tasksLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -237,11 +220,14 @@ export function Board() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-6">
           <div>
-            <h1 className="text-3xl font-bold">{board?.title}</h1>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              {board?.title}
+            </h1>
             {board?.project && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
                 Projekt: {board.project.title}
               </p>
             )}
@@ -253,7 +239,7 @@ export function Board() {
                   <Building2 className="h-4 w-4 text-muted-foreground" />
                   <div className="flex flex-wrap gap-1">
                     {boardTeams.map((team) => (
-                      <Badge key={team.id} variant="secondary">
+                      <Badge key={team.id} variant="outline" className="bg-primary/10 text-primary hover:bg-primary/20">
                         {team.name}
                       </Badge>
                     ))}
@@ -267,7 +253,7 @@ export function Board() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                   <div className="flex flex-wrap gap-1">
                     {boardUsers.map((user) => (
-                      <Badge key={user.id} variant="secondary">
+                      <Badge key={user.id} variant="outline" className="bg-secondary/10 text-secondary hover:bg-secondary/20">
                         {user.username}
                       </Badge>
                     ))}
@@ -315,7 +301,7 @@ export function Board() {
                   key={column.id}
                   column={column}
                   tasks={columnTasks}
-                  onUpdate={handleTaskUpdate}
+                  onUpdate={updateTask.mutate}
                 />
               );
             })}
@@ -328,7 +314,7 @@ export function Board() {
         onClose={() => setShowEditForm(false)}
         defaultValues={{
           ...board,
-          teamIds: board?.teams?.map(team => team.id) || [],
+          team_ids: board?.team_ids || [],
         }}
         onSubmit={async (data) => {
           await updateBoard.mutateAsync(data);
