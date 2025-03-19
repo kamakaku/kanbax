@@ -100,7 +100,9 @@ export async function registerRoutes(app: Express) {
   app.get("/api/users", async (_req, res) => {
     try {
       const users = await storage.getUsers();
-      res.json(users);
+      // Entferne sensitive Daten vor dem Senden
+      const safeUsers = users.map(({ passwordHash, ...user }) => user);
+      res.json(safeUsers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -864,7 +866,7 @@ export async function registerRoutes(app: Express) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
   });
-  app.patch("/api/objectives/:id/favorite", async (req, res) => {
+  app.patch("/apiobjectives/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid objective ID" });

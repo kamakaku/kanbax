@@ -10,6 +10,40 @@ import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 
+const getTeamAndUserInfo = (board: Board) => {
+  // Nur die benötigten Array-Typen verwenden
+  const teamIds = Array.isArray(board.team_ids) ? board.team_ids : [];
+  const userIds = Array.isArray(board.assigned_user_ids) ? board.assigned_user_ids : [];
+
+  console.log('Teams:', teams); // Debug-Log
+  console.log('Users:', users); // Debug-Log
+  console.log('Board Team IDs:', teamIds); // Debug-Log
+  console.log('Board User IDs:', userIds); // Debug-Log
+
+  const teamNames = teamIds
+    .map(id => {
+      const team = teams.find(t => t.id === id);
+      console.log('Found team:', team); // Debug-Log
+      return team?.name;
+    })
+    .filter(Boolean)
+    .join(', ');
+
+  const userNames = userIds
+    .map(id => {
+      const user = users.find(u => u.id === id);
+      console.log('Found user:', user); // Debug-Log
+      return user?.username;
+    })
+    .filter(Boolean)
+    .join(', ');
+
+  return {
+    teamNames: teamNames || 'Keine Teams',
+    userNames: userNames || 'Keine Benutzer'
+  };
+};
+
 export default function AllBoards() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
@@ -31,22 +65,6 @@ export default function AllBoards() {
     queryKey: ["/api/boards"],
   });
 
-  const getTeamAndUserInfo = (board: Board) => {
-    const teamNames = board.team_ids
-      ?.map(id => teams.find(t => t.id === id)?.name || '')
-      .filter(Boolean)
-      .join(', ');
-
-    const userNames = board.assigned_user_ids
-      ?.map(id => users.find(u => u.id === id)?.username || '')
-      .filter(Boolean)
-      .join(', ');
-
-    return {
-      teamNames: teamNames || 'Keine Teams',
-      userNames: userNames || 'Keine Benutzer'
-    };
-  };
 
   const handleBoardClick = (board: Board) => {
     if (board.project_id) {
