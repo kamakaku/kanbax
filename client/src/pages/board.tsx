@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Board, type Column, type Task, type InsertBoard } from "@shared/schema";
+import { type Board, type Column, type Task, type InsertBoard, type Team, type User } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { BoardSelector } from "@/components/board/board-selector";
 import { useStore } from "@/lib/store";
@@ -10,21 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star } from "lucide-react";
+import { Pencil, Star, Users, Building2 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"; // Added import
-
-const defaultColumns = [
-  { id: "backlog", title: "backlog" },
-  { id: "todo", title: "todo" },
-  { id: "in-progress", title: "in-progress" },
-  { id: "review", title: "review" },
-  { id: "done", title: "done" }
-];
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function Board() {
   const { id } = useParams<{ id: string }>();
@@ -34,17 +27,30 @@ export function Board() {
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
 
+  // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
     queryKey: ["/api/boards", boardId],
-    queryFn: async () => {
-      const response = await fetch(`/api/boards/${boardId}`);
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden des Boards");
-      }
-      return response.json();
-    },
-    enabled: !!boardId && !isNaN(boardId),
   });
+
+  // Fetch teams data
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+  });
+
+  // Fetch users data
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  // Get team and user names
+  const getTeamAndUserInfo = () => {
+    if (!board) return { teams: [], users: [] };
+
+    const boardTeams = teams.filter(team => board.team_ids?.includes(team.id));
+    const boardUsers = users.filter(user => board.assigned_user_ids?.includes(user.id));
+
+    return { teams: boardTeams, users: boardUsers };
+  };
 
   useEffect(() => {
     if (board) {
@@ -201,6 +207,8 @@ export function Board() {
     );
   }
 
+  const { teams: boardTeams, users: boardUsers } = getTeamAndUserInfo();
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
@@ -213,53 +221,34 @@ export function Board() {
               </p>
             )}
 
-            <div className="flex flex-col gap-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Teams Section */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">Zugewiesene Teams</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {board?.team_ids && board.team_ids.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {board.team_ids.map((teamId) => (
-                          <Badge key={teamId} variant="secondary">
-                            Team {teamId}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Keine Teams zugewiesen</p>
-                    )}
-                  </CardContent>
-                </Card>
+            <div className="flex gap-4 mt-4">
+              {/* Teams Section */}
+              {boardTeams.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-wrap gap-1">
+                    {boardTeams.map((team) => (
+                      <Badge key={team.id} variant="secondary">
+                        {team.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                {/* Users Section */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">Zugewiesene Benutzer</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {board?.assigned_user_ids && board.assigned_user_ids.length > 0 ? (
-                      <div className="flex flex-wrap gap-3">
-                        {board.assigned_user_ids.map((userId) => (
-                          <div key={userId} className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8 border-2 border-background">
-                              <AvatarFallback>
-                                <UserCircle className="h-4 w-4" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">Benutzer {userId}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Keine Benutzer zugewiesen</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+              {/* Users Section */}
+              {boardUsers.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-wrap gap-1">
+                    {boardUsers.map((user) => (
+                      <Badge key={user.id} variant="secondary">
+                        {user.username}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -271,7 +260,7 @@ export function Board() {
               className="hover:bg-yellow-100"
             >
               <Star
-                className={`h-5 w-5 ${board?.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
+                className={`h-5 w-5 ${board?.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
               />
             </Button>
             <Button
