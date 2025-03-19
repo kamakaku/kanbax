@@ -4,14 +4,101 @@
 
 @layer base {
   :root {
-    --primary-rgb: 87, 132, 255; /* Entspricht der oklch(65% 0.15 250) Farbe */
+    --background: 222 25% 8.8%;
+    --foreground: 226 20% 90%;
+    --card: 222 25% 13.8%;
+    --card-foreground: 226 20% 90%;
+    --popover: 222 25% 13.8%;
+    --popover-foreground: 226 20% 90%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 226 20% 90%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 226 20% 90%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 226 15% 65%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 226 20% 90%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 226 20% 90%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
   }
 
   * {
     @apply border-border;
   }
 
+  html {
+    overflow-x: hidden;
+    height: 100%;
+  }
+
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply bg-gradient-to-br from-background to-background/90 text-foreground min-h-screen;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: radial-gradient(at 80% 0%, rgb(24, 29, 40) 0px, transparent 50%),
+                      radial-gradient(at 0% 50%, rgb(26, 32, 44) 0px, transparent 50%);
+  }
+
+  /* Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(26, 32, 44, 0.1);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(226, 232, 240, 0.1);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(226, 232, 240, 0.2);
+  }
+
+  /* Glass Card Styles */
+  .glass-card {
+    @apply backdrop-blur-xl bg-card/30 border border-white/5 shadow-lg;
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent;
+  }
+}
+
+@layer components {
+  /* Vision UI Dashboard Components */
+  .dashboard-card {
+    @apply glass-card rounded-xl p-4;
+  }
+
+  .dashboard-header {
+    @apply text-xl font-semibold gradient-text mb-4;
+  }
+
+  .dashboard-stats {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4;
+  }
+
+  .stat-card {
+    @apply glass-card rounded-xl p-4 flex items-center justify-between;
+  }
+
+  .stat-value {
+    @apply text-2xl font-bold text-foreground;
+  }
+
+  .stat-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .stat-icon {
+    @apply w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary;
   }
 }
