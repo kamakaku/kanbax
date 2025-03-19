@@ -200,7 +200,9 @@ export class DatabaseStorage implements IStorage {
 
   async getBoard(id: number): Promise<Board> {
     try {
-      // Get the board
+      console.log("Getting board with ID:", id);
+
+      // Get the base board
       const [board] = await db.select().from(boards).where(eq(boards.id, id));
       if (!board) {
         throw new Error(`Board ${id} not found`);
@@ -208,30 +210,33 @@ export class DatabaseStorage implements IStorage {
 
       // Get teams data
       let teamsList: Team[] = [];
-      if (Array.isArray(board.team_ids) && board.team_ids.length > 0) {
-        teamsList = await db
-          .select()
-          .from(teams)
-          .where(sql`${teams.id} = ANY(${board.team_ids}::int[])`);
+      if (board.team_ids && board.team_ids.length > 0) {
+        console.log("Getting teams for board:", board.team_ids);
+        const teamsQuery = sql`
+          SELECT * FROM teams 
+          WHERE id = ANY(${board.team_ids}::int[])
+        `;
+        teamsList = await db.execute(teamsQuery);
       }
 
       // Get users data
       let usersList: User[] = [];
-      if (Array.isArray(board.assigned_user_ids) && board.assigned_user_ids.length > 0) {
-        usersList = await db
-          .select()
-          .from(users)
-          .where(sql`${users.id} = ANY(${board.assigned_user_ids}::int[])`);
+      if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
+        console.log("Getting users for board:", board.assigned_user_ids);
+        const usersQuery = sql`
+          SELECT * FROM users 
+          WHERE id = ANY(${board.assigned_user_ids}::int[])
+        `;
+        usersList = await db.execute(usersQuery);
       }
 
       // Get project data
       let projectData = null;
       if (board.project_id) {
-        const [project] = await db
+        [projectData] = await db
           .select()
           .from(projects)
           .where(eq(projects.id, board.project_id));
-        projectData = project;
       }
 
       return {
@@ -242,8 +247,8 @@ export class DatabaseStorage implements IStorage {
       };
 
     } catch (error) {
-      console.error("Error in getBoard:", error);
-      throw error;
+      console.error("Detailed error in getBoard:", error);
+      throw new Error(`Fehler beim Laden des Boards: ${error.message}`);
     }
   }
 
