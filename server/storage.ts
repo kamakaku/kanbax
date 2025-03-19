@@ -330,7 +330,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
     try {
-      // Get the existing board first
+      // Get the existing board first to verify it exists
       const [existingBoard] = await db
         .select()
         .from(boards)
@@ -340,21 +340,17 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      console.log("Existing board:", existingBoard);
-      console.log("Update data received:", updateBoard);
-
-      // Create update data while preserving arrays
+      // Prepare the update data
       const boardData = {
-        title: updateBoard.title ?? existingBoard.title,
-        description: updateBoard.description ?? existingBoard.description,
-        project_id: updateBoard.project_id ?? existingBoard.project_id,
-        creator_id: existingBoard.creator_id, // Don't allow changing creator
-        team_ids: updateBoard.team_ids ?? existingBoard.team_ids,
-        assigned_user_ids: updateBoard.assigned_user_ids ?? existingBoard.assigned_user_ids,
-        is_favorite: updateBoard.is_favorite ?? existingBoard.is_favorite
+        title: updateBoard.title,
+        description: updateBoard.description,
+        project_id: updateBoard.project_id,
+        team_ids: updateBoard.team_ids,
+        assigned_user_ids: updateBoard.assigned_user_ids,
+        is_favorite: updateBoard.is_favorite
       };
 
-      console.log("Final update data:", boardData);
+      console.log("Updating board with data:", boardData);
 
       // Update the board
       const [updatedBoard] = await db
@@ -367,13 +363,8 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Failed to update board ${id}`);
       }
 
-      console.log("Board updated in database:", updatedBoard);
-
-      // Fetch the complete board with all associations
-      const completeBoard = await this.getBoard(id);
-      console.log("Returning complete board:", completeBoard);
-
-      return completeBoard;
+      // Return the complete board with all associations
+      return await this.getBoard(id);
     } catch (error) {
       console.error("Error in updateBoard:", error);
       throw error;

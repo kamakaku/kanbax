@@ -375,7 +375,6 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
-    console.log("Received board update request:", req.body);
     const result = updateBoardSchema.safeParse(req.body);
     if (!result.success) {
       console.error("Validation failed:", result.error);
@@ -383,10 +382,7 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      // Pass the validated data directly to storage
-      console.log("Validated update data:", result.data);
       const board = await storage.updateBoard(id, result.data);
-      console.log("Board updated successfully:", board);
       res.json(board);
     } catch (error) {
       console.error("Failed to update board:", error);
@@ -863,11 +859,11 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
-  });app.patch("/api/objectives/:id/favorite", async (req, res) => {
+  });
+  app.patch("/api/objectives/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid objective ID" });
-    }
+      return res.status(400).json({ message: "Invalid objective ID" });    }
 
     try {
       const objective = await storage.toggleObjectiveFavorite(id);
