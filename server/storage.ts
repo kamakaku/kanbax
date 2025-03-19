@@ -144,7 +144,7 @@ export class DatabaseStorage implements IStorage {
           teamsData = await db
             .select()
             .from(teams)
-            .where(sql`${teams.id} = ANY(${sql`{${board.teamIds.join(',')}}`}::int[])`);
+            .where(sql`${teams.id} = ANY(${board.teamIds})`);
         }
 
         // Get assigned users data
@@ -158,7 +158,7 @@ export class DatabaseStorage implements IStorage {
               avatarUrl: users.avatarUrl
             })
             .from(users)
-            .where(sql`${users.id} = ANY(${sql`{${board.assignedUserIds.join(',')}}`}::int[])`);
+            .where(sql`${users.id} = ANY(${board.assignedUserIds})`);
           assignedUsers = users;
         }
 
@@ -206,58 +206,40 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      console.log("Retrieved board:", board);
-
-      // Get the full team objects for each team ID
+      // Get teams data
       let teamsList: Team[] = [];
       if (board.team_ids && board.team_ids.length > 0) {
-        console.log("Fetching teams for IDs:", board.team_ids);
         teamsList = await db
           .select()
           .from(teams)
-          .where(sql`${teams.id} = ANY(${sql`{${board.team_ids.join(',')}}`}::int[])`);
-        console.log("Retrieved teams data:", teamsList);
+          .where(sql`${teams.id} = ANY(${board.team_ids})`);
       }
 
-      // Get assigned users if any
+      // Get users data
       let usersList: User[] = [];
       if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
-        console.log("Fetching assigned users for IDs:", board.assigned_user_ids);
         usersList = await db
-          .select({
-            id: users.id,
-            username: users.username,
-            email: users.email,
-            avatarUrl: users.avatarUrl
-          })
+          .select()
           .from(users)
-          .where(sql`${users.id} = ANY(${sql`{${board.assigned_user_ids.join(',')}}`}::int[])`);
-        console.log("Retrieved assigned users:", usersList);
+          .where(sql`${users.id} = ANY(${board.assigned_user_ids})`);
       }
 
-      // Get the project if it exists
+      // Get project data
       let projectData = null;
       if (board.project_id) {
         const [project] = await db
-          .select({
-            id: projects.id,
-            title: projects.title,
-          })
+          .select()
           .from(projects)
           .where(eq(projects.id, board.project_id));
         projectData = project;
       }
 
-      // Return the complete board object
-      const completeBoard = {
+      return {
         ...board,
         teams: teamsList,
         users: usersList,
         project: projectData
       };
-
-      console.log("Returning complete board:", completeBoard);
-      return completeBoard;
 
     } catch (error) {
       console.error("Error in getBoard:", error);
