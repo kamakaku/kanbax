@@ -216,7 +216,7 @@ export class DatabaseStorage implements IStorage {
         teamsList = await db
           .select()
           .from(teams)
-          .where(sql`${teams.id} = ANY(${board.team_ids}::int[])`);
+          .where(sql`${teams.id} IN (${board.team_ids.join(',')})`);
 
         console.log("Retrieved teams data:", teamsList);
       }
@@ -234,7 +234,7 @@ export class DatabaseStorage implements IStorage {
             avatarUrl: users.avatarUrl
           })
           .from(users)
-          .where(sql`${users.id} = ANY(${board.assigned_user_ids}::int[])`);
+          .where(sql`${users.id} IN (${board.assigned_user_ids.join(',')})`);
 
         console.log("Retrieved assigned users:", usersList);
       }
@@ -262,6 +262,7 @@ export class DatabaseStorage implements IStorage {
 
       console.log("Returning complete board:", completeBoard);
       return completeBoard;
+
     } catch (error) {
       console.error("Error in getBoard:", error);
       throw error;
