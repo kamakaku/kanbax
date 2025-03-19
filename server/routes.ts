@@ -289,12 +289,26 @@ export async function registerRoutes(app: Express) {
 
       console.log("4. Validated data:", result.data);
 
-      const board = await storage.createBoard(result.data);
-      console.log("5. Created board:", board);
+      // Ensure arrays are properly formatted
+      const boardData = {
+        ...result.data,
+        team_ids: Array.isArray(result.data.team_ids)
+          ? result.data.team_ids.filter(id => id > 0)
+          : [],
+        assigned_user_ids: Array.isArray(result.data.assigned_user_ids)
+          ? result.data.assigned_user_ids.filter(id => id > 0)
+          : [],
+        is_favorite: result.data.is_favorite || false
+      };
+
+      console.log("5. Processed board data:", boardData);
+
+      const board = await storage.createBoard(boardData);
+      console.log("6. Created board:", board);
 
       return res.status(201).json(board);
     } catch (error) {
-      console.error("6. Error in board creation:", error);
+      console.error("7. Error in board creation:", error);
       return res.status(500).json({
         message: error instanceof Error ? error.message : "Failed to create board"
       });
@@ -310,7 +324,7 @@ export async function registerRoutes(app: Express) {
       res.json(boards);
     } catch (error) {
       console.error("Failed to fetch boards:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to fetch boards",
         error: error instanceof Error ? error.message : String(error)
       });
@@ -348,7 +362,7 @@ export async function registerRoutes(app: Express) {
       });
     } catch (error) {
       console.error(`[GET /api/boards/${id}] Error fetching board:`, error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to fetch board",
         error: error instanceof Error ? error.message : String(error)
       });
@@ -368,8 +382,20 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      console.log("Updating board with data:", result.data);
-      const board = await storage.updateBoard(id, result.data);
+      // Ensure arrays are properly formatted
+      const boardData = {
+        ...result.data,
+        team_ids: Array.isArray(result.data.team_ids)
+          ? result.data.team_ids.filter(id => id > 0)
+          : [],
+        assigned_user_ids: Array.isArray(result.data.assigned_user_ids)
+          ? result.data.assigned_user_ids.filter(id => id > 0)
+          : [],
+        is_favorite: result.data.is_favorite || false
+      };
+
+      console.log("Updating board with data:", boardData);
+      const board = await storage.updateBoard(id, boardData);
       const updatedBoard = await storage.getBoard(id);
       res.json(updatedBoard);
     } catch (error) {
