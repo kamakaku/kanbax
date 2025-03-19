@@ -346,10 +346,12 @@ export class DatabaseStorage implements IStorage {
         description: updateBoard.description ?? existingBoard.description,
         project_id: updateBoard.project_id ?? existingBoard.project_id,
         creator_id: existingBoard.creator_id,
-        team_ids: updateBoard.team_ids?.length ? updateBoard.team_ids : existingBoard.team_ids,
-        assigned_user_ids: updateBoard.assigned_user_ids?.length ? updateBoard.assigned_user_ids : existingBoard.assigned_user_ids,
+        team_ids: Array.isArray(updateBoard.team_ids) ? updateBoard.team_ids : existingBoard.team_ids,
+        assigned_user_ids: Array.isArray(updateBoard.assigned_user_ids) ? updateBoard.assigned_user_ids : existingBoard.assigned_user_ids,
         is_favorite: updateBoard.is_favorite ?? existingBoard.is_favorite
       };
+
+      console.log("Updating board with data:", updateData);
 
       // Update durchführen
       const [updatedBoard] = await db
