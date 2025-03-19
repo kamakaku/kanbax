@@ -216,8 +216,12 @@ export function Board() {
   const { teams: boardTeams, users: boardUsers } = getTeamAndUserInfo();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-background/90">
-      <div className="absolute inset-0 bg-[radial-gradient(at_80%_0%,rgb(24,29,40)_0px,transparent_50%),radial-gradient(at_0%_50%,rgb(26,32,44)_0px,transparent_50%)] pointer-events-none" />
+    <div className="min-h-screen bg-[linear-gradient(120deg,rgb(26,32,44)_0%,rgb(24,29,40)_100%)]">
+      {/* Background gradients */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(at_80%_0%,rgb(24,29,40)_0px,transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(at_0%_50%,rgb(26,32,44)_0px,transparent_50%)]" />
+      </div>
 
       <div className="relative p-8">
         <div className="flex items-center justify-between mb-8">
@@ -240,7 +244,7 @@ export function Board() {
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <div className="flex flex-wrap gap-1">
                       {boardTeams.map((team) => (
-                        <Badge key={team.id} variant="outline" className="bg-primary/10 text-primary hover:bg-primary/20">
+                        <Badge key={team.id} variant="outline" className="bg-primary/10 text-primary hover:bg-primary/20 backdrop-blur-sm">
                           {team.name}
                         </Badge>
                       ))}
@@ -254,7 +258,7 @@ export function Board() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <div className="flex flex-wrap gap-1">
                       {boardUsers.map((user) => (
-                        <Badge key={user.id} variant="outline" className="bg-secondary/10 text-secondary hover:bg-secondary/20">
+                        <Badge key={user.id} variant="outline" className="bg-secondary/10 text-secondary hover:bg-secondary/20 backdrop-blur-sm">
                           {user.username}
                         </Badge>
                       ))}
