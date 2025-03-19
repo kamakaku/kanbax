@@ -40,23 +40,20 @@ const statusColors: Record<string, { bg: string; text: string; border: string }>
     bg: "bg-green-900/30",
     text: "text-green-200",
     border: "border-green-700"
-  },
+  }
 };
 
-const statusLabels: Record<string, string> = {
-  backlog: "Backlog",
-  todo: "To Do",
-  "in-progress": "In Progress",
-  review: "Review",
-  done: "Done",
+const getColumnStyle = (columnId: string | number) => {
+  const id = columnId.toString().toLowerCase();
+  return statusColors[id] || statusColors.backlog;
 };
 
 export function Column({ column, tasks, onUpdate }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const columnStyle = statusColors[column.title?.toLowerCase() || "backlog"];
-  const displayTitle = column.title ? statusLabels[column.title.toLowerCase()] || column.title : "Untitled";
+  const columnStyle = getColumnStyle(column.id);
+  const displayTitle = column.title || "Untitled";
 
   return (
     <div className={`min-w-[280px] max-w-[280px] glass-card ${columnStyle.bg} ${columnStyle.border} rounded-xl border backdrop-blur-lg`}>
@@ -83,7 +80,7 @@ export function Column({ column, tasks, onUpdate }: ColumnProps) {
         </div>
       </div>
 
-      <Droppable droppableId={column.title || ""}>
+      <Droppable droppableId={column.id.toString()}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
