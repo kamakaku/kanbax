@@ -210,22 +210,19 @@ export class DatabaseStorage implements IStorage {
 
       // Get the full team objects for each team ID
       let teamsList: Team[] = [];
-      if (board.team_ids && Array.isArray(board.team_ids) && board.team_ids.length > 0) {
+      if (board.team_ids && board.team_ids.length > 0) {
         console.log("Fetching teams for IDs:", board.team_ids);
-
         teamsList = await db
           .select()
           .from(teams)
-          .where(sql`${teams.id} IN (${board.team_ids.join(',')})`);
-
+          .where(sql`${teams.id} IN (SELECT UNNEST(${board.team_ids}::int[]))`);
         console.log("Retrieved teams data:", teamsList);
       }
 
       // Get assigned users if any
       let usersList: User[] = [];
-      if (board.assigned_user_ids && Array.isArray(board.assigned_user_ids) && board.assigned_user_ids.length > 0) {
+      if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
         console.log("Fetching assigned users for IDs:", board.assigned_user_ids);
-
         usersList = await db
           .select({
             id: users.id,
@@ -234,8 +231,7 @@ export class DatabaseStorage implements IStorage {
             avatarUrl: users.avatarUrl
           })
           .from(users)
-          .where(sql`${users.id} IN (${board.assigned_user_ids.join(',')})`);
-
+          .where(sql`${users.id} IN (SELECT UNNEST(${board.assigned_user_ids}::int[]))`);
         console.log("Retrieved assigned users:", usersList);
       }
 
