@@ -208,20 +208,20 @@ export class DatabaseStorage implements IStorage {
 
       // Get teams data
       let teamsList: Team[] = [];
-      if (board.team_ids && board.team_ids.length > 0) {
+      if (Array.isArray(board.team_ids) && board.team_ids.length > 0) {
         teamsList = await db
           .select()
           .from(teams)
-          .where(sql`${teams.id} = ANY(${board.team_ids})`);
+          .where(sql`${teams.id} = ANY(ARRAY[${board.team_ids.join(',')}]::int[])`);
       }
 
       // Get users data
       let usersList: User[] = [];
-      if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
+      if (Array.isArray(board.assigned_user_ids) && board.assigned_user_ids.length > 0) {
         usersList = await db
           .select()
           .from(users)
-          .where(sql`${users.id} = ANY(${board.assigned_user_ids})`);
+          .where(sql`${users.id} = ANY(ARRAY[${board.assigned_user_ids.join(',')}]::int[])`);
       }
 
       // Get project data
