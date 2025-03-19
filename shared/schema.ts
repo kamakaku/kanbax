@@ -45,8 +45,8 @@ export const boards = pgTable("boards", {
   description: text("description"),
   project_id: integer("project_id"),
   creator_id: integer("creator_id").notNull(),
-  team_ids: integer("team_ids").array().default([]),
-  assigned_user_ids: integer("assigned_user_ids").array().default([]),
+  team_ids: integer("team_ids").array().default([]).notNull(),
+  assigned_user_ids: integer("assigned_user_ids").array().default([]).notNull(),
   is_favorite: boolean("is_favorite").default(false),
 });
 

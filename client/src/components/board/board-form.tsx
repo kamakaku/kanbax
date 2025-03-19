@@ -80,6 +80,9 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     label: team.name
   }));
 
+  console.log("Available user options:", userOptions);
+  console.log("Available team options:", teamOptions);
+
   const form = useForm<InsertBoard>({
     resolver: zodResolver(insertBoardSchema),
     defaultValues: {
@@ -93,11 +96,12 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
     },
   });
 
-  console.log("Form values:", form.getValues());
-  console.log("Form errors:", form.formState.errors);
+  console.log("Form default values:", form.getValues());
 
   const handleSubmit = async (data: InsertBoard) => {
     try {
+      console.log("Raw form data:", data);
+
       // Ensure arrays are properly formatted
       const formattedData = {
         ...data,
@@ -107,7 +111,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         is_favorite: Boolean(data.is_favorite),
       };
 
-      console.log("Submitting board data:", formattedData);
+      console.log("Formatted data to submit:", formattedData);
 
       if (onSubmit) {
         await onSubmit(formattedData);
@@ -121,6 +125,8 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         if (!response.ok) throw new Error('Failed to create board');
 
         const newBoard = await response.json();
+        console.log("Created board:", newBoard);
+
         await queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
         if (currentProject?.id) {
           await queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
@@ -223,56 +229,60 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
             <FormField
               control={form.control}
               name="team_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teams zuweisen</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      placeholder="Teams auswählen..."
-                      options={teamOptions}
-                      selected={(field.value || []).map(String)}
-                      onChange={(values) => {
-                        console.log("Selected team values:", values);
-                        const numberValues = values.map(v => parseInt(v));
-                        console.log("Converted team values:", numberValues);
-                        field.onChange(numberValues);
-                      }}
-                    />
-                  </FormControl>
-                  {/* Only show error message if there is an actual error */}
-                  {form.formState.errors.team_ids?.message && (
-                    <FormMessage>{form.formState.errors.team_ids.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
+              render={({ field }) => {
+                console.log("Team field value:", field.value);
+                return (
+                  <FormItem>
+                    <FormLabel>Teams zuweisen</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        placeholder="Teams auswählen..."
+                        options={teamOptions}
+                        selected={Array.isArray(field.value) ? field.value.map(String) : []}
+                        onChange={(values) => {
+                          console.log("Selected team values:", values);
+                          const numberValues = values.map(v => parseInt(v));
+                          console.log("Converted team values:", numberValues);
+                          field.onChange(numberValues);
+                        }}
+                      />
+                    </FormControl>
+                    {form.formState.errors.team_ids?.message && (
+                      <FormMessage>{form.formState.errors.team_ids.message}</FormMessage>
+                    )}
+                  </FormItem>
+                );
+              }}
             />
 
             {/* User selection */}
             <FormField
               control={form.control}
               name="assigned_user_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Benutzer zuweisen</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      placeholder="Benutzer auswählen..."
-                      options={userOptions}
-                      selected={(field.value || []).map(String)}
-                      onChange={(values) => {
-                        console.log("Selected user values:", values);
-                        const numberValues = values.map(v => parseInt(v));
-                        console.log("Converted user values:", numberValues);
-                        field.onChange(numberValues);
-                      }}
-                    />
-                  </FormControl>
-                  {/* Only show error message if there is an actual error */}
-                  {form.formState.errors.assigned_user_ids?.message && (
-                    <FormMessage>{form.formState.errors.assigned_user_ids.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
+              render={({ field }) => {
+                console.log("User field value:", field.value);
+                return (
+                  <FormItem>
+                    <FormLabel>Benutzer zuweisen</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        placeholder="Benutzer auswählen..."
+                        options={userOptions}
+                        selected={Array.isArray(field.value) ? field.value.map(String) : []}
+                        onChange={(values) => {
+                          console.log("Selected user values:", values);
+                          const numberValues = values.map(v => parseInt(v));
+                          console.log("Converted user values:", numberValues);
+                          field.onChange(numberValues);
+                        }}
+                      />
+                    </FormControl>
+                    {form.formState.errors.assigned_user_ids?.message && (
+                      <FormMessage>{form.formState.errors.assigned_user_ids.message}</FormMessage>
+                    )}
+                  </FormItem>
+                );
+              }}
             />
 
             <Button type="submit" className="w-full">

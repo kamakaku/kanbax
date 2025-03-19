@@ -270,24 +270,24 @@ export class DatabaseStorage implements IStorage {
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
     try {
-      // Basic data validation
-      if (!insertBoard.title) {
-        throw new Error("Board title is required");
-      }
-      if (!insertBoard.creatorId) {
-        throw new Error("Creator ID is required");
-      }
+      console.log("Storage: Creating board with data:", JSON.stringify(insertBoard, null, 2));
 
-      // Prepare minimal board data
+      // Ensure arrays are properly handled
       const boardData = {
         title: insertBoard.title,
         description: insertBoard.description || null,
-        projectId: insertBoard.projectId || null,
-        creatorId: insertBoard.creatorId,
-        teamIds: insertBoard.teamIds || []
+        project_id: insertBoard.project_id || null,
+        creator_id: insertBoard.creator_id,
+        team_ids: Array.isArray(insertBoard.team_ids)
+          ? insertBoard.team_ids.filter(id => id > 0)
+          : [],
+        assigned_user_ids: Array.isArray(insertBoard.assigned_user_ids)
+          ? insertBoard.assigned_user_ids.filter(id => id > 0)
+          : [],
+        is_favorite: insertBoard.is_favorite || false
       };
 
-      console.log("Storage: Inserting board with data:", boardData);
+      console.log("Storage: Processed board data:", JSON.stringify(boardData, null, 2));
 
       // Create the board
       const [board] = await db
@@ -299,32 +299,29 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Failed to create board - no data returned");
       }
 
-      console.log("Storage: Board created:", board);
+      console.log("Storage: Created board:", JSON.stringify(board, null, 2));
 
       // Create default columns
-      try {
-        const defaultColumns = [
-          { title: "Backlog", order: 0 },
-          { title: "To Do", order: 1 },
-          { title: "In Progress", order: 2 },
-          { title: "Done", order: 3 }
-        ];
+      const defaultColumns = [
+        { title: "Backlog", order: 0 },
+        { title: "To Do", order: 1 },
+        { title: "In Progress", order: 2 },
+        { title: "Done", order: 3 }
+      ];
 
-        for (const column of defaultColumns) {
-          await db.insert(columns).values({
-            title: column.title,
-            boardId: board.id,
-            order: column.order
-          });
-        }
-
-        console.log("Storage: Default columns created");
-      } catch (columnError) {
-        console.error("Storage: Failed to create default columns:", columnError);
-        // Continue even if column creation fails
+      for (const column of defaultColumns) {
+        await db.insert(columns).values({
+          title: column.title,
+          boardId: board.id,
+          order: column.order
+        });
       }
 
-      return board;
+      // Fetch and return the complete board with associations
+      const completeBoard = await this.getBoard(board.id);
+      console.log("Storage: Returning complete board:", JSON.stringify(completeBoard, null, 2));
+      return completeBoard;
+
     } catch (error) {
       console.error("Storage: Error in createBoard:", error);
       throw error;
@@ -332,36 +329,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
-    console.log("Raw update data received:", JSON.stringify(updateBoard, null, 2));
+    try {
+      // Ensure arrays are properly handled and contain only valid IDs
+      const boardData = {
+        ...(updateBoard.title && { title: updateBoard.title }),
+        ...(updateBoard.description !== undefined && { description: updateBoard.description }),
+        ...(updateBoard.project_id !== undefined && { project_id: updateBoard.project_id }),
+        ...(Array.isArray(updateBoard.team_ids) && {
+          team_ids: updateBoard.team_ids.filter(id => id > 0)
+        }),
+        ...(Array.isArray(updateBoard.assigned_user_ids) && {
+          assigned_user_ids: updateBoard.assigned_user_ids.filter(id => id > 0)
+        }),
+        ...(updateBoard.is_favorite !== undefined && { is_favorite: updateBoard.is_favorite })
+      };
 
-    // Ensure we have arrays, even if empty
-    const team_ids = Array.isArray(updateBoard.team_ids) ? updateBoard.team_ids : [];
-    const assigned_user_ids = Array.isArray(updateBoard.assigned_user_ids) ? updateBoard.assigned_user_ids : [];
+      console.log("Storage: Updating board with data:", boardData);
 
-    console.log("Processing arrays:", {
-      team_ids: team_ids,
-      assigned_user_ids: assigned_user_ids
-    });
+      const [board] = await db
+        .update(boards)
+        .set(boardData)
+        .where(eq(boards.id, id))
+        .returning();
 
-    const [board] = await db
-      .update(boards)
-      .set({
-        title: updateBoard.title,
-        description: updateBoard.description,
-        project_id: updateBoard.project_id,
-        team_ids: team_ids,
-        assigned_user_ids: assigned_user_ids,
-        is_favorite: updateBoard.is_favorite
-      })
-      .where(eq(boards.id, id))
-      .returning();
+      if (!board) {
+        throw new Error(`Board ${id} not found`);
+      }
 
-    if (!board) {
-      throw new Error(`Board ${id} not found`);
+      return await this.getBoard(id);
+    } catch (error) {
+      console.error("Storage: Error in updateBoard:", error);
+      throw error;
     }
-
-    console.log("Updated board:", board);
-    return await this.getBoard(id);
   }
 
   async updateBoardUsers(boardId: number, userIds: number[]): Promise<void> {
