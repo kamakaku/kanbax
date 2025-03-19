@@ -330,17 +330,27 @@ export class DatabaseStorage implements IStorage {
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
     try {
+      // Get the existing board first
+      const [existingBoard] = await db
+        .select()
+        .from(boards)
+        .where(eq(boards.id, id));
+
+      if (!existingBoard) {
+        throw new Error(`Board ${id} not found`);
+      }
+
       // Ensure arrays are properly handled and contain only valid IDs
       const boardData = {
         ...(updateBoard.title && { title: updateBoard.title }),
         ...(updateBoard.description !== undefined && { description: updateBoard.description }),
         ...(updateBoard.project_id !== undefined && { project_id: updateBoard.project_id }),
-        ...(Array.isArray(updateBoard.team_ids) && {
-          team_ids: updateBoard.team_ids.filter(id => id > 0)
-        }),
-        ...(Array.isArray(updateBoard.assigned_user_ids) && {
-          assigned_user_ids: updateBoard.assigned_user_ids.filter(id => id > 0)
-        }),
+        team_ids: Array.isArray(updateBoard.team_ids) 
+          ? updateBoard.team_ids.filter(id => id > 0)
+          : existingBoard.team_ids,
+        assigned_user_ids: Array.isArray(updateBoard.assigned_user_ids)
+          ? updateBoard.assigned_user_ids.filter(id => id > 0)
+          : existingBoard.assigned_user_ids,
         ...(updateBoard.is_favorite !== undefined && { is_favorite: updateBoard.is_favorite })
       };
 
