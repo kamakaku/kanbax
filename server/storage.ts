@@ -199,16 +199,54 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBoard(id: number): Promise<Board> {
-    const [board] = await db
-      .select()
-      .from(boards)
-      .where(eq(boards.id, id));
+    try {
+      const [board] = await db
+        .select()
+        .from(boards)
+        .where(eq(boards.id, id));
 
-    if (!board) {
-      throw new Error(`Board ${id} not found`);
+      if (!board) {
+        throw new Error(`Board ${id} not found`);
+      }
+
+      // Get teams if team_ids exist
+      let boardTeams: Team[] = [];
+      if (board.team_ids && board.team_ids.length > 0) {
+        boardTeams = await db
+          .select()
+          .from(teams)
+          .where(sql`teams.id = ANY(${board.team_ids}::int[])`);
+      }
+
+      // Get users if assigned_user_ids exist
+      let boardUsers: User[] = [];
+      if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
+        boardUsers = await db
+          .select()
+          .from(users)
+          .where(sql`users.id = ANY(${board.assigned_user_ids}::int[])`);
+      }
+
+      // Get project if exists
+      let projectData = null;
+      if (board.project_id) {
+        [projectData] = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, board.project_id));
+      }
+
+      return {
+        ...board,
+        teams: boardTeams,
+        users: boardUsers,
+        project: projectData
+      };
+
+    } catch (error) {
+      console.error("Error in getBoard:", error);
+      throw error;
     }
-
-    return board;
   }
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
