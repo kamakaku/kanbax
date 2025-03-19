@@ -4,28 +4,26 @@ import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Plus, Star, Users, Building2 } from "lucide-react";
+import { Plus, Star } from "lucide-react";
 import { useState } from "react";
 import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
   const [showForm, setShowForm] = useState(false);
 
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
+  const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
-  const { data: teams = [], isLoading: teamsLoading } = useQuery<Team[]>({
+  const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
   });
 
-  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
+  const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
 
@@ -33,9 +31,26 @@ export default function AllBoards() {
     queryKey: ["/api/boards"],
   });
 
+  const getTeamAndUserInfo = (board: Board) => {
+    const teamNames = board.team_ids
+      ?.map(id => teams.find(t => t.id === id)?.name || '')
+      .filter(Boolean)
+      .join(', ');
+
+    const userNames = board.assigned_user_ids
+      ?.map(id => users.find(u => u.id === id)?.username || '')
+      .filter(Boolean)
+      .join(', ');
+
+    return {
+      teamNames: teamNames || 'Keine Teams',
+      userNames: userNames || 'Keine Benutzer'
+    };
+  };
+
   const handleBoardClick = (board: Board) => {
     if (board.project_id) {
-      const project = projects?.find(p => p.id === board.project_id);
+      const project = projects.find(p => p.id === board.project_id);
       if (project) {
         setCurrentProject(project);
       }
@@ -54,7 +69,7 @@ export default function AllBoards() {
     }
   };
 
-  if (projectsLoading || boardsLoading || teamsLoading || usersLoading) {
+  if (boardsLoading) {
     return (
       <div className="container mx-auto p-8">
         <div className="text-center py-12">
@@ -64,79 +79,45 @@ export default function AllBoards() {
     );
   }
 
-  const getTeamNames = (teamIds: number[]) => {
-    return teams
-      .filter(team => team && teamIds.includes(team.id))
-      .map(team => team.name)
-      .join(", ");
-  };
-
-  const getUserNames = (userIds: number[]) => {
-    return users
-      .filter(user => user && userIds.includes(user.id))
-      .map(user => user.username)
-      .join(", ");
-  };
-
   const favoriteBoards = boards.filter(b => b.is_favorite);
   const nonFavoriteBoards = boards.filter(b => !b.is_favorite);
 
-  const BoardCard = ({ board }: { board: Board }) => (
-    <Card
-      key={board.id}
-      className="group hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
-      onClick={() => handleBoardClick(board)}
-    >
-      <CardHeader className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-            {board.title}
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="p-1 hover:bg-yellow-100"
-            onClick={(e) => toggleFavorite(board, e)}
-          >
-            <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-          </Button>
-        </div>
-        <CardDescription className="text-sm">
-          {board.description && (
-            <p className="line-clamp-2 mb-2">{board.description}</p>
-          )}
-          <div className="flex flex-wrap gap-2 mt-1">
-            {board.team_ids && board.team_ids.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Building2 className="h-3 w-3" />
-                    <span>{board.team_ids.length}</span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Teams: {getTeamNames(board.team_ids)}</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {board.assigned_user_ids && board.assigned_user_ids.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    <span>{board.assigned_user_ids.length}</span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Benutzer: {getUserNames(board.assigned_user_ids)}</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
+  const BoardCard = ({ board }: { board: Board }) => {
+    const { teamNames, userNames } = getTeamAndUserInfo(board);
+
+    return (
+      <Card
+        key={board.id}
+        className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20"
+        onClick={() => handleBoardClick(board)}
+      >
+        <CardHeader className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+              {board.title}
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="p-1 hover:bg-yellow-100"
+              onClick={(e) => toggleFavorite(board, e)}
+            >
+              <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+            </Button>
           </div>
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
+          <CardDescription className="text-sm">
+            {board.description && (
+              <p className="line-clamp-2 mb-2">{board.description}</p>
+            )}
+            <div className="text-xs text-muted-foreground">
+              <p>Teams: {teamNames}</p>
+              <p>Benutzer: {userNames}</p>
+            </div>
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  };
 
   return (
     <div className="container mx-auto p-8">
