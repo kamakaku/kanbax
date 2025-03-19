@@ -144,7 +144,7 @@ export class DatabaseStorage implements IStorage {
           teamsData = await db
             .select()
             .from(teams)
-            .where(sql`${teams.id} = ANY(${sql`ARRAY[${board.teamIds.join(',')}]::int[]`})`);
+            .where(sql`${teams.id} = ANY(${sql`{${board.teamIds.join(',')}}`}::int[])`);
         }
 
         // Get assigned users data
@@ -158,7 +158,7 @@ export class DatabaseStorage implements IStorage {
               avatarUrl: users.avatarUrl
             })
             .from(users)
-            .where(sql`${users.id} = ANY(${sql`ARRAY[${board.assignedUserIds.join(',')}]::int[]`})`);
+            .where(sql`${users.id} = ANY(${sql`{${board.assignedUserIds.join(',')}}`}::int[])`);
           assignedUsers = users;
         }
 
@@ -215,7 +215,7 @@ export class DatabaseStorage implements IStorage {
         teamsList = await db
           .select()
           .from(teams)
-          .where(sql`${teams.id} IN (SELECT UNNEST(${board.team_ids}::int[]))`);
+          .where(sql`${teams.id} = ANY(${sql`{${board.team_ids.join(',')}}`}::int[])`);
         console.log("Retrieved teams data:", teamsList);
       }
 
@@ -231,7 +231,7 @@ export class DatabaseStorage implements IStorage {
             avatarUrl: users.avatarUrl
           })
           .from(users)
-          .where(sql`${users.id} IN (SELECT UNNEST(${board.assigned_user_ids}::int[]))`);
+          .where(sql`${users.id} = ANY(${sql`{${board.assigned_user_ids.join(',')}}`}::int[])`);
         console.log("Retrieved assigned users:", usersList);
       }
 
