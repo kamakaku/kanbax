@@ -199,59 +199,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBoard(id: number): Promise<Board> {
-    try {
-      console.log("Getting board with ID:", id);
+    const [board] = await db
+      .select()
+      .from(boards)
+      .where(eq(boards.id, id));
 
-      // Get the base board
-      const [board] = await db.select().from(boards).where(eq(boards.id, id));
-      if (!board) {
-        throw new Error(`Board ${id} not found`);
-      }
-
-      // Get teams data
-      let teamsList: Team[] = [];
-      if (board.team_ids && board.team_ids.length > 0) {
-        console.log("Getting teams for board:", board.team_ids);
-        const teamsQuery = `
-          SELECT t.* FROM teams t
-          WHERE t.id = ANY($1)
-        `;
-        const teamsResult = await db.execute(teamsQuery, [board.team_ids]);
-        teamsList = teamsResult.rows;
-      }
-
-      // Get users data
-      let usersList: User[] = [];
-      if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
-        console.log("Getting users for board:", board.assigned_user_ids);
-        const usersQuery = `
-          SELECT u.* FROM users u
-          WHERE u.id = ANY($1)
-        `;
-        const usersResult = await db.execute(usersQuery, [board.assigned_user_ids]);
-        usersList = usersResult.rows;
-      }
-
-      // Get project data
-      let projectData = null;
-      if (board.project_id) {
-        [projectData] = await db
-          .select()
-          .from(projects)
-          .where(eq(projects.id, board.project_id));
-      }
-
-      return {
-        ...board,
-        teams: teamsList,
-        users: usersList,
-        project: projectData
-      };
-
-    } catch (error) {
-      console.error("Detailed error in getBoard:", error);
-      throw new Error(`Fehler beim Laden des Boards: ${error.message}`);
+    if (!board) {
+      throw new Error(`Board ${id} not found`);
     }
+
+    return board;
   }
 
   async createBoard(insertBoard: InsertBoard): Promise<Board> {
