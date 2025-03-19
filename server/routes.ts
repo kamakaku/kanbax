@@ -377,16 +377,20 @@ export async function registerRoutes(app: Express) {
 
     const result = updateBoardSchema.safeParse(req.body);
     if (!result.success) {
-      console.error("Validation failed:", result.error);
-      return res.status(400).json({ message: result.error.message });
+      return res.status(400).json({
+        message: "Invalid board data",
+        errors: result.error.errors
+      });
     }
 
     try {
-      const board = await storage.updateBoard(id, result.data);
-      res.json(board);
+      const updatedBoard = await storage.updateBoard(id, result.data);
+      res.json(updatedBoard);
     } catch (error) {
       console.error("Failed to update board:", error);
-      res.status(500).json({ message: (error as Error).message });
+      res.status(500).json({
+        message: error instanceof Error ? error.message : "Failed to update board"
+      });
     }
   });
 
@@ -863,7 +867,8 @@ export async function registerRoutes(app: Express) {
   app.patch("/api/objectives/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid objective ID" });    }
+      return res.status(400).json({ message: "Invalid objective ID" });
+    }
 
     try {
       const objective = await storage.toggleObjectiveFavorite(id);
@@ -876,18 +881,18 @@ export async function registerRoutes(app: Express) {
   // Register productivity routes
   registerProductivityRoutes(app);
 
-  // Register OKR routes (already exists)
+  // Register OKR routes
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
 
-  // Inside the registerRoutes function, add the new team-members route
+  // Add team-members route
   app.get("/api/team-members", async (_req, res) => {
     try {
-      const result = await storage.getTeamMembers(); // Assuming storage.getTeamMembers exists
+      const result = await storage.getTeamMembers();
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch team members:", error);
-      res.status(50).json({ message: "Failed to fetch team members" });
+      res.status(500).json({ message: "Failed to fetch team members" });
     }
   });
 

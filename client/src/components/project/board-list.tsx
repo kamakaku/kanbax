@@ -63,9 +63,39 @@ export function BoardList({ projectId }: BoardListProps) {
     },
   });
 
-  const handleBoardClick = (board: Board) => {
-    setCurrentBoard(board);
-    setLocation("/all-boards");
+  const handleBoardClick = async (board: Board) => {
+    try {
+      // Benutze die vorhandenen team_ids und assigned_user_ids
+      const response = await fetch(`/api/boards/${board.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: board.title,
+          description: board.description,
+          project_id: projectId,
+          team_ids: board.team_ids,
+          assigned_user_ids: board.assigned_user_ids,
+          is_favorite: board.is_favorite
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update board');
+      }
+
+      const updatedBoard = await response.json();
+      setCurrentBoard(updatedBoard);
+      setLocation("/all-boards");
+    } catch (error) {
+      console.error('Error updating board:', error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Aktualisieren des Boards",
+        variant: "destructive",
+      });
+    }
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -81,15 +111,15 @@ export function BoardList({ projectId }: BoardListProps) {
     try {
       setIsSubmitting(true);
 
-      // Prepare complete board data according to InsertBoard type
       const boardData: InsertBoard = {
         title: values.title,
         description: values.description || "",
-        projectId,
-        creatorId: Number(user.id),
+        project_id: projectId,
+        creator_id: Number(user.id),
+        team_ids: [],
+        assigned_user_ids: [],
+        is_favorite: false
       };
-
-      console.log("Submitting board data:", boardData);
 
       const response = await fetch("/api/boards", {
         method: "POST",
@@ -101,14 +131,11 @@ export function BoardList({ projectId }: BoardListProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Server validation errors:", errorData);
         throw new Error(errorData.message || "Failed to create board");
       }
 
       const newBoard = await response.json();
-      console.log("Successfully created board:", newBoard);
 
-      // Update cached data
       await queryClient.invalidateQueries({
         queryKey: [`/api/projects/${projectId}/boards`],
       });

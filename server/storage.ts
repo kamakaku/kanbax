@@ -330,7 +330,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
     try {
-      // Get the existing board first to verify it exists
+      // Hole existierendes Board
       const [existingBoard] = await db
         .select()
         .from(boards)
@@ -340,22 +340,26 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      // Prepare the update data
-      const boardData = {
-        title: updateBoard.title,
-        description: updateBoard.description,
-        project_id: updateBoard.project_id,
-        team_ids: updateBoard.team_ids,
-        assigned_user_ids: updateBoard.assigned_user_ids,
-        is_favorite: updateBoard.is_favorite
+      // Update-Objekt erstellen mit Erhaltung der Array-Werte
+      const updateData = {
+        title: updateBoard.title ?? existingBoard.title,
+        description: updateBoard.description ?? existingBoard.description,
+        project_id: updateBoard.project_id ?? existingBoard.project_id,
+        creator_id: existingBoard.creator_id,
+        // Behalte existierende Arrays bei, wenn keine neuen oder leere Arrays übergeben werden
+        team_ids: (Array.isArray(updateBoard.team_ids) && updateBoard.team_ids.length > 0)
+          ? updateBoard.team_ids
+          : existingBoard.team_ids,
+        assigned_user_ids: (Array.isArray(updateBoard.assigned_user_ids) && updateBoard.assigned_user_ids.length > 0)
+          ? updateBoard.assigned_user_ids
+          : existingBoard.assigned_user_ids,
+        is_favorite: updateBoard.is_favorite ?? existingBoard.is_favorite
       };
 
-      console.log("Updating board with data:", boardData);
-
-      // Update the board
+      // Update durchführen
       const [updatedBoard] = await db
         .update(boards)
-        .set(boardData)
+        .set(updateData)
         .where(eq(boards.id, id))
         .returning();
 
@@ -363,7 +367,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Failed to update board ${id}`);
       }
 
-      // Return the complete board with all associations
+      // Vollständiges Board mit allen Beziehungen zurückgeben
       return await this.getBoard(id);
     } catch (error) {
       console.error("Error in updateBoard:", error);
