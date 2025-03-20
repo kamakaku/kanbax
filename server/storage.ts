@@ -1,7 +1,7 @@
 import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, inArray, type SQL } from "drizzle-orm";
+import { eq, desc, and, gte, inArray, sql, type SQL } from "drizzle-orm";
 import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
@@ -871,11 +871,14 @@ export class DatabaseStorage implements IStorage {
 
   async toggleProjectFavorite(id: number): Promise<Project> {
     try {
-      const result = await db.execute(
-        sql`UPDATE projects SET is_favorite = NOT is_favorite WHERE id = ${id} RETURNING *`
-      );
+      const [project] = await db
+        .update(projects)
+        .set({ 
+          isFavorite: sql`NOT is_favorite` 
+        })
+        .where(eq(projects.id, id))
+        .returning();
 
-      const project = result.rows[0];
       if (!project) {
         throw new Error(`Project ${id} not found`);
       }
@@ -889,11 +892,14 @@ export class DatabaseStorage implements IStorage {
 
   async toggleBoardFavorite(id: number): Promise<Board> {
     try {
-      const result = await db.execute(
-        sql`UPDATE boards SET is_favorite = NOT is_favorite WHERE id = ${id} RETURNING *`
-      );
+      const [board] = await db
+        .update(boards)
+        .set({ 
+          isFavorite: sql`NOT is_favorite` 
+        })
+        .where(eq(boards.id, id))
+        .returning();
 
-      const board = result.rows[0];
       if (!board) {
         throw new Error(`Board ${id} not found`);
       }
@@ -907,11 +913,14 @@ export class DatabaseStorage implements IStorage {
 
   async toggleObjectiveFavorite(id: number): Promise<Objective> {
     try {
-      const result = await db.execute(
-        sql`UPDATE objectives SET is_favorite = NOT is_favorite WHERE id = ${id} RETURNING *`
-      );
+      const [objective] = await db
+        .update(objectives)
+        .set({ 
+          isFavorite: sql`NOT is_favorite` 
+        })
+        .where(eq(objectives.id, id))
+        .returning();
 
-      const objective = result.rows[0];
       if (!objective) {
         throw new Error(`Objective ${id} not found`);
       }
