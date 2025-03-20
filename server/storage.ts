@@ -872,27 +872,42 @@ export class DatabaseStorage implements IStorage {
   async toggleProjectFavorite(id: number): Promise<Project> {
     const [project] = await db
       .update(projects)
-      .set({ isFavorite: sql`NOT ${projects.isFavorite}` })
+      .set({ is_favorite: sql`NOT ${projects.is_favorite}` })
       .where(eq(projects.id, id))
       .returning();
+
+    if (!project) {
+      throw new Error(`Project ${id} not found`);
+    }
+
     return project;
   }
 
   async toggleBoardFavorite(id: number): Promise<Board> {
     const [board] = await db
       .update(boards)
-      .set({ isFavorite: sql`NOT ${boards.isFavorite}` })
+      .set({ is_favorite: sql`NOT ${boards.is_favorite}` })
       .where(eq(boards.id, id))
       .returning();
+
+    if (!board) {
+      throw new Error(`Board ${id} not found`);
+    }
+
     return board;
   }
 
   async toggleObjectiveFavorite(id: number): Promise<Objective> {
     const [objective] = await db
       .update(objectives)
-      .set({ isFavorite: sql`NOT ${objectives.isFavorite}` })
+      .set({ is_favorite: sql`NOT ${objectives.is_favorite}` })
       .where(eq(objectives.id, id))
       .returning();
+
+    if (!objective) {
+      throw new Error(`Objective ${id} not found`);
+    }
+
     return objective;
   }
 }
