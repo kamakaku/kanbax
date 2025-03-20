@@ -13,6 +13,7 @@ interface ExtendedActivityLog extends ActivityLog {
   task_id?: number;
   board_title?: string;
   board_id?: number;
+  created_at: string;
 }
 
 const getActivityIcon = (action: string) => {
@@ -99,7 +100,7 @@ export function ActivityFeed() {
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(activity.createdAt), {
+                    {formatDistanceToNow(new Date(activity.created_at), {
                       addSuffix: true,
                       locale: de,
                     })}
