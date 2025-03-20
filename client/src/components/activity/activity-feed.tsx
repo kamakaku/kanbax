@@ -35,9 +35,7 @@ export function ActivityFeed() {
       if (!response.ok) {
         throw new Error("Failed to fetch activity logs");
       }
-      const data = await response.json();
-      console.log("Fetched activity logs:", data);
-      return data;
+      return response.json();
     }
   });
 
@@ -60,27 +58,6 @@ export function ActivityFeed() {
     );
   }
 
-  const renderActivityLinks = (activity: ExtendedActivityLog) => {
-    // Only show board link if we have board info
-    if (!activity.board_id) return null;
-
-    return (
-      <span className="text-sm">
-        {activity.board_title && (
-          <>
-            {" auf Board "}
-            <Link
-              href={`/board/${activity.board_id}`}
-              className="text-primary hover:underline inline-flex items-center"
-            >
-              {activity.board_title}
-            </Link>
-          </>
-        )}
-      </span>
-    );
-  };
-
   return (
     <Card className="p-4">
       <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
@@ -100,7 +77,16 @@ export function ActivityFeed() {
                       {activity.details || activity.action}
                       {activity.task_title && ` in Task "${activity.task_title}"`}
                     </span>
-                    {renderActivityLinks(activity)}
+                    {activity.board_id && activity.board_title && (
+                      <div>
+                        <Link
+                          href={`/board/${activity.board_id}`}
+                          className="text-primary hover:underline inline-flex items-center"
+                        >
+                          {activity.board_title}
+                        </Link>
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {formatDistanceToNow(new Date(activity.created_at), {
