@@ -867,7 +867,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
-  });app.patch("/api/objectives/:id/favorite", async (req, res) => {
+  });
+  app.patch("/api/objectives/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid objective ID" });
@@ -917,7 +918,6 @@ export async function registerRoutes(app: Express, db: Knex) {
         .limit(20);
 
       console.log(`Retrieved ${logs.length} activity logs with related data:`, logs);
-      console.log("Board IDs in activity logs:", logs.map(log => log.board_id)); //Added logging
       res.json(logs);
     } catch (error) {
       console.error("Failed to fetch activity logs:", error);

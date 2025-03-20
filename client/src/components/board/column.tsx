@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Droppable } from "react-beautiful-dnd";
 import { Task } from "@shared/schema";
 import { Task as TaskComponent } from "./task";
@@ -13,8 +13,6 @@ interface ColumnProps {
   };
   tasks: Task[];
   onUpdate: (task: Task) => Promise<void>;
-  selectedTaskId?: number | null;
-  onTaskSelect?: (taskId: number | null) => void;
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -50,29 +48,12 @@ const getColumnStyle = (columnId: string | number) => {
   return statusColors[id] || statusColors.backlog;
 };
 
-export function Column({ column, tasks, onUpdate, selectedTaskId, onTaskSelect }: ColumnProps) {
+export function Column({ column, tasks, onUpdate }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const columnStyle = getColumnStyle(column.id);
   const displayTitle = column.title || "Untitled";
-
-  // Handle automatic task dialog opening when selectedTaskId is provided
-  useEffect(() => {
-    if (selectedTaskId) {
-      console.log("Looking for task with ID:", selectedTaskId);
-      const taskToOpen = tasks.find(task => task.id === selectedTaskId);
-      if (taskToOpen) {
-        console.log("Found task to open:", taskToOpen);
-        setSelectedTask(taskToOpen);
-        setIsTaskDialogOpen(true);
-        // Clear the selected task ID after opening
-        if (onTaskSelect) {
-          onTaskSelect(null);
-        }
-      }
-    }
-  }, [selectedTaskId, tasks, onTaskSelect]);
 
   return (
     <div className={`
@@ -143,15 +124,9 @@ export function Column({ column, tasks, onUpdate, selectedTaskId, onTaskSelect }
 
       <TaskDialog
         open={isTaskDialogOpen}
-        onOpenChange={(open) => {
-          setIsTaskDialogOpen(open);
-          if (!open) {
-            setSelectedTask(null);
-          }
-        }}
+        onOpenChange={setIsTaskDialogOpen}
         task={selectedTask}
         onUpdate={onUpdate}
-        initialColumnId={typeof column.id === 'string' ? parseInt(column.id) : column.id}
       />
     </div>
   );
