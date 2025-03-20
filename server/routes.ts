@@ -9,7 +9,6 @@ import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
 import { Knex } from 'knex';
-import { desc } from 'knex';
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -863,10 +862,12 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       const board = await storage.toggleBoardFavorite(id);
-      res.json(board);    } catch (error) {
-      res.status(500).json({ message:"Failed to toggle favorite status" });
+      res.json(board);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite status" });
     }
   });
+
   app.patch("/api/objectives/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -878,6 +879,49 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.json(objective);
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
+    }
+  });
+
+  // Add activity logs endpoint
+  app.get("/api/activity", async (_req, res) => {
+    try {
+      console.log("Fetching activity logs...");
+
+      // Get activity logs with related board, project and OKR information
+      const logs = await db
+        .select(
+          'activity_logs.*',
+          'boards.title as board_title',
+          'boards.id as board_id',
+          'projects.title as project_title',
+          'projects.id as project_id',
+          'objectives.title as okr_title',
+          'objectives.id as okr_id'
+        )
+        .from('activity_logs')
+        .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
+        .leftJoin('projects', function() {
+          this.on('activity_logs.project_id', 'projects.id')
+            .orOn('boards.project_id', 'projects.id')
+        })
+        .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
+        .orderBy('activity_logs.created_at', 'desc')
+        .limit(20);
+
+      // Debug logging
+      console.log("Activity logs query result:", logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        details: log.details,
+        board: { id: log.board_id, title: log.board_title },
+        project: { id: log.project_id, title: log.project_title },
+        okr: { id: log.okr_id, title: log.okr_title }
+      })));
+
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to fetch activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 
