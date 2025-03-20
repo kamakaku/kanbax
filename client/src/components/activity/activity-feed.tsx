@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, GitCommit, Calendar } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const getActivityIcon = (action: string) => {
   switch (action) {
@@ -20,12 +21,32 @@ const getActivityIcon = (action: string) => {
 export function ActivityFeed() {
   const { data: activities = [], isLoading } = useQuery<ActivityLog[]>({
     queryKey: ["/api/activity"],
+    queryFn: async () => {
+      const response = await fetch("/api/activity");
+      if (!response.ok) {
+        throw new Error("Failed to fetch activity logs");
+      }
+      const data = await response.json();
+      console.log("Fetched activity logs:", data);
+      return data;
+    }
   });
 
   if (isLoading) {
     return (
       <Card className="p-4">
-        <p className="text-sm text-muted-foreground">Lade Aktivitäten...</p>
+        <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-[200px]" />
+                <Skeleton className="h-3 w-[140px]" />
+              </div>
+            </div>
+          ))}
+        </div>
       </Card>
     );
   }
@@ -35,24 +56,28 @@ export function ActivityFeed() {
       <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-4">
-          {activities.map((activity) => (
-            <div key={activity.id} className="flex items-start gap-3">
-              <div className="mt-1 p-2 rounded-full bg-primary/10 text-primary">
-                {getActivityIcon(activity.action)}
+          {activities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Keine Aktivitäten gefunden</p>
+          ) : (
+            activities.map((activity) => (
+              <div key={activity.id} className="flex items-start gap-3">
+                <div className="mt-1 p-2 rounded-full bg-primary/10 text-primary">
+                  {getActivityIcon(activity.action)}
+                </div>
+                <div>
+                  <p className="text-sm">
+                    {activity.details || activity.action}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(new Date(activity.created_at), {
+                      addSuffix: true,
+                      locale: de,
+                    })}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm">
-                  {activity.details || activity.action}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatDistanceToNow(new Date(activity.created_at), {
-                    addSuffix: true,
-                    locale: de,
-                  })}
-                </p>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </ScrollArea>
     </Card>

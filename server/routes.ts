@@ -8,9 +8,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
-import { Knex } from 'knex'; // Added import for Knex
-import { desc } from 'knex'; //Added import for desc
-
+import { Knex } from 'knex';
+import { desc } from 'knex';
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -39,7 +38,7 @@ if (!fs.existsSync('./uploads/avatars')) {
   fs.mkdirSync('./uploads/avatars', { recursive: true });
 }
 
-export async function registerRoutes(app: Express, db: Knex) { // Added db parameter
+export async function registerRoutes(app: Express, db: Knex) {
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
@@ -865,7 +864,7 @@ export async function registerRoutes(app: Express, db: Knex) { // Added db param
     try {
       const board = await storage.toggleBoardFavorite(id);
       res.json(board);
-    } catch(error) {
+    } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
   });
