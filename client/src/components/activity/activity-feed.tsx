@@ -75,9 +75,9 @@ export function ActivityFeed() {
                 <div>
                   <p className="text-sm">
                     {activity.details || activity.action}
-                    {activity.task_title && activity.board_id && (
+                    {activity.task_title && activity.task_id && (
                       <>
-                        {" in "}
+                        {" in Task "}
                         <Link 
                           href={`/board/${activity.board_id}?taskId=${activity.task_id}`}
                           className="text-primary hover:underline"
@@ -99,7 +99,7 @@ export function ActivityFeed() {
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(activity.created_at), {
+                    {formatDistanceToNow(new Date(activity.createdAt), {
                       addSuffix: true,
                       locale: de,
                     })}
