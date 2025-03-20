@@ -76,7 +76,7 @@ export function ActivityFeed() {
                 <div>
                   <p className="text-sm">
                     {activity.details || activity.action}
-                    {activity.task_title && activity.task_id && (
+                    {activity.task_title && activity.task_id && activity.board_id && (
                       <>
                         {" in Task "}
                         <Link 

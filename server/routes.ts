@@ -908,8 +908,8 @@ export async function registerRoutes(app: Express, db: Knex) {
           'activity_logs.*',
           'tasks.title as task_title',
           'tasks.id as task_id',
-          'boards.title as board_title',
-          'boards.id as board_id'
+          'tasks.board_id as board_id',  // Get board_id directly from tasks
+          'boards.title as board_title'
         )
         .from('activity_logs')
         .leftJoin('tasks', 'activity_logs.task_id', 'tasks.id')
@@ -917,7 +917,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         .orderBy('activity_logs.created_at', 'desc')
         .limit(20);
 
-      console.log(`Retrieved ${logs.length} activity logs with related data`);
+      console.log(`Retrieved ${logs.length} activity logs with related data:`, logs);
       res.json(logs);
     } catch (error) {
       console.error("Failed to fetch activity logs:", error);
