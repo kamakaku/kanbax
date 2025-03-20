@@ -38,6 +38,11 @@ if (!fs.existsSync('./uploads/avatars')) {
 }
 
 export async function registerRoutes(app: Express, db: Knex) {
+  // Add this health check endpoint at the beginning of route registration
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
@@ -882,6 +887,52 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+  // Test endpoint with clean implementation
+  app.get("/api/activity/test", (_req, res) => {
+    // Test data with various contexts
+    const testLogs = [
+      {
+        id: 1,
+        action: "update",
+        details: "Test Board Activity",
+        created_at: new Date().toISOString(),
+        board_id: 1,
+        board_title: "Test Board",
+        project_id: null,
+        project_title: null,
+        okr_id: null,
+        okr_title: null
+      },
+      {
+        id: 2,
+        action: "create",
+        details: "Test Project Activity",
+        created_at: new Date().toISOString(),
+        board_id: null,
+        board_title: null,
+        project_id: 1,
+        project_title: "Test Project",
+        okr_id: null,
+        okr_title: null
+      },
+      {
+        id: 3,
+        action: "comment",
+        details: "Test OKR Activity",
+        created_at: new Date().toISOString(),
+        board_id: null,
+        board_title: null,
+        project_id: null,
+        project_title: null,
+        okr_id: 1,
+        okr_title: "Test OKR"
+      }
+    ];
+
+    console.log("Test activity logs:", testLogs);
+    res.json(testLogs);
+  });
+
   // Add activity logs endpoint
   app.get("/api/activity", async (_req, res) => {
     try {
@@ -942,47 +993,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch team members" });
     }
   });
-  app.get("/api/activity", async (_req, res) => {
-    try {
-      console.log("Fetching activity logs...");
-
-      // Get activity logs with related information
-      const logs = await db
-        .select(
-          'activity_logs.*',
-          'boards.title as board_title',
-          'boards.id as board_id',
-          'projects.title as project_title',
-          'projects.id as project_id',
-          'objectives.title as okr_title',
-          'objectives.id as okr_id'
-        )
-        .from('activity_logs')
-        .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
-        .leftJoin('projects', function() {
-          this.on('activity_logs.project_id', 'projects.id')
-            .orOn('boards.project_id', 'projects.id')
-        })
-        .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
-        .orderBy('activity_logs.created_at', 'desc')
-        .limit(20);
-
-      // Debug logging
-      console.log("Activity logs query result:", logs.map(log => ({
-        id: log.id,
-        action: log.action,
-        details: log.details,
-        board: { id: log.board_id, title: log.board_title },
-        project: { id: log.project_id, title: log.project_title },
-        okr: { id: log.okr_id, title: log.okr_title }
-      })));
-
-      res.json(logs);
-    } catch (error) {
-      console.error("Failed to fetch activity logs:", error);
-      res.status(500).json({ message: "Failed to fetch activity logs" });
-    }
-  });
+  
 
   return createServer(app);
 }
