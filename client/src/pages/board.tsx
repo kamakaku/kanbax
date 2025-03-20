@@ -27,9 +27,8 @@ export function Board() {
   const { id } = useParams<{ id: string }>();
   const boardId = parseInt(id);
   const { toast } = useToast();
-  const location = useLocation();
-  const [searchParams] = new URLSearchParams(location.search);
-  const taskId = searchParams.get('taskId');
+  const [path] = useLocation();
+  const taskId = new URL(window.location.href).searchParams.get('taskId');
   const [, setLocation] = useLocation();
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
