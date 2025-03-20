@@ -916,7 +916,7 @@ export class DatabaseStorage implements IStorage {
       const [objective] = await db
         .update(objectives)
         .set({ 
-          is_favorite: sql`NOT is_favorite` 
+          isFavorite: sql`NOT is_favorite` 
         })
         .where(eq(objectives.id, id))
         .returning();
