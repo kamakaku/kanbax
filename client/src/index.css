@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 222 25% 8.8%;
-    --foreground: 226 20% 90%;
-    --card: 222 25% 13.8%;
-    --card-foreground: 226 20% 90%;
-    --popover: 222 25% 13.8%;
-    --popover-foreground: 226 20% 90%;
+    --background: 222 25% 98%;
+    --foreground: 222 20% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 20% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 20% 10%;
     --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 226 20% 90%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 226 20% 90%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 226 15% 65%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 226 20% 90%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 226 20% 90%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 20% 10%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 20% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
   }
 
   * {
@@ -37,8 +37,8 @@
   body {
     @apply bg-gradient-to-br from-background to-background/90 text-foreground min-h-screen;
     font-feature-settings: "rlig" 1, "calt" 1;
-    background-image: radial-gradient(at 80% 0%, rgb(24, 29, 40) 0px, transparent 50%),
-                      radial-gradient(at 0% 50%, rgb(26, 32, 44) 0px, transparent 50%);
+    background-image: radial-gradient(at 80% 0%, rgb(248, 250, 252) 0px, transparent 50%),
+                      radial-gradient(at 0% 50%, rgb(241, 245, 249) 0px, transparent 50%);
   }
 
   /* Scrollbar Styles */
@@ -48,38 +48,28 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(26, 32, 44, 0.1);
+    background: rgba(241, 245, 249, 0.1);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(226, 232, 240, 0.1);
+    background: rgba(148, 163, 184, 0.2);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(226, 232, 240, 0.2);
-  }
-
-  /* Glass Card Styles */
-  .glass-card {
-    @apply backdrop-blur-xl bg-card/30 border border-white/5 shadow-lg;
-  }
-
-  /* Gradient Text */
-  .gradient-text {
-    @apply bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent;
+    background: rgba(148, 163, 184, 0.3);
   }
 }
 
 @layer components {
-  /* Vision UI Dashboard Components */
+  /* Dashboard Components */
   .dashboard-card {
-    @apply glass-card rounded-xl p-4;
+    @apply bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow;
   }
 
   .dashboard-header {
-    @apply text-xl font-semibold gradient-text mb-4;
+    @apply text-xl font-semibold text-slate-900 mb-4;
   }
 
   .dashboard-stats {
@@ -87,18 +77,31 @@
   }
 
   .stat-card {
-    @apply glass-card rounded-xl p-4 flex items-center justify-between;
+    @apply bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-slate-200 
+           shadow-sm hover:shadow-md transition-shadow
+           flex items-center justify-between;
   }
 
   .stat-value {
-    @apply text-2xl font-bold text-foreground;
+    @apply text-2xl font-bold text-slate-900;
   }
 
   .stat-label {
-    @apply text-sm text-muted-foreground;
+    @apply text-sm text-slate-600;
   }
 
   .stat-icon {
     @apply w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary;
+  }
+
+  /* Glass Card Styles */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm 
+           hover:shadow-md transition-shadow;
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    @apply text-slate-900 font-bold;
   }
 }
