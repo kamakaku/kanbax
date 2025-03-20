@@ -8,6 +8,9 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
+import { Knex } from 'knex'; // Added import for Knex
+import { desc } from 'knex'; //Added import for desc
+
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -36,7 +39,7 @@ if (!fs.existsSync('./uploads/avatars')) {
   fs.mkdirSync('./uploads/avatars', { recursive: true });
 }
 
-export async function registerRoutes(app: Express) {
+export async function registerRoutes(app: Express, db: Knex) { // Added db parameter
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     const result = insertUserSchema.safeParse(req.body);
@@ -862,7 +865,7 @@ export async function registerRoutes(app: Express) {
     try {
       const board = await storage.toggleBoardFavorite(id);
       res.json(board);
-    } catch (error) {
+    } catch(error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
   });
@@ -895,6 +898,23 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Failed to fetch team members:", error);
       res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+  app.get("/api/activity", async (_req, res) => {
+    try {
+      console.log("Fetching activity logs...");
+      // Get all activity logs ordered by date with snake_case table name
+      const logs = await db
+        .select()
+        .from('activity_logs')
+        .orderBy('created_at', 'desc')
+        .limit(20);  // Limit to most recent 20 activities
+
+      console.log(`Retrieved ${logs.length} activity logs`);
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to fetch activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 
