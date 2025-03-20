@@ -902,14 +902,22 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/activity", async (_req, res) => {
     try {
       console.log("Fetching activity logs...");
-      // Get all activity logs ordered by date with snake_case table name
+      // Get all activity logs with related task and board information
       const logs = await db
-        .select()
+        .select(
+          'activity_logs.*',
+          'tasks.title as task_title',
+          'tasks.id as task_id',
+          'boards.title as board_title',
+          'boards.id as board_id'
+        )
         .from('activity_logs')
-        .orderBy('created_at', 'desc')
-        .limit(20);  // Limit to most recent 20 activities
+        .leftJoin('tasks', 'activity_logs.task_id', 'tasks.id')
+        .leftJoin('boards', 'tasks.board_id', 'boards.id')
+        .orderBy('activity_logs.created_at', 'desc')
+        .limit(20);
 
-      console.log(`Retrieved ${logs.length} activity logs`);
+      console.log(`Retrieved ${logs.length} activity logs with related data`);
       res.json(logs);
     } catch (error) {
       console.error("Failed to fetch activity logs:", error);

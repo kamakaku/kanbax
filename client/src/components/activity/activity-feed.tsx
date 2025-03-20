@@ -6,6 +6,14 @@ import { MessageSquare, GitCommit, Calendar } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "wouter";
+
+interface ExtendedActivityLog extends ActivityLog {
+  task_title?: string;
+  task_id?: number;
+  board_title?: string;
+  board_id?: number;
+}
 
 const getActivityIcon = (action: string) => {
   switch (action) {
@@ -19,7 +27,7 @@ const getActivityIcon = (action: string) => {
 };
 
 export function ActivityFeed() {
-  const { data: activities = [], isLoading } = useQuery<ActivityLog[]>({
+  const { data: activities = [], isLoading } = useQuery<ExtendedActivityLog[]>({
     queryKey: ["/api/activity"],
     queryFn: async () => {
       const response = await fetch("/api/activity");
@@ -67,6 +75,28 @@ export function ActivityFeed() {
                 <div>
                   <p className="text-sm">
                     {activity.details || activity.action}
+                    {activity.task_title && (
+                      <>
+                        {" in "}
+                        <Link 
+                          href={`/boards/${activity.board_id}?task=${activity.task_id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {activity.task_title}
+                        </Link>
+                      </>
+                    )}
+                    {activity.board_title && (
+                      <>
+                        {" auf Board "}
+                        <Link 
+                          href={`/boards/${activity.board_id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {activity.board_title}
+                        </Link>
+                      </>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {formatDistanceToNow(new Date(activity.created_at), {
