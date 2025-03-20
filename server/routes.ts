@@ -866,7 +866,7 @@ export async function registerRoutes(app: Express) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
   });
-  app.patch("/apiobjectives/:id/favorite", async (req, res) => {
+  app.patch("/api/objectives/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid objective ID" });
