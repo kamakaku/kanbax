@@ -9,10 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 
 interface ExtendedActivityLog extends ActivityLog {
-  task_title?: string;
-  task_id?: number;
   board_title?: string;
   board_id?: number;
+  project_title?: string;
+  project_id?: number;
+  okr_title?: string;
+  okr_id?: number;
   created_at: string;
 }
 
@@ -60,35 +62,49 @@ export function ActivityFeed() {
     );
   }
 
-  const renderActivityLinks = (activity: ExtendedActivityLog) => {
-    // Only show links if we have both board and task info
-    if (!activity.board_id) return null;
+  const renderContextLink = (activity: ExtendedActivityLog) => {
+    let contextInfo = null;
+
+    // Debug logging
+    console.log("Rendering context for activity:", {
+      id: activity.id,
+      board: { id: activity.board_id, title: activity.board_title },
+      project: { id: activity.project_id, title: activity.project_title },
+      okr: { id: activity.okr_id, title: activity.okr_title }
+    });
+
+    if (activity.board_id && activity.board_title) {
+      contextInfo = {
+        prefix: " im Board ",
+        href: `/board/${activity.board_id}`,
+        title: activity.board_title
+      };
+    } else if (activity.project_id && activity.project_title) {
+      contextInfo = {
+        prefix: " im Projekt ",
+        href: `/projects/${activity.project_id}`,
+        title: activity.project_title
+      };
+    } else if (activity.okr_id && activity.okr_title) {
+      contextInfo = {
+        prefix: " im OKR ",
+        href: `/okr/${activity.okr_id}`,
+        title: activity.okr_title
+      };
+    }
+
+    if (!contextInfo) return null;
 
     return (
-      <span className="text-sm">
-        {activity.task_title && activity.task_id && (
-          <>
-            {" in Task "}
-            <Link 
-              href={`/board/${activity.board_id}?taskId=${activity.task_id}`}
-              className="text-primary hover:underline inline-flex items-center"
-            >
-              {activity.task_title}
-            </Link>
-          </>
-        )}
-        {activity.board_title && (
-          <>
-            {" auf Board "}
-            <Link 
-              href={`/board/${activity.board_id}`}
-              className="text-primary hover:underline inline-flex items-center"
-            >
-              {activity.board_title}
-            </Link>
-          </>
-        )}
-      </span>
+      <>
+        {contextInfo.prefix}
+        <Link 
+          href={contextInfo.href}
+          className="text-primary hover:underline"
+        >
+          {contextInfo.title}
+        </Link>
+      </>
     );
   };
 
@@ -108,7 +124,7 @@ export function ActivityFeed() {
                 <div>
                   <div className="text-sm space-y-1">
                     <span>{activity.details || activity.action}</span>
-                    {renderActivityLinks(activity)}
+                    {renderContextLink(activity)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {formatDistanceToNow(new Date(activity.created_at), {
