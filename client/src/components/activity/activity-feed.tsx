@@ -61,26 +61,15 @@ export function ActivityFeed() {
   }
 
   const renderActivityLinks = (activity: ExtendedActivityLog) => {
-    // Only show links if we have both board and task info
+    // Only show board link if we have board info
     if (!activity.board_id) return null;
 
     return (
       <span className="text-sm">
-        {activity.task_title && activity.task_id && (
-          <>
-            {" in Task "}
-            <Link 
-              href={`/board/${activity.board_id}?taskId=${activity.task_id}`}
-              className="text-primary hover:underline inline-flex items-center"
-            >
-              {activity.task_title}
-            </Link>
-          </>
-        )}
         {activity.board_title && (
           <>
             {" auf Board "}
-            <Link 
+            <Link
               href={`/board/${activity.board_id}`}
               className="text-primary hover:underline inline-flex items-center"
             >
@@ -107,7 +96,10 @@ export function ActivityFeed() {
                 </div>
                 <div>
                   <div className="text-sm space-y-1">
-                    <span>{activity.details || activity.action}</span>
+                    <span>
+                      {activity.details || activity.action}
+                      {activity.task_title && ` in Task "${activity.task_title}"`}
+                    </span>
                     {renderActivityLinks(activity)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">

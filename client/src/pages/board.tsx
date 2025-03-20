@@ -32,6 +32,13 @@ export function Board() {
   const [, setLocation] = useLocation();
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (taskId) {
+      setSelectedTaskId(parseInt(taskId));
+    }
+  }, [taskId]);
 
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
@@ -314,6 +321,8 @@ export function Board() {
                     column={column}
                     tasks={columnTasks}
                     onUpdate={updateTask.mutate}
+                    selectedTaskId={selectedTaskId}
+                    onTaskSelect={setSelectedTaskId}
                   />
                 );
               })}
