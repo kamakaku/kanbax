@@ -74,54 +74,56 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <div className="grid gap-8">
-        {/* Statistics Cards */}
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-            <CardHeader className="py-4">
-              <CardTitle>Projekte</CardTitle>
-              <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-primary">{projects?.length || 0}</p>
-            </CardContent>
-          </Card>
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Statistics Cards in 2x2 Grid */}
+        <div className="w-full lg:w-1/2">
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+              <CardHeader className="py-4">
+                <CardTitle>Projekte</CardTitle>
+                <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">{projects?.length || 0}</p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-            <CardHeader className="py-4">
-              <CardTitle>Boards</CardTitle>
-              <CardDescription>Gesamtzahl Ihrer Boards</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-primary">{allBoards.length}</p>
-            </CardContent>
-          </Card>
+            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+              <CardHeader className="py-4">
+                <CardTitle>Boards</CardTitle>
+                <CardDescription>Gesamtzahl Ihrer Boards</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">{allBoards.length}</p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-            <CardHeader className="py-4">
-              <CardTitle>OKR Progress</CardTitle>
-              <CardDescription>Durchschnittlicher Fortschritt</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-primary">{averageProgress}%</p>
-            </CardContent>
-          </Card>
+            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+              <CardHeader className="py-4">
+                <CardTitle>OKR Progress</CardTitle>
+                <CardDescription>Durchschnittlicher Fortschritt</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">{averageProgress}%</p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-            <CardHeader className="py-4">
-              <CardTitle>Erreichte OKRs</CardTitle>
-              <CardDescription>Abgeschlossene Objectives</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-primary">
-                {completedObjectives.length}/{activeObjectives.length}
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+              <CardHeader className="py-4">
+                <CardTitle>Erreichte OKRs</CardTitle>
+                <CardDescription>Abgeschlossene Objectives</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">
+                  {completedObjectives.length}/{activeObjectives.length}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Activity Feed */}
-        <div className="mt-8">
+        <div className="w-full lg:w-1/2">
           <ActivityFeed />
         </div>
       </div>
