@@ -870,46 +870,59 @@ export class DatabaseStorage implements IStorage {
   }
 
   async toggleProjectFavorite(id: number): Promise<Project> {
-    const [project] = await db
-      .update(projects)
-      .set({ is_favorite: sql`NOT ${projects.is_favorite}` })
-      .where(eq(projects.id, id))
-      .returning();
+    try {
+      const result = await db.execute(
+        sql`UPDATE projects SET is_favorite = NOT is_favorite WHERE id = ${id} RETURNING *`
+      );
 
-    if (!project) {
-      throw new Error(`Project ${id} not found`);
+      const project = result.rows[0];
+      if (!project) {
+        throw new Error(`Project ${id} not found`);
+      }
+
+      return project;
+    } catch (error) {
+      console.error('Error toggling project favorite:', error);
+      throw error;
     }
-
-    return project;
   }
 
   async toggleBoardFavorite(id: number): Promise<Board> {
-    const [board] = await db
-      .update(boards)
-      .set({ is_favorite: sql`NOT ${boards.is_favorite}` })
-      .where(eq(boards.id, id))
-      .returning();
+    try {
+      const result = await db.execute(
+        sql`UPDATE boards SET is_favorite = NOT is_favorite WHERE id = ${id} RETURNING *`
+      );
 
-    if (!board) {
-      throw new Error(`Board ${id} not found`);
+      const board = result.rows[0];
+      if (!board) {
+        throw new Error(`Board ${id} not found`);
+      }
+
+      return board;
+    } catch (error) {
+      console.error('Error toggling board favorite:', error);
+      throw error;
     }
-
-    return board;
   }
 
   async toggleObjectiveFavorite(id: number): Promise<Objective> {
-    const [objective] = await db
-      .update(objectives)
-      .set({ is_favorite: sql`NOT ${objectives.is_favorite}` })
-      .where(eq(objectives.id, id))
-      .returning();
+    try {
+      const result = await db.execute(
+        sql`UPDATE objectives SET is_favorite = NOT is_favorite WHERE id = ${id} RETURNING *`
+      );
 
-    if (!objective) {
-      throw new Error(`Objective ${id} not found`);
+      const objective = result.rows[0];
+      if (!objective) {
+        throw new Error(`Objective ${id} not found`);
+      }
+
+      return objective;
+    } catch (error) {
+      console.error('Error toggling objective favorite:', error);
+      throw error;
     }
-
-    return objective;
   }
+
 }
 
 export const storage = new DatabaseStorage();
