@@ -3,11 +3,19 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite.js";
 import path from "path";
 import cors from "cors";
+import { drizzle } from "drizzle-orm/node-postgres";
+import knex from "knex";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Initialize Knex with connection info from DATABASE_URL
+const db = knex({
+  client: 'pg',
+  connection: process.env.DATABASE_URL,
+});
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -53,7 +61,7 @@ app.use((req, res, next) => {
 (async () => {
   try {
     log("Starting server initialization...");
-    const server = await registerRoutes(app);
+    const server = await registerRoutes(app, db);
     log("Routes registered successfully");
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
