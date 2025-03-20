@@ -75,22 +75,22 @@ export function ActivityFeed() {
                 <div>
                   <p className="text-sm">
                     {activity.details || activity.action}
-                    {activity.task_title && (
+                    {activity.task_title && activity.board_id && (
                       <>
                         {" in "}
                         <Link 
-                          href={`/boards/${activity.board_id}?task=${activity.task_id}`}
+                          href={`/board/${activity.board_id}?taskId=${activity.task_id}`}
                           className="text-primary hover:underline"
                         >
                           {activity.task_title}
                         </Link>
                       </>
                     )}
-                    {activity.board_title && (
+                    {activity.board_title && activity.board_id && (
                       <>
                         {" auf Board "}
                         <Link 
-                          href={`/boards/${activity.board_id}`}
+                          href={`/board/${activity.board_id}`}
                           className="text-primary hover:underline"
                         >
                           {activity.board_title}

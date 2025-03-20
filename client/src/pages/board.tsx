@@ -27,6 +27,9 @@ export function Board() {
   const { id } = useParams<{ id: string }>();
   const boardId = parseInt(id);
   const { toast } = useToast();
+  const location = useLocation();
+  const [searchParams] = new URLSearchParams(location.search);
+  const taskId = searchParams.get('taskId');
   const [, setLocation] = useLocation();
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
@@ -205,10 +208,16 @@ export function Board() {
 
   if (boardError || !board) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">
-          Fehler: {boardError?.message || "Board nicht gefunden"}
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-lg text-muted-foreground mb-4">
+          {boardError?.message || "Board konnte nicht geladen werden"}
         </p>
+        <Button
+          variant="outline"
+          onClick={() => window.history.back()}
+        >
+          Zurück
+        </Button>
       </div>
     );
   }
