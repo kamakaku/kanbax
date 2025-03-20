@@ -76,7 +76,7 @@ export default function Dashboard() {
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Statistics Cards in 2x2 Grid */}
-        <div className="w-full lg:w-1/2">
+        <div className="w-full lg:w-2/3">
           <div className="grid grid-cols-2 gap-4">
             <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
               <CardHeader className="py-4">
@@ -123,7 +123,7 @@ export default function Dashboard() {
         </div>
 
         {/* Activity Feed */}
-        <div className="w-full lg:w-1/2">
+        <div className="w-full lg:w-1/3">
           <ActivityFeed />
         </div>
       </div>
