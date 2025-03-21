@@ -521,7 +521,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: result.data.userId,
+        userId: result.data.creatorId,
         taskId: id,
         boardId: task.boardId
       });
@@ -540,6 +540,14 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the task
+      await storage.createActivityLog({
+        action: "delete",
+        details: "Aufgabe gelöscht",
+        userId: userId,
+        taskId: id,
+        boardId: (await storage.getTask(id)).boardId
+      });
       await storage.deleteTask(id);
       res.status(204).send();
     } catch (error) {
@@ -1035,7 +1043,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: result.data.userId,
+        userId: result.data.creatorId,
         taskId: id,
         boardId: task.boardId
       });
