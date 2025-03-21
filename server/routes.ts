@@ -309,6 +309,8 @@ export async function registerRoutes(app: Express, db: Knex) {
   // Update the board creation endpoint
   app.post("/api/boards", async (req, res) => {
     try {
+      console.log("Board creation request body:", req.body);
+
       const result = insertBoardSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({
@@ -317,15 +319,20 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
+      console.log("Validated board data:", result.data);
       const board = await storage.createBoard(result.data);
+      console.log("Created board:", board);
 
-      // Log the activity with the correct userId
-      await storage.createActivityLog({
+      // Activity Log mit validierten Daten
+      const activityLogData = {
         action: "create",
         details: "Neues Board erstellt",
-        userId: req.body.userId, // Verwende userId aus dem Request
-        boardId: board.id
-      });
+        userId: Number(result.data.creator_id),
+        boardId: Number(board.id)
+      };
+
+      console.log("Activity log data before creation:", activityLogData);
+      await storage.createActivityLog(activityLogData);
 
       res.status(201).json(board);
     } catch (error) {
@@ -880,7 +887,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.deleteTeam(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Failed to delete team:", error);
+      console.error("Failed todelete team:", error);
       res.status(500).json({ message: "Failed to delete team" });
     }
   });

@@ -18,6 +18,7 @@ export async function apiRequest(
     const requestData = {
       ...(typeof data === 'object' ? data : {}),
       user_id: userId, // Changed from userId to user_id to match database column
+      creator_id: userId // Ensure creator_id is also set for board creation
     };
     options.body = JSON.stringify(requestData);
   }
