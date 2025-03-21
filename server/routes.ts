@@ -220,11 +220,11 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const project = await storage.createProject(result.data);
 
-      // Log the activity
+      // Log the activity with the correct userId from request body
       await storage.createActivityLog({
         action: "create",
         details: "Neues Projekt erstellt",
-        userId: result.data.creatorId,
+        userId: req.body.userId, // Verwende userId aus dem Request
         projectId: project.id
       });
 
@@ -256,7 +256,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Projekt aktualisiert",
-        userId: result.data.creatorId,
+        userId: req.body.userId, // Changed to req.body.userId
         projectId: id
       });
 
@@ -274,13 +274,11 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the project
-
       // Log the activity before deletion
       await storage.createActivityLog({
         action: "delete",
         details: "Projekt gelöscht",
-        userId: userId,
+        userId: req.body.userId, // Changed to req.body.userId
         projectId: id
       });
 
@@ -321,11 +319,11 @@ export async function registerRoutes(app: Express, db: Knex) {
 
       const board = await storage.createBoard(result.data);
 
-      // Log the activity
+      // Log the activity with the correct userId
       await storage.createActivityLog({
         action: "create",
         details: "Neues Board erstellt",
-        userId: result.data.creator_id,
+        userId: req.body.userId, // Verwende userId aus dem Request
         boardId: board.id
       });
 
@@ -411,7 +409,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Board aktualisiert",
-        userId: result.data.creator_id,
+        userId: req.body.userId, // Changed to req.body.userId
         boardId: id
       });
 
@@ -431,13 +429,11 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the board
-
       // Log the activity before deletion
       await storage.createActivityLog({
         action: "delete",
         details: "Board gelöscht",
-        userId: userId,
+        userId: req.body.userId, // Changed to req.body.userId
         boardId: id
       });
 
@@ -478,11 +474,11 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.createTask(result.data);
 
-      // Log the activity
+      // Log the activity with the correct userId
       await storage.createActivityLog({
         action: "create",
         details: "Neue Aufgabe erstellt",
-        userId: result.data.creatorId,
+        userId: req.body.userId, // Verwende userId aus dem Request
         boardId: boardId,
         taskId: task.id
       });
@@ -511,11 +507,11 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.updateTask(id, result.data);
 
-      // Log the activity
+      // Log the activity with the correct userId
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: result.data.userId,
+        userId: req.body.userId, // Changed to req.body.userId
         taskId: id,
         boardId: task.boardId
       });
@@ -534,6 +530,17 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      const task = await storage.getTask(id);
+
+      // Log the activity with the correct userId before deletion
+      await storage.createActivityLog({
+        action: "delete",
+        details: "Aufgabe gelöscht",
+        userId: req.body.userId, // Changed to req.body.userId
+        taskId: id,
+        boardId: task.boardId
+      });
+
       await storage.deleteTask(id);
       res.status(204).send();
     } catch (error) {
@@ -997,7 +1004,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "create",
         details: "Neues OKR erstellt",
-        userId: result.data.creator_id,
+        userId: req.body.userId, // Changed to req.body.userId
         objectiveId: objective.id
       });
 
@@ -1029,7 +1036,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: result.data.userId,
+        userId: req.body.userId, // Changed to req.body.userId
         taskId: id,
         boardId: task.boardId
       });
@@ -1048,14 +1055,16 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the task
+      const task = await storage.getTask(id);
+      // Log the activity with the correct userId before deletion
       await storage.createActivityLog({
         action: "delete",
         details: "Aufgabe gelöscht",
-        userId: userId,
+        userId: req.body.userId, // Changed to req.body.userId
         taskId: id,
-        boardId: (await storage.getTask(id)).boardId
+        boardId: task.boardId
       });
+
       await storage.deleteTask(id);
       res.status(204).send();
     } catch (error) {
