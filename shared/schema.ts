@@ -201,14 +201,15 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: z.number().int(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    dueDate: z.string().nullable().optional(), // Accept ISO string or null
-    checklist: z.array(z.string()).default([]), // Accept stringified objects
+    dueDate: z.string().nullable().optional(),
+    checklist: z.array(z.string()).default([]),
     archived: z.boolean().default(false),
     assignedUserIds: z.array(z.number().int().positive()).default([]),
     assignedTeamId: z.union([
       z.number().int().positive("Team ID must be positive if provided"),
       z.null()
     ]).optional().nullable(),
+    userId: z.number().int().positive("User ID is required for activity tracking"),
   });
 
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)

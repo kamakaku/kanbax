@@ -607,19 +607,42 @@ export class DatabaseStorage implements IStorage {
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
     try {
-      // Debug: Log incoming data
-      console.log("Activity Log Input:", {
-        action: log.action,
-        details: log.details,
-        userId: log.userId,
-        boardId: log.boardId
-      });
+      // Validate and convert userId immediately
+      const userId = (() => {
+        // If userId is undefined or null, return null
+        if (log.userId === undefined || log.userId === null) {
+          console.log("userId is null or undefined");
+          return null;
+        }
 
-      // Ensure numeric values for IDs
+        // If userId is already a number
+        if (typeof log.userId === 'number') {
+          if (log.userId > 0) {
+            console.log("Valid numeric userId received:", log.userId);
+            return log.userId;
+          }
+          console.log("Invalid numeric userId (not positive):", log.userId);
+          return null;
+        }
+
+        // Try to convert string to number
+        const parsed = parseInt(String(log.userId), 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          console.log("Successfully converted userId to number:", parsed);
+          return parsed;
+        }
+
+        console.log("Failed to convert userId to valid number:", log.userId);
+        return null;
+      })();
+
+      console.log("Final userId after validation:", userId);
+
+      // Create database record with validated userId
       const dbData = {
         action: log.action,
         details: log.details,
-        user_id: log.userId ? Number(log.userId) : null,
+        user_id: userId,
         board_id: log.boardId ? Number(log.boardId) : null,
         project_id: log.projectId ? Number(log.projectId) : null,
         objective_id: log.objectiveId ? Number(log.objectiveId) : null,
@@ -627,15 +650,14 @@ export class DatabaseStorage implements IStorage {
         created_at: new Date()
       };
 
-      // Debug: Log prepared data
-      console.log("Prepared DB Data:", dbData);
+      console.log("Inserting activity log with data:", dbData);
 
       const [newLog] = await db
         .insert(activityLogs)
         .values(dbData)
         .returning();
 
-      console.log("Created Activity Log:", newLog);
+      console.log("Created activity log:", newLog);
       return newLog;
 
     } catch (error) {

@@ -481,13 +481,26 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
+    // Extract and validate userId early
+    const userId = req.body.userId ? parseInt(req.body.userId) : null;
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({ message: "Valid userId is required" });
+    }
+
     console.log("Task creation request:", {
       boardId,
-      userId: req.body.userId,
+      userId,
       requestBody: req.body
     });
 
-    const result = insertTaskSchema.safeParse({ ...req.body, boardId });
+    const taskData = {
+      ...req.body,
+      boardId,
+      status: req.body.status || "todo",
+      order: req.body.order || 0
+    };
+
+    const result = insertTaskSchema.safeParse(taskData);
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid task data",
@@ -498,24 +511,23 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.createTask(result.data);
 
-      // Ensure userId is a number before creating activity log
-      const userId = Number(req.body.userId);
-      console.log("Creating activity log with userId:", userId);
-
-      // Log the activity with explicit userId
-      await storage.createActivityLog({
+      // Create activity log with validated userId
+      const activityLogData = {
         action: "create",
         details: "Neue Aufgabe erstellt",
-        userId: userId,
+        userId: userId, // Using the validated userId
         boardId: boardId,
         taskId: task.id
-      });
+      };
 
-      console.log("Activity log created for new task");
+      console.log("Creating activity log with data:", activityLogData);
+      const activityLog = await storage.createActivityLog(activityLogData);
+      console.log("Created activity log:", activityLog);
+
       res.status(201).json(task);
     } catch (error) {
       console.error("Failed to create task:", error);
-      res.status(500).json({ message: (error as Error).message });
+      res.status(500).json({ message: "Failed to create task" });
     }
   });
 
@@ -525,9 +537,15 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid task ID" });
     }
 
+    // Extract and validate userId early
+    const userId = req.body.userId ? parseInt(req.body.userId) : null;
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({ message: "Valid userId is required" });
+    }
+
     console.log("Task update request:", {
       taskId: id,
-      userId: req.body.userId,
+      userId,
       requestBody: req.body
     });
 
@@ -542,20 +560,19 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.updateTask(id, result.data);
 
-      // Ensure userId is a number before creating activity log
-      const userId = Number(req.body.userId);
-      console.log("Creating activity log with userId:", userId);
-
-      // Log the activity with explicit userId
-      await storage.createActivityLog({
+      // Create activity log with validated userId
+      const activityLogData = {
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: userId,
+        userId: userId, // Using the validated userId
         taskId: id,
         boardId: task.boardId
-      });
+      };
 
-      console.log("Activity log created for task update");
+      console.log("Creating activity log with data:", activityLogData);
+      const activityLog = await storage.createActivityLog(activityLogData);
+      console.log("Created activity log:", activityLog);
+
       res.json(task);
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -886,7 +903,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/teams/:id", async (req, res) => {
+  app.patch("/api/teams/:id", async(req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid team ID" });
