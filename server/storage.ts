@@ -606,38 +606,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
-    // Debug-Logging für eingehende Daten
-    console.log("Activity Log Input:", {
-      action: log.action,
-      details: log.details,
-      userId: log.userId,
-      boardId: log.boardId
-    });
-
-    // Strikte Konvertierung der IDs
-    const userId = log.userId ? Number(log.userId) : null;
-    const boardId = log.boardId ? Number(log.boardId) : null;
-    const projectId = log.projectId ? Number(log.projectId) : null;
-    const objectiveId = log.objectiveId ? Number(log.objectiveId) : null;
-    const taskId = log.taskId ? Number(log.taskId) : null;
-
-    // Debug-Logging für konvertierte IDs
-    console.log("Converted IDs:", { userId, boardId, projectId, objectiveId, taskId });
-
-    const dbData = {
-      action: log.action,
-      details: log.details,
-      user_id: userId,
-      board_id: boardId,
-      project_id: projectId,
-      objective_id: objectiveId,
-      task_id: taskId,
-      created_at: new Date()
-    };
-
-    console.log("Final DB Data:", dbData);
-
     try {
+      // Debug: Log incoming data
+      console.log("Activity Log Input:", {
+        action: log.action,
+        details: log.details,
+        userId: log.userId,
+        boardId: log.boardId
+      });
+
+      // Ensure numeric values for IDs
+      const dbData = {
+        action: log.action,
+        details: log.details,
+        user_id: log.userId ? Number(log.userId) : null,
+        board_id: log.boardId ? Number(log.boardId) : null,
+        project_id: log.projectId ? Number(log.projectId) : null,
+        objective_id: log.objectiveId ? Number(log.objectiveId) : null,
+        task_id: log.taskId ? Number(log.taskId) : null,
+        created_at: new Date()
+      };
+
+      // Debug: Log prepared data
+      console.log("Prepared DB Data:", dbData);
+
       const [newLog] = await db
         .insert(activityLogs)
         .values(dbData)
@@ -645,6 +637,7 @@ export class DatabaseStorage implements IStorage {
 
       console.log("Created Activity Log:", newLog);
       return newLog;
+
     } catch (error) {
       console.error("Error creating activity log:", error);
       throw error;

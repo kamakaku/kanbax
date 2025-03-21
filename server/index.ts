@@ -5,6 +5,7 @@ import path from "path";
 import cors from "cors";
 import { drizzle } from "drizzle-orm/node-postgres";
 import knex from "knex";
+import { createServer } from "http";
 
 const app = express();
 app.use(cors());
@@ -16,6 +17,9 @@ const db = knex({
   client: 'pg',
   connection: process.env.DATABASE_URL,
 });
+
+// Create HTTP server instance
+const server = createServer(app);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -61,7 +65,7 @@ app.use((req, res, next) => {
 (async () => {
   try {
     log("Starting server initialization...");
-    const server = await registerRoutes(app, db);
+    await registerRoutes(app, db);
     log("Routes registered successfully");
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -86,61 +90,30 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    // Modified server start function with port retry logic
-    const startServer = async (initialPort: number = 5000, maxRetries = 3) => {
-      const host = '0.0.0.0';
-      let currentPort = initialPort;
-      let retryCount = 0;
+    // Start server on port 5000
+    const port = 5000;
+    const host = '0.0.0.0';
 
-      while (retryCount < maxRetries) {
-        try {
-          // Force close previous listeners if they exist
-          await new Promise<void>((resolve) => {
-            if (server.listening) {
-              server.close(() => resolve());
-            } else {
-              resolve();
-            }
-          });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.listen(port, host, () => {
+          log(`Server successfully started on ${host}:${port}`);
+          log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+          resolve();
+        });
 
-          await new Promise<void>((resolve, reject) => {
-            server.listen(currentPort, host, () => {
-              log(`Server successfully started on ${host}:${currentPort}`);
-              log(`Visit the app at: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
-              resolve();
-            });
-
-            server.once('error', (e: any) => {
-              if (e.code === 'EADDRINUSE') {
-                log(`Port ${currentPort} is in use, trying next port...`);
-                currentPort++;
-                retryCount++;
-                server.close();
-                if (retryCount < maxRetries) {
-                  resolve();
-                } else {
-                  reject(new Error(`Failed to find available port after ${maxRetries} attempts`));
-                }
-              } else {
-                reject(e);
-              }
-            });
-          });
-
-          // If we get here, the server started successfully
-          break;
-        } catch (error) {
-          if (retryCount >= maxRetries) {
-            throw error;
+        server.once('error', (e: any) => {
+          if (e.code === 'EADDRINUSE') {
+            console.error(`Port ${port} is already in use. Please ensure no other process is using this port.`);
+            process.exit(1);
           }
-        }
-      }
-    };
-
-    // Get port from environment or use 5000 as default
-    const port = parseInt(process.env.PORT || "5000", 10);
-    log(`Starting server on port ${port}`);
-    await startServer(port);
+          reject(e);
+        });
+      });
+    } catch (error) {
+      console.error("Failed to start server:", error);
+      process.exit(1);
+    }
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

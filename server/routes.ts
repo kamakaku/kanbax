@@ -309,10 +309,10 @@ export async function registerRoutes(app: Express, db: Knex) {
   // Update the board creation endpoint
   app.post("/api/boards", async (req, res) => {
     try {
-      // Debug-Logging für den Request
-      console.log("Board creation request body:", {
-        ...req.body,
-        creator_id: Number(req.body.creator_id)
+      // Debug: Log raw request
+      console.log("Board creation request:", {
+        creator_id: req.body.creator_id,
+        raw_body: req.body
       });
 
       const result = insertBoardSchema.safeParse(req.body);
@@ -323,25 +323,27 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
-      // Debug-Logging für validierte Daten
+      // Debug: Log validated data
       console.log("Validated board data:", {
-        ...result.data,
-        creator_id: Number(result.data.creator_id)
+        creator_id: result.data.creator_id,
+        validated_data: result.data
       });
 
       const board = await storage.createBoard(result.data);
-      console.log("Created board:", board);
 
-      // Activity Log erstellen mit der creator_id
+      // Create activity log with explicit type conversion
       const activityLogData = {
         action: "create",
         details: "Neues Board erstellt",
-        userId: Number(result.data.creator_id), // Explizit als Nummer konvertieren
+        userId: Number(result.data.creator_id), // Explicit conversion
         boardId: board.id
       };
 
-      console.log("Activity log data before creation:", activityLogData);
-      await storage.createActivityLog(activityLogData);
+      // Debug: Log activity data
+      console.log("Creating activity log:", activityLogData);
+
+      const activityLog = await storage.createActivityLog(activityLogData);
+      console.log("Created activity log:", activityLog);
 
       res.status(201).json(board);
     } catch (error) {
@@ -882,12 +884,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.json(team);
     } catch (error) {
       console.error("Failed to update team:", error);
-      res.status(500).json({ message: "Failed to update team" });
+      res.status(500).json({ message: "Failed toupdate team" });
     }
   });
 
   app.delete("/api/teams/:id", async (req, res) => {
-const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid team ID" });
     }
