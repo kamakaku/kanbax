@@ -614,12 +614,12 @@ export class DatabaseStorage implements IStorage {
       const dbLog = {
         action: log.action,
         details: log.details,
-        user_id: log.userId,
-        board_id: log.boardId,
-        project_id: log.projectId,
-        objective_id: log.objectiveId,
-        task_id: log.taskId,
-        created_at: new Date()
+        userId: log.userId,
+        boardId: log.boardId,
+        projectId: log.projectId,
+        objectiveId: log.objectiveId,
+        taskId: log.taskId,
+        createdAt: new Date()
       };
 
       console.log("Transformed log data for DB:", dbLog);
