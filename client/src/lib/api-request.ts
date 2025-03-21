@@ -3,7 +3,8 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export async function apiRequest(
   method: HttpMethod,
   endpoint: string,
-  data?: unknown
+  data?: unknown,
+  userId?: number
 ) {
   const options: RequestInit = {
     method,
@@ -12,8 +13,13 @@ export async function apiRequest(
     },
   };
 
-  if (data) {
-    options.body = JSON.stringify(data);
+  if (data || userId) {
+    // Add userId to the request data if provided
+    const requestData = {
+      ...(typeof data === 'object' ? data : {}),
+      userId: userId, // Include userId if provided
+    };
+    options.body = JSON.stringify(requestData);
   }
 
   const response = await fetch(endpoint, options);
