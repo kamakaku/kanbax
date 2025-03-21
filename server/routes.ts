@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertTeamSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertTeamSchema, insertObjectiveSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
@@ -210,6 +210,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+  // Update the project creation endpoint
   app.post("/api/projects", async (req, res) => {
     const result = insertProjectSchema.safeParse(req.body);
     if (!result.success) {
@@ -218,6 +219,15 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       const project = await storage.createProject(result.data);
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "create",
+        details: "Neues Projekt erstellt",
+        userId: result.data.creatorId,
+        projectId: project.id
+      });
+
       res.status(201).json(project);
     } catch (error) {
       console.error("Failed to create project:", error);
@@ -279,7 +289,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  // Add more detailed logging for board creation
+  // Update the board creation endpoint
   app.post("/api/boards", async (req, res) => {
     try {
       console.log("1. Received request body:", req.body);
@@ -313,6 +323,14 @@ export async function registerRoutes(app: Express, db: Knex) {
 
       const board = await storage.createBoard(boardData);
       console.log("6. Created board:", board);
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "create",
+        details: "Neues Board erstellt",
+        userId: boardData.creator_id,
+        boardId: board.id
+      });
 
       return res.status(201).json(board);
     } catch (error) {
@@ -923,7 +941,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.json(logs);
     } catch (error) {
       console.error("Failed to fetch activity logs:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to fetch activity logs",
         details: error instanceof Error ? error.message : String(error)
       });
@@ -948,6 +966,31 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+
+  // Update objective creation endpoint
+  app.post("/api/objectives", async (req, res) => {
+    try {
+      const result = insertObjectiveSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error.message });
+      }
+
+      const objective = await storage.createObjective(result.data);
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "create",
+        details: "Neues OKR erstellt",
+        userId: result.data.creator_id,
+        objectiveId: objective.id
+      });
+
+      res.status(201).json(objective);
+    } catch (error) {
+      console.error("Failed to create objective:", error);
+      res.status(500).json({ message: "Failed to create objective" });
+    }
+  });
 
   return createServer(app);
 }
