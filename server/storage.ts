@@ -587,12 +587,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Activity Log operations
-  async getActivityLogs(taskId: number): Promise<ActivityLog[]> {
-    return await db
+  async getActivityLogs(taskId?: number): Promise<ActivityLog[]> {
+    let query = db
       .select()
       .from(activityLogs)
-      .where(eq(activityLogs.taskId, taskId))
       .orderBy(desc(activityLogs.createdAt));
+    
+    if (taskId) {
+      query = query.where(eq(activityLogs.taskId, taskId));
+    }
+    
+    return await query;
   }
 
   async createActivityLog(insertLog: InsertActivityLog): Promise<ActivityLog> {
