@@ -862,7 +862,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.patch("/api/boards/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).jsonjson({ message: "Invalid board ID" });
+      return res.status(400).json({ message: "Invalid board ID" });
     }
 
     try {
@@ -947,7 +947,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch team members" });
     }
   });
-  
+
 
   return createServer(app);
 }

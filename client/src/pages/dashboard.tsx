@@ -7,7 +7,6 @@ import { Plus } from "lucide-react";
 import type { Project, Board } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { ActivityFeed } from "@/components/activity/activity-feed";
-import { ActivityFeedTest } from "@/components/activity/activity-feed-test";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -127,7 +126,6 @@ export default function Dashboard() {
         <div className="w-full lg:w-1/3">
           <ActivityFeed />
         </div>
-
       </div>
     </div>
   );
