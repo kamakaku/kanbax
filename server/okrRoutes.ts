@@ -202,6 +202,16 @@ export function registerOkrRoutes(app: Express) {
         keyResults: objectiveKeyResults
       };
 
+      const activityLog = await storage.createActivityLog({
+        action: "create",
+        details: "Neues OKR erstellt",
+        userId: result.data.creatorId,
+        objectiveId: objective.id,
+        projectId: result.data.projectId || null,
+        boardId: null,
+        taskId: null
+      });
+
       res.status(201).json(response);
     } catch (error) {
       console.error("Fehler beim Erstellen des Objective:", error);
