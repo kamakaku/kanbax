@@ -332,14 +332,16 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Board routes
-  app.get("/api/projects/:projectId/boards", async (req, res) => {
+  app.get("/api/projects/:projectId/boards", requireAuth, async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     if (isNaN(projectId)) {
       return res.status(400).json({ message: "Invalid project ID" });
     }
 
     try {
-      const boards = await storage.getBoardsByProject(projectId);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const boards = await storage.getBoardsByProject(userId, projectId);
       res.json(boards);
     } catch (error) {
       console.error("Failed to fetch boards:", error);
@@ -447,7 +449,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/boards/:id", async (req, res) => {
+  app.patch("/api/boards/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -462,14 +464,17 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const updatedBoard = await storage.updateBoard(id, result.data);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      
+      const updatedBoard = await storage.updateBoard(userId, id, result.data);
 
       // Log the activity
       await storage.createActivityLog({
         action: "update",
         details: "Board aktualisiert",
-        userId: result.data.creator_id, // Using creator_id from request body for consistency. Consider userId if available.
-        boardId: id
+        user_id: userId,
+        board_id: id
       });
 
       res.json(updatedBoard);
@@ -481,24 +486,25 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.delete("/api/boards/:id", async (req, res) => {
+  app.delete("/api/boards/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
     try {
-      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the board
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
 
       // Log the activity before deletion
       await storage.createActivityLog({
         action: "delete",
         details: "Board gelöscht",
-        userId: userId,
-        boardId: id
+        user_id: userId,
+        board_id: id
       });
 
-      await storage.deleteBoard(id);
+      await storage.deleteBoard(userId, id);
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
@@ -769,7 +775,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.post("/api/boards/:boardId/columns", async (req, res) => {
+  app.post("/api/boards/:boardId/columns", requireAuth, async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -784,35 +790,41 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const column = await storage.createColumn(result.data);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const column = await storage.createColumn(userId, result.data);
       res.status(201).json(column);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
     }
   });
 
-  app.patch("/api/columns/:id", async (req, res) => {
+  app.patch("/api/columns/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
     }
 
     try {
-      const column = await storage.updateColumn(id, req.body);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const column = await storage.updateColumn(userId, id, req.body);
       res.json(column);
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
     }
   });
 
-  app.delete("/api/columns/:id", async (req, res) => {
+  app.delete("/api/columns/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid column ID" });
     }
 
     try {
-      await storage.deleteColumn(id);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      await storage.deleteColumn(userId, id);
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
@@ -820,20 +832,18 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Avatar upload route
-  app.post("/api/profile/avatar", upload.single('avatar'), async (req, res) => {
+  app.post("/api/profile/avatar", requireAuth, upload.single('avatar'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const userId = parseInt(req.body.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
 
       const avatarUrl = `/uploads/avatars/${req.file.filename}`;
 
-      const updatedUser = await storage.updateUser(userId, { avatarUrl });
+      const updatedUser = await storage.updateUser(userId, userId, { avatarUrl });
       const { passwordHash: _, ...userWithoutPassword } = updatedUser;
 
       res.json(userWithoutPassword);
@@ -876,14 +886,16 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.post("/api/teams", async (req, res) => {
+  app.post("/api/teams", requireAuth, async (req, res) => {
     const result = insertTeamSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
 
     try {
-      const team = await storage.createTeam(result.data);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const team = await storage.createTeam(userId, result.data);
       res.status(201).json(team);
     } catch (error) {
       console.error("Failed to create team:", error);
@@ -891,7 +903,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/teams/:id", async (req, res) => {
+  app.patch("/api/teams/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid team ID" });
@@ -903,7 +915,9 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const team = await storage.updateTeam(id, result.data);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const team = await storage.updateTeam(userId, id, result.data);
       if (!team) {
         return res.status(404).json({ message: "Team not found" });
       }
@@ -913,14 +927,16 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to update team" });
     }
   });
-  app.delete("/api/teams/:id", async (req, res) => {
+  app.delete("/api/teams/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid team ID" });
     }
 
     try {
-      await storage.deleteTeam(id);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      await storage.deleteTeam(userId, id);
       res.status(204).send();
     } catch (error) {
       console.error("Failed to delete team:", error);
