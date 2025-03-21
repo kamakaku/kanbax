@@ -897,20 +897,15 @@ export async function registerRoutes(app: Express, db: Knex) {
         .select(
           'activity_logs.*',
           'boards.title as board_title',
-          'boards.id as board_id',
-          'projects.title as project_title',
-          'projects.id as project_id',
-          'objectives.title as okr_title',
-          'objectives.id as okr_id',
+          'tasks.id as task_id',
+          'tasks.title as task_title',
           'users.username as user_name',
           'users.id as user_id'
         )
         .from('activity_logs')
-        .leftJoin('boards', 'activity_logs.entity_id', 'boards.id')
-        .leftJoin('projects', 'activity_logs.entity_id', 'projects.id')
-        .leftJoin('objectives', 'activity_logs.entity_id', 'objectives.id')
+        .leftJoin('tasks', 'activity_logs.task_id', 'tasks.id')
+        .leftJoin('boards', 'tasks.board_id', 'boards.id')
         .leftJoin('users', 'activity_logs.user_id', 'users.id')
-        .where('activity_logs.entity_type', 'IN', ['board', 'project', 'objective'])
         .orderBy('activity_logs.created_at', 'desc')
         .limit(30);
 

@@ -97,10 +97,12 @@ export const comments = pgTable("comments", {
 
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  taskId: integer("task_id").notNull(),
+  taskId: integer("task_id"),
   action: text("action").notNull(),
   details: text("details"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  boardId: integer("board_id"),
+  userId: integer("user_id"),
 });
 
 const checklistItemSchema = z.object({
@@ -239,11 +241,15 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     taskId: true,
     action: true,
     details: true,
+    boardId: true,
+    userId: true,
   })
   .extend({
-    taskId: z.number().int().positive("Task ID is required"),
+    taskId: z.number().int().positive("Task ID is required").optional(),
     action: z.string().min(1, "Action is required"),
     details: z.string().optional(),
+    boardId: z.number().int().positive().optional(),
+    userId: z.number().int().positive().optional(),
   });
 
 // Add team schemas
@@ -449,7 +455,13 @@ export type ChecklistItem = typeof checklistItems.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
-export type ActivityLog = typeof activityLogs.$inferSelect;
+export type ActivityLog = typeof activityLogs.$inferSelect & {
+  board_title?: string;
+  task_title?: string;
+  user_name?: string;
+  task_id?: number;
+  user_id?: number;
+};
 
 export const updateTaskSchema = insertTaskSchema.partial();
 export type UpdateTask = z.infer<typeof updateTaskSchema>;
