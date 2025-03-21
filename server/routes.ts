@@ -11,6 +11,7 @@ import { registerProductivityRoutes } from "./productivityRoutes";
 import { Knex } from 'knex';
 import { queryClient } from './utils'; // Assuming queryClient is imported from a utils file
 import { requireAuth, optionalAuth } from './middleware/auth';
+import { permissionService } from './permissions';
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -208,7 +209,9 @@ export async function registerRoutes(app: Express, db: Knex) {
   // Project routes
   app.get("/api/projects", requireAuth, async (req, res) => {
     try {
-      const projects = await storage.getProjects();
+      // Benutze die userId aus dem req-Objekt
+      const userId = req.userId!;
+      const projects = await storage.getProjects(userId);
       res.json(projects);
     } catch (error) {
       console.error("Failed to fetch projects:", error);
@@ -223,7 +226,9 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const project = await storage.getProject(id);
+      // Benutze die userId aus dem req-Objekt
+      const userId = req.userId!;
+      const project = await storage.getProject(userId, id);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -300,24 +305,25 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.delete("/api/projects/:id", async (req, res) => {
+  app.delete("/api/projects/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
     }
 
     try {
-      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the project
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
 
       // Log the activity before deletion
       await storage.createActivityLog({
         action: "delete",
         details: "Projekt gelöscht",
-        userId: parseInt(userId),
-        projectId: id
+        user_id: userId,
+        project_id: id
       });
 
-      await storage.deleteProject(id);
+      await storage.deleteProject(userId, id);
       res.status(204).send();
     } catch (error) {
       console.error("Failed to delete project:", error);
@@ -389,7 +395,9 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/boards", requireAuth, async (req, res) => {
     try {
       console.log("Starting boards fetch...");
-      const boards = await storage.getBoards();
+      // Benutze die userId aus dem req-Objekt
+      const userId = req.userId!;
+      const boards = await storage.getBoards(userId);
       console.log(`Successfully retrieved ${boards.length} boards:`, boards);
       res.json(boards);
     } catch (error) {
@@ -558,15 +566,16 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const task = await storage.updateTask(id, result.data);
+      const userId = req.userId!;
+      const task = await storage.updateTask(userId, id, result.data);
 
       // Log the activity
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: result.data.creatorId,
-        taskId: id,
-        boardId: task.boardId
+        user_id: userId,
+        task_id: id,
+        board_id: task.boardId
       });
 
       res.json(task);
@@ -719,28 +728,16 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Update activity logs endpoint
-  app.get("/api/activity", requireAuth, async (_req, res) => {
+  app.get("/api/activity", requireAuth, async (req, res) => {
     try {
       console.log("Fetching activity logs...");
-
-      // Get activity logs with related information - using simpler joins
-      const logs = await db
-        .select(
-          'activity_logs.*',
-          'boards.title as board_title',
-          'projects.title as project_title',
-          'objectives.title as objective_title',
-          'users.username',
-          'users.avatar_url',
-          'users.id as user_id'
-        )
-        .from('activity_logs')
-        .leftJoin('users', 'activity_logs.user_id', 'users.id')
-        .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
-        .leftJoin('projects', 'activity_logs.project_id', 'projects.id')
-        .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
-        .orderBy('activity_logs.created_at', 'desc')
-        .limit(50);
+      
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      
+      // Verwende die getVisibleActivityLogs-Methode vom permissionService
+      // Diese Methode filtert nur die Logs, die der Benutzer sehen darf
+      const logs = await permissionService.getVisibleActivityLogs(userId);
 
       console.log("Activity logs query:", logs.length, "results");
       if (logs.length > 0) {
@@ -847,9 +844,11 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Add team routes
-  app.get("/api/teams", requireAuth, async (_req, res) => {
+  app.get("/api/teams", requireAuth, async (req, res) => {
     try {
-      const teams = await storage.getTeams();
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const teams = await storage.getTeams(userId);
       res.json(teams);
     } catch (error) {
       console.error("Failed to fetch teams:", error);
@@ -864,7 +863,9 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const team = await storage.getTeam(id);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const team = await storage.getTeam(userId, id);
       if (!team) {
         return res.status(404).json({ message: "Team not found" });
       }
@@ -928,42 +929,48 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Add toggle favorite endpoints
-  app.patch("/api/projects/:id/favorite", async (req, res) => {
+  app.patch("/api/projects/:id/favorite", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
     }
 
     try {
-      const project = await storage.toggleProjectFavorite(id);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const project = await storage.toggleProjectFavorite(userId, id);
       res.json(project);
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
   });
 
-  app.patch("/api/boards/:id/favorite", async (req, res) => {
+  app.patch("/api/boards/:id/favorite", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
     try {
-      const board = await storage.toggleBoardFavorite(id);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const board = await storage.toggleBoardFavorite(userId, id);
       res.json(board);
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
   });
 
-  app.patch("/api/objectives/:id/favorite", async (req, res) => {
+  app.patch("/api/objectives/:id/favorite", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid objective ID" });
     }
 
     try {
-      const objective = await storage.toggleObjectiveFavorite(id);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const objective = await storage.toggleObjectiveFavorite(userId, id);
       res.json(objective);
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
@@ -981,9 +988,11 @@ export async function registerRoutes(app: Express, db: Knex) {
   registerOkrRoutes(app);
 
   // Add team-members route
-  app.get("/api/team-members", async (_req, res) => {
+  app.get("/api/team-members", requireAuth, async (req, res) => {
     try {
-      const result = await storage.getTeamMembers();
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const result = await storage.getTeamMembers(userId);
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch team members:", error);
@@ -992,7 +1001,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Update objective creation endpoint
-  app.post("/api/objectives", async (req, res) => {
+  app.post("/api/objectives", requireAuth, async (req, res) => {
     try {
       console.log("Received objective creation request:", req.body);
 
@@ -1005,13 +1014,13 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
-      if (!result.data.creatorId) {
-        return res.status(400).json({ message: "Creator ID is required" });
-      }
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      result.data.creatorId = userId; // Setze creatorId auf die authentifizierte userId
 
       // Create the objective
       console.log("Creating objective with validated data:", result.data);
-      const objective = await storage.createObjective(result.data);
+      const objective = await storage.createObjective(userId, result.data);
       console.log("Created objective:", objective);
 
       // Create activity log
@@ -1045,39 +1054,6 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid task ID" });
-    }
-
-    const result = updateTaskSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({
-        message: result.error.message,
-        details: result.error.errors
-      });
-    }
-
-    try {
-      const task = await storage.updateTask(id, result.data);
-
-      // Log the activity
-      await storage.createActivityLog({
-        action: "update",
-        details: "Aufgabe aktualisiert",
-        userId: result.data.creatorId,
-        taskId: id,
-        boardId: task.boardId
-      });
-
-      res.json(task);
-    } catch (error) {
-      console.error("Failed to update task:", error);
-      res.status(404).json({ message: (error as Error).message });
-    }
-  });
-
   app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -1085,20 +1061,32 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the task
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      
+      // Holen Sie zuerst die Task, um die boardId zu bekommen
+      const task = await storage.getTasks(userId, null).then(tasks => 
+        tasks.find(t => t.id === id)
+      );
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
       await storage.createActivityLog({
         action: "delete",
         details: "Aufgabe gelöscht",
-        userId: userId,
-        taskId: id,
-        boardId: (await storage.getTask(id)).boardId
+        user_id: userId,
+        task_id: id,
+        board_id: task.boardId
       });
-      await storage.deleteTask(id);
+      
+      await storage.deleteTask(userId, id);
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
     }
   });
-
-  return createServer(app);
+  
+  // No need to return createServer(app) anymore since we're creating the server in index.ts
 }

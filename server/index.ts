@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import knex from "knex";
 import session from "express-session";
 import MemoryStore from "memorystore";
+import { createServer } from "http";
 
 const app = express();
 
@@ -94,7 +95,10 @@ app.use((req, res, next) => {
 (async () => {
   try {
     log("Starting server initialization...");
-    const server = await registerRoutes(app, db);
+    // Create HTTP server
+    const server = createServer(app);
+    // Register routes
+    await registerRoutes(app, db);
     log("Routes registered successfully");
 
     // Add this after routes are registered but before error handler
@@ -189,8 +193,8 @@ app.use((req, res, next) => {
       }
     };
 
-    // Get port from environment or use 5000 as default
-    const port = parseInt(process.env.PORT || "5000", 10);
+    // Start at port 5001 since 5000 seems to be in use
+    const port = parseInt(process.env.PORT || "5001", 10);
     log(`Starting server on port ${port}`);
     await startServer(port);
   } catch (error) {
