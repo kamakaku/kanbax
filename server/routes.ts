@@ -251,6 +251,15 @@ export async function registerRoutes(app: Express, db: Knex) {
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "update",
+        details: "Projekt aktualisiert",
+        userId: result.data.creatorId,
+        projectId: id
+      });
+
       res.json(project);
     } catch (error) {
       console.error("Failed to update project:", error);
@@ -265,6 +274,16 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the project
+
+      // Log the activity before deletion
+      await storage.createActivityLog({
+        action: "delete",
+        details: "Projekt gelöscht",
+        userId: userId,
+        projectId: id
+      });
+
       await storage.deleteProject(id);
       res.status(204).send();
     } catch (error) {
@@ -292,52 +311,28 @@ export async function registerRoutes(app: Express, db: Knex) {
   // Update the board creation endpoint
   app.post("/api/boards", async (req, res) => {
     try {
-      console.log("1. Received request body:", req.body);
-
       const result = insertBoardSchema.safeParse(req.body);
       if (!result.success) {
-        console.log("2. Validation failed. Errors:", result.error.errors);
-        console.log("3. Received data:", req.body);
         return res.status(400).json({
           message: "Invalid board data",
           errors: result.error.errors,
-          received: req.body
         });
       }
 
-      console.log("4. Validated data:", result.data);
-
-      // Ensure arrays are properly formatted
-      const boardData = {
-        ...result.data,
-        team_ids: Array.isArray(result.data.team_ids)
-          ? result.data.team_ids.filter(id => id > 0)
-          : [],
-        assigned_user_ids: Array.isArray(result.data.assigned_user_ids)
-          ? result.data.assigned_user_ids.filter(id => id > 0)
-          : [],
-        is_favorite: result.data.is_favorite || false
-      };
-
-      console.log("5. Processed board data:", boardData);
-
-      const board = await storage.createBoard(boardData);
-      console.log("6. Created board:", board);
+      const board = await storage.createBoard(result.data);
 
       // Log the activity
       await storage.createActivityLog({
         action: "create",
         details: "Neues Board erstellt",
-        userId: boardData.creator_id,
+        userId: result.data.creator_id,
         boardId: board.id
       });
 
-      return res.status(201).json(board);
+      res.status(201).json(board);
     } catch (error) {
-      console.error("7. Error in board creation:", error);
-      return res.status(500).json({
-        message: error instanceof Error ? error.message : "Failed to create board"
-      });
+      console.error("Failed to create board:", error);
+      res.status(500).json({ message: "Failed to create board" });
     }
   });
 
@@ -411,6 +406,15 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       const updatedBoard = await storage.updateBoard(id, result.data);
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "update",
+        details: "Board aktualisiert",
+        userId: result.data.creator_id,
+        boardId: id
+      });
+
       res.json(updatedBoard);
     } catch (error) {
       console.error("Failed to update board:", error);
@@ -427,6 +431,16 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the board
+
+      // Log the activity before deletion
+      await storage.createActivityLog({
+        action: "delete",
+        details: "Board gelöscht",
+        userId: userId,
+        boardId: id
+      });
+
       await storage.deleteBoard(id);
       res.status(204).send();
     } catch (error) {
@@ -453,14 +467,8 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
-    console.log("Received task creation request:", {
-      body: req.body,
-      boardId: boardId
-    });
-
     const result = insertTaskSchema.safeParse({ ...req.body, boardId });
     if (!result.success) {
-      console.error("Task validation failed:", result.error);
       return res.status(400).json({
         message: "Invalid task data",
         errors: result.error.errors
@@ -468,9 +476,17 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      console.log("Validated task data:", result.data);
       const task = await storage.createTask(result.data);
-      console.log("Created task:", task);
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "create",
+        details: "Neue Aufgabe erstellt",
+        userId: result.data.creatorId,
+        boardId: boardId,
+        taskId: task.id
+      });
+
       res.status(201).json(task);
     } catch (error) {
       console.error("Failed to create task:", error);
@@ -484,17 +500,8 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid task ID" });
     }
 
-    console.log("Updating task:", id, "with data:", req.body);
-
-    // Entferne assignedTeamId, wenn es 0 oder null ist
-    const requestData = { ...req.body };
-    if (!requestData.assignedTeamId || requestData.assignedTeamId <= 0) {
-      delete requestData.assignedTeamId;
-    }
-
-    const result = updateTaskSchema.safeParse(requestData);
+    const result = updateTaskSchema.safeParse(req.body);
     if (!result.success) {
-      console.error("Task validation failed:", result.error);
       return res.status(400).json({
         message: result.error.message,
         details: result.error.errors
@@ -503,7 +510,16 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       const task = await storage.updateTask(id, result.data);
-      console.log("Task updated successfully:", task);
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "update",
+        details: "Aufgabe aktualisiert",
+        userId: result.data.userId,
+        taskId: id,
+        boardId: task.boardId
+      });
+
       res.json(task);
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -870,7 +886,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const project = await storage.toggleProjectFavorite(id);
+            const project = await storage.toggleProjectFavorite(id);
       res.json(project);
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
@@ -969,12 +985,12 @@ export async function registerRoutes(app: Express, db: Knex) {
 
   // Update objective creation endpoint
   app.post("/api/objectives", async (req, res) => {
-    try {
-      const result = insertObjectiveSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ message: result.error.message });
-      }
+    const result = insertObjectiveSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
 
+    try {
       const objective = await storage.createObjective(result.data);
 
       // Log the activity
@@ -989,6 +1005,61 @@ export async function registerRoutes(app: Express, db: Knex) {
     } catch (error) {
       console.error("Failed to create objective:", error);
       res.status(500).json({ message: "Failed to create objective" });
+    }
+  });
+
+  app.patch("/api/tasks/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid task ID" });
+    }
+
+    const result = updateTaskSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        message: result.error.message,
+        details: result.error.errors
+      });
+    }
+
+    try {
+      const task = await storage.updateTask(id, result.data);
+
+      // Log the activity
+      await storage.createActivityLog({
+        action: "update",
+        details: "Aufgabe aktualisiert",
+        userId: result.data.userId,
+        taskId: id,
+        boardId: task.boardId
+      });
+
+      res.json(task);
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/tasks/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid task ID" });
+    }
+
+    try {
+      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the task
+      await storage.createActivityLog({
+        action: "delete",
+        details: "Aufgabe gelöscht",
+        userId: userId,
+        taskId: id,
+        boardId: (await storage.getTask(id)).boardId
+      });
+      await storage.deleteTask(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(404).json({ message: (error as Error).message });
     }
   });
 
