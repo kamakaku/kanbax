@@ -11,5 +11,6 @@ export function formatDate(date: Date): string {
   return format(date, "dd.MM.yyyy", { locale: de });
 }
 
-import { apiRequest as originalApiRequest } from './queryClient';
-export { originalApiRequest as apiRequest };
+// Import and re-export the apiRequest from queryClient to consolidate API requests
+import { apiRequest } from './queryClient';
+export { apiRequest };
