@@ -948,39 +948,6 @@ export async function registerRoutes(app: Express, db: Knex) {
 
   // Add activity logs endpoint
   //This route is removed as it's a duplicate
-  // app.get("/api/activity", async (_req, res) => {
-  //   try {
-  //     console.log("Fetching activity logs...");
-
-  //     // Get activity logs with related information - using simpler joins
-  //     const logs = await db
-  //       .select(
-  //         'activity_logs.*',
-  //         'boards.title as board_title',
-  //         'projects.title as project_title',
-  //         'objectives.title as objective_title',
-  //         'users.username as username'
-  //       )
-  //       .from('activity_logs')
-  //       .leftJoin('users', 'activity_logs.user_id', 'users.id')
-  //       .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
-  //       .leftJoin('projects', 'activity_logs.project_id', 'projects.id')
-  //       .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
-  //       .orderBy('activity_logs.created_at', 'desc')
-  //       .limit(50);
-
-  //     console.log("Activity logs query:", logs.length, "results");
-  //     console.log("Sample activity log:", logs[0]);
-
-  //     res.json(logs);
-  //   } catch (error) {
-  //     console.error("Failed to fetch activity logs:", error);
-  //     res.status(500).json({
-  //       message: "Failed to fetch activity logs",
-  //       details: error instanceof Error ? error.message : String(error)
-  //     });
-  //   }
-  // });
 
   // Register productivity routes
   registerProductivityRoutes(app);
@@ -1018,26 +985,30 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(400).json({ message: "Creator ID is required" });
       }
 
-      // Erstelle das Objective
+      // Create the objective
       console.log("Creating objective with validated data:", result.data);
       const objective = await storage.createObjective(result.data);
       console.log("Created objective:", objective);
 
       try {
-        // Erstelle den Aktivitätseintrag
-        const activityLog = await storage.createActivityLog({
-          action: "create",
-          details: "Neues OKR erstellt",
-          userId: result.data.creator_id,
-          objectiveId: objective.id,
-          projectId: result.data.projectId || null,
-          boardId: null,
-          taskId: null
-        });
+        // Create activity log entry
+        const activityLog = await db
+          .insert('activity_logs')
+          .values({
+            action: "create",
+            details: "Neues OKR erstellt",
+            user_id: result.data.creator_id,
+            objective_id: objective.id,
+            project_id: result.data.projectId || null,
+            board_id: null,
+            task_id: null,
+            created_at: new Date()
+          })
+          .returning();
         console.log("Created activity log:", activityLog);
       } catch (logError) {
         console.error("Failed to create activity log:", logError);
-        // Wir werfen den Fehler nicht weiter, da das OKR bereits erstellt wurde
+        // We don't throw the error since the OKR was already created
       }
 
       res.status(201).json(objective);
