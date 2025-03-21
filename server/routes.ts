@@ -309,7 +309,11 @@ export async function registerRoutes(app: Express, db: Knex) {
   // Update the board creation endpoint
   app.post("/api/boards", async (req, res) => {
     try {
-      console.log("Board creation request body:", req.body);
+      // Debug-Logging für den Request
+      console.log("Board creation request body:", {
+        ...req.body,
+        creator_id: Number(req.body.creator_id)
+      });
 
       const result = insertBoardSchema.safeParse(req.body);
       if (!result.success) {
@@ -319,16 +323,21 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
-      console.log("Validated board data:", result.data);
+      // Debug-Logging für validierte Daten
+      console.log("Validated board data:", {
+        ...result.data,
+        creator_id: Number(result.data.creator_id)
+      });
+
       const board = await storage.createBoard(result.data);
       console.log("Created board:", board);
 
-      // Activity Log mit validierten Daten
+      // Activity Log erstellen mit der creator_id
       const activityLogData = {
         action: "create",
         details: "Neues Board erstellt",
-        userId: Number(result.data.creator_id),
-        boardId: Number(board.id)
+        userId: Number(result.data.creator_id), // Explizit als Nummer konvertieren
+        boardId: board.id
       };
 
       console.log("Activity log data before creation:", activityLogData);
@@ -878,7 +887,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   app.delete("/api/teams/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
+const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid team ID" });
     }
@@ -995,7 +1004,6 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch team members" });
     }
   });
-
 
   // Update objective creation endpoint
   app.post("/api/objectives", async (req, res) => {

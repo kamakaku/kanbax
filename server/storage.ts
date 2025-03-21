@@ -606,22 +606,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
-    // Debug-Logging der eingehenden Daten
-    console.log("Creating activity log with raw data:", log);
+    // Debug-Logging für eingehende Daten
+    console.log("Activity Log Input:", {
+      action: log.action,
+      details: log.details,
+      userId: log.userId,
+      boardId: log.boardId
+    });
 
-    // Sicherstellen, dass alle IDs als Zahlen vorliegen
+    // Strikte Konvertierung der IDs
+    const userId = log.userId ? Number(log.userId) : null;
+    const boardId = log.boardId ? Number(log.boardId) : null;
+    const projectId = log.projectId ? Number(log.projectId) : null;
+    const objectiveId = log.objectiveId ? Number(log.objectiveId) : null;
+    const taskId = log.taskId ? Number(log.taskId) : null;
+
+    // Debug-Logging für konvertierte IDs
+    console.log("Converted IDs:", { userId, boardId, projectId, objectiveId, taskId });
+
     const dbData = {
       action: log.action,
       details: log.details,
-      user_id: Number(log.userId) || null,
-      board_id: Number(log.boardId) || null,
-      project_id: Number(log.projectId) || null,
-      objective_id: Number(log.objectiveId) || null,
-      task_id: Number(log.taskId) || null,
+      user_id: userId,
+      board_id: boardId,
+      project_id: projectId,
+      objective_id: objectiveId,
+      task_id: taskId,
       created_at: new Date()
     };
 
-    console.log("Inserting activity log with prepared data:", dbData);
+    console.log("Final DB Data:", dbData);
 
     try {
       const [newLog] = await db
@@ -629,7 +643,7 @@ export class DatabaseStorage implements IStorage {
         .values(dbData)
         .returning();
 
-      console.log("Successfully created activity log:", newLog);
+      console.log("Created Activity Log:", newLog);
       return newLog;
     } catch (error) {
       console.error("Error creating activity log:", error);
