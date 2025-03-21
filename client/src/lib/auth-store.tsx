@@ -50,11 +50,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const store = useAuthStore();
-  return (
-    <AuthContext.Provider value={store}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return React.createElement(AuthContext.Provider, { value: store }, children);
 }
 
 export function useAuth(): AuthState {

@@ -218,20 +218,23 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      // Get user ID from request body
+      const userId = req.body.userId;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
       const project = await storage.createProject(result.data);
 
-      // Log the activity with all relevant IDs
+      // Log the activity with correct userId
       await storage.createActivityLog({
         action: "create",
         details: "Neues Projekt erstellt",
-        userId: result.data.creator_id,
-        projectId: project.id,
-        boardId: null,
-        objectiveId: null,
-        taskId: null
+        userId: userId, // Use consistent userId field
+        projectId: project.id
       });
 
-      res.status(201).json(project);
+      res.json(project);
     } catch (error) {
       console.error("Failed to create project:", error);
       res.status(500).json({ message: "Failed to create project" });
@@ -259,7 +262,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Projekt aktualisiert",
-        userId: result.data.creator_id,
+        userId: result.data.creator_id, // Using creator_id from request body for consistency.  Consider userId if available.
         projectId: id,
         boardId: null,
         objectiveId: null,
@@ -325,13 +328,19 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
+      // Get user ID from request body
+      const userId = req.body.userId;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
       const board = await storage.createBoard(result.data);
 
-      // Log the activity
+      // Create activity log entry
       await storage.createActivityLog({
         action: "create",
         details: "Neues Board erstellt",
-        userId: result.data.creator_id,
+        userId: userId,
         boardId: board.id
       });
 
@@ -417,7 +426,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Board aktualisiert",
-        userId: result.data.creator_id,
+        userId: result.data.creator_id, // Using creator_id from request body for consistency. Consider userId if available.
         boardId: id
       });
 
@@ -884,7 +893,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      await storage.deleteTeam(id);
+      awaitstorage.deleteTeam(id);
       res.status(204).send();
     } catch (error) {
       console.error("Failed to delete team:", error);
@@ -1005,13 +1014,19 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      // Get user ID from request body
+      const userId = req.body.userId;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
       const objective = await storage.createObjective(result.data);
 
-      // Log the activity
+      // Log the activity with correct userId
       await storage.createActivityLog({
         action: "create",
         details: "Neues OKR erstellt",
-        userId: result.data.creator_id,
+        userId: userId, // Use consistent userId field
         objectiveId: objective.id
       });
 
