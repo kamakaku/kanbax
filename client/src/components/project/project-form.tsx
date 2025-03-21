@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProjectSchema, type InsertProject, type Project, type Team } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-store";
 import {
   Form,
   FormControl,
@@ -35,6 +36,7 @@ interface ProjectFormProps {
 export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Fetch teams
   const { data: teams = [] } = useQuery<Team[]>({
@@ -54,15 +56,20 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
       title: existingProject?.title || "",
       description: existingProject?.description || "",
       teamIds: existingProject?.teamIds || [],
+      creator_id: user?.id || 0,
     },
   });
 
   const createProject = useMutation({
     mutationFn: async (data: InsertProject) => {
-      return await apiRequest("POST", "/api/projects", {
+      const projectData = {
         ...data,
         teamIds: data.teamIds || [],
-      });
+        creator_id: user?.id,
+        userId: user?.id, // Füge die userId für die Aktivitätsprotokollierung hinzu
+      };
+      console.log("Creating project with data:", projectData);
+      return await apiRequest("POST", "/api/projects", projectData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -84,15 +91,17 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
     mutationFn: async (data: Partial<InsertProject>) => {
       if (!existingProject) return;
 
-      console.log("Updating project with data:", data); // Debug log
+      const updateData = {
+        ...data,
+        teamIds: data.teamIds || [],
+        userId: user?.id, // Füge die userId für die Aktivitätsprotokollierung hinzu
+      };
+      console.log("Updating project with data:", updateData);
 
       return await apiRequest(
         "PATCH",
         `/api/projects/${existingProject.id}`,
-        {
-          ...data,
-          teamIds: data.teamIds || [],
-        }
+        updateData
       );
     },
     onSuccess: () => {
@@ -111,6 +120,15 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
   });
 
   const onSubmit = async (data: InsertProject) => {
+    if (!user?.id) {
+      toast({
+        title: "Fehler",
+        description: "Sie müssen angemeldet sein, um ein Projekt zu erstellen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (existingProject) {
       await updateProject.mutateAsync(data);
     } else {
