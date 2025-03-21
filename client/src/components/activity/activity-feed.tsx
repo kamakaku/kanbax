@@ -7,7 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface ExtendedActivityLog extends ActivityLog {
   board_title?: string;
@@ -97,9 +97,11 @@ export function ActivityFeed() {
               {/* Avatar und Name */}
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    {activity.user_name?.[0].toUpperCase() || <User className="h-4 w-4" />}
-                  </AvatarFallback>
+                  {activity.user_name && (
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {activity.user_name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <span className="font-medium text-slate-800">
                   {activity.user_name}
