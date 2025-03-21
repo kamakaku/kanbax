@@ -892,13 +892,41 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       console.log("Fetching activity logs...");
 
-      // Get activity logs with related information
-      const logs = await storage.getActivityLogs();
-      console.log("Retrieved activity logs:", logs);
+      // Get activity logs with related information - using simpler joins
+      const logs = await db
+        .select(
+          'activity_logs.*',
+          'boards.title as board_title',
+          'boards.id as board_id',
+          'projects.title as project_title',
+          'projects.id as project_id',
+          'objectives.title as okr_title',
+          'objectives.id as okr_id',
+          'users.username as user_name',
+          'users.id as user_id'
+        )
+        .from('activity_logs')
+        .leftJoin('users', 'activity_logs.user_id', 'users.id')
+        .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
+        .leftJoin('projects', 'activity_logs.project_id', 'projects.id')
+        .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
+        .orderBy('activity_logs.created_at', 'desc')
+        .limit(30);
+
+      console.log("SQL Query executed successfully");
+      console.log("Number of logs retrieved:", logs.length);
+
+      if (logs.length > 0) {
+        console.log("Sample log entry:", logs[0]);
+      }
+
       res.json(logs);
     } catch (error) {
       console.error("Failed to fetch activity logs:", error);
-      res.status(500).json({ message: "Failed to fetch activity logs" });
+      res.status(500).json({ 
+        message: "Failed to fetch activity logs",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
