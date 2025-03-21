@@ -39,7 +39,7 @@ const renderContextLink = (activity: ExtendedActivityLog) => {
   } else if (activity.objective_id && activity.objective_title) {
     contextInfo = {
       prefix: " im OKR ",
-      href: `/okrs/${activity.objective_id}`,
+      href: `/all-okrs/${activity.objective_id}`,
       title: activity.objective_title
     };
   }
