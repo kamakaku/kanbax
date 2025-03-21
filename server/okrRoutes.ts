@@ -298,6 +298,17 @@ export function registerOkrRoutes(app: Express) {
 
       const [keyResult] = await db.insert(keyResults).values(data).returning();
 
+      // Create activity log for new key result
+      await storage.createActivityLog({
+        action: "create",
+        details: "Neues Key Result erstellt",
+        userId: req.body.creatorId || 1,
+        objectiveId: keyResult.objectiveId,
+        taskId: null,
+        boardId: null,
+        projectId: null
+      });
+
       // Parse checklistItems back to objects for response
       const response = {
         ...keyResult,
@@ -334,6 +345,17 @@ export function registerOkrRoutes(app: Express) {
       }
 
       // Parse checklistItems back to objects for response
+      // Create activity log for updated key result
+      await storage.createActivityLog({
+        action: "update",
+        details: "Key Result aktualisiert",
+        userId: req.body.updatedBy || 1,
+        objectiveId: updated[0].objectiveId,
+        taskId: null,
+        boardId: null,
+        projectId: null
+      });
+
       const response = {
         ...updated[0],
         checklistItems: updated[0].checklistItems?.map(item => JSON.parse(item)) || [],
@@ -353,7 +375,24 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      await db.delete(keyResults).where(eq(keyResults.id, id));
+      // Get the key result before deletion to access objectiveId
+      const [keyResult] = await db.select().from(keyResults).where(eq(keyResults.id, id));
+      
+      if (keyResult) {
+        await db.delete(keyResults).where(eq(keyResults.id, id));
+        
+        // Create activity log for deleted key result
+        await storage.createActivityLog({
+          action: "delete",
+          details: "Key Result gelöscht",
+          userId: req.body.deletedBy || 1,
+          objectiveId: keyResult.objectiveId,
+          taskId: null,
+          boardId: null,
+          projectId: null
+        });
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Key Result:", error);
