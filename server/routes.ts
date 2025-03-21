@@ -9,6 +9,7 @@ import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
 import { Knex } from 'knex';
+import { queryClient } from './utils'; // Assuming queryClient is imported from a utils file
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -981,7 +982,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
-      if (!result.data.creator_id) {
+      if (!result.data.creatorId) {
         return res.status(400).json({ message: "Creator ID is required" });
       }
 
@@ -990,26 +991,26 @@ export async function registerRoutes(app: Express, db: Knex) {
       const objective = await storage.createObjective(result.data);
       console.log("Created objective:", objective);
 
-      try {
-        // Create activity log entry
-        const activityLog = await db
-          .insert('activity_logs')
-          .values({
-            action: "create",
-            details: "Neues OKR erstellt",
-            user_id: result.data.creator_id,
-            objective_id: objective.id,
-            project_id: result.data.projectId || null,
-            board_id: null,
-            task_id: null,
-            created_at: new Date()
-          })
-          .returning();
-        console.log("Created activity log:", activityLog);
-      } catch (logError) {
-        console.error("Failed to create activity log:", logError);
-        // We don't throw the error since the OKR was already created
-      }
+      // Create activity log
+      console.log("Creating activity log with data:", {
+        action: "create",
+        details: "Neues OKR erstellt",
+        userId: result.data.creatorId,
+        objectiveId: objective.id,
+        projectId: result.data.projectId || null
+      });
+
+      const activityLog = await storage.createActivityLog({
+        action: "create",
+        details: "Neues OKR erstellt",
+        userId: result.data.creatorId,
+        objectiveId: objective.id,
+        projectId: result.data.projectId || null,
+        boardId: null,
+        taskId: null
+      });
+
+      console.log("Activity log created:", activityLog);
 
       res.status(201).json(objective);
     } catch (error) {

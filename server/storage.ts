@@ -606,18 +606,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
-    const [newLog] = await db
-      .insert(activityLogs)
-      .values(log)
-      .returning();
+    try {
+      console.log("Creating activity log with data:", log);
 
-    return {
-      ...newLog,
-      board_title: undefined,
-      project_title: undefined,
-      okr_title: undefined,
-      user_name: undefined,
-    };
+      // Convert camelCase to snake_case for database fields
+      const dbLog = {
+        action: log.action,
+        details: log.details,
+        user_id: log.userId,
+        board_id: log.boardId,
+        project_id: log.projectId,
+        objective_id: log.objectiveId,
+        task_id: log.taskId,
+        created_at: new Date()
+      };
+
+      console.log("Transformed log data for DB:", dbLog);
+
+      const [newLog] = await db
+        .insert(activityLogs)
+        .values(dbLog)
+        .returning();
+
+      console.log("Successfully created activity log:", newLog);
+
+      return newLog;
+    } catch (error) {
+      console.error("Error creating activity log:", error);
+      throw error;
+    }
   }
 
   // User operations

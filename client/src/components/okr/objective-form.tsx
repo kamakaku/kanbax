@@ -150,7 +150,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           cycleId: newCycle.id,
           teamId: values.teamId ? parseInt(values.teamId) : undefined,
           userId: values.userId ? parseInt(values.userId) : undefined,
-          creator_id: user.id, // Make sure creator_id is set
+          creatorId: user.id, // Updated from creator_id to creatorId
         };
 
         console.log("Creating objective with payload:", payload);

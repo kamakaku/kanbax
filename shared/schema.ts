@@ -317,14 +317,15 @@ export const objectives = pgTable("objectives", {
   title: text("title").notNull(),
   description: text("description"),
   status: text("status").notNull().default("active"),
-  isFavorite: boolean("is_favorite").default(false), // active, completed, archived
-  progress: boolean("progress").default(0),
+  isFavorite: boolean("is_favorite").default(false),
+  progress: integer("progress").default(0),
   // Optional associations
   projectId: integer("project_id"),
   cycleId: integer("cycle_id"),
   teamId: integer("team_id"),
   userId: integer("user_id"),
   userIds: integer("user_ids").array(),
+  creatorId: integer("creator_id").notNull(), // Renamed to match camelCase convention
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -394,6 +395,7 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     userId: true,
     userIds: true,
     status: true,
+    creatorId: true, // Use camelCase here
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
@@ -403,6 +405,7 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     userId: z.number().int().positive().optional(),
     userIds: z.array(z.number().int().positive()).optional(),
     status: z.enum(["active", "completed", "archived"]).default("active"),
+    creatorId: z.number().int().positive("Creator ID ist erforderlich"), // Use camelCase here
   });
 
 
