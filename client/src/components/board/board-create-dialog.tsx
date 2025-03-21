@@ -27,7 +27,11 @@ export function BoardCreateDialog({ open, onOpenChange, projectId }: BoardCreate
     defaultValues: {
       title: "",
       description: "",
-      projectId: projectId,
+      projectId: projectId || null,
+      team_ids: [],
+      assigned_user_ids: [],
+      creator_id: user?.id || null,
+      is_favorite: false
     },
   });
 
@@ -42,7 +46,12 @@ export function BoardCreateDialog({ open, onOpenChange, projectId }: BoardCreate
     }
 
     try {
-      console.log("Sending request with userId:", user.id); // Debug log
+      console.log("Sending board creation request:", {
+        ...data,
+        userId: user.id,
+        creator_id: user.id
+      });
+
       const response = await fetch("/api/boards", {
         method: "POST",
         headers: {
@@ -50,15 +59,19 @@ export function BoardCreateDialog({ open, onOpenChange, projectId }: BoardCreate
         },
         body: JSON.stringify({
           ...data,
-          userId: user.id, // Explizit die userId mitschicken
+          userId: user.id,
+          creator_id: user.id
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create board");
+        const errorData = await response.json();
+        console.error("Board creation failed:", errorData);
+        throw new Error(errorData.message || "Failed to create board");
       }
 
       const board = await response.json();
+      console.log("Board created successfully:", board);
 
       // Aktualisiere die Queries
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
@@ -75,7 +88,7 @@ export function BoardCreateDialog({ open, onOpenChange, projectId }: BoardCreate
       console.error("Failed to create board:", error);
       toast({
         title: "Fehler",
-        description: "Das Board konnte nicht erstellt werden.",
+        description: error instanceof Error ? error.message : "Das Board konnte nicht erstellt werden.",
         variant: "destructive",
       });
     }

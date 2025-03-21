@@ -317,11 +317,14 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  // Update the board creation endpoint
+  // Update board creation endpoint
   app.post("/api/boards", async (req, res) => {
     try {
+      console.log("Received board creation request:", req.body);
+
       const result = insertBoardSchema.safeParse(req.body);
       if (!result.success) {
+        console.error("Board validation failed:", result.error.errors);
         return res.status(400).json({
           message: "Invalid board data",
           errors: result.error.errors,
@@ -334,7 +337,18 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(400).json({ message: "User ID is required" });
       }
 
-      const board = await storage.createBoard(result.data);
+      // Prepare board data
+      const boardData = {
+        ...result.data,
+        team_ids: Array.isArray(result.data.team_ids) ? result.data.team_ids : [],
+        assigned_user_ids: Array.isArray(result.data.assigned_user_ids) ? result.data.assigned_user_ids : [],
+        creator_id: userId,
+        is_favorite: result.data.is_favorite || false
+      };
+
+      console.log("Creating board with data:", boardData);
+      const board = await storage.createBoard(boardData);
+      console.log("Board created:", board);
 
       // Create activity log entry
       await storage.createActivityLog({
@@ -347,7 +361,10 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(201).json(board);
     } catch (error) {
       console.error("Failed to create board:", error);
-      res.status(500).json({ message: "Failed to create board" });
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to create board",
+        error: error
+      });
     }
   });
 
@@ -1004,7 +1021,6 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch team members" });
     }
   });
-
 
   // Update objective creation endpoint
   app.post("/api/objectives", async (req, res) => {
