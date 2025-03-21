@@ -348,20 +348,6 @@ export const keyResults = pgTable("key_results", {
 });
 
 // Update the insertKeyResultSchema to include checklist items
-export const insertOkrCommentSchema = createInsertSchema(okrComments)
-  .pick({
-    content: true,
-    authorId: true,
-    objectiveId: true,
-    keyResultId: true,
-  })
-  .extend({
-    content: z.string().min(1, "Comment content is required"),
-    authorId: z.number().int().positive("Author ID is required"),
-    objectiveId: z.number().int().positive().optional(),
-    keyResultId: z.number().int().positive().optional(),
-  });
-
 export const insertKeyResultSchema = createInsertSchema(keyResults)
   .pick({
     title: true,
@@ -397,6 +383,21 @@ export const okrComments = pgTable("okr_comments", {
   keyResultId: integer("key_result_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Update the insert schema
+export const insertOkrCommentSchema = createInsertSchema(okrComments)
+  .pick({
+    content: true,
+    authorId: true,
+    objectiveId: true,
+    keyResultId: true,
+  })
+  .extend({
+    content: z.string().min(1, "Comment content is required"),
+    authorId: z.number().int().positive("Author ID is required"),
+    objectiveId: z.number().int().positive().optional(),
+    keyResultId: z.number().int().positive().optional(),
+  });
 
 // Update the insertObjectiveSchema
 export const insertObjectiveSchema = createInsertSchema(objectives)
