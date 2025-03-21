@@ -481,16 +481,17 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
-    // Extract and validate userId early
-    const userId = req.body.userId ? parseInt(req.body.userId) : null;
+    // Validiere userId direkt am Anfang
+    const userId = parseInt(String(req.body.userId));
     if (!userId || isNaN(userId)) {
+      console.error("Invalid or missing userId:", req.body.userId);
       return res.status(400).json({ message: "Valid userId is required" });
     }
 
-    console.log("Task creation request:", {
+    console.log("Creating task with data:", {
       boardId,
       userId,
-      requestBody: req.body
+      body: req.body
     });
 
     const taskData = {
@@ -511,18 +512,17 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.createTask(result.data);
 
-      // Create activity log with validated userId
+      // Activity Log mit korrekten Feldnamen erstellen
       const activityLogData = {
         action: "create",
         details: "Neue Aufgabe erstellt",
-        userId: userId, // Using the validated userId
+        userId: userId, // Verwende camelCase für das Schema
         boardId: boardId,
         taskId: task.id
       };
 
       console.log("Creating activity log with data:", activityLogData);
-      const activityLog = await storage.createActivityLog(activityLogData);
-      console.log("Created activity log:", activityLog);
+      await storage.createActivityLog(activityLogData);
 
       res.status(201).json(task);
     } catch (error) {
