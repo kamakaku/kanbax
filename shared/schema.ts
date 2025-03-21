@@ -325,7 +325,7 @@ export const objectives = pgTable("objectives", {
   teamId: integer("team_id"),
   userId: integer("user_id"),
   userIds: integer("user_ids").array(),
-  creatorId: integer("creator_id").notNull(), // Renamed to match camelCase convention
+  creatorId: integer("creator_id").notNull(), // Add creatorId field
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -384,7 +384,7 @@ export const okrComments = pgTable("okr_comments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Updated schemas to reflect the new structure
+// Update the insertObjectiveSchema
 export const insertObjectiveSchema = createInsertSchema(objectives)
   .pick({
     title: true,
@@ -395,7 +395,7 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     userId: true,
     userIds: true,
     status: true,
-    creatorId: true, // Use camelCase here
+    creatorId: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
@@ -405,22 +405,7 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     userId: z.number().int().positive().optional(),
     userIds: z.array(z.number().int().positive()).optional(),
     status: z.enum(["active", "completed", "archived"]).default("active"),
-    creatorId: z.number().int().positive("Creator ID ist erforderlich"), // Use camelCase here
-  });
-
-
-export const insertOkrCommentSchema = createInsertSchema(okrComments)
-  .pick({
-    content: true,
-    authorId: true,
-    objectiveId: true,
-    keyResultId: true,
-  })
-  .extend({
-    content: z.string().min(1, "Kommentar kann nicht leer sein"),
-    authorId: z.number().int().positive("Autor ID ist erforderlich"),
-    objectiveId: z.number().int().positive().optional(),
-    keyResultId: z.number().int().positive().optional(),
+    creatorId: z.number().int().positive("Creator ID ist erforderlich"),
   });
 
 // Export types

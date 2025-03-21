@@ -70,6 +70,7 @@ export interface IStorage {
   toggleProjectFavorite(id: number): Promise<Project>;
   toggleBoardFavorite(id: number): Promise<Board>;
   toggleObjectiveFavorite(id: number): Promise<Objective>;
+  createObjective(objective: InsertObjective): Promise<Objective>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -952,6 +953,34 @@ export class DatabaseStorage implements IStorage {
       return objective;
     } catch (error) {
       console.error('Error toggling objective favorite:', error);
+      throw error;
+    }
+  }
+
+  async createObjective(insertObj: InsertObjective): Promise<Objective> {
+    try {
+      console.log("Creating objective with data:", insertObj);
+
+      const [objective] = await db
+        .insert(objectives)
+        .values({
+          ...insertObj,
+          progress: 0,
+          creatorId: insertObj.creatorId,
+          userIds: insertObj.userIds || [],
+          isFavorite: false
+        })
+        .returning();
+
+      console.log("Created objective:", objective);
+
+      if (!objective) {
+        throw new Error("Failed to create objective - no data returned");
+      }
+
+      return objective;
+    } catch (error) {
+      console.error("Error in createObjective:", error);
       throw error;
     }
   }
