@@ -331,18 +331,11 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
-      // Get user ID from request body
-      const userId = req.body.userId;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
-      }
-
       // Prepare board data
       const boardData = {
         ...result.data,
         team_ids: Array.isArray(result.data.team_ids) ? result.data.team_ids : [],
         assigned_user_ids: Array.isArray(result.data.assigned_user_ids) ? result.data.assigned_user_ids : [],
-        creator_id: userId,
         is_favorite: result.data.is_favorite || false
       };
 
@@ -354,7 +347,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "create",
         details: "Neues Board erstellt",
-        userId: userId,
+        userId: result.data.creator_id,
         boardId: board.id
       });
 

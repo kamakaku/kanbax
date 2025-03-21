@@ -27,10 +27,10 @@ export function BoardCreateDialog({ open, onOpenChange, projectId }: BoardCreate
     defaultValues: {
       title: "",
       description: "",
-      projectId: projectId || null,
+      project_id: projectId || null,
+      creator_id: user?.id || 0,
       team_ids: [],
       assigned_user_ids: [],
-      creator_id: user?.id || null,
       is_favorite: false
     },
   });
@@ -46,22 +46,19 @@ export function BoardCreateDialog({ open, onOpenChange, projectId }: BoardCreate
     }
 
     try {
-      console.log("Sending board creation request:", {
+      const boardData = {
         ...data,
-        userId: user.id,
-        creator_id: user.id
-      });
+        creator_id: user.id,
+      };
+
+      console.log("Sending board creation request:", boardData);
 
       const response = await fetch("/api/boards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...data,
-          userId: user.id,
-          creator_id: user.id
-        }),
+        body: JSON.stringify(boardData),
       });
 
       if (!response.ok) {
