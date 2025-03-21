@@ -909,15 +909,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         .limit(30);
 
       console.log("Retrieved activity logs:", logs);
-        id: log.id,
-        action: log.action,
-        details: log.details,
-        user: { id: log.user_id, name: log.user_name },
-        board: { id: log.board_id, title: log.board_title },
-        project: { id: log.project_id, title: log.project_title },
-        okr: { id: log.okr_id, title: log.okr_title },
-        created_at: log.created_at
-      })));
+      res.json(logs);
 
       res.json(logs);
     } catch (error) {
