@@ -481,6 +481,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
+    console.log("Task creation request:", {
+      boardId,
+      userId: req.body.userId,
+      requestBody: req.body
+    });
+
     const result = insertTaskSchema.safeParse({ ...req.body, boardId });
     if (!result.success) {
       return res.status(400).json({
@@ -492,15 +498,20 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.createTask(result.data);
 
-      // Log the activity with the correct userId
+      // Ensure userId is a number before creating activity log
+      const userId = Number(req.body.userId);
+      console.log("Creating activity log with userId:", userId);
+
+      // Log the activity with explicit userId
       await storage.createActivityLog({
         action: "create",
         details: "Neue Aufgabe erstellt",
-        userId: req.body.userId, // Verwende userId aus dem Request
+        userId: userId,
         boardId: boardId,
         taskId: task.id
       });
 
+      console.log("Activity log created for new task");
       res.status(201).json(task);
     } catch (error) {
       console.error("Failed to create task:", error);
@@ -514,6 +525,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid task ID" });
     }
 
+    console.log("Task update request:", {
+      taskId: id,
+      userId: req.body.userId,
+      requestBody: req.body
+    });
+
     const result = updateTaskSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({
@@ -525,15 +542,20 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.updateTask(id, result.data);
 
-      // Log the activity with the correct userId
+      // Ensure userId is a number before creating activity log
+      const userId = Number(req.body.userId);
+      console.log("Creating activity log with userId:", userId);
+
+      // Log the activity with explicit userId
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: userId,
         taskId: id,
         boardId: task.boardId
       });
 
+      console.log("Activity log created for task update");
       res.json(task);
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -549,7 +571,6 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       const task = await storage.getTask(id);
-
       // Log the activity with the correct userId before deletion
       await storage.createActivityLog({
         action: "delete",
@@ -1038,6 +1059,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid task ID" });
     }
 
+    console.log("Task update request:", {
+      taskId: id,
+      userId: req.body.userId,
+      requestBody: req.body
+    });
+
     const result = updateTaskSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({
@@ -1049,15 +1076,20 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.updateTask(id, result.data);
 
-      // Log the activity
+      // Ensure userId is a number before creating activity log
+      const userId = Number(req.body.userId);
+      console.log("Creating activity log with userId:", userId);
+
+      // Log the activity with explicit userId
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: userId,
         taskId: id,
         boardId: task.boardId
       });
 
+      console.log("Activity log created for task update");
       res.json(task);
     } catch (error) {
       console.error("Failed to update task:", error);
