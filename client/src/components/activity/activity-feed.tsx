@@ -2,11 +2,23 @@ import { useQuery } from "@tanstack/react-query";
 import { type ActivityLog } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, GitCommit, Calendar } from "lucide-react";
+import { 
+  MessageSquare, 
+  GitCommit, 
+  Calendar, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Share2,
+  Star,
+  CheckSquare,
+  User
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import { Avatar } from "@/components/ui/avatar";
 
 interface ExtendedActivityLog extends ActivityLog {
   board_title?: string;
@@ -15,17 +27,29 @@ interface ExtendedActivityLog extends ActivityLog {
   project_id?: number;
   okr_title?: string;
   okr_id?: number;
+  user_name?: string;
+  user_id?: number;
   created_at: string;
 }
 
-const getActivityIcon = (action: string) => {
+const getActionDetails = (action: string): { icon: React.ReactNode; color: string } => {
   switch (action) {
     case "comment":
-      return <MessageSquare className="h-4 w-4" />;
+      return { icon: <MessageSquare className="h-4 w-4" />, color: "text-blue-500" };
     case "update":
-      return <GitCommit className="h-4 w-4" />;
+      return { icon: <Edit className="h-4 w-4" />, color: "text-amber-500" };
+    case "create":
+      return { icon: <Plus className="h-4 w-4" />, color: "text-green-500" };
+    case "delete":
+      return { icon: <Trash2 className="h-4 w-4" />, color: "text-red-500" };
+    case "share":
+      return { icon: <Share2 className="h-4 w-4" />, color: "text-purple-500" };
+    case "favorite":
+      return { icon: <Star className="h-4 w-4" />, color: "text-yellow-500" };
+    case "complete":
+      return { icon: <CheckSquare className="h-4 w-4" />, color: "text-green-500" };
     default:
-      return <Calendar className="h-4 w-4" />;
+      return { icon: <Calendar className="h-4 w-4" />, color: "text-gray-500" };
   }
 };
 
@@ -37,9 +61,7 @@ export function ActivityFeed() {
       if (!response.ok) {
         throw new Error("Failed to fetch activity logs");
       }
-      const data = await response.json();
-      console.log("Fetched activity logs:", data);
-      return data;
+      return response.json();
     }
   });
 
@@ -65,18 +87,10 @@ export function ActivityFeed() {
   const renderContextLink = (activity: ExtendedActivityLog) => {
     let contextInfo = null;
 
-    // Debug logging
-    console.log("Rendering context for activity:", {
-      id: activity.id,
-      board: { id: activity.board_id, title: activity.board_title },
-      project: { id: activity.project_id, title: activity.project_title },
-      okr: { id: activity.okr_id, title: activity.okr_title }
-    });
-
     if (activity.board_id && activity.board_title) {
       contextInfo = {
         prefix: " im Board ",
-        href: `/board/${activity.board_id}`,
+        href: `/boards/${activity.board_id}`,
         title: activity.board_title
       };
     } else if (activity.project_id && activity.project_title) {
@@ -100,7 +114,7 @@ export function ActivityFeed() {
         {contextInfo.prefix}
         <Link 
           href={contextInfo.href}
-          className="text-primary hover:underline"
+          className="text-primary hover:underline font-medium"
         >
           {contextInfo.title}
         </Link>
@@ -116,25 +130,38 @@ export function ActivityFeed() {
           {activities.length === 0 ? (
             <p className="text-sm text-muted-foreground">Keine Aktivitäten gefunden</p>
           ) : (
-            activities.map((activity) => (
-              <div key={activity.id} className="flex items-start gap-3">
-                <div className="mt-1 p-2 rounded-full bg-primary/10 text-primary">
-                  {getActivityIcon(activity.action)}
-                </div>
-                <div>
-                  <div className="text-sm space-y-1">
-                    <span>{activity.details || activity.action}</span>
-                    {renderContextLink(activity)}
+            activities.map((activity) => {
+              const { icon, color } = getActionDetails(activity.action);
+
+              return (
+                <div key={activity.id} className="flex items-start gap-3">
+                  <div className={`mt-1 p-2 rounded-full bg-primary/10 ${color}`}>
+                    {icon}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(activity.created_at), {
-                      addSuffix: true,
-                      locale: de,
-                    })}
-                  </p>
+                  <div className="flex-1">
+                    <div className="text-sm space-y-1">
+                      <div className="flex items-center gap-2">
+                        {activity.user_name && (
+                          <span className="font-medium text-slate-700">
+                            {activity.user_name}
+                          </span>
+                        )}
+                        <span>{activity.details || activity.action}</span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        {renderContextLink(activity)}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(activity.created_at), {
+                        addSuffix: true,
+                        locale: de,
+                      })}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </ScrollArea>

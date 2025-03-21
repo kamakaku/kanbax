@@ -892,7 +892,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       console.log("Fetching activity logs...");
 
-      // Get activity logs with related board, project and OKR information
+      // Get activity logs with related information
       const logs = await db
         .select(
           'activity_logs.*',
@@ -901,7 +901,9 @@ export async function registerRoutes(app: Express, db: Knex) {
           'projects.title as project_title',
           'projects.id as project_id',
           'objectives.title as okr_title',
-          'objectives.id as okr_id'
+          'objectives.id as okr_id',
+          'users.username as user_name',
+          'users.id as user_id'
         )
         .from('activity_logs')
         .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
@@ -910,17 +912,20 @@ export async function registerRoutes(app: Express, db: Knex) {
             .orOn('boards.project_id', 'projects.id')
         })
         .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
+        .leftJoin('users', 'activity_logs.user_id', 'users.id')
         .orderBy('activity_logs.created_at', 'desc')
-        .limit(20);
+        .limit(30);
 
       // Debug logging
       console.log("Activity logs query result:", logs.map(log => ({
         id: log.id,
         action: log.action,
         details: log.details,
+        user: { id: log.user_id, name: log.user_name },
         board: { id: log.board_id, title: log.board_title },
         project: { id: log.project_id, title: log.project_title },
-        okr: { id: log.okr_id, title: log.okr_title }
+        okr: { id: log.okr_id, title: log.okr_title },
+        created_at: log.created_at
       })));
 
       res.json(logs);
