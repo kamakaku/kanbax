@@ -354,7 +354,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(201).json(board);
     } catch (error) {
       console.error("Failed to create board:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: error instanceof Error ? error.message : "Failed to create board",
         error: error
       });
@@ -694,49 +694,289 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  // Activity Log routes
-  app.get("/api/tasks/:taskId/activities", async (req, res) => {
-    const taskId = parseInt(req.params.taskId);
-    if (isNaN(taskId)) {
-      return res.status(400).json({ message: "Invalid task ID" });
+  // Update activity logs endpoint
+  app.get("/api/activity", async (_req, res) => {
+    try {
+      console.log("Fetching activity logs...");
+
+      // Get activity logs with related information - using simpler joins
+      const logs = await db
+        .select(
+          'activity_logs.*',
+          'boards.title as board_title',
+          'projects.title as project_title',
+          'objectives.title as objective_title',
+          'users.username as username'
+        )
+        .from('activity_logs')
+        .leftJoin('users', 'activity_logs.user_id', 'users.id')
+        .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
+        .leftJoin('projects', 'activity_logs.project_id', 'projects.id')
+        .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
+        .orderBy('activity_logs.created_at', 'desc')
+        .limit(50);
+
+      console.log("Activity logs query:", logs.length, "results");
+      console.log("Sample activity log:", logs[0]);
+
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to fetch activity logs:", error);
+      res.status(500).json({
+        message: "Failed to fetch activity logs",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Column routes
+  app.get("/api/boards/:boardId/columns", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
     }
 
     try {
-      const logs = await storage.getActivityLogs(taskId);
-      res.json(logs);
+      const columns = await storage.getColumns(boardId);
+      res.json(columns);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
     }
   });
 
-  app.post("/api/tasks/:taskId/activities", async (req, res) => {
-    const taskId = parseInt(req.params.taskId);
-    if (isNaN(taskId)) {
-      return res.status(400).json({ message: "Invalid task ID" });
+  app.post("/api/boards/:boardId/columns", async (req, res) => {
+    const boardId = parseInt(req.params.boardId);
+    if (isNaN(boardId)) {
+      return res.status(400).json({ message: "Invalid board ID" });
     }
 
-    console.log("Received activity log creation request:", {
-      body: req.body,
-      taskId: taskId
-    });
-
-    const result = insertActivityLogSchema.safeParse({ ...req.body, taskId });
+    const result = insertColumnSchema.safeParse({ ...req.body, boardId });
     if (!result.success) {
-      console.error("Activity log validation failed:", result.error);
       return res.status(400).json({
-        message: "Invalid activity log data",
+        message: "Invalid column data",
         errors: result.error.errors
       });
     }
 
     try {
-      console.log("Validated activity log data:", result.data);
-      const log = await storage.createActivityLog(result.data);
-      console.log("Created activity log:", log);
-      res.status(201).json(log);
+      const column = await storage.createColumn(result.data);
+      res.status(201).json(column);
     } catch (error) {
-      console.error("Failed to create activity log:", error);
       res.status(500).json({ message: (error as Error).message });
+    }
+  });
+
+  app.patch("/api/columns/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid column ID" });
+    }
+
+    try {
+      const column = await storage.updateColumn(id, req.body);
+      res.json(column);
+    } catch (error) {
+      res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/columns/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid column ID" });
+    }
+
+    try {
+      await storage.deleteColumn(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+  // Avatar upload route
+  app.post("/api/profile/avatar", upload.single('avatar'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const userId = parseInt(req.body.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+      const updatedUser = await storage.updateUser(userId, { avatarUrl });
+      const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Failed to upload avatar:", error);
+      res.status(500).json({ message: "Failed to upload avatar" });
+    }
+  });
+
+  // Add team routes
+  app.get("/api/teams", async (_req, res) => {
+    try {
+      const teams = await storage.getTeams();
+      res.json(teams);
+    } catch (error) {
+      console.error("Failed to fetch teams:", error);
+      res.status(500).json({ message: "Failed to fetch teams" });
+    }
+  });
+
+  app.get("/api/teams/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    try {
+      const team = await storage.getTeam(id);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.json(team);
+    } catch (error) {
+      console.error("Failed to fetch team:", error);
+      res.status(500).json({ message: "Failed to fetch team" });
+    }
+  });
+
+  app.post("/api/teams", async (req, res) => {
+    const result = insertTeamSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const team = await storage.createTeam(result.data);
+      res.status(201).json(team);
+    } catch (error) {
+      console.error("Failed to create team:", error);
+      res.status(500).json({ message: "Failed to create team" });
+    }
+  });
+
+  app.patch("/api/teams/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    const result = insertTeamSchema.partial().safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+
+    try {
+      const team = await storage.updateTeam(id, result.data);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.json(team);
+    } catch (error) {
+      console.error("Failed to update team:", error);
+      res.status(500).json({ message: "Failed to update team" });
+    }
+  });app.delete("/api/teams/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    try {
+      await storage.deleteTeam(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete team:", error);
+      res.status(500).json({ message: "Failed to delete team" });
+    }
+  });
+
+  // Add toggle favorite endpoints
+  app.patch("/api/projects/:id/favorite", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid project ID" });
+    }
+
+    try {
+            const project = await storage.toggleProjectFavorite(id);
+      res.json(project);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite status" });
+    }
+  });
+
+  app.patch("/api/boards/:id/favorite", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
+
+    try {
+      const board = await storage.toggleBoardFavorite(id);
+      res.json(board);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite status" });
+    }
+  });
+
+  app.patch("/api/objectives/:id/favorite", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid objective ID" });
+    }
+
+    try {
+      const objective = await storage.toggleObjectiveFavorite(id);
+      res.json(objective);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle favorite status" });
+    }
+  });
+
+  // Add activity logs endpoint
+  app.get("/api/activity", async (_req, res) => {
+    try {
+      console.log("Fetching activity logs...");
+
+      // Get activity logs with related information - using simpler joins
+      const logs = await db
+        .select(
+          'activity_logs.*',
+          'boards.title as board_title',
+          'projects.title as project_title',
+          'objectives.title as objective_title',
+          'users.username as username'
+        )
+        .from('activity_logs')
+        .leftJoin('users', 'activity_logs.user_id', 'users.id')
+        .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
+        .leftJoin('projects', 'activity_logs.project_id', 'projects.id')
+        .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
+        .orderBy('activity_logs.created_at', 'desc')
+        .limit(30);
+
+      console.log("SQL Query executed successfully");
+      console.log("Number of logs retrieved:", logs.length);
+
+      if (logs.length > 0) {
+        console.log("Sample log entry:", logs[0]);
+      }
+
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to fetch activity logs:", error);
+      res.status(500).json({
+        message: "Failed to fetch activity logs",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -964,13 +1204,9 @@ export async function registerRoutes(app: Express, db: Knex) {
         .select(
           'activity_logs.*',
           'boards.title as board_title',
-          'boards.id as board_id',
           'projects.title as project_title',
-          'projects.id as project_id',
-          'objectives.title as okr_title',
-          'objectives.id as okr_id',
-          'users.username as user_name',
-          'users.id as user_id'
+          'objectives.title as objective_title',
+          'users.username as username'
         )
         .from('activity_logs')
         .leftJoin('users', 'activity_logs.user_id', 'users.id')
@@ -978,14 +1214,10 @@ export async function registerRoutes(app: Express, db: Knex) {
         .leftJoin('projects', 'activity_logs.project_id', 'projects.id')
         .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
         .orderBy('activity_logs.created_at', 'desc')
-        .limit(30);
+        .limit(50);
 
-      console.log("SQL Query executed successfully");
-      console.log("Number of logs retrieved:", logs.length);
-
-      if (logs.length > 0) {
-        console.log("Sample log entry:", logs[0]);
-      }
+      console.log("Activity logs query:", logs.length, "results");
+      console.log("Sample activity log:", logs[0]);
 
       res.json(logs);
     } catch (error) {
@@ -1058,7 +1290,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(201).json(objective);
     } catch (error) {
       console.error("Failed to create objective:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: error instanceof Error ? error.message : "Failed to create objective",
         error: error
       });

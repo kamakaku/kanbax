@@ -142,7 +142,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         }
 
         // Erstelle das Objective mit dem neuen Zyklus
-        const payload: InsertObjective = {
+        const payload = {
           title: values.title,
           description: values.description,
           status: values.status,
@@ -150,18 +150,22 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           cycleId: newCycle.id,
           teamId: values.teamId ? parseInt(values.teamId) : undefined,
           userId: values.userId ? parseInt(values.userId) : undefined,
-          creator_id: user.id, // Füge die creator_id hinzu
+          creator_id: user.id, // Make sure creator_id is set
         };
 
         console.log("Creating objective with payload:", payload);
 
         const newObjective = await apiRequest<{ id: number }>("POST", "/api/objectives", payload);
+        console.log("Created objective:", newObjective);
 
         await queryClient.invalidateQueries({ 
           queryKey: ["/api/objectives"]
         });
         await queryClient.invalidateQueries({ 
           queryKey: ["/api/okr-cycles"]
+        });
+        await queryClient.invalidateQueries({ 
+          queryKey: ["/api/activity"]  // Invalidate activity logs
         });
 
         toast({ title: "Objective erfolgreich erstellt" });
@@ -172,9 +176,9 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         setLocation(`/all-okrs/${newObjective.id}`);
 
       } catch (error) {
-        console.error("Error in cycle creation:", error);
+        console.error("Error in objective creation:", error);
         toast({
-          title: "Fehler beim Erstellen des OKR-Zyklus",
+          title: "Fehler beim Erstellen des OKR",
           description: error instanceof Error ? error.message : "Unbekannter Fehler",
           variant: "destructive",
         });
