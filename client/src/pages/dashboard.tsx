@@ -124,9 +124,8 @@ export default function Dashboard() {
         </div>
 
         {/* Activity Feed Section */}
-        <div className="w-full lg:w-1/3 space-y-4">
+        <div className="w-full lg:w-1/3">
           <ActivityFeed />
-          <ActivityFeedTest />
         </div>
 
       </div>

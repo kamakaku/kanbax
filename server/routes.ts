@@ -862,7 +862,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.patch("/api/boards/:id/favorite", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid board ID" });
+      return res.status(400).jsonjson({ message: "Invalid board ID" });
     }
 
     try {
@@ -885,52 +885,6 @@ export async function registerRoutes(app: Express, db: Knex) {
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle favorite status" });
     }
-  });
-
-  // Test endpoint with clean implementation
-  app.get("/api/activity/test", (_req, res) => {
-    // Test data with various contexts
-    const testLogs = [
-      {
-        id: 1,
-        action: "update",
-        details: "Test Board Activity",
-        created_at: new Date().toISOString(),
-        board_id: 1,
-        board_title: "Test Board",
-        project_id: null,
-        project_title: null,
-        okr_id: null,
-        okr_title: null
-      },
-      {
-        id: 2,
-        action: "create",
-        details: "Test Project Activity",
-        created_at: new Date().toISOString(),
-        board_id: null,
-        board_title: null,
-        project_id: 1,
-        project_title: "Test Project",
-        okr_id: null,
-        okr_title: null
-      },
-      {
-        id: 3,
-        action: "comment",
-        details: "Test OKR Activity",
-        created_at: new Date().toISOString(),
-        board_id: null,
-        board_title: null,
-        project_id: null,
-        project_title: null,
-        okr_id: 1,
-        okr_title: "Test OKR"
-      }
-    ];
-
-    console.log("Test activity logs:", testLogs);
-    res.json(testLogs);
   });
 
   // Add activity logs endpoint
