@@ -4,7 +4,6 @@ export async function apiRequest(
   method: HttpMethod,
   endpoint: string,
   data?: unknown,
-  userId?: number
 ) {
   const options: RequestInit = {
     method,
@@ -13,16 +12,14 @@ export async function apiRequest(
     },
   };
 
-  if (data || userId) {
-    // Add userId to the request data if provided
-    const requestData = {
-      ...(typeof data === 'object' ? data : {}),
-      user_id: userId, // Changed from userId to user_id to match database column
-      creator_id: userId // Ensure creator_id is also set for board creation
-    };
-    options.body = JSON.stringify(requestData);
+  if (data) {
+    options.body = JSON.stringify(data);
   }
 
   const response = await fetch(endpoint, options);
-  return response;
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`${response.status}: ${text}`);
+  }
+  return response.json();
 }

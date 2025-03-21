@@ -89,7 +89,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
       title: defaultValues?.title || "",
       description: defaultValues?.description || null,
       project_id: defaultValues?.project_id || currentProject?.id || null,
-      creator_id: defaultValues?.creator_id || user?.id || 0,
+      creator_id: user?.id, // Ensure we set creator_id from the authenticated user
       team_ids: defaultValues?.team_ids || [],
       assigned_user_ids: defaultValues?.assigned_user_ids || [],
       is_favorite: defaultValues?.is_favorite || false,
@@ -100,18 +100,24 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
   const handleSubmit = async (data: InsertBoard) => {
     try {
-      console.log("Raw form data:", data);
+      if (!user?.id) {
+        toast({
+          title: "Fehler",
+          description: "Benutzer nicht authentifiziert",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Ensure arrays are properly formatted
       const formattedData = {
         ...data,
-        creator_id: user?.id || 0,
+        creator_id: user.id, // Explicitly set creator_id
         team_ids: (data.team_ids || []).filter(Boolean).map(Number),
         assigned_user_ids: (data.assigned_user_ids || []).filter(Boolean).map(Number),
         is_favorite: Boolean(data.is_favorite),
       };
 
-      console.log("Formatted data to submit:", formattedData);
+      console.log("Submitting board data:", formattedData);
 
       if (onSubmit) {
         await onSubmit(formattedData);
