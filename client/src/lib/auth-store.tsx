@@ -4,46 +4,72 @@ import React, { createContext, useContext, type ReactNode } from "react";
 
 interface AuthState {
   user: User | null;
+  loading: boolean;
+  error: string | null;
   setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  loading: false,
+  error: null,
   setUser: (user) => set({ user }),
+  clearError: () => set({ error: null }),
   login: async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      set({ loading: true, error: null });
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.message);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Anmeldung fehlgeschlagen");
+      }
+
+      const user = await res.json();
+      set({ user, loading: false });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : "Anmeldung fehlgeschlagen",
+        loading: false 
+      });
+      throw error;
     }
-
-    const user = await res.json();
-    set({ user });
   },
   register: async (username: string, email: string, password: string) => {
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password }),
-    });
+    try {
+      set({ loading: true, error: null });
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      });
 
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.message);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Registrierung fehlgeschlagen");
+      }
+
+      const user = await res.json();
+      set({ user, loading: false });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : "Registrierung fehlgeschlagen",
+        loading: false 
+      });
+      throw error;
     }
-
-    const user = await res.json();
-    set({ user });
   },
-  logout: () => set({ user: null }),
+  logout: () => {
+    set({ user: null, loading: false, error: null });
+  },
 }));
 
 const AuthContext = createContext<AuthState | null>(null);
