@@ -17,7 +17,7 @@ export async function apiRequest(
     // Add userId to the request data if provided
     const requestData = {
       ...(typeof data === 'object' ? data : {}),
-      userId: userId, // Include userId if provided
+      user_id: userId, // Changed from userId to user_id to match database column
     };
     options.body = JSON.stringify(requestData);
   }

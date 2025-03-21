@@ -606,10 +606,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    console.log("Creating activity log with data:", log); // Debug log
+
     const [newLog] = await db
       .insert(activityLogs)
-      .values(log)
+      .values({
+        action: log.action,
+        details: log.details,
+        user_id: log.userId, // Ensure userId is mapped to user_id
+        board_id: log.boardId,
+        project_id: log.projectId,
+        objective_id: log.objectiveId,
+        task_id: log.taskId
+      })
       .returning();
+
+    console.log("Created activity log:", newLog); // Debug log
 
     return {
       ...newLog,
