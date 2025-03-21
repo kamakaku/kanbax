@@ -344,9 +344,9 @@ export const keyResults = pgTable("key_results", {
   description: text("description"),
   objectiveId: integer("objective_id").notNull(),
   type: text("type").notNull(), // percentage, checkbox, progress, checklist
-  targetValue: boolean("target_value").notNull(),
-  currentValue: boolean("current_value").default(0),
-  progress: boolean("progress").default(0),
+  targetValue: integer("target_value").notNull(),
+  currentValue: integer("current_value").default(0),
+  progress: integer("progress").default(0),
   linkedTaskIds: integer("linked_task_ids").array(),
   status: text("status").notNull().default("active"), // active, completed, archived
   checklistItems: text("checklist_items").array(), // Store JSON stringified checklist items

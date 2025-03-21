@@ -60,7 +60,7 @@ app.use((req, res, next) => {
 
   console.log(`[${new Date().toISOString()}] Incoming ${req.method} request for ${req.url}`);
   if (req.session) {
-    console.log(`Session data:`, { 
+    console.log(`Session data:`, {
       userId: req.session.userId,
       isNew: req.session.isNew
     });
@@ -91,12 +91,31 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add this after routes are registered but before error handler
+app.get('*', (req, res, next) => {
+  // Skip API routes and static files
+  if (req.url.startsWith('/api') || req.url.startsWith('/assets')) {
+    next();
+    return;
+  }
+
+  console.log(`[${new Date().toISOString()}] Serving client app for route: ${req.url}`);
+
+  if (process.env.NODE_ENV === "development") {
+    next(); // Let Vite handle it in development
+  } else {
+    // In production, serve the built index.html
+    res.sendFile(path.join(process.cwd(), 'dist', 'client', 'index.html'));
+  }
+});
+
 (async () => {
   try {
     log("Starting server initialization...");
     const server = await registerRoutes(app, db);
     log("Routes registered successfully");
 
+    // Keep existing error handler
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
