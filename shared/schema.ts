@@ -97,12 +97,11 @@ export const comments = pgTable("comments", {
 
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  taskId: integer("task_id"),
+  taskId: integer("task_id").references(() => tasks.id),
+  userId: integer("user_id").references(() => users.id),
   action: text("action").notNull(),
   details: text("details"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  boardId: integer("board_id"),
-  userId: integer("user_id"),
 });
 
 const checklistItemSchema = z.object({

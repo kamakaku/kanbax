@@ -894,19 +894,23 @@ export async function registerRoutes(app: Express, db: Knex) {
 
       // Get activity logs with related information
       const logs = await db
-        .select(
-          'activity_logs.*',
-          'boards.title as board_title',
-          'tasks.id as task_id',
-          'tasks.title as task_title',
-          'users.username as user_name',
-          'users.id as user_id'
-        )
-        .from('activity_logs')
-        .leftJoin('tasks', 'activity_logs.task_id', 'tasks.id')
-        .leftJoin('boards', 'tasks.board_id', 'boards.id')
-        .leftJoin('users', 'activity_logs.user_id', 'users.id')
-        .orderBy('activity_logs.created_at', 'desc')
+        .select({
+          id: activityLogs.id,
+          action: activityLogs.action,
+          details: activityLogs.details,
+          createdAt: activityLogs.createdAt,
+          taskId: tasks.id,
+          taskTitle: tasks.title,
+          boardId: boards.id,
+          boardTitle: boards.title,
+          userName: users.username,
+          userId: users.id
+        })
+        .from(activityLogs)
+        .leftJoin(tasks, eq(activityLogs.taskId, tasks.id))
+        .leftJoin(boards, eq(tasks.boardId, boards.id))
+        .leftJoin(users, eq(activityLogs.userId, users.id))
+        .orderBy(desc(activityLogs.createdAt))
         .limit(30);
 
       // Debug logging
