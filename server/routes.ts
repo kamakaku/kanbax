@@ -893,24 +893,8 @@ export async function registerRoutes(app: Express, db: Knex) {
       console.log("Fetching activity logs...");
 
       // Get activity logs with related information
-      const logs = await db
-        .select({
-          id: activityLogs.id,
-          action: activityLogs.action,
-          details: activityLogs.details,
-          createdAt: activityLogs.createdAt,
-          userId: activityLogs.userId,
-          taskId: activityLogs.taskId,
-          userName: users.username
-        })
-        .from(activityLogs)
-        .leftJoin(users, eq(activityLogs.userId, users.id))
-        .orderBy(desc(activityLogs.createdAt))
-        .limit(30);
-
+      const logs = await storage.getActivityLogs();
       console.log("Retrieved activity logs:", logs);
-      res.json(logs);
-
       res.json(logs);
     } catch (error) {
       console.error("Failed to fetch activity logs:", error);
