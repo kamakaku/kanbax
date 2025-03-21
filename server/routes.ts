@@ -419,19 +419,22 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      console.log(`[GET /api/boards/${id}] Fetching board...`);
-      const board = await storage.getBoard(id);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      console.log(`[GET /api/boards/${id}] Fetching board for user ${userId}...`);
+      
+      const board = await storage.getBoard(userId, id);
 
       if (!board) {
-        console.log(`[GET /api/boards/${id}] Board not found`);
-        return res.status(404).json({ message: "Board not found" });
+        console.log(`[GET /api/boards/${id}] Board not found or user doesn't have access`);
+        return res.status(404).json({ message: "Board not found or you don't have access" });
       }
 
       console.log(`[GET /api/boards/${id}] Successfully fetched board:`, board);
 
       // Fetch additional board data
-      const columns = await storage.getColumns(id);
-      const tasks = await storage.getTasks(id);
+      const columns = await storage.getColumns(userId, id);
+      const tasks = await storage.getTasks(userId, id);
 
       console.log(`[GET /api/boards/${id}] Found ${columns.length} columns and ${tasks.length} tasks`);
 
@@ -518,10 +521,18 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
-    console.log(`Fetching tasks for board ${boardId}`);
-    const tasks = await storage.getTasks(boardId);
-    console.log(`Found ${tasks.length} tasks:`, tasks);
-    res.json(tasks);
+    try {
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      
+      console.log(`Fetching tasks for board ${boardId} for user ${userId}`);
+      const tasks = await storage.getTasks(userId, boardId);
+      console.log(`Found ${tasks.length} tasks:`, tasks);
+      res.json(tasks);
+    } catch (error) {
+      console.error(`Failed to fetch tasks for board ${boardId}:`, error);
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
   });
 
   app.post("/api/boards/:boardId/tasks", requireAuth, async (req, res) => {
@@ -530,7 +541,16 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
-    const result = insertTaskSchema.safeParse({ ...req.body, boardId });
+    // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+    const userId = req.userId!;
+
+    // Füge die userId zum Task hinzu, damit der Ersteller korrekt gesetzt wird
+    const result = insertTaskSchema.safeParse({ 
+      ...req.body, 
+      boardId,
+      creatorId: userId
+    });
+    
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid task data",
@@ -539,15 +559,15 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const task = await storage.createTask(result.data);
+      const task = await storage.createTask(userId, result.data);
 
       // Log the activity
       await storage.createActivityLog({
         action: "create",
         details: "Neue Aufgabe erstellt",
-        userId: result.data.creatorId,
-        boardId: boardId,
-        taskId: task.id
+        user_id: userId,
+        board_id: boardId,
+        task_id: task.id
       });
 
       res.status(201).json(task);
@@ -591,27 +611,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid task ID" });
-    }
-
-    try {
-      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the task
-      await storage.createActivityLog({
-        action: "delete",
-        details: "Aufgabe gelöscht",
-        userId: userId,
-        taskId: id,
-        boardId: (await storage.getTask(id)).boardId
-      });
-      await storage.deleteTask(id);
-      res.status(204).send();
-    } catch (error) {
-      res.status(404).json({ message: (error as Error).message });
-    }
-  });
+  // Erster Task-Lösch-Endpunkt wird entfernt, da wir einen besseren am Ende der Datei haben
 
   // Comment routes
   app.get("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
