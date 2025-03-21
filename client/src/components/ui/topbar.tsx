@@ -46,7 +46,7 @@ export function Topbar() {
     queryKey: ["/api/projects"],
     queryFn: async () => {
       const res = await fetch("/api/projects");
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error("Failed to fetch projects");
       return res.json();
     },
   });

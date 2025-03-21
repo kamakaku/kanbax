@@ -15,6 +15,11 @@ export default function Dashboard() {
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const res = await fetch("/api/projects");
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      return res.json();
+    }
   });
 
   const { data: objectives = [], isLoading: objectivesLoading } = useQuery<Objective[]>({
