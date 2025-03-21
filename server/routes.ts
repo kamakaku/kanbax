@@ -903,7 +903,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      awaitstorage.deleteTeam(id);
+      await storage.deleteTeam(id);
       res.status(204).send();
     } catch (error) {
       console.error("Failed to delete team:", error);
@@ -1017,22 +1017,43 @@ export async function registerRoutes(app: Express, db: Knex) {
 
   // Update objective creation endpoint
   app.post("/api/objectives", async (req, res) => {
-    const result = insertObjectiveSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
-    }
-
     try {
-      console.log("Creating objective with data:", result.data);
-      const objective = await storage.createObjective(result.data);
+      console.log("Received objective creation request:", req.body);
 
-      // Log the activity
-      await storage.createActivityLog({
-        action: "create",
-        details: "Neues OKR erstellt",
-        userId: result.data.creator_id,
-        objectiveId: objective.id
-      });
+      const result = insertObjectiveSchema.safeParse(req.body);
+      if (!result.success) {
+        console.error("Objective validation failed:", result.error.errors);
+        return res.status(400).json({
+          message: "Invalid objective data",
+          errors: result.error.errors,
+        });
+      }
+
+      if (!result.data.creator_id) {
+        return res.status(400).json({ message: "Creator ID is required" });
+      }
+
+      // Erstelle das Objective
+      console.log("Creating objective with validated data:", result.data);
+      const objective = await storage.createObjective(result.data);
+      console.log("Created objective:", objective);
+
+      try {
+        // Erstelle den Aktivitätseintrag
+        const activityLog = await storage.createActivityLog({
+          action: "create",
+          details: "Neues OKR erstellt",
+          userId: result.data.creator_id,
+          objectiveId: objective.id,
+          projectId: result.data.projectId || null,
+          boardId: null,
+          taskId: null
+        });
+        console.log("Created activity log:", activityLog);
+      } catch (logError) {
+        console.error("Failed to create activity log:", logError);
+        // Wir werfen den Fehler nicht weiter, da das OKR bereits erstellt wurde
+      }
 
       res.status(201).json(objective);
     } catch (error) {

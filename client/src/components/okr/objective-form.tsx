@@ -12,6 +12,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocation } from "wouter";
+import { useAuth } from "@/lib/auth-store";
 
 const objectiveFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
@@ -32,6 +33,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
 
   // Generate a list of years (current year + 5 years)
   const currentYear = new Date().getFullYear();
@@ -109,6 +111,15 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
   };
 
   async function onSubmit(values: z.infer<typeof objectiveFormSchema>) {
+    if (!user?.id) {
+      toast({
+        title: "Fehler",
+        description: "Sie müssen angemeldet sein, um ein OKR zu erstellen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Erstelle einen neuen OKR-Zyklus
       const { startDate, endDate } = getDateRange(values.quarter, values.year);
@@ -139,6 +150,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           cycleId: newCycle.id,
           teamId: values.teamId ? parseInt(values.teamId) : undefined,
           userId: values.userId ? parseInt(values.userId) : undefined,
+          creator_id: user.id, // Füge die creator_id hinzu
         };
 
         console.log("Creating objective with payload:", payload);
