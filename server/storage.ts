@@ -46,7 +46,7 @@ export interface IStorage {
   deleteChecklistItem(id: number): Promise<void>;
 
   // Activity Log operations
-  getActivityLogs(taskId: number): Promise<ActivityLog[]>;
+  getActivityLogs(): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
 
   // User operations
@@ -587,35 +587,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Activity Log operations
-  async getActivityLogs(taskId?: number): Promise<ActivityLog[]> {
-    let query = db
-      .select()
+  async getActivityLogs(): Promise<ActivityLog[]> {
+    return await db
+      .select({
+        ...activityLogs,
+        board_title: boards.title,
+        project_title: projects.title,
+        okr_title: objectives.title,
+        user_name: users.username,
+      })
       .from(activityLogs)
-      .orderBy(desc(activityLogs.createdAt));
-    
-    if (taskId) {
-      query = query.where(eq(activityLogs.taskId, taskId));
-    }
-    
-    return await query;
+      .leftJoin(users, eq(activityLogs.userId, users.id))
+      .leftJoin(boards, eq(activityLogs.boardId, boards.id))
+      .leftJoin(projects, eq(activityLogs.projectId, projects.id))
+      .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(30);
   }
 
-  async createActivityLog(insertLog: InsertActivityLog): Promise<ActivityLog> {
-    const [task] = await db
-      .select()
-      .from(tasks)
-      .where(eq(tasks.id, insertLog.taskId));
-
-    if (!task) {
-      throw new Error(`Task ${insertLog.taskId} not found`);
-    }
-
-    const [log] = await db
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [newLog] = await db
       .insert(activityLogs)
-      .values(insertLog)
+      .values(log)
       .returning();
 
-    return log;
+    return {
+      ...newLog,
+      board_title: undefined,
+      project_title: undefined,
+      okr_title: undefined,
+      user_name: undefined,
+    };
   }
 
   // User operations

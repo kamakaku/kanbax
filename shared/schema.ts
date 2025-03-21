@@ -95,12 +95,16 @@ export const comments = pgTable("comments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Update the activity_logs table definition
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  taskId: integer("task_id").references(() => tasks.id),
-  userId: integer("user_id").references(() => users.id),
   action: text("action").notNull(),
   details: text("details"),
+  userId: integer("user_id").references(() => users.id),
+  boardId: integer("board_id").references(() => boards.id),
+  projectId: integer("project_id").references(() => projects.id),
+  objectiveId: integer("objective_id").references(() => objectives.id),
+  taskId: integer("task_id").references(() => tasks.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -235,20 +239,25 @@ export const insertCommentSchema = createInsertSchema(comments)
     authorId: z.number().int().positive("Author ID is required"),
   });
 
+// Update the insert schema
 export const insertActivityLogSchema = createInsertSchema(activityLogs)
   .pick({
-    taskId: true,
     action: true,
     details: true,
-    boardId: true,
     userId: true,
+    boardId: true,
+    projectId: true,
+    objectiveId: true,
+    taskId: true,
   })
   .extend({
-    taskId: z.number().int().positive("Task ID is required").optional(),
     action: z.string().min(1, "Action is required"),
     details: z.string().optional(),
-    boardId: z.number().int().positive().optional(),
     userId: z.number().int().positive().optional(),
+    boardId: z.number().int().positive().optional(),
+    projectId: z.number().int().positive().optional(),
+    objectiveId: z.number().int().positive().optional(),
+    taskId: z.number().int().positive().optional(),
   });
 
 // Add team schemas
@@ -454,12 +463,12 @@ export type ChecklistItem = typeof checklistItems.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+// Update the ActivityLog type
 export type ActivityLog = typeof activityLogs.$inferSelect & {
   board_title?: string;
-  task_title?: string;
+  project_title?: string;
+  okr_title?: string;
   user_name?: string;
-  task_id?: number;
-  user_id?: number;
 };
 
 export const updateTaskSchema = insertTaskSchema.partial();
