@@ -14,10 +14,10 @@ interface ExtendedActivityLog extends ActivityLog {
   board_id?: number;
   project_title?: string;
   project_id?: number;
-  okr_title?: string;
-  okr_id?: number;
-  user_name?: string;
-  user_id?: number;
+  objective_title?: string;
+  objective_id?: number;
+  username?: string;
+  avatar_url?: string;
   created_at: string;
 }
 
@@ -36,11 +36,11 @@ const renderContextLink = (activity: ExtendedActivityLog) => {
       href: `/projects/${activity.project_id}`,
       title: activity.project_title
     };
-  } else if (activity.okr_id && activity.okr_title) {
+  } else if (activity.objective_id && activity.objective_title) {
     contextInfo = {
       prefix: " im OKR ",
-      href: `/okrs/${activity.okr_id}`,
-      title: activity.okr_title
+      href: `/okrs/${activity.objective_id}`,
+      title: activity.objective_title
     };
   }
 
@@ -97,14 +97,13 @@ export function ActivityFeed() {
               {/* Avatar und Name */}
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
-                  {activity.user_name && (
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {activity.user_name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  )}
+                  <AvatarImage src={activity.avatar_url} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {activity.username ? activity.username.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
+                  </AvatarFallback>
                 </Avatar>
                 <span className="font-medium text-slate-800">
-                  {activity.user_name}
+                  {activity.username || "Unbekannter Benutzer"}
                 </span>
               </div>
 
