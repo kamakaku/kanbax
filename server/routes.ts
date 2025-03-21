@@ -1023,26 +1023,24 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      // Get user ID from request body
-      const userId = req.body.userId;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
-      }
-
+      console.log("Creating objective with data:", result.data);
       const objective = await storage.createObjective(result.data);
 
-      // Log the activity with correct userId
+      // Log the activity
       await storage.createActivityLog({
         action: "create",
         details: "Neues OKR erstellt",
-        userId: userId, // Use consistent userId field
+        userId: result.data.creator_id,
         objectiveId: objective.id
       });
 
       res.status(201).json(objective);
     } catch (error) {
       console.error("Failed to create objective:", error);
-      res.status(500).json({ message: "Failed to create objective" });
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to create objective",
+        error: error
+      });
     }
   });
 
