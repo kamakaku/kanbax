@@ -906,13 +906,11 @@ export async function registerRoutes(app: Express, db: Knex) {
           'users.id as user_id'
         )
         .from('activity_logs')
-        .leftJoin('boards', 'activity_logs.board_id', 'boards.id')
-        .leftJoin('projects', function() {
-          this.on('activity_logs.project_id', 'projects.id')
-            .orOn('boards.project_id', 'projects.id')
-        })
-        .leftJoin('objectives', 'activity_logs.objective_id', 'objectives.id')
+        .leftJoin('boards', 'activity_logs.entity_id', 'boards.id')
+        .leftJoin('projects', 'activity_logs.entity_id', 'projects.id')
+        .leftJoin('objectives', 'activity_logs.entity_id', 'objectives.id')
         .leftJoin('users', 'activity_logs.user_id', 'users.id')
+        .where('activity_logs.entity_type', 'IN', ['board', 'project', 'objective'])
         .orderBy('activity_logs.created_at', 'desc')
         .limit(30);
 

@@ -1,10 +1,10 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { type ActivityLog } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   MessageSquare, 
-  GitCommit, 
   Calendar, 
   Plus, 
   Edit, 
@@ -18,7 +18,7 @@ import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface ExtendedActivityLog extends ActivityLog {
   board_title?: string;
@@ -112,10 +112,7 @@ export function ActivityFeed() {
     return (
       <>
         {contextInfo.prefix}
-        <Link 
-          href={contextInfo.href}
-          className="text-primary hover:underline font-medium"
-        >
+        <Link href={contextInfo.href} className="text-primary hover:underline">
           {contextInfo.title}
         </Link>
       </>
@@ -127,42 +124,35 @@ export function ActivityFeed() {
       <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-4">
-          {activities.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Aktivitäten gefunden</p>
-          ) : (
-            activities.map((activity) => {
-              const { icon, color } = getActionDetails(activity.action);
-
-              return (
-                <div key={activity.id} className="flex items-start gap-3">
-                  <div className={`mt-1 p-2 rounded-full bg-primary/10 ${color}`}>
-                    {icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm space-y-1">
-                      <div className="flex items-center gap-2">
-                        {activity.user_name && (
-                          <span className="font-medium text-slate-700">
-                            {activity.user_name}
-                          </span>
-                        )}
-                        <span>{activity.details || activity.action}</span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        {renderContextLink(activity)}
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(activity.created_at), {
-                        addSuffix: true,
-                        locale: de,
-                      })}
-                    </p>
-                  </div>
+          {activities.map((activity) => {
+            const { icon, color } = getActionDetails(activity.action);
+            return (
+              <div key={activity.id} className="flex items-start gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>
+                    {activity.user_name?.[0].toUpperCase() || <User className="h-4 w-4" />}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm">
+                    <span className="font-medium">{activity.user_name}</span>
+                    <span className="text-muted-foreground"> hat eine Aktion </span>
+                    <span className={`inline-flex items-center gap-1 ${color}`}>
+                      {icon} {activity.action}
+                    </span>
+                    {renderContextLink(activity)}
+                    <span className="text-muted-foreground"> ausgeführt</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(activity.created_at), { 
+                      addSuffix: true,
+                      locale: de 
+                    })}
+                  </p>
                 </div>
-              );
-            })
-          )}
+              </div>
+            );
+          })}
         </div>
       </ScrollArea>
     </Card>
