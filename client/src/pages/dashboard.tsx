@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus } from "lucide-react";
-import type { Project, Board } from "@shared/schema";
+import type { Project, Board, Objective } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 
@@ -17,9 +17,15 @@ export default function Dashboard() {
     queryKey: ["/api/projects"],
   });
 
-  const { data: objectives = [], isLoading: objectivesLoading } = useQuery({
-    queryKey: ["/api/objectives"],
-    enabled: !!user?.id,
+  const { data: objectives = [], isLoading: objectivesLoading } = useQuery<Objective[]>({
+    queryKey: ['/api/objectives'],
+    queryFn: async () => {
+      const response = await fetch('/api/objectives');
+      if (!response.ok) {
+        throw new Error('Failed to fetch objectives');
+      }
+      return response.json();
+    }
   });
 
   const boardQueries = useQuery({

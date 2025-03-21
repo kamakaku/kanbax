@@ -14,14 +14,29 @@ export function AllItems() {
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
+    queryFn: async () => {
+      const response = await fetch('/api/projects');
+      if (!response.ok) throw new Error('Failed to fetch projects');
+      return response.json();
+    }
   });
 
   const { data: boards } = useQuery<Board[]>({
     queryKey: ['/api/boards'],
+    queryFn: async () => {
+      const response = await fetch('/api/boards');
+      if (!response.ok) throw new Error('Failed to fetch boards');
+      return response.json();
+    }
   });
 
   const { data: objectives } = useQuery<Objective[]>({
     queryKey: ['/api/objectives'],
+    queryFn: async () => {
+      const response = await fetch('/api/objectives');
+      if (!response.ok) throw new Error('Failed to fetch objectives');
+      return response.json();
+    }
   });
 
   const toggleFavorite = async (type: 'project' | 'board' | 'objective', id: number, currentValue: boolean | null | undefined) => {
