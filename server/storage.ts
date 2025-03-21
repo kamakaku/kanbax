@@ -606,35 +606,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
-    try {
-      console.log("Creating activity log with input:", log);
+    const [newLog] = await db
+      .insert(activityLogs)
+      .values(log)
+      .returning();
 
-      // Konvertiere camelCase zu snake_case für die Datenbank
-      const dbData = {
-        action: log.action,
-        details: log.details,
-        user_id: log.userId, // Konvertiere userId zu user_id
-        board_id: log.boardId, // Konvertiere boardId zu board_id
-        project_id: log.projectId, // Konvertiere projectId zu project_id
-        objective_id: log.objectiveId, // Konvertiere objectiveId zu objective_id
-        task_id: log.taskId, // Konvertiere taskId zu task_id
-        created_at: new Date()
-      };
-
-      console.log("Prepared database data:", dbData);
-
-      const [newLog] = await db
-        .insert(activityLogs)
-        .values(dbData)
-        .returning();
-
-      console.log("Created activity log:", newLog);
-      return newLog;
-
-    } catch (error) {
-      console.error("Error creating activity log:", error);
-      throw error;
-    }
+    return {
+      ...newLog,
+      board_title: undefined,
+      project_title: undefined,
+      okr_title: undefined,
+      user_name: undefined,
+    };
   }
 
   // User operations
@@ -897,8 +880,8 @@ export class DatabaseStorage implements IStorage {
     try {
       const [project] = await db
         .update(projects)
-        .set({
-          isFavorite: sql`NOT is_favorite`
+        .set({ 
+          isFavorite: sql`NOT is_favorite` 
         })
         .where(eq(projects.id, id))
         .returning();
@@ -918,8 +901,8 @@ export class DatabaseStorage implements IStorage {
     try {
       const [board] = await db
         .update(boards)
-        .set({
-          is_favorite: sql`NOT is_favorite`
+        .set({ 
+          is_favorite: sql`NOT is_favorite` 
         })
         .where(eq(boards.id, id))
         .returning();
@@ -939,8 +922,8 @@ export class DatabaseStorage implements IStorage {
     try {
       const [objective] = await db
         .update(objectives)
-        .set({
-          isFavorite: sql`NOT is_favorite`
+        .set({ 
+          isFavorite: sql`NOT is_favorite` 
         })
         .where(eq(objectives.id, id))
         .returning();

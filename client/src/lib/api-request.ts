@@ -3,7 +3,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export async function apiRequest(
   method: HttpMethod,
   endpoint: string,
-  data?: unknown,
+  data?: unknown
 ) {
   const options: RequestInit = {
     method,
@@ -17,9 +17,5 @@ export async function apiRequest(
   }
 
   const response = await fetch(endpoint, options);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`${response.status}: ${text}`);
-  }
-  return response.json();
+  return response;
 }

@@ -220,11 +220,11 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const project = await storage.createProject(result.data);
 
-      // Log the activity with the correct userId from request body
+      // Log the activity
       await storage.createActivityLog({
         action: "create",
         details: "Neues Projekt erstellt",
-        userId: req.body.userId, // Verwende userId aus dem Request
+        userId: result.data.creatorId,
         projectId: project.id
       });
 
@@ -256,7 +256,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Projekt aktualisiert",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: result.data.creatorId,
         projectId: id
       });
 
@@ -274,11 +274,13 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the project
+
       // Log the activity before deletion
       await storage.createActivityLog({
         action: "delete",
         details: "Projekt gelöscht",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: userId,
         projectId: id
       });
 
@@ -309,12 +311,6 @@ export async function registerRoutes(app: Express, db: Knex) {
   // Update the board creation endpoint
   app.post("/api/boards", async (req, res) => {
     try {
-      // Debug: Log raw request
-      console.log("Board creation request:", {
-        creator_id: req.body.creator_id,
-        raw_body: req.body
-      });
-
       const result = insertBoardSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({
@@ -323,27 +319,15 @@ export async function registerRoutes(app: Express, db: Knex) {
         });
       }
 
-      // Debug: Log validated data
-      console.log("Validated board data:", {
-        creator_id: result.data.creator_id,
-        validated_data: result.data
-      });
-
       const board = await storage.createBoard(result.data);
 
-      // Create activity log with explicit type conversion
-      const activityLogData = {
+      // Log the activity
+      await storage.createActivityLog({
         action: "create",
         details: "Neues Board erstellt",
-        userId: Number(result.data.creator_id), // Explicit conversion
+        userId: result.data.creator_id,
         boardId: board.id
-      };
-
-      // Debug: Log activity data
-      console.log("Creating activity log:", activityLogData);
-
-      const activityLog = await storage.createActivityLog(activityLogData);
-      console.log("Created activity log:", activityLog);
+      });
 
       res.status(201).json(board);
     } catch (error) {
@@ -427,7 +411,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Board aktualisiert",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: result.data.creator_id,
         boardId: id
       });
 
@@ -447,11 +431,13 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
+      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the board
+
       // Log the activity before deletion
       await storage.createActivityLog({
         action: "delete",
         details: "Board gelöscht",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: userId,
         boardId: id
       });
 
@@ -481,27 +467,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid board ID" });
     }
 
-    // Validiere userId direkt am Anfang
-    const userId = parseInt(String(req.body.userId));
-    if (!userId || isNaN(userId)) {
-      console.error("Invalid or missing userId:", req.body.userId);
-      return res.status(400).json({ message: "Valid userId is required" });
-    }
-
-    console.log("Creating task with data:", {
-      boardId,
-      userId,
-      body: req.body
-    });
-
-    const taskData = {
-      ...req.body,
-      boardId,
-      status: req.body.status || "todo",
-      order: req.body.order || 0
-    };
-
-    const result = insertTaskSchema.safeParse(taskData);
+    const result = insertTaskSchema.safeParse({ ...req.body, boardId });
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid task data",
@@ -512,22 +478,19 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.createTask(result.data);
 
-      // Activity Log mit korrekten Feldnamen erstellen
-      const activityLogData = {
+      // Log the activity
+      await storage.createActivityLog({
         action: "create",
         details: "Neue Aufgabe erstellt",
-        userId: userId, // Verwende camelCase für das Schema
+        userId: result.data.creatorId,
         boardId: boardId,
         taskId: task.id
-      };
-
-      console.log("Creating activity log with data:", activityLogData);
-      await storage.createActivityLog(activityLogData);
+      });
 
       res.status(201).json(task);
     } catch (error) {
       console.error("Failed to create task:", error);
-      res.status(500).json({ message: "Failed to create task" });
+      res.status(500).json({ message: (error as Error).message });
     }
   });
 
@@ -536,18 +499,6 @@ export async function registerRoutes(app: Express, db: Knex) {
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
     }
-
-    // Extract and validate userId early
-    const userId = req.body.userId ? parseInt(req.body.userId) : null;
-    if (!userId || isNaN(userId)) {
-      return res.status(400).json({ message: "Valid userId is required" });
-    }
-
-    console.log("Task update request:", {
-      taskId: id,
-      userId,
-      requestBody: req.body
-    });
 
     const result = updateTaskSchema.safeParse(req.body);
     if (!result.success) {
@@ -560,18 +511,14 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.updateTask(id, result.data);
 
-      // Create activity log with validated userId
-      const activityLogData = {
+      // Log the activity
+      await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: userId, // Using the validated userId
+        userId: result.data.userId,
         taskId: id,
         boardId: task.boardId
-      };
-
-      console.log("Creating activity log with data:", activityLogData);
-      const activityLog = await storage.createActivityLog(activityLogData);
-      console.log("Created activity log:", activityLog);
+      });
 
       res.json(task);
     } catch (error) {
@@ -587,16 +534,6 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const task = await storage.getTask(id);
-      // Log the activity with the correct userId before deletion
-      await storage.createActivityLog({
-        action: "delete",
-        details: "Aufgabe gelöscht",
-        userId: req.body.userId, // Changed to req.body.userId
-        taskId: id,
-        boardId: task.boardId
-      });
-
       await storage.deleteTask(id);
       res.status(204).send();
     } catch (error) {
@@ -903,7 +840,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/teams/:id", async(req, res) => {
+  app.patch("/api/teams/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid team ID" });
@@ -922,7 +859,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.json(team);
     } catch (error) {
       console.error("Failed to update team:", error);
-      res.status(500).json({ message: "Failed toupdate team" });
+      res.status(500).json({ message: "Failed to update team" });
     }
   });
 
@@ -936,7 +873,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.deleteTeam(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Failed todelete team:", error);
+      console.error("Failed to delete team:", error);
       res.status(500).json({ message: "Failed to delete team" });
     }
   });
@@ -1045,6 +982,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+
   // Update objective creation endpoint
   app.post("/api/objectives", async (req, res) => {
     const result = insertObjectiveSchema.safeParse(req.body);
@@ -1059,7 +997,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "create",
         details: "Neues OKR erstellt",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: result.data.creator_id,
         objectiveId: objective.id
       });
 
@@ -1076,12 +1014,6 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid task ID" });
     }
 
-    console.log("Task update request:", {
-      taskId: id,
-      userId: req.body.userId,
-      requestBody: req.body
-    });
-
     const result = updateTaskSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({
@@ -1093,20 +1025,15 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const task = await storage.updateTask(id, result.data);
 
-      // Ensure userId is a number before creating activity log
-      const userId = Number(req.body.userId);
-      console.log("Creating activity log with userId:", userId);
-
-      // Log the activity with explicit userId
+      // Log the activity
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        userId: userId,
+        userId: result.data.userId,
         taskId: id,
         boardId: task.boardId
       });
 
-      console.log("Activity log created for task update");
       res.json(task);
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -1121,16 +1048,14 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const task = await storage.getTask(id);
-      // Log the activity with the correct userId before deletion
+      const userId = req.body.userId; // Assuming we pass the user ID who is deleting the task
       await storage.createActivityLog({
         action: "delete",
         details: "Aufgabe gelöscht",
-        userId: req.body.userId, // Changed to req.body.userId
+        userId: userId,
         taskId: id,
-        boardId: task.boardId
+        boardId: (await storage.getTask(id)).boardId
       });
-
       await storage.deleteTask(id);
       res.status(204).send();
     } catch (error) {

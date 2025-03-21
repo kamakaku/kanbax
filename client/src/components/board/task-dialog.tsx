@@ -4,10 +4,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { type Task } from "@shared/schema";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/utils";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, PlusCircle, X, Tag, Pencil } from "lucide-react";
@@ -15,14 +21,23 @@ import { CommentList, CommentEditor } from "@/components/comments/comment-list";
 import classnames from 'classnames';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { de } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { User } from "@shared/schema";
-import { useAuth } from "@/lib/auth-store";
 
 interface TaskDialogProps {
   task?: Task;
@@ -61,7 +76,6 @@ export function TaskDialog({
   const { toast } = useToast();
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -202,18 +216,10 @@ export function TaskDialog({
       return;
     }
 
-    if (!user?.id) {
-      toast({
-        title: "Fehler",
-        description: "Benutzer nicht authentifiziert",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const formattedChecklist = checklist.map(item => JSON.stringify(item));
 
+      // Adjust the due date to end of day in local timezone
       let adjustedDueDate = null;
       if (data.dueDate) {
         const date = new Date(data.dueDate);
@@ -227,14 +233,7 @@ export function TaskDialog({
           dueDate: adjustedDueDate,
           checklist: formattedChecklist,
           boardId: currentBoard.id,
-          userId: user.id,
         };
-
-        console.log("Updating task with data:", {
-          ...updatedTask,
-          userId: user.id
-        });
-
         await onUpdate(updatedTask);
 
         await Promise.all([
@@ -263,19 +262,17 @@ export function TaskDialog({
           assignedTeamId: null,
           assignedAt: null,
           checklist: formattedChecklist,
-          userId: user.id,
         };
 
-        console.log("Creating new task with data:", {
-          ...taskData,
-          userId: user.id
-        });
-
-        const response = await apiRequest<Task>(
+        const response = await apiRequest(
           "POST",
           `/api/boards/${currentBoard.id}/tasks`,
           taskData
         );
+
+        if (!response) {
+          throw new Error("Fehler beim Erstellen der Aufgabe");
+        }
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),

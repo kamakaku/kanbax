@@ -140,7 +140,7 @@ export const insertProjectSchema = createInsertSchema(projects)
 
 export const updateProjectSchema = insertProjectSchema.partial();
 
-// Update board schema to ensure creator_id is always a number
+// Update board schema
 export const insertBoardSchema = createInsertSchema(boards)
   .pick({
     title: true,
@@ -155,7 +155,7 @@ export const insertBoardSchema = createInsertSchema(boards)
     title: z.string().min(1, "Titel ist erforderlich"),
     description: z.string().nullable().optional(),
     project_id: z.number().int().positive("Projekt ID muss positiv sein").nullable().optional(),
-    creator_id: z.number().int().positive("Creator ID ist erforderlich"),
+    creator_id: z.number().int().positive("Creator ID ist erforderlich").default(0),
     team_ids: z.preprocess(
       (val) => (Array.isArray(val) ? val : []).filter(Boolean).map(Number),
       z.array(z.number().int().positive("Team ID muss eine positive Zahl sein"))
@@ -201,15 +201,14 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: z.number().int(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    dueDate: z.string().nullable().optional(),
-    checklist: z.array(z.string()).default([]),
+    dueDate: z.string().nullable().optional(), // Accept ISO string or null
+    checklist: z.array(z.string()).default([]), // Accept stringified objects
     archived: z.boolean().default(false),
     assignedUserIds: z.array(z.number().int().positive()).default([]),
     assignedTeamId: z.union([
       z.number().int().positive("Team ID must be positive if provided"),
       z.null()
     ]).optional().nullable(),
-    userId: z.number().int().positive("User ID is required for activity tracking"),
   });
 
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)
