@@ -10,6 +10,16 @@ declare module 'express-session' {
   }
 }
 
+// Extend Request type to include user and userId
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any;
+      userId?: number;
+    }
+  }
+}
+
 // Authentication check
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {

@@ -10,6 +10,7 @@ import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
 import { Knex } from 'knex';
 import { queryClient } from './utils'; // Assuming queryClient is imported from a utils file
+import { requireAuth, optionalAuth } from './middleware/auth';
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -126,7 +127,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Add new route to get all users
-  app.get("/api/users", async (_req, res) => {
+  app.get("/api/users", requireAuth, async (req, res) => {
     try {
       const users = await storage.getUsers();
       // Entferne sensitive Daten vor dem Senden
@@ -138,7 +139,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.get("/api/users/:id", async (req, res) => {
+  app.get("/api/users/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid user ID" });
@@ -155,7 +156,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Profile update routes
-  app.patch("/api/profile", async (req, res) => {
+  app.patch("/api/profile", requireAuth, async (req, res) => {
     try {
       const userId = req.body.userId; // We'll need to add proper auth middleware later
       const { username, email, currentPassword, newPassword } = req.body;
@@ -205,7 +206,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Project routes
-  app.get("/api/projects", async (_req, res) => {
+  app.get("/api/projects", requireAuth, async (req, res) => {
     try {
       const projects = await storage.getProjects();
       res.json(projects);
@@ -215,7 +216,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.get("/api/projects/:id", async (req, res) => {
+  app.get("/api/projects/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid project ID" });
@@ -234,7 +235,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Update the project creation endpoint
-  app.post("/api/projects", async (req, res) => {
+  app.post("/api/projects", requireAuth, async (req, res) => {
     const result = insertProjectSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -341,7 +342,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Update board creation endpoint
-  app.post("/api/boards", async (req, res) => {
+  app.post("/api/boards", requireAuth, async (req, res) => {
     try {
       console.log("Received board creation request:", req.body);
 
@@ -385,7 +386,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
 
-  app.get("/api/boards", async (_req, res) => {
+  app.get("/api/boards", requireAuth, async (req, res) => {
     try {
       console.log("Starting boards fetch...");
       const boards = await storage.getBoards();
@@ -400,7 +401,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.get("/api/boards/:id", async (req, res) => {
+  app.get("/api/boards/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       console.error("Invalid board ID received:", req.params.id);
@@ -497,7 +498,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Task routes
-  app.get("/api/boards/:boardId/tasks", async (req, res) => {
+  app.get("/api/boards/:boardId/tasks", requireAuth, async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -509,7 +510,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     res.json(tasks);
   });
 
-  app.post("/api/boards/:boardId/tasks", async (req, res) => {
+  app.post("/api/boards/:boardId/tasks", requireAuth, async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -542,7 +543,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/tasks/:id", async (req, res) => {
+  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -575,7 +576,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.delete("/api/tasks/:id", async (req, res) => {
+  app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -598,7 +599,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Comment routes
-  app.get("/api/tasks/:taskId/comments", async (req, res) => {
+  app.get("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -612,7 +613,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.post("/api/tasks/:taskId/comments", async (req, res) => {
+  app.post("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -644,7 +645,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Checklist routes
-  app.get("/api/tasks/:taskId/checklist", async (req, res) => {
+  app.get("/api/tasks/:taskId/checklist", requireAuth, async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -658,7 +659,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.post("/api/tasks/:taskId/checklist", async (req, res) => {
+  app.post("/api/tasks/:taskId/checklist", requireAuth, async (req, res) => {
     const taskId = parseInt(req.params.taskId);
     if (isNaN(taskId)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -689,7 +690,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/checklist/:id", async (req, res) => {
+  app.patch("/api/checklist/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid checklist item ID" });
@@ -703,7 +704,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.delete("/api/checklist/:id", async (req, res) => {
+  app.delete("/api/checklist/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid checklist item ID" });
@@ -718,7 +719,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Update activity logs endpoint
-  app.get("/api/activity", async (_req, res) => {
+  app.get("/api/activity", requireAuth, async (_req, res) => {
     try {
       console.log("Fetching activity logs...");
 
@@ -757,7 +758,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Column routes
-  app.get("/api/boards/:boardId/columns", async (req, res) => {
+  app.get("/api/boards/:boardId/columns", requireAuth, async (req, res) => {
     const boardId = parseInt(req.params.boardId);
     if (isNaN(boardId)) {
       return res.status(400).json({ message: "Invalid board ID" });
@@ -846,7 +847,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Add team routes
-  app.get("/api/teams", async (_req, res) => {
+  app.get("/api/teams", requireAuth, async (_req, res) => {
     try {
       const teams = await storage.getTeams();
       res.json(teams);
@@ -856,7 +857,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.get("/api/teams/:id", async (req, res) => {
+  app.get("/api/teams/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid team ID" });
@@ -1044,7 +1045,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.patch("/api/tasks/:id", async (req, res) => {
+  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });
@@ -1077,7 +1078,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  app.delete("/api/tasks/:id", async (req, res) => {
+  app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid task ID" });

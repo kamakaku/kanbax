@@ -6,10 +6,11 @@ import {
   insertObjectiveSchema, insertKeyResultSchema, insertOkrCommentSchema, insertOkrCycleSchema
 } from "@shared/schema";
 import { eq } from 'drizzle-orm';
+import { requireAuth } from './middleware/auth';
 
 export function registerOkrRoutes(app: Express) {
   // Single Objective Endpoint
-  app.get("/api/objectives/:id", async (req: Request, res: Response) => {
+  app.get("/api/objectives/:id", requireAuth, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Ungültige Objective-ID" });
@@ -67,7 +68,7 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // Objectives Endpoint
-  app.get("/api/objectives", async (_req: Request, res: Response) => {
+  app.get("/api/objectives", requireAuth, async (req: Request, res: Response) => {
     try {
       const allObjectives = await db.select().from(objectives);
 
@@ -108,7 +109,7 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // OKR Cycles Endpoints
-  app.get("/api/okr-cycles", async (_req: Request, res: Response) => {
+  app.get("/api/okr-cycles", requireAuth, async (req: Request, res: Response) => {
     try {
       const cycles = await db.query.okrCycles.findMany({
         orderBy: (cycles, { desc }) => [desc(cycles.startDate)]
@@ -120,7 +121,7 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.post("/api/okr-cycles", async (req: Request, res: Response) => {
+  app.post("/api/okr-cycles", requireAuth, async (req: Request, res: Response) => {
     console.log("Received cycle data:", req.body); // Debug log
 
     const result = insertOkrCycleSchema.safeParse(req.body);
@@ -163,7 +164,7 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // Objectives Endpunkte
-  app.post("/api/objectives", async (req: Request, res: Response) => {
+  app.post("/api/objectives", requireAuth, async (req: Request, res: Response) => {
     const result = insertObjectiveSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -220,7 +221,7 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/objectives/:id", async (req: Request, res: Response) => {
+  app.patch("/api/objectives/:id", requireAuth, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Ungültige Objective-ID" });
@@ -241,7 +242,7 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/objectives/:id", async (req: Request, res: Response) => {
+  app.delete("/api/objectives/:id", requireAuth, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Ungültige Objective-ID" });
@@ -257,7 +258,7 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // Key Results Endpunkte
-  app.get("/api/objectives/:objectiveId/key-results", async (req: Request, res: Response) => {
+  app.get("/api/objectives/:objectiveId/key-results", requireAuth, async (req: Request, res: Response) => {
     const objectiveId = parseInt(req.params.objectiveId);
     if (isNaN(objectiveId)) {
       return res.status(400).json({ message: "Ungültige Objective-ID" });
@@ -277,7 +278,7 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.post("/api/objectives/:objectiveId/key-results", async (req: Request, res: Response) => {
+  app.post("/api/objectives/:objectiveId/key-results", requireAuth, async (req: Request, res: Response) => {
     const objectiveId = parseInt(req.params.objectiveId);
     if (isNaN(objectiveId)) {
       return res.status(400).json({ message: "Ungültige Objective-ID" });
@@ -322,7 +323,7 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/key-results/:id", async (req: Request, res: Response) => {
+  app.patch("/api/key-results/:id", requireAuth, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Ungültige Key Result-ID" });
@@ -368,7 +369,7 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/key-results/:id", async (req: Request, res: Response) => {
+  app.delete("/api/key-results/:id", requireAuth, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Ungültige Key Result-ID" });
@@ -401,7 +402,7 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // Comments Endpunkte
-  app.get("/api/okr-comments", async (req: Request, res: Response) => {
+  app.get("/api/okr-comments", requireAuth, async (req: Request, res: Response) => {
     const { objectiveId, keyResultId } = req.query;
 
     try {
@@ -420,7 +421,7 @@ export function registerOkrRoutes(app: Express) {
     }
   });
 
-  app.post("/api/okr-comments", async (req: Request, res: Response) => {
+  app.post("/api/okr-comments", requireAuth, async (req: Request, res: Response) => {
     const result = insertOkrCommentSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
@@ -436,7 +437,7 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // New endpoint to get all key results
-  app.get("/api/key-results", async (_req: Request, res: Response) => {
+  app.get("/api/key-results", requireAuth, async (_req: Request, res: Response) => {
     try {
       const krs = await db.select().from(keyResults);
       // Parse checklistItems from JSON strings back to objects
