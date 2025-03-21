@@ -995,19 +995,19 @@ export async function registerRoutes(app: Express, db: Knex) {
       console.log("Creating activity log with data:", {
         action: "create",
         details: "Neues OKR erstellt",
-        userId: result.data.creatorId,
-        objectiveId: objective.id,
-        projectId: result.data.projectId || null
+        user_id: result.data.creatorId,
+        objective_id: objective.id,
+        project_id: result.data.projectId || null
       });
 
       const activityLog = await storage.createActivityLog({
         action: "create",
         details: "Neues OKR erstellt",
-        userId: result.data.creatorId,
-        objectiveId: objective.id,
-        projectId: result.data.projectId || null,
-        boardId: null,
-        taskId: null
+        user_id: result.data.creatorId,
+        objective_id: objective.id,
+        project_id: result.data.projectId || null,
+        board_id: null,
+        task_id: null
       });
 
       console.log("Activity log created:", activityLog);
