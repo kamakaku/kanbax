@@ -1,14 +1,13 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { type ActivityLog } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  MessageSquare, 
-  Calendar, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  MessageSquare,
+  Calendar,
+  Plus,
+  Edit,
+  Trash2,
   Share2,
   Star,
   CheckSquare,
@@ -102,7 +101,7 @@ export function ActivityFeed() {
     } else if (activity.okr_id && activity.okr_title) {
       contextInfo = {
         prefix: " im OKR ",
-        href: `/okr/${activity.okr_id}`,
+        href: `/okrs/${activity.okr_id}`,
         title: activity.okr_title
       };
     }
@@ -128,25 +127,38 @@ export function ActivityFeed() {
             const { icon, color } = getActionDetails(activity.action);
             return (
               <div key={activity.id} className="flex items-start gap-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    {activity.user_name?.[0].toUpperCase() || <User className="h-4 w-4" />}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm">
-                    <span className="font-medium">{activity.user_name}</span>
-                    <span className="text-muted-foreground"> hat eine Aktion </span>
-                    <span className={`inline-flex items-center gap-1 ${color}`}>
-                      {icon} {activity.action}
-                    </span>
-                    {renderContextLink(activity)}
-                    <span className="text-muted-foreground"> ausgeführt</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(activity.created_at), { 
+                <div className={`mt-1 p-2 rounded-full bg-primary/10 ${color}`}>
+                  <span className="inline-block" style={{ transform: 'translateY(3px)' }}>
+                    {icon}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm space-y-1">
+                    <div className="flex items-center gap-2">
+                      {activity.user_name && (
+                        <span className="font-medium text-slate-700">
+                          {activity.user_name}
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center gap-1 ${color}`}>
+                        <span style={{ transform: 'translateY(3px)' }}>
+                          {activity.action}
+                        </span>
+                      </span>
+                      {activity.details && (
+                        <span className="text-muted-foreground">
+                          {activity.details}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {renderContextLink(activity)}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(new Date(activity.created_at), {
                       addSuffix: true,
-                      locale: de 
+                      locale: de,
                     })}
                   </p>
                 </div>
