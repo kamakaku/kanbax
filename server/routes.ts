@@ -220,12 +220,15 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const project = await storage.createProject(result.data);
 
-      // Log the activity
+      // Log the activity with all relevant IDs
       await storage.createActivityLog({
         action: "create",
         details: "Neues Projekt erstellt",
         userId: result.data.creatorId,
-        projectId: project.id
+        projectId: project.id,
+        boardId: null,
+        objectiveId: null,
+        taskId: null
       });
 
       res.status(201).json(project);
@@ -252,12 +255,15 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Log the activity
+      // Log the activity with all relevant IDs
       await storage.createActivityLog({
         action: "update",
         details: "Projekt aktualisiert",
         userId: result.data.creatorId,
-        projectId: id
+        projectId: id,
+        boardId: null,
+        objectiveId: null,
+        taskId: null
       });
 
       res.json(project);
