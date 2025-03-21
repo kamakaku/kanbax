@@ -6,88 +6,91 @@ import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 import { objectives, type Objective, type InsertObjective } from "@shared/schema";
+import { permissionService } from "./permissions";
+
 
 export interface IStorage {
   // Project operations
-  getProjects(): Promise<Project[]>;
-  getProject(id: number): Promise<Project>;
-  createProject(project: InsertProject): Promise<Project>;
-  updateProject(id: number, project: UpdateProject): Promise<Project>;
-  deleteProject(id: number): Promise<void>;
+  getProjects(userId: number): Promise<Project[]>;
+  getProject(userId: number, id: number): Promise<Project>;
+  createProject(userId: number, project: InsertProject): Promise<Project>;
+  updateProject(userId: number, id: number, project: UpdateProject): Promise<Project>;
+  deleteProject(userId: number, id: number): Promise<void>;
 
   // Board operations
-  getBoards(): Promise<Board[]>;
-  getBoardsByProject(projectId: number): Promise<Board[]>;
-  getBoard(id: number): Promise<Board>;
-  createBoard(board: InsertBoard): Promise<Board>;
-  updateBoard(id: number, board: UpdateBoard): Promise<Board>;
-  deleteBoard(id: number): Promise<void>;
+  getBoards(userId: number): Promise<Board[]>;
+  getBoardsByProject(userId: number, projectId: number): Promise<Board[]>;
+  getBoard(userId: number, id: number): Promise<Board>;
+  createBoard(userId: number, board: InsertBoard): Promise<Board>;
+  updateBoard(userId: number, id: number, board: UpdateBoard): Promise<Board>;
+  deleteBoard(userId: number, id: number): Promise<void>;
 
   // Column operations
-  getColumns(boardId: number): Promise<Column[]>;
-  createColumn(column: InsertColumn): Promise<Column>;
-  updateColumn(id: number, column: Partial<InsertColumn>): Promise<Column>;
-  deleteColumn(id: number): Promise<void>;
+  getColumns(userId: number, boardId: number): Promise<Column[]>;
+  createColumn(userId: number, column: InsertColumn): Promise<Column>;
+  updateColumn(userId: number, id: number, column: Partial<InsertColumn>): Promise<Column>;
+  deleteColumn(userId: number, id: number): Promise<void>;
 
   // Task operations
-  getTasks(boardId: number): Promise<Task[]>;
-  createTask(task: InsertTask): Promise<Task>;
-  updateTask(id: number, task: UpdateTask): Promise<Task>;
-  deleteTask(id: number): Promise<void>;
+  getTasks(userId: number, boardId: number): Promise<Task[]>;
+  createTask(userId: number, task: InsertTask): Promise<Task>;
+  updateTask(userId: number, id: number, task: UpdateTask): Promise<Task>;
+  deleteTask(userId: number, id: number): Promise<void>;
 
   // Comment operations
-  getComments(taskId: number): Promise<Comment[]>;
-  createComment(comment: InsertComment): Promise<Comment>;
+  getComments(userId: number, taskId: number): Promise<Comment[]>;
+  createComment(userId: number, comment: InsertComment): Promise<Comment>;
 
   // Checklist operations
-  getChecklistItems(taskId: number): Promise<ChecklistItem[]>;
-  createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem>;
-  updateChecklistItem(id: number, item: Partial<InsertChecklistItem>): Promise<ChecklistItem>;
-  deleteChecklistItem(id: number): Promise<void>;
+  getChecklistItems(userId: number, taskId: number): Promise<ChecklistItem[]>;
+  createChecklistItem(userId: number, item: InsertChecklistItem): Promise<ChecklistItem>;
+  updateChecklistItem(userId: number, id: number, item: Partial<InsertChecklistItem>): Promise<ChecklistItem>;
+  deleteChecklistItem(userId: number, id: number): Promise<void>;
 
   // Activity Log operations
-  getActivityLogs(): Promise<ActivityLog[]>;
-  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLogs(userId: number): Promise<ActivityLog[]>;
+  createActivityLog(userId: number, log: InsertActivityLog): Promise<ActivityLog>;
 
   // User operations
-  getUser(id: number): Promise<User>;
-  getUserByUsername(username: string): Promise<User | null>;
-  getUserByEmail(email: string): Promise<User | null>;
-  createUser(user: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User>;
-  updateUser(id: number, data: Partial<User>): Promise<User>;
-  updateUserPassword(id: number, passwordHash: string): Promise<void>;
-  updateUserEmail(id: number, email: string): Promise<User>;
-  getUsers(): Promise<User[]>;
+  getUser(userId: number, id: number): Promise<User>;
+  getUserByUsername(userId: number, username: string): Promise<User | null>;
+  getUserByEmail(userId: number, email: string): Promise<User | null>;
+  createUser(userId: number, user: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User>;
+  updateUser(userId: number, id: number, data: Partial<User>): Promise<User>;
+  updateUserPassword(userId: number, id: number, passwordHash: string): Promise<void>;
+  updateUserEmail(userId: number, id: number, email: string): Promise<User>;
+  getUsers(userId: number): Promise<User[]>;
 
   // Team operations
-  getTeams(): Promise<Team[]>;
-  getTeam(id: number): Promise<Team>;
-  createTeam(team: InsertTeam): Promise<Team>;
-  updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team>;
-  deleteTeam(id: number): Promise<void>;
+  getTeams(userId: number): Promise<Team[]>;
+  getTeam(userId: number, id: number): Promise<Team>;
+  createTeam(userId: number, team: InsertTeam): Promise<Team>;
+  updateTeam(userId: number, id: number, team: Partial<InsertTeam>): Promise<Team>;
+  deleteTeam(userId: number, id: number): Promise<void>;
 
   // Favorite operations
-  toggleProjectFavorite(id: number): Promise<Project>;
-  toggleBoardFavorite(id: number): Promise<Board>;
-  toggleObjectiveFavorite(id: number): Promise<Objective>;
-  createObjective(objective: InsertObjective): Promise<Objective>;
+  toggleProjectFavorite(userId: number, id: number): Promise<Project>;
+  toggleBoardFavorite(userId: number, id: number): Promise<Board>;
+  toggleObjectiveFavorite(userId: number, id: number): Promise<Objective>;
+  createObjective(userId: number, objective: InsertObjective): Promise<Objective>;
 }
 
 export class DatabaseStorage implements IStorage {
   // Project operations
-  async getProjects(): Promise<Project[]> {
-    return await db.select().from(projects);
+  async getProjects(userId: number): Promise<Project[]> {
+    const projects = await db.select().from(projects);
+    return permissionService.filterProjects(userId, projects);
   }
 
-  async getProject(id: number): Promise<Project> {
+  async getProject(userId: number, id: number): Promise<Project> {
     const [project] = await db.select().from(projects).where(eq(projects.id, id));
-    if (!project) {
-      throw new Error(`Project ${id} not found`);
+    if (!project || !(await permissionService.canAccessProject(userId, id))) {
+      throw new Error(`Project ${id} not found or unauthorized access`);
     }
     return project;
   }
 
-  async createProject(insertProject: InsertProject): Promise<Project> {
+  async createProject(userId: number, insertProject: InsertProject): Promise<Project> {
     const [project] = await db
       .insert(projects)
       .values(insertProject)
@@ -95,15 +98,15 @@ export class DatabaseStorage implements IStorage {
     return project;
   }
 
-  async updateProject(id: number, updateProject: UpdateProject): Promise<Project> {
-    // Ensure teamIds is an array, even if empty
+  async updateProject(userId: number, id: number, updateProject: UpdateProject): Promise<Project> {
+    if (!(await permissionService.canAccessProject(userId, id))) {
+      throw new Error(`Project ${id} not found or unauthorized access`);
+    }
     const projectData = {
       ...updateProject,
       teamIds: Array.isArray(updateProject.teamIds) ? updateProject.teamIds : [],
       isFavorite: updateProject.isFavorite ?? undefined,
     };
-
-    console.log("Updating project with data:", projectData); // Debug log
 
     const [project] = await db
       .update(projects)
@@ -118,7 +121,10 @@ export class DatabaseStorage implements IStorage {
     return project;
   }
 
-  async deleteProject(id: number): Promise<void> {
+  async deleteProject(userId: number, id: number): Promise<void> {
+    if (!(await permissionService.canAccessProject(userId, id))) {
+      throw new Error(`Project ${id} not found or unauthorized access`);
+    }
     const [project] = await db
       .delete(projects)
       .where(eq(projects.id, id))
@@ -130,15 +136,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Board operations
-  async getBoards(): Promise<Board[]> {
+  async getBoards(userId: number): Promise<Board[]> {
     try {
-      console.log("Fetching all boards...");
+      console.log("Fetching boards for user:", userId);
       const boardResults = await db.select().from(boards);
-      console.log("Retrieved boards:", boardResults);
 
-      // Process each board to include teams and project data
-      const processedBoards = await Promise.all(boardResults.map(async (board) => {
-        // Get teams data
+      const accessibleBoards = boardResults.filter(async (board) => await permissionService.canAccessBoard(userId, board.id));
+
+
+      const processedBoards = await Promise.all(accessibleBoards.map(async (board) => {
         let teamsData: Team[] = [];
         if (board.teamIds && Array.isArray(board.teamIds) && board.teamIds.length > 0) {
           teamsData = await db
@@ -147,7 +153,6 @@ export class DatabaseStorage implements IStorage {
             .where(inArray(teams.id, board.teamIds));
         }
 
-        // Get assigned users data
         let assignedUsers = [];
         if (board.assignedUserIds && Array.isArray(board.assignedUserIds) && board.assignedUserIds.length > 0) {
           const users = await db
@@ -162,7 +167,6 @@ export class DatabaseStorage implements IStorage {
           assignedUsers = users;
         }
 
-        // Get project data if exists
         let projectData = null;
         if (board.projectId) {
           const [project] = await db
@@ -183,7 +187,6 @@ export class DatabaseStorage implements IStorage {
         };
       }));
 
-      console.log("Processed boards with related data:", processedBoards);
       return processedBoards;
     } catch (error) {
       console.error("Error in getBoards:", error);
@@ -191,26 +194,25 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getBoardsByProject(projectId: number): Promise<Board[]> {
-    return await db
+  async getBoardsByProject(userId: number, projectId: number): Promise<Board[]> {
+    const boards = await db
       .select()
       .from(boards)
       .where(eq(boards.projectId, projectId));
+    return permissionService.filterBoards(userId, boards);
   }
 
-  async getBoard(id: number): Promise<Board> {
+  async getBoard(userId: number, id: number): Promise<Board> {
     try {
-      // Get base board
       const [board] = await db
         .select()
         .from(boards)
         .where(eq(boards.id, id));
 
-      if (!board) {
-        throw new Error(`Board ${id} not found`);
+      if (!board || !(await permissionService.canAccessBoard(userId, id))) {
+        throw new Error(`Board ${id} not found or unauthorized access`);
       }
 
-      // Get teams if team_ids exist
       let boardTeams: Team[] = [];
       if (board.team_ids && board.team_ids.length > 0) {
         boardTeams = await db
@@ -219,7 +221,6 @@ export class DatabaseStorage implements IStorage {
           .where(inArray(teams.id, board.team_ids));
       }
 
-      // Get users if assigned_user_ids exist
       let boardUsers: User[] = [];
       if (board.assigned_user_ids && board.assigned_user_ids.length > 0) {
         boardUsers = await db
@@ -233,7 +234,6 @@ export class DatabaseStorage implements IStorage {
           .where(inArray(users.id, board.assigned_user_ids));
       }
 
-      // Get project if exists
       let projectData = null;
       if (board.project_id) {
         [projectData] = await db
@@ -255,11 +255,8 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createBoard(insertBoard: InsertBoard): Promise<Board> {
+  async createBoard(userId: number, insertBoard: InsertBoard): Promise<Board> {
     try {
-      console.log("Storage: Creating board with data:", JSON.stringify(insertBoard, null, 2));
-
-      // Ensure arrays are properly handled
       const boardData = {
         title: insertBoard.title,
         description: insertBoard.description || null,
@@ -274,9 +271,6 @@ export class DatabaseStorage implements IStorage {
         is_favorite: insertBoard.is_favorite || false
       };
 
-      console.log("Storage: Processed board data:", JSON.stringify(boardData, null, 2));
-
-      // Create the board
       const [board] = await db
         .insert(boards)
         .values(boardData)
@@ -286,9 +280,6 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Failed to create board - no data returned");
       }
 
-      console.log("Storage: Created board:", JSON.stringify(board, null, 2));
-
-      // Create default columns
       const defaultColumns = [
         { title: "Backlog", order: 0 },
         { title: "To Do", order: 1 },
@@ -304,9 +295,7 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      // Fetch and return the complete board with associations
-      const completeBoard = await this.getBoard(board.id);
-      console.log("Storage: Returning complete board:", JSON.stringify(completeBoard, null, 2));
+      const completeBoard = await this.getBoard(userId, board.id);
       return completeBoard;
 
     } catch (error) {
@@ -315,9 +304,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateBoard(id: number, updateBoard: UpdateBoard): Promise<Board> {
+  async updateBoard(userId: number, id: number, updateBoard: UpdateBoard): Promise<Board> {
     try {
-      // Hole existierendes Board
+      if (!(await permissionService.canAccessBoard(userId, id))) {
+        throw new Error(`Board ${id} not found or unauthorized access`);
+      }
       const [existingBoard] = await db
         .select()
         .from(boards)
@@ -327,7 +318,6 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Board ${id} not found`);
       }
 
-      // Simples Update mit Beibehaltung der Arrays wenn sie leer sind
       const updateData = {
         title: updateBoard.title || existingBoard.title,
         description: updateBoard.description ?? existingBoard.description,
@@ -338,9 +328,7 @@ export class DatabaseStorage implements IStorage {
         is_favorite: updateBoard.is_favorite ?? existingBoard.is_favorite
       };
 
-      console.log("Updating board with data:", updateData);
 
-      // Update durchführen
       const [updatedBoard] = await db
         .update(boards)
         .set(updateData)
@@ -358,11 +346,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateBoardUsers(boardId: number, userIds: number[]): Promise<void> {
-    // First delete existing user assignments
+  async updateBoardUsers(userId: number, boardId: number, userIds: number[]): Promise<void> {
+    if (!(await permissionService.canAccessBoard(userId, boardId))) {
+      throw new Error(`Board ${boardId} not found or unauthorized access`);
+    }
     await db.delete(boardMembers).where(eq(boardMembers.boardId, boardId));
 
-    // Then insert new user assignments
     if (userIds.length > 0) {
       await db.insert(boardMembers).values(userIds.map(userId => ({
         boardId,
@@ -372,7 +361,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteBoard(id: number): Promise<void> {
+  async deleteBoard(userId: number, id: number): Promise<void> {
+    if (!(await permissionService.canAccessBoard(userId, id))) {
+      throw new Error(`Board ${id} not found or unauthorized access`);
+    }
     const [board] = await db
       .delete(boards)
       .where(eq(boards.id, id))
@@ -384,7 +376,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Board permission implementations
-  async createBoardMember(member: InsertBoardMember): Promise<BoardMember> {
+  async createBoardMember(userId: number, member: InsertBoardMember): Promise<BoardMember> {
     const [record] = await db
       .insert(boardMembers)
       .values(member)
@@ -392,25 +384,27 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
-  async getBoardMembers(boardId: number): Promise<BoardMember[]> {
-    return await db
+  async getBoardMembers(userId: number, boardId: number): Promise<BoardMember[]> {
+    const members = await db
       .select()
       .from(boardMembers)
       .where(eq(boardMembers.boardId, boardId))
       .orderBy(boardMembers.invitedAt);
+    return permissionService.filterBoardMembers(userId, members);
   }
 
 
   // Column operations
-  async getColumns(boardId: number): Promise<Column[]> {
-    return await db
+  async getColumns(userId: number, boardId: number): Promise<Column[]> {
+    const columns = await db
       .select()
       .from(columns)
       .where(eq(columns.boardId, boardId))
       .orderBy(columns.order);
+    return permissionService.filterColumns(userId, columns);
   }
 
-  async createColumn(insertColumn: InsertColumn): Promise<Column> {
+  async createColumn(userId: number, insertColumn: InsertColumn): Promise<Column> {
     const [column] = await db
       .insert(columns)
       .values(insertColumn)
@@ -418,7 +412,7 @@ export class DatabaseStorage implements IStorage {
     return column;
   }
 
-  async updateColumn(id: number, updateColumn: Partial<InsertColumn>): Promise<Column> {
+  async updateColumn(userId: number, id: number, updateColumn: Partial<InsertColumn>): Promise<Column> {
     const [column] = await db
       .update(columns)
       .set(updateColumn)
@@ -432,7 +426,7 @@ export class DatabaseStorage implements IStorage {
     return column;
   }
 
-  async deleteColumn(id: number): Promise<void> {
+  async deleteColumn(userId: number, id: number): Promise<void> {
     const [column] = await db
       .delete(columns)
       .where(eq(columns.id, id))
@@ -444,7 +438,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task operations
-  async getTasks(boardId: number): Promise<Task[]> {
+  async getTasks(userId: number, boardId: number): Promise<Task[]> {
     const result = await db
       .select()
       .from(tasks)
@@ -458,7 +452,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async createTask(insertTask: InsertTask): Promise<Task> {
+  async createTask(userId: number, insertTask: InsertTask): Promise<Task> {
     const [task] = await db
       .insert(tasks)
       .values({
@@ -475,7 +469,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async updateTask(id: number, updateTask: UpdateTask): Promise<Task> {
+  async updateTask(userId: number, id: number, updateTask: UpdateTask): Promise<Task> {
     const [task] = await db
       .update(tasks)
       .set({
@@ -497,7 +491,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async deleteTask(id: number): Promise<void> {
+  async deleteTask(userId: number, id: number): Promise<void> {
     const [task] = await db
       .delete(tasks)
       .where(eq(tasks.id, id))
@@ -509,15 +503,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Comment operations
-  async getComments(taskId: number): Promise<Comment[]> {
-    return await db
+  async getComments(userId: number, taskId: number): Promise<Comment[]> {
+    const comments = await db
       .select()
       .from(comments)
       .where(eq(comments.taskId, taskId))
       .orderBy(desc(comments.createdAt));
+    return permissionService.filterComments(userId, comments);
   }
 
-  async createComment(insertComment: InsertComment): Promise<Comment> {
+  async createComment(userId: number, insertComment: InsertComment): Promise<Comment> {
     const [task] = await db
       .select()
       .from(tasks)
@@ -536,15 +531,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Checklist operations
-  async getChecklistItems(taskId: number): Promise<ChecklistItem[]> {
-    return await db
+  async getChecklistItems(userId: number, taskId: number): Promise<ChecklistItem[]> {
+    const checklistItems = await db
       .select()
       .from(checklistItems)
       .where(eq(checklistItems.taskId, taskId))
       .orderBy(checklistItems.itemOrder);
+    return permissionService.filterChecklistItems(userId, checklistItems);
   }
 
-  async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
+  async createChecklistItem(userId: number, insertItem: InsertChecklistItem): Promise<ChecklistItem> {
     const [task] = await db
       .select()
       .from(tasks)
@@ -562,7 +558,7 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async updateChecklistItem(id: number, updateItem: Partial<InsertChecklistItem>): Promise<ChecklistItem> {
+  async updateChecklistItem(userId: number, id: number, updateItem: Partial<InsertChecklistItem>): Promise<ChecklistItem> {
     const [item] = await db
       .update(checklistItems)
       .set(updateItem)
@@ -576,7 +572,7 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async deleteChecklistItem(id: number): Promise<void> {
+  async deleteChecklistItem(userId: number, id: number): Promise<void> {
     const [item] = await db
       .delete(checklistItems)
       .where(eq(checklistItems.id, id))
@@ -588,29 +584,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Activity Log operations
-  async getActivityLogs(): Promise<ActivityLog[]> {
-    return await db
-      .select({
-        ...activityLogs,
-        board_title: boards.title,
-        project_title: projects.title,
-        okr_title: objectives.title,
-        user_name: users.username,
-      })
-      .from(activityLogs)
-      .leftJoin(users, eq(activityLogs.userId, users.id))
-      .leftJoin(boards, eq(activityLogs.boardId, boards.id))
-      .leftJoin(projects, eq(activityLogs.projectId, projects.id))
-      .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
-      .orderBy(desc(activityLogs.createdAt))
-      .limit(30);
+  async getActivityLogs(userId: number): Promise<ActivityLog[]> {
+    return await permissionService.getVisibleActivityLogs(userId);
   }
 
-  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+  async createActivityLog(userId: number, log: InsertActivityLog): Promise<ActivityLog> {
     try {
-      console.log("Creating activity log with data:", log);
-
-      // Convert camelCase to snake_case for database fields
       const dbLog = {
         action: log.action,
         details: log.details,
@@ -622,14 +601,10 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date()
       };
 
-      console.log("Transformed log data for DB:", dbLog);
-
       const [newLog] = await db
         .insert(activityLogs)
         .values(dbLog)
         .returning();
-
-      console.log("Successfully created activity log:", newLog);
 
       return newLog;
     } catch (error) {
@@ -639,25 +614,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User operations
-  async getUser(id: number): Promise<User> {
+  async getUser(userId: number, id: number): Promise<User> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    if (!user) {
-      throw new Error(`User ${id} not found`);
+    if (!user || !(await permissionService.canAccessUser(userId, id))) {
+      throw new Error(`User ${id} not found or unauthorized access`);
     }
     return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | null> {
+  async getUserByUsername(userId: number, username: string): Promise<User | null> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user || null;
   }
 
-  async getUserByEmail(email: string): Promise<User | null> {
+  async getUserByEmail(userId: number, email: string): Promise<User | null> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user || null;
   }
 
-  async createUser(userData: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User> {
+  async createUser(userId: number, userData: Omit<InsertUser, "password"> & { passwordHash: string }): Promise<User> {
     const [user] = await db
       .insert(users)
       .values(userData)
@@ -665,7 +640,10 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, data: Partial<User>): Promise<User> {
+  async updateUser(userId: number, id: number, data: Partial<User>): Promise<User> {
+    if (!(await permissionService.canAccessUser(userId, id))) {
+      throw new Error(`User ${id} not found or unauthorized access`);
+    }
     const [user] = await db
       .update(users)
       .set(data)
@@ -679,7 +657,10 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserPassword(id: number, passwordHash: string): Promise<void> {
+  async updateUserPassword(userId: number, id: number, passwordHash: string): Promise<void> {
+    if (!(await permissionService.canAccessUser(userId, id))) {
+      throw new Error(`User ${id} not found or unauthorized access`);
+    }
     const [user] = await db
       .update(users)
       .set({ passwordHash })
@@ -691,8 +672,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateUserEmail(id: number, email: string): Promise<User> {
-    const existingUser = await this.getUserByEmail(email);
+  async updateUserEmail(userId: number, id: number, email: string): Promise<User> {
+    if (!(await permissionService.canAccessUser(userId, id))) {
+      throw new Error(`User ${id} not found or unauthorized access`);
+    }
+    const existingUser = await this.getUserByEmail(userId, email);
     if (existingUser && existingUser.id !== id) {
       throw new Error('Email is already taken');
     }
@@ -710,8 +694,9 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUsers(): Promise<User[]> {
-    return await db.select().from(users);
+  async getUsers(userId: number): Promise<User[]> {
+    const users = await db.select().from(users);
+    return permissionService.filterUsers(userId, users);
   }
 
   // Productivity metrics implementations
@@ -731,7 +716,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(userProductivityMetrics.date);
   }
 
-  async createUserProductivityMetrics(metrics: InsertUserProductivityMetrics): Promise<UserProductivityMetrics> {
+  async createUserProductivityMetrics(userId: number, metrics: InsertUserProductivityMetrics): Promise<UserProductivityMetrics> {
     const [result] = await db
       .insert(userProductivityMetrics)
       .values(metrics)
@@ -753,12 +738,11 @@ export class DatabaseStorage implements IStorage {
       GROUP BY status
     `);
 
-    // Ensure we always return an array
     return Array.isArray(result) ? result : result.rows || [];
   }
 
   // Task time tracking implementations
-  async createTaskTimeEntry(entry: InsertTaskTimeEntry): Promise<TaskTimeEntry> {
+  async createTaskTimeEntry(userId: number, entry: InsertTaskTimeEntry): Promise<TaskTimeEntry> {
     const [result] = await db
       .insert(taskTimeEntries)
       .values(entry)
@@ -766,7 +750,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateTaskTimeEntry(id: number, endTime: Date): Promise<TaskTimeEntry> {
+  async updateTaskTimeEntry(userId: number, id: number, endTime: Date): Promise<TaskTimeEntry> {
     const [result] = await db
       .update(taskTimeEntries)
       .set({
@@ -784,7 +768,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task state change implementations
-  async createTaskStateChange(change: InsertTaskStateChange): Promise<TaskStateChange> {
+  async createTaskStateChange(userId: number, change: InsertTaskStateChange): Promise<TaskStateChange> {
     const [result] = await db
       .insert(taskStateChanges)
       .values(change)
@@ -793,33 +777,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Team operations
-  async getTeams(): Promise<Team[]> {
-    return await db.select().from(teams);
+  async getTeams(userId: number): Promise<Team[]> {
+    const teams = await db.select().from(teams);
+    return permissionService.filterTeams(userId, teams);
   }
 
-  async getTeam(id: number): Promise<Team> {
+  async getTeam(userId: number, id: number): Promise<Team> {
     const [team] = await db
       .select()
       .from(teams)
       .where(eq(teams.id, id));
 
-    if (!team) {
-      throw new Error(`Team ${id} not found`);
+    if (!team || !(await permissionService.canAccessTeam(userId, id))) {
+      throw new Error(`Team ${id} not found or unauthorized access`);
     }
 
     return team;
   }
 
-  async createTeam(insertTeam: InsertTeam): Promise<Team> {
+  async createTeam(userId: number, insertTeam: InsertTeam): Promise<Team> {
     const { memberIds, ...teamData } = insertTeam;
 
-    // Create the team first
     const [team] = await db
       .insert(teams)
       .values(teamData)
       .returning();
 
-    // If memberIds are provided, create team member relationships
     if (memberIds && memberIds.length > 0) {
       const memberEntries = memberIds.map(id => ({
         teamId: team.id,
@@ -835,10 +818,9 @@ export class DatabaseStorage implements IStorage {
     return team;
   }
 
-  async updateTeam(id: number, updateTeam: Partial<InsertTeam>): Promise<Team> {
+  async updateTeam(userId: number, id: number, updateTeam: Partial<InsertTeam>): Promise<Team> {
     const { memberIds, ...teamData } = updateTeam;
 
-    // Update the team data
     const [team] = await db
       .update(teams)
       .set(teamData)
@@ -849,14 +831,11 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Team ${id} not found`);
     }
 
-    // If memberIds are provided, update team members
     if (memberIds) {
-      // First remove all existing members
       await db
         .delete(teamMembers)
         .where(eq(teamMembers.teamId, id));
 
-      // Then add the new members
       if (memberIds.length > 0) {
         const memberEntries = memberIds.map(memberId => ({
           teamId: id,
@@ -873,13 +852,11 @@ export class DatabaseStorage implements IStorage {
     return team;
   }
 
-  async deleteTeam(id: number): Promise<void> {
-    // First delete all team member relationships
+  async deleteTeam(userId: number, id: number): Promise<void> {
     await db
       .delete(teamMembers)
       .where(eq(teamMembers.teamId, id));
 
-    // Then delete the team
     const [team] = await db
       .delete(teams)
       .where(eq(teams.id, id))
@@ -890,16 +867,20 @@ export class DatabaseStorage implements IStorage {
     }
   }
   // Team member operations
-  async getTeamMembers(): Promise<TeamMember[]> {
-    return await db.select().from(teamMembers);
+  async getTeamMembers(userId: number): Promise<TeamMember[]> {
+    const teamMembers = await db.select().from(teamMembers);
+    return permissionService.filterTeamMembers(userId, teamMembers);
   }
 
-  async toggleProjectFavorite(id: number): Promise<Project> {
+  async toggleProjectFavorite(userId: number, id: number): Promise<Project> {
     try {
+      if (!(await permissionService.canAccessProject(userId, id))) {
+        throw new Error(`Project ${id} not found or unauthorized access`);
+      }
       const [project] = await db
         .update(projects)
-        .set({ 
-          isFavorite: sql`NOT is_favorite` 
+        .set({
+          isFavorite: sql`NOT is_favorite`
         })
         .where(eq(projects.id, id))
         .returning();
@@ -915,12 +896,15 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async toggleBoardFavorite(id: number): Promise<Board> {
+  async toggleBoardFavorite(userId: number, id: number): Promise<Board> {
     try {
+      if (!(await permissionService.canAccessBoard(userId, id))) {
+        throw new Error(`Board ${id} not found or unauthorized access`);
+      }
       const [board] = await db
         .update(boards)
-        .set({ 
-          is_favorite: sql`NOT is_favorite` 
+        .set({
+          is_favorite: sql`NOT is_favorite`
         })
         .where(eq(boards.id, id))
         .returning();
@@ -936,12 +920,15 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async toggleObjectiveFavorite(id: number): Promise<Objective> {
+  async toggleObjectiveFavorite(userId: number, id: number): Promise<Objective> {
     try {
+      if (!(await permissionService.canAccessObjective(userId, id))) {
+        throw new Error(`Objective ${id} not found or unauthorized access`);
+      }
       const [objective] = await db
         .update(objectives)
-        .set({ 
-          isFavorite: sql`NOT is_favorite` 
+        .set({
+          isFavorite: sql`NOT is_favorite`
         })
         .where(eq(objectives.id, id))
         .returning();
@@ -957,10 +944,8 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createObjective(insertObj: InsertObjective): Promise<Objective> {
+  async createObjective(userId: number, insertObj: InsertObjective): Promise<Objective> {
     try {
-      console.log("Creating objective with data:", insertObj);
-
       const [objective] = await db
         .insert(objectives)
         .values({
@@ -972,8 +957,6 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
-      console.log("Created objective:", objective);
-
       if (!objective) {
         throw new Error("Failed to create objective - no data returned");
       }
@@ -984,7 +967,6 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
-
 }
 
 export const storage = new DatabaseStorage();

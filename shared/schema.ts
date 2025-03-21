@@ -106,6 +106,9 @@ export const activityLogs = pgTable("activity_logs", {
   objectiveId: integer("objective_id").references(() => objectives.id),
   taskId: integer("task_id").references(() => tasks.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Add visibility control
+  visibleToTeams: integer("visible_to_teams").array(),
+  visibleToUsers: integer("visible_to_users").array(),
 });
 
 const checklistItemSchema = z.object({
@@ -249,6 +252,8 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     projectId: true,
     objectiveId: true,
     taskId: true,
+    visibleToTeams: true,
+    visibleToUsers: true,
   })
   .extend({
     action: z.string().min(1, "Action is required"),
@@ -258,6 +263,8 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     projectId: z.number().int().positive().optional(),
     objectiveId: z.number().int().positive().optional(),
     taskId: z.number().int().positive().optional(),
+    visibleToTeams: z.array(z.number().int().positive()).optional(),
+    visibleToUsers: z.array(z.number().int().positive()).optional(),
   });
 
 // Add team schemas
@@ -547,6 +554,31 @@ export const insertBoardMemberSchema = createInsertSchema(boardMembers)
 export type BoardMember = typeof boardMembers.$inferSelect;
 export type InsertBoardMember = z.infer<typeof insertBoardMemberSchema>;
 
+
+// Add new table for OKR permissions after existing tables
+export const objectiveMembers = pgTable("objective_members", {
+  id: serial("id").primaryKey(),
+  objectiveId: integer("objective_id").notNull().references(() => objectives.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  role: text("role").notNull().default("member"), // 'member', 'admin', 'guest'
+  invitedAt: timestamp("invited_at").defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+// Add schema for the new table
+export const insertObjectiveMemberSchema = createInsertSchema(objectiveMembers)
+  .pick({
+    objectiveId: true,
+    userId: true,
+    role: true,
+  })
+  .extend({
+    role: z.enum(["member", "admin", "guest"]).default("member"),
+  });
+
+// Export types for the new table
+export type ObjectiveMember = typeof objectiveMembers.$inferSelect;
+export type InsertObjectiveMember = z.infer<typeof insertObjectiveMemberSchema>;
 
 // Add new tables for productivity insights after the existing tables
 
