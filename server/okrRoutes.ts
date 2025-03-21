@@ -206,9 +206,9 @@ export function registerOkrRoutes(app: Express) {
       const activityLog = await storage.createActivityLog({
         action: "create",
         details: "Neues OKR erstellt",
-        userId: result.data.creatorId,
+        userId: objective.creatorId,
         objectiveId: objective.id,
-        projectId: result.data.projectId || null,
+        projectId: objective.projectId || null,
         boardId: null,
         taskId: null
       });
