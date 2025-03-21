@@ -79,27 +79,49 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-
     try {
+      console.log("Login attempt with data:", {
+        email: req.body.email,
+        passwordProvided: !!req.body.password
+      });
+
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        console.log("Missing credentials:", { email: !!email, password: !!password });
+        return res.status(400).json({ message: "E-Mail und Passwort sind erforderlich" });
+      }
+
       // Find user
-      const user = await storage.getUserByEmail(email);
+      const user = await storage.getUserByEmail(null, email);
+      console.log("User lookup result:", { userFound: !!user });
+
       if (!user) {
-        return res.status(400).json({ message: "Invalid credentials" });
+        return res.status(400).json({ message: "Ungültige Anmeldedaten" });
       }
 
       // Verify password
       const isValid = await bcrypt.compare(password, user.passwordHash);
+      console.log("Password verification:", { isValid });
+
       if (!isValid) {
-        return res.status(400).json({ message: "Invalid credentials" });
+        return res.status(400).json({ message: "Ungültige Anmeldedaten" });
+      }
+
+      // Set user session
+      if (req.session) {
+        req.session.userId = user.id;
+        console.log("Session set for user:", user.id);
+      } else {
+        console.log("No session object available");
       }
 
       // Remove password hash from response
       const { passwordHash: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error("Failed to login:", error);
-      res.status(500).json({ message: "Failed to login" });
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Anmeldefehler" });
     }
   });
 

@@ -5,11 +5,38 @@ import path from "path";
 import cors from "cors";
 import { drizzle } from "drizzle-orm/node-postgres";
 import knex from "knex";
+import session from "express-session";
+import MemoryStore from "memorystore";
 
 const app = express();
-app.use(cors());
+
+// CORS configuration - must be before session middleware
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Session configuration
+const MemoryStoreSession = MemoryStore(session);
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  store: new MemoryStoreSession({
+    checkPeriod: 86400000 // Prüfe Ablauf jeden Tag
+  }),
+  cookie: {
+    secure: false, // Set to true only in production with HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 Stunden
+    sameSite: 'lax'
+  }
+}));
 
 // Initialize Knex with connection info from DATABASE_URL
 const db = knex({
@@ -32,6 +59,12 @@ app.use((req, res, next) => {
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   console.log(`[${new Date().toISOString()}] Incoming ${req.method} request for ${req.url}`);
+  if (req.session) {
+    console.log(`Session data:`, { 
+      userId: req.session.userId,
+      isNew: req.session.isNew
+    });
+  }
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
