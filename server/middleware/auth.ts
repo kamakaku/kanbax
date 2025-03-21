@@ -3,25 +3,22 @@ import { db } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
-// Typen für Request mit User
-declare global {
-  namespace Express {
-    interface Request {
-      user?: any;
-      userId?: number;
-    }
+// Types for Request with User
+declare module 'express-session' {
+  interface SessionData {
+    userId: number;
   }
 }
 
-// Authentifizierung prüfen
+// Authentication check
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Prüfe ob User in Session existiert
+    // Check if user exists in session
     if (!req.session || !req.session.userId) {
       return res.status(401).json({ message: 'Nicht authentifiziert' });
     }
 
-    // Hole User aus Datenbank
+    // Get user from database
     const [user] = await db
       .select()
       .from(users)
@@ -31,7 +28,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ message: 'Benutzer nicht gefunden' });
     }
 
-    // Füge User und userId zum Request hinzu
+    // Add user and userId to request
     req.user = user;
     req.userId = user.id;
 
@@ -42,7 +39,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-// Optional Auth - User ID wird gesetzt falls vorhanden
+// Optional Auth - User ID is set if available
 export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (req.session && req.session.userId) {

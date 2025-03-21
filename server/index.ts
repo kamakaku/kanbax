@@ -91,29 +91,29 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add this after routes are registered but before error handler
-app.get('*', (req, res, next) => {
-  // Skip API routes and static files
-  if (req.url.startsWith('/api') || req.url.startsWith('/assets')) {
-    next();
-    return;
-  }
-
-  console.log(`[${new Date().toISOString()}] Serving client app for route: ${req.url}`);
-
-  if (process.env.NODE_ENV === "development") {
-    next(); // Let Vite handle it in development
-  } else {
-    // In production, serve the built index.html
-    res.sendFile(path.join(process.cwd(), 'dist', 'client', 'index.html'));
-  }
-});
-
 (async () => {
   try {
     log("Starting server initialization...");
     const server = await registerRoutes(app, db);
     log("Routes registered successfully");
+
+    // Add this after routes are registered but before error handler
+    app.get('*', (req, res, next) => {
+      // Skip API routes and static files
+      if (req.url.startsWith('/api') || req.url.startsWith('/assets')) {
+        next();
+        return;
+      }
+
+      console.log(`[${new Date().toISOString()}] Serving client app for route: ${req.url}`);
+
+      if (process.env.NODE_ENV === "development") {
+        next(); // Let Vite handle it in development
+      } else {
+        // In production, serve the built index.html
+        res.sendFile(path.join(process.cwd(), 'dist', 'client', 'index.html'));
+      }
+    });
 
     // Keep existing error handler
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
