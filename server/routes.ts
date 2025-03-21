@@ -224,7 +224,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "create",
         details: "Neues Projekt erstellt",
-        userId: parseInt(result.data.creator_id),
+        userId: result.data.creator_id,
         projectId: project.id,
         boardId: null,
         objectiveId: null,
@@ -259,7 +259,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Projekt aktualisiert",
-        userId: result.data.creatorId,
+        userId: result.data.creator_id,
         projectId: id,
         boardId: null,
         objectiveId: null,
