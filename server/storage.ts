@@ -516,12 +516,12 @@ export class DatabaseStorage implements IStorage {
 
   // Column operations
   async getColumns(userId: number, boardId: number): Promise<Column[]> {
-    const columns = await db
+    const columnsData = await db
       .select()
       .from(columns)
       .where(eq(columns.boardId, boardId))
       .orderBy(columns.order);
-    return permissionService.filterColumns(userId, columns);
+    return permissionService.filterColumns(userId, columnsData);
   }
 
   async createColumn(userId: number, insertColumn: InsertColumn): Promise<Column> {
@@ -624,12 +624,12 @@ export class DatabaseStorage implements IStorage {
 
   // Comment operations
   async getComments(userId: number, taskId: number): Promise<Comment[]> {
-    const comments = await db
+    const commentsData = await db
       .select()
       .from(comments)
       .where(eq(comments.taskId, taskId))
       .orderBy(desc(comments.createdAt));
-    return permissionService.filterComments(userId, comments);
+    return permissionService.filterComments(userId, commentsData);
   }
 
   async createComment(userId: number, insertComment: InsertComment): Promise<Comment> {
@@ -652,12 +652,12 @@ export class DatabaseStorage implements IStorage {
 
   // Checklist operations
   async getChecklistItems(userId: number, taskId: number): Promise<ChecklistItem[]> {
-    const checklistItems = await db
+    const checklistItemsData = await db
       .select()
       .from(checklistItems)
       .where(eq(checklistItems.taskId, taskId))
       .orderBy(checklistItems.itemOrder);
-    return permissionService.filterChecklistItems(userId, checklistItems);
+    return permissionService.filterChecklistItems(userId, checklistItemsData);
   }
 
   async createChecklistItem(userId: number, insertItem: InsertChecklistItem): Promise<ChecklistItem> {
@@ -815,8 +815,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUsers(userId: number): Promise<User[]> {
-    const users = await db.select().from(users);
-    return permissionService.filterUsers(userId, users);
+    const usersData = await db.select().from(users);
+    return permissionService.filterUsers(userId, usersData);
   }
 
   // Productivity metrics implementations
