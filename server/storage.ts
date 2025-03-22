@@ -83,6 +83,7 @@ export interface IStorage {
   updateUserCompanyRole(userId: number, targetUserId: number, isAdmin: boolean): Promise<User>;
   generateCompanyInviteCode(userId: number, companyId: number): Promise<string>;
   joinCompanyWithInviteCode(userId: number, inviteCode: string): Promise<Company>;
+  createCompany(userId: number, company: InsertCompany): Promise<Company>;
 }
 
 export class DatabaseStorage implements IStorage {
