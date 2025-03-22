@@ -898,8 +898,8 @@ export class DatabaseStorage implements IStorage {
 
   // Team operations
   async getTeams(userId: number): Promise<Team[]> {
-    const teams = await db.select().from(teams);
-    return permissionService.filterTeams(userId, teams);
+    const teamsData = await db.select().from(teams);
+    return permissionService.filterTeams(userId, teamsData);
   }
 
   async getTeam(userId: number, id: number): Promise<Team> {
