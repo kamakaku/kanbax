@@ -1330,22 +1330,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
 
-  // Company routes - Diese Methode wurde nach oben verschoben und verbessert
-
-  app.get("/api/companies/:id", requireAuth, async (req, res) => {
-    try {
-      const companyId = parseInt(req.params.id);
-      if (isNaN(companyId)) {
-        return res.status(400).json({ error: "Ungültige Unternehmens-ID" });
-      }
-      
-      const company = await storage.getCompany(req.userId as number, companyId);
-      res.json(company);
-    } catch (error) {
-      console.error("Error in GET /api/companies/:id:", error);
-      res.status(500).json({ error: "Fehler beim Abrufen des Unternehmens" });
-    }
-  });
+  // Company routes - Restliche Routen, /api/companies/:id wurde bereits oben definiert
 
   app.get("/api/companies/:companyId/members", requireAuth, async (req, res) => {
     try {

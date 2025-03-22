@@ -86,16 +86,21 @@ export function CompanyInfoSection() {
         return res; // Kann ein Unternehmen oder null sein, je nach Antwort vom Server
       } catch (err) {
         console.error('Error fetching company:', err);
-        // Bei Authentifizierungsproblemen werfen wir den Fehler, damit er im UI angezeigt wird
-        if (err instanceof Error && (
-            err.message.includes("401") || 
-            err.message.includes("403") || 
-            err.message.includes("nicht authentifiziert") ||
-            err.message.includes("Ungültige")
-        )) {
-          throw err;
+        // Bei allen Fehlern geben wir null zurück, was bedeutet, dass der Benutzer
+        // keinem Unternehmen zugeordnet ist oder ein Problem beim Abrufen besteht
+        // Wir loggen den Fehler, aber brechen die Komponente nicht ab
+        if (err instanceof Error) {
+          console.log('Fehlerdetails:', err.message);
+          
+          // Bei Auth-Fehlern Toast anzeigen
+          if (err.message.includes("401") || err.message.includes("403")) {
+            toast({
+              title: "Authentifizierungsproblem",
+              description: "Bitte melden Sie sich erneut an.",
+              variant: "destructive"
+            });
+          }
         }
-        // Bei anderen Fehlern geben wir null zurück (kein Unternehmen)
         return null;
       }
     },
