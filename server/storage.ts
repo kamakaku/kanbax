@@ -1221,46 +1221,25 @@ export class DatabaseStorage implements IStorage {
 
   async getCurrentUserCompany(userId: number): Promise<Company | null> {
     try {
-      console.log(`Fetching company for userId: ${userId}`);
-      
       if (!userId) {
-        console.log("No userId provided");
-        return null;
-      }
-      
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId));
-
-      console.log(`User found: ${!!user}, has companyId: ${!!user?.companyId}`);
-      
-      if (!user) {
-        console.log("User not found");
-        return null;
-      }
-      
-      if (!user.companyId) {
-        console.log("User has no company assigned");
         return null;
       }
 
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, user.companyId));
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        with: {
+          company: true
+        }
+      });
 
-      console.log(`Company found: ${!!company}`);
-      
-      if (!company) {
-        console.log("Company not found with ID:", user.companyId);
+      if (!user || !user.company) {
         return null;
       }
 
-      return company;
+      return user.company;
     } catch (error) {
       console.error("Error in getCurrentUserCompany:", error);
-      throw error;
+      return null; // Return null instead of throwing to avoid 400 error
     }
   }
 
