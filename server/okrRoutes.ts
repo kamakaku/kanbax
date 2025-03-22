@@ -37,6 +37,21 @@ export function registerOkrRoutes(app: Express) {
         console.log(`No objective found with ID: ${id}`);
         return res.status(404).json({ message: "Objective nicht gefunden" });
       }
+      
+      // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
+      const [favorite] = await db
+        .select()
+        .from(userFavoriteObjectives)
+        .where(and(
+          eq(userFavoriteObjectives.userId, userId),
+          eq(userFavoriteObjectives.objectiveId, id)
+        ));
+      
+      // Personalisierter Favoriten-Status hinzufügen
+      const objectiveWithFavorite = {
+        ...objective,
+        isFavorite: favorite ? true : false
+      };
 
       // Then get the cycle if it exists
       let cycle = null;
