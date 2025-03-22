@@ -16,15 +16,40 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { Textarea } from "@/components/ui/textarea";
+import * as z from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+// Formular-Schema für die Unternehmenserstellung
+const companyFormSchema = z.object({
+  name: z.string()
+    .min(2, { message: "Name muss mindestens 2 Zeichen lang sein." })
+    .max(100, { message: "Name darf maximal 100 Zeichen lang sein." }),
+  description: z.string().optional(),
+});
+
+type CompanyFormValues = z.infer<typeof companyFormSchema>;
 
 export function CompanyInfoSection() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  
+  // Formular zum Erstellen eines Unternehmens
+  const form = useForm<CompanyFormValues>({
+    resolver: zodResolver(companyFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+    },
+  });
   
   // Abfrage der Unternehmensdetails über den "current" Endpunkt
   const {
@@ -124,6 +149,43 @@ export function CompanyInfoSection() {
       });
     },
   });
+  
+  // Mutation zum Erstellen eines Unternehmens
+  const createCompanyMutation = useMutation({
+    mutationFn: (data: CompanyFormValues) => 
+      apiRequest("/api/companies", "POST", data),
+    onSuccess: () => {
+      setCreateDialogOpen(false);
+      form.reset();
+      toast({
+        title: "Erfolg!",
+        description: "Unternehmen wurde erfolgreich erstellt.",
+      });
+      // Aktualisiere die Daten
+      queryClient.invalidateQueries({ queryKey: ['/api/companies/current'] });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Fehler beim Erstellen des Unternehmens.";
+      
+      // Spezifische Fehlermeldungen für bekannte Fehler
+      if (
+        errorMessage.includes("Die Erstellung eines Unternehmens erfordert mindestens ein Basic-Abonnement") ||
+        errorMessage.includes("Sie sind bereits Mitglied eines Unternehmens")
+      ) {
+        toast({
+          title: "Nicht möglich",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Fehler",
+          description: "Fehler beim Erstellen des Unternehmens.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
 
   // Mutation zum Ändern der Admin-Rolle eines Benutzers
   const updateRoleMutation = useMutation({
@@ -169,16 +231,22 @@ export function CompanyInfoSection() {
             <Building className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium">Kein Unternehmen zugewiesen</h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-md">
-              Sie sind derzeit keinem Unternehmen zugewiesen. Treten Sie mit einem Einladungscode einem Unternehmen bei.
+              Sie sind derzeit keinem Unternehmen zugewiesen. Treten Sie mit einem Einladungscode einem Unternehmen bei oder erstellen Sie ein eigenes Unternehmen.
             </p>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-center">
+        <CardFooter className="flex justify-center gap-4">
           <Button 
             variant="outline" 
             onClick={() => setJoinDialogOpen(true)}
           >
             Unternehmen beitreten
+          </Button>
+          <Button 
+            variant="default" 
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            Unternehmen erstellen
           </Button>
         </CardFooter>
       </Card>
@@ -476,6 +544,69 @@ export function CompanyInfoSection() {
               Beitreten
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog zum Erstellen eines Unternehmens */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unternehmen erstellen</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit((data) => createCompanyMutation.mutate(data))}>
+              <div className="space-y-4 py-4">
+                <p className="text-sm text-muted-foreground">
+                  Erstellen Sie ein neues Unternehmen. Bitte beachten Sie, dass für diese Funktion ein Premium-Abonnement erforderlich ist.
+                </p>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unternehmensname</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Mein Unternehmen GmbH" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Beschreibung</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Kurze Beschreibung des Unternehmens" 
+                          {...field} 
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setCreateDialogOpen(false)}
+                >
+                  Abbrechen
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={createCompanyMutation.isPending}
+                >
+                  {createCompanyMutation.isPending ? "Wird erstellt..." : "Erstellen"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </>
