@@ -113,6 +113,29 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const store = useAuthStore();
+  
+  // Fetch current user on page load
+  React.useEffect(() => {
+    async function fetchCurrentUser() {
+      try {
+        const response = await fetch('/api/auth/current-user', {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData) {
+            store.setUser(userData);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    }
+    
+    fetchCurrentUser();
+  }, []);
+  
   return React.createElement(AuthContext.Provider, { value: store }, children);
 }
 
