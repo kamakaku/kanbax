@@ -132,7 +132,8 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(400).json({ message: "Ungültige Anmeldedaten" });
       }
 
-      // Check if user is active
+      // Check if user is active - nur prüfen, wenn Wert explizit auf false gesetzt ist
+      // Standardmäßig ist isActive null, was als aktiv betrachtet wird (für Abwärtskompatibilität)
       if (user.isActive === false) {
         return res.status(403).json({ 
           message: "Ihr Konto wurde noch nicht aktiviert. Bitte warten Sie auf die Aktivierung durch einen Administrator.",
