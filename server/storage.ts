@@ -117,11 +117,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProject(userId: number, id: number): Promise<Project> {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id));
-    if (!project || !(await permissionService.canAccessProject(userId, id))) {
-      throw new Error(`Project ${id} not found or unauthorized access`);
+    try {
+      const [project] = await db.select().from(projects).where(eq(projects.id, id));
+      if (!project || !(await permissionService.canAccessProject(userId, id))) {
+        throw new Error(`Project ${id} not found or unauthorized access`);
+      }
+      
+      // Prüfen, ob das Projekt ein Favorit des aktuellen Benutzers ist
+      const [favorite] = await db
+        .select()
+        .from(userFavoriteProjects)
+        .where(and(
+          eq(userFavoriteProjects.userId, userId),
+          eq(userFavoriteProjects.projectId, id)
+        ));
+      
+      // Personalisierter Favoriten-Status basierend auf userFavoriteProjects
+      return {
+        ...project,
+        isFavorite: favorite ? true : false
+      };
+    } catch (error) {
+      console.error("Error in getProject:", error);
+      throw error;
     }
-    return project;
   }
 
   async createProject(userId: number, insertProject: InsertProject): Promise<Project> {
@@ -258,10 +277,26 @@ export class DatabaseStorage implements IStorage {
         .from(boards)
         .where(eq(boards.project_id, projectId));
       
+      // Favoriten für diesen Benutzer abrufen
+      const favoriteBoards = await db
+        .select()
+        .from(userFavoriteBoards)
+        .where(eq(userFavoriteBoards.userId, userId));
+      
+      // Set mit Favoriten-Board-IDs erstellen für schnelle Suche
+      const favoriteBoardIds = new Set(favoriteBoards.map(fb => fb.boardId));
+      
       // Berechtigungsprüfung für alle Boards
       const accessibleBoardsPromises = boardResults.map(async (board) => {
         const hasAccess = await permissionService.canAccessBoard(userId, board.id);
-        return hasAccess ? board : null;
+        if (hasAccess) {
+          // Personalisierter Favoriten-Status basierend auf userFavoriteBoards
+          return {
+            ...board,
+            is_favorite: favoriteBoardIds.has(board.id)
+          };
+        }
+        return null;
       });
       
       const accessibleBoards = (await Promise.all(accessibleBoardsPromises)).filter((board): board is Board => board !== null);
@@ -284,6 +319,18 @@ export class DatabaseStorage implements IStorage {
       if (!board || !(await permissionService.canAccessBoard(userId, id))) {
         throw new Error(`Board ${id} not found or unauthorized access`);
       }
+      
+      // Prüfen, ob das Board ein Favorit des aktuellen Benutzers ist
+      const [favorite] = await db
+        .select()
+        .from(userFavoriteBoards)
+        .where(and(
+          eq(userFavoriteBoards.userId, userId),
+          eq(userFavoriteBoards.boardId, id)
+        ));
+      
+      // Personalisierter Favoriten-Status basierend auf userFavoriteBoards
+      const isFavorite = favorite ? true : false;
 
       let boardTeams: Team[] = [];
       if (board.team_ids && board.team_ids.length > 0) {
@@ -318,7 +365,8 @@ export class DatabaseStorage implements IStorage {
         ...board,
         teams: boardTeams,
         users: boardUsers,
-        project: projectData
+        project: projectData,
+        is_favorite: isFavorite
       };
 
     } catch (error) {
