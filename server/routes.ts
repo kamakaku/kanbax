@@ -149,7 +149,8 @@ export async function registerRoutes(app: Express, db: Knex) {
         await db
           .update(schema.users)
           .set({ lastLoginAt: new Date() })
-          .where(eq(schema.users.id, user.id));
+          .where(eq(schema.users.id, user.id))
+          .execute();
           
         console.log("Session set for user:", user.id);
       } else {
@@ -201,7 +202,8 @@ export async function registerRoutes(app: Express, db: Knex) {
         .update(schema.users)
         .set({ isActive: true })
         .where(eq(schema.users.id, targetUserId))
-        .returning();
+        .returning()
+        .execute();
 
       // Aktivitätslog erstellen
       await storage.createActivityLog({
