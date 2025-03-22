@@ -7,7 +7,7 @@ import { projects, type Project, type InsertProject, type UpdateProject } from "
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 import { objectives, type Objective, type InsertObjective } from "@shared/schema";
 import { userFavoriteProjects, userFavoriteBoards, userFavoriteObjectives, type UserFavoriteProject, type UserFavoriteBoard, type UserFavoriteObjective } from "@shared/schema";
-import { companies, type Company, type InsertCompany } from "@shared/schema";
+import { companies, type Company, type InsertCompany, type CompanyResponse } from "@shared/schema";
 import { permissionService } from "./permissions";
 
 
