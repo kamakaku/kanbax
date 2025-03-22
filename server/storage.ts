@@ -7,6 +7,7 @@ import { projects, type Project, type InsertProject, type UpdateProject } from "
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 import { objectives, type Objective, type InsertObjective } from "@shared/schema";
 import { userFavoriteProjects, userFavoriteBoards, userFavoriteObjectives, type UserFavoriteProject, type UserFavoriteBoard, type UserFavoriteObjective } from "@shared/schema";
+import { companies, type Company, type InsertCompany } from "@shared/schema";
 import { permissionService } from "./permissions";
 
 
@@ -74,6 +75,14 @@ export interface IStorage {
   toggleBoardFavorite(userId: number, id: number): Promise<Board>;
   toggleObjectiveFavorite(userId: number, id: number): Promise<Objective>;
   createObjective(userId: number, objective: InsertObjective): Promise<Objective>;
+  
+  // Company operations
+  getCompany(userId: number, id: number): Promise<Company>;
+  getCurrentUserCompany(userId: number): Promise<Company>;
+  getCompanyMembers(userId: number, companyId: number): Promise<User[]>;
+  updateUserCompanyRole(userId: number, targetUserId: number, isAdmin: boolean): Promise<User>;
+  generateCompanyInviteCode(userId: number, companyId: number): Promise<string>;
+  joinCompanyWithInviteCode(userId: number, inviteCode: string): Promise<Company>;
 }
 
 export class DatabaseStorage implements IStorage {
