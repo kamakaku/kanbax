@@ -926,15 +926,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTeam(userId: number, insertTeam: InsertTeam): Promise<Team> {
-    const { memberIds, ...teamData } = insertTeam;
+    const { member_ids, ...teamData } = insertTeam;
+    
+    // Füge creatorId hinzu
+    const fullTeamData = {
+      ...teamData,
+      creatorId: userId
+    };
 
     const [team] = await db
       .insert(teams)
-      .values(teamData)
+      .values(fullTeamData)
       .returning();
 
-    if (memberIds && memberIds.length > 0) {
-      const memberEntries = memberIds.map(id => ({
+    if (member_ids && member_ids.length > 0) {
+      const memberEntries = member_ids.map(id => ({
         teamId: team.id,
         userId: parseInt(id),
         role: 'member'
@@ -951,16 +957,29 @@ export class DatabaseStorage implements IStorage {
   async updateTeam(userId: number, id: number, updateTeam: Partial<InsertTeam>): Promise<Team> {
     const { member_ids, ...teamData } = updateTeam;
 
+    // Zuerst das Team abrufen, um den Ersteller zu überprüfen
+    const [existingTeam] = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, id));
+
+    if (!existingTeam) {
+      throw new Error(`Team ${id} not found`);
+    }
+
+    // Überprüfen, ob der Benutzer der Ersteller des Teams ist
+    if (existingTeam.creatorId !== userId) {
+      throw new Error("Nur der Ersteller des Teams kann das Team bearbeiten");
+    }
+
     const [team] = await db
       .update(teams)
       .set(teamData)
       .where(eq(teams.id, id))
       .returning();
 
-    if (!team) {
-      throw new Error(`Team ${id} not found`);
-    }
-
+    // Wenn member_ids im Update enthalten sind und der Benutzer der Ersteller ist,
+    // dann aktualisiere die Teammitglieder
     if (member_ids) {
       await db
         .delete(teamMembers)
@@ -983,10 +1002,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTeam(userId: number, id: number): Promise<void> {
+    // Zuerst das Team abrufen, um den Ersteller zu überprüfen
+    const [existingTeam] = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, id));
+
+    if (!existingTeam) {
+      throw new Error(`Team ${id} not found`);
+    }
+
+    // Überprüfen, ob der Benutzer der Ersteller des Teams ist
+    if (existingTeam.creatorId !== userId) {
+      throw new Error("Nur der Ersteller des Teams kann das Team löschen");
+    }
+
+    // Erst Teammitglieder löschen
     await db
       .delete(teamMembers)
       .where(eq(teamMembers.teamId, id));
 
+    // Dann das Team löschen
     const [team] = await db
       .delete(teams)
       .where(eq(teams.id, id))

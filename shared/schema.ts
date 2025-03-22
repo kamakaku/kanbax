@@ -33,6 +33,7 @@ export const teams = pgTable("teams", {
   name: text("name").notNull(),
   description: text("description"),
   companyId: integer("company_id").notNull().references(() => companies.id),
+  creatorId: integer("creator_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
