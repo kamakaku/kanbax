@@ -1317,7 +1317,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Unternehmen ${companyId} nicht gefunden oder keine Zugriffsberechtigung`);
       }
 
-      // Benutzer aus diesem Unternehmen abrufen
+      // Benutzer aus diesem Unternehmen abrufen (nur aktivierte Benutzer)
       const members = await db
         .select({
           id: users.id,
@@ -1328,7 +1328,12 @@ export class DatabaseStorage implements IStorage {
           createdAt: users.createdAt
         })
         .from(users)
-        .where(eq(users.companyId, companyId));
+        .where(
+          and(
+            eq(users.companyId, companyId),
+            eq(users.isActive, true) // Nur aktivierte Benutzer anzeigen
+          )
+        );
 
       return members;
     } catch (error) {

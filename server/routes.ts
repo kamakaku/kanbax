@@ -1149,9 +1149,12 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(403).json({ message: "Keine Berechtigung zum Zugriff auf dieses Unternehmen" });
       }
 
-      // Benutzer aus diesem Unternehmen abrufen
+      // Benutzer aus diesem Unternehmen abrufen (nur aktivierte Benutzer)
       const members = await db.query.users.findMany({
-        where: eq(schema.users.companyId, companyId),
+        where: and(
+          eq(schema.users.companyId, companyId),
+          eq(schema.users.isActive, true) // Nur aktivierte Benutzer anzeigen
+        ),
         columns: {
           id: true,
           username: true,
