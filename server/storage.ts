@@ -998,8 +998,34 @@ export class DatabaseStorage implements IStorage {
   }
   // Team member operations
   async getTeamMembers(userId: number): Promise<TeamMember[]> {
-    const teamMembersData = await db.select().from(teamMembers);
-    return permissionService.filterTeamMembers(userId, teamMembersData);
+    // Get user's company first
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user?.companyId) {
+      return [];
+    }
+
+    // Get all teams from the user's company
+    const companyTeams = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.companyId, user.companyId));
+
+    // Get all team members for these teams
+    const allTeamMembers = await db
+      .select({
+        id: teamMembers.id,
+        teamId: teamMembers.teamId,
+        userId: teamMembers.userId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(inArray(teamMembers.teamId, companyTeams.map(t => t.id)));
+
+    return allTeamMembers;
   }
 
   async toggleProjectFavorite(userId: number, id: number): Promise<Project> {
