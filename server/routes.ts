@@ -58,20 +58,39 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       // Check if user already exists
-      const existingUser = await storage.getUserByEmail(result.data.email);
+      const existingUser = await storage.getUserByEmail(0, result.data.email);
       if (existingUser) {
-        return res.status(400).json({ message: "User already exists" });
+        return res.status(400).json({ message: "Benutzer existiert bereits" });
+      }
+
+      // Validate invite code
+      const inviteCode = result.data.inviteCode;
+      if (!inviteCode) {
+        return res.status(400).json({ message: "Einladungscode ist erforderlich" });
+      }
+
+      // Find company with invite code
+      const [company] = await db
+        .select()
+        .from(schema.companies)
+        .where(eq(schema.companies.inviteCode, inviteCode));
+
+      if (!company) {
+        return res.status(400).json({ message: "Ungültiger Einladungscode" });
       }
 
       // Hash password
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(result.data.password, salt);
 
-      // Create user
-      const user = await storage.createUser({
+      // Create user with company assignment and inactive status
+      const user = await storage.createUser(0, {
         username: result.data.username,
         email: result.data.email,
         passwordHash,
+        companyId: company.id,
+        isActive: false,  // User needs to be activated by admin
+        isCompanyAdmin: false,
       });
 
       // Remove password hash from response
@@ -79,7 +98,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(201).json(userWithoutPassword);
     } catch (error) {
       console.error("Failed to create user:", error);
-      res.status(500).json({ message: "Failed to create user" });
+      res.status(500).json({ message: "Benutzerregistrierung fehlgeschlagen" });
     }
   });
 
@@ -98,7 +117,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       // Find user
-      const user = await storage.getUserByEmail(null, email);
+      const user = await storage.getUserByEmail(0, email);
       console.log("User lookup result:", { userFound: !!user });
 
       if (!user) {
@@ -113,9 +132,24 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(400).json({ message: "Ungültige Anmeldedaten" });
       }
 
+      // Check if user is active
+      if (user.isActive === false) {
+        return res.status(403).json({ 
+          message: "Ihr Konto wurde noch nicht aktiviert. Bitte warten Sie auf die Aktivierung durch einen Administrator.",
+          isActive: false 
+        });
+      }
+
       // Set user session
       if (req.session) {
         req.session.userId = user.id;
+        
+        // Update last login timestamp
+        await db
+          .update(schema.users)
+          .set({ lastLoginAt: new Date() })
+          .where(eq(schema.users.id, user.id));
+          
         console.log("Session set for user:", user.id);
       } else {
         console.log("No session object available");
@@ -130,10 +164,109 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+  // Benutzeraktivierung durch Administrator
+  app.patch("/api/companies/:companyId/users/:userId/activate", requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const targetUserId = parseInt(req.params.userId);
+      const adminUserId = req.userId as number;
+
+      if (isNaN(companyId) || isNaN(targetUserId)) {
+        return res.status(400).json({ message: "Ungültige Benutzer- oder Unternehmens-ID" });
+      }
+
+      // Prüfen, ob der Anfragesteller ein Admin des Unternehmens ist
+      const [admin] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, adminUserId));
+
+      if (!admin || !admin.companyId || !admin.isCompanyAdmin || admin.companyId !== companyId) {
+        return res.status(403).json({ message: "Sie haben keine Berechtigung, Benutzer zu aktivieren" });
+      }
+
+      // Prüfen, ob der Zielbenutzer im selben Unternehmen ist
+      const [targetUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, targetUserId));
+
+      if (!targetUser || targetUser.companyId !== companyId) {
+        return res.status(404).json({ message: "Benutzer nicht gefunden oder nicht in Ihrem Unternehmen" });
+      }
+
+      // Benutzer aktivieren
+      const [updatedUser] = await db
+        .update(schema.users)
+        .set({ isActive: true })
+        .where(eq(schema.users.id, targetUserId))
+        .returning();
+
+      // Aktivitätslog erstellen
+      await storage.createActivityLog({
+        action: "update",
+        details: `Benutzer ${targetUser.username} aktiviert`,
+        userId: adminUserId,
+        visibleToUsers: [targetUserId, adminUserId]
+      });
+
+      const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Fehler beim Aktivieren des Benutzers:", error);
+      res.status(500).json({ message: "Fehler beim Aktivieren des Benutzers" });
+    }
+  });
+
+  // Benutzer zur Aktivierung auflisten (nur für Admins)
+  app.get("/api/companies/:companyId/users/pending", requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const adminUserId = req.userId as number;
+
+      if (isNaN(companyId)) {
+        return res.status(400).json({ message: "Ungültige Unternehmens-ID" });
+      }
+
+      // Prüfen, ob der Anfragesteller ein Admin des Unternehmens ist
+      const [admin] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, adminUserId));
+
+      if (!admin || !admin.companyId || !admin.isCompanyAdmin || admin.companyId !== companyId) {
+        return res.status(403).json({ message: "Sie haben keine Berechtigung, ausstehende Benutzer zu sehen" });
+      }
+
+      // Ausstehende Benutzer für dieses Unternehmen abrufen
+      const pendingUsers = await db
+        .select({
+          id: schema.users.id,
+          username: schema.users.username,
+          email: schema.users.email,
+          avatarUrl: schema.users.avatarUrl,
+          createdAt: schema.users.createdAt
+        })
+        .from(schema.users)
+        .where(
+          and(
+            eq(schema.users.companyId, companyId),
+            eq(schema.users.isActive, false)
+          )
+        );
+
+      res.json(pendingUsers);
+    } catch (error) {
+      console.error("Fehler beim Abrufen ausstehender Benutzer:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen ausstehender Benutzer" });
+    }
+  });
+
   // Add new route to get all users
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
-      const users = await storage.getUsers();
+      const userId = req.userId as number;
+      const users = await storage.getUsers(userId);
       // Entferne sensitive Daten vor dem Senden
       const safeUsers = users.map(({ passwordHash, ...user }) => user);
       res.json(safeUsers);
@@ -150,7 +283,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const user = await storage.getUser(id);
+      const userId = req.userId as number;
+      const user = await storage.getUser(userId, id);
       const { passwordHash: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
