@@ -12,7 +12,7 @@ import { Knex } from 'knex';
 import { queryClient } from './utils'; // Assuming queryClient is imported from a utils file
 import { requireAuth, optionalAuth } from './middleware/auth';
 import { permissionService } from './permissions';
-import { db } from './db';
+import { db, pool } from './db';
 import * as schema from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 
