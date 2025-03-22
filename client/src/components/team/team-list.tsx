@@ -104,7 +104,7 @@ export function TeamList() {
         onClose={() => setEditingTeam(null)}
         defaultValues={editingTeam ? {
           ...editingTeam,
-          memberIds: getTeamMembers(editingTeam.id)
+          member_ids: getTeamMembers(editingTeam.id)
         } : undefined}
         onSubmit={async (data) => {
           if (!editingTeam) return;

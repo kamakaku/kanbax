@@ -949,7 +949,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTeam(userId: number, id: number, updateTeam: Partial<InsertTeam>): Promise<Team> {
-    const { memberIds, ...teamData } = updateTeam;
+    const { member_ids, ...teamData } = updateTeam;
 
     const [team] = await db
       .update(teams)
@@ -961,13 +961,13 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Team ${id} not found`);
     }
 
-    if (memberIds) {
+    if (member_ids) {
       await db
         .delete(teamMembers)
         .where(eq(teamMembers.teamId, id));
 
-      if (memberIds.length > 0) {
-        const memberEntries = memberIds.map(memberId => ({
+      if (member_ids.length > 0) {
+        const memberEntries = member_ids.map(memberId => ({
           teamId: id,
           userId: parseInt(memberId),
           role: 'member'
