@@ -1331,6 +1331,36 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+  app.post("/api/companies", requireAuth, async (req, res) => {
+    try {
+      const { name, description } = req.body;
+      
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ error: "Unternehmensname ist erforderlich" });
+      }
+      
+      const companyData = {
+        name,
+        description: description || null
+      };
+      
+      const company = await storage.createCompany(req.userId as number, companyData);
+      res.status(201).json(company);
+    } catch (error: any) {
+      console.error("Error in POST /api/companies:", error);
+      
+      // Spezifische Fehlermeldungen für bekannte Fehler
+      if (error.message && (
+        error.message.includes("Die Erstellung eines Unternehmens erfordert mindestens ein Basic-Abonnement") ||
+        error.message.includes("Sie sind bereits Mitglied eines Unternehmens")
+      )) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      res.status(500).json({ error: "Fehler beim Erstellen des Unternehmens" });
+    }
+  });
+
   // Add team-members route
   app.get("/api/team-members", requireAuth, async (req, res) => {
     try {

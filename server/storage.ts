@@ -1368,6 +1368,62 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+  
+  async createCompany(userId: number, companyData: InsertCompany): Promise<Company> {
+    try {
+      // Prüfen, ob der Benutzer eine ausreichende Abonnementstufe für Unternehmenserstellung hat
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+      
+      if (!user) {
+        throw new Error("Benutzer nicht gefunden");
+      }
+      
+      // Überprüfen Sie die Abonnementstufe des Benutzers
+      if (user.subscriptionTier === "free") {
+        throw new Error("Die Erstellung eines Unternehmens erfordert mindestens ein Basic-Abonnement");
+      }
+      
+      // Prüfen, ob der Benutzer bereits einem anderen Unternehmen angehört
+      if (user.companyId) {
+        throw new Error("Sie sind bereits Mitglied eines Unternehmens");
+      }
+      
+      // Einen eindeutigen Einladungscode generieren
+      const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      
+      // Unternehmen erstellen
+      const [company] = await db
+        .insert(companies)
+        .values({
+          name: companyData.name,
+          description: companyData.description || null,
+          inviteCode: inviteCode || companyData.inviteCode
+        })
+        .returning();
+      
+      if (!company) {
+        throw new Error("Fehler beim Erstellen des Unternehmens");
+      }
+      
+      // Benutzer als Unternehmensadmin setzen
+      await db
+        .update(users)
+        .set({
+          companyId: company.id,
+          isCompanyAdmin: true
+        })
+        .where(eq(users.id, userId))
+        .execute();
+      
+      return company;
+    } catch (error) {
+      console.error("Error in createCompany:", error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
