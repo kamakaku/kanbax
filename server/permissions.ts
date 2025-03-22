@@ -12,6 +12,7 @@ import {
   teamMembers,
   users,
   activityLogs,
+  companies,
   type User,
   type Board,
   type Project,
@@ -22,11 +23,84 @@ import {
   type ChecklistItem,
   type ActivityLog,
   type Objective,
+  type Company,
   tasks
 } from "@shared/schema";
 
 export class PermissionService {
-  // Zugriffsprüfungen für verschiedene Entitäten
+  // Zugriffsprüfung für Unternehmen
+  async canAccessCompany(userId: number, companyId: number): Promise<boolean> {
+    console.log(`Checking company access for user ${userId} on company ${companyId}`);
+
+    // Prüfe, ob der Benutzer Teil des Unternehmens ist
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.id, userId),
+        eq(users.companyId, companyId)
+      ));
+
+    return !!user;
+  }
+
+  // Zugriffsprüfung für Teams unter Berücksichtigung der Unternehmenszugehörigkeit
+  async canAccessTeam(userId: number, teamId: number): Promise<boolean> {
+    console.log(`Checking team access for user ${userId} on team ${teamId}`);
+
+    // Hole das Team und prüfe Unternehmenszugehörigkeit
+    const [team] = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, teamId));
+
+    if (!team) return false;
+
+    // Prüfe, ob der Benutzer Zugriff auf das Unternehmen hat
+    const hasCompanyAccess = await this.canAccessCompany(userId, team.companyId);
+    if (!hasCompanyAccess) return false;
+
+    // Prüfe, ob der Benutzer Mitglied des Teams ist
+    const [teamMember] = await db
+      .select()
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.teamId, teamId),
+        eq(teamMembers.userId, userId)
+      ));
+
+    return !!teamMember;
+  }
+
+  // Zugriffsprüfung für Projekte unter Berücksichtigung der Unternehmenszugehörigkeit
+  async canAccessProject(userId: number, projectId: number): Promise<boolean> {
+    console.log(`Checking project access for user ${userId} on project ${projectId}`);
+
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId));
+
+    if (!project) return false;
+
+    // Prüfe, ob der Benutzer Zugriff auf das Unternehmen hat
+    if (project.companyId) {
+      const hasCompanyAccess = await this.canAccessCompany(userId, project.companyId);
+      if (!hasCompanyAccess) return false;
+    }
+
+    // Prüfe Team-Mitgliedschaft
+    const userTeams = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, userId));
+
+    const userTeamIds = userTeams.map(tm => tm.teamId);
+
+    return project.teamIds?.some(teamId => userTeamIds.includes(teamId)) ?? false;
+  }
+
+  // Zugriffsprüfung für Boards unter Berücksichtigung der Unternehmenszugehörigkeit
   async canAccessBoard(userId: number, boardId: number): Promise<boolean> {
     console.log(`Checking board access for user ${userId} on board ${boardId}`);
 
@@ -62,30 +136,16 @@ export class PermissionService {
 
     const userTeamIds = userTeams.map(tm => tm.teamId);
 
+    // Prüfe Projekt-Zugehörigkeit und Unternehmenszugehörigkeit
+    if (board.project_id) {
+      const hasProjectAccess = await this.canAccessProject(userId, board.project_id);
+      if (hasProjectAccess) return true;
+    }
+
     return board.team_ids.some(teamId => userTeamIds.includes(teamId));
   }
 
-  async canAccessProject(userId: number, projectId: number): Promise<boolean> {
-    console.log(`Checking project access for user ${userId} on project ${projectId}`);
-
-    const [project] = await db
-      .select()
-      .from(projects)
-      .where(eq(projects.id, projectId));
-
-    if (!project) return false;
-
-    // Prüfe Team-Mitgliedschaft
-    const userTeams = await db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.userId, userId));
-
-    const userTeamIds = userTeams.map(tm => tm.teamId);
-
-    return project.teamIds?.some(teamId => userTeamIds.includes(teamId)) ?? false;
-  }
-
+  // Zugriffsprüfung für Objectives unter Berücksichtigung der Unternehmenszugehörigkeit
   async canAccessObjective(userId: number, objectiveId: number): Promise<boolean> {
     console.log(`Checking objective access for user ${userId} on objective ${objectiveId}`);
 
@@ -115,35 +175,41 @@ export class PermissionService {
 
     // Prüfe Team-Mitgliedschaft wenn Objective ein Team hat
     if (objective.teamId) {
-      const [teamMember] = await db
-        .select()
-        .from(teamMembers)
-        .where(and(
-          eq(teamMembers.teamId, objective.teamId),
-          eq(teamMembers.userId, userId)
-        ));
+      const hasTeamAccess = await this.canAccessTeam(userId, objective.teamId);
+      if (hasTeamAccess) return true;
+    }
 
-      if (teamMember) return true;
+    // Prüfe Projekt-Zugehörigkeit
+    if (objective.projectId) {
+      const hasProjectAccess = await this.canAccessProject(userId, objective.projectId);
+      if (hasProjectAccess) return true;
     }
 
     return false;
   }
 
+  // Zugriffsprüfung für Benutzer unter Berücksichtigung der Unternehmenszugehörigkeit
   async canAccessUser(userId: number, targetUserId: number): Promise<boolean> {
-    // Ein Benutzer kann nur seine eigenen Daten sehen
-    return userId === targetUserId;
-  }
+    // Ein Benutzer kann seine eigenen Daten immer sehen
+    if (userId === targetUserId) return true;
 
-  async canAccessTeam(userId: number, teamId: number): Promise<boolean> {
-    const [teamMember] = await db
+    // Prüfe, ob beide Benutzer zum selben Unternehmen gehören
+    const [user] = await db
       .select()
-      .from(teamMembers)
-      .where(and(
-        eq(teamMembers.teamId, teamId),
-        eq(teamMembers.userId, userId)
-      ));
+      .from(users)
+      .where(eq(users.id, userId));
 
-    return !!teamMember;
+    if (!user || !user.companyId) return false;
+
+    const [targetUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, targetUserId));
+
+    if (!targetUser || !targetUser.companyId) return false;
+
+    // Wenn beide zum selben Unternehmen gehören, kann der Benutzer den Zielbenutzer sehen
+    return user.companyId === targetUser.companyId;
   }
 
   // Filterfunktionen für verschiedene Entitäten
@@ -168,7 +234,21 @@ export class PermissionService {
   }
 
   async filterUsers(userId: number, users: User[]): Promise<User[]> {
-    return users.filter(user => user.id === userId);
+    // Benutzer können sich selbst und alle Benutzer in ihrem Unternehmen sehen
+    const [currentUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+    
+    if (!currentUser || !currentUser.companyId) {
+      // Wenn der Benutzer kein Unternehmen hat, kann er nur sich selbst sehen
+      return users.filter(user => user.id === userId);
+    }
+
+    // Der Benutzer kann alle Mitglieder seines Unternehmens sehen
+    return users.filter(user => 
+      user.id === userId || user.companyId === currentUser.companyId
+    );
   }
 
   async filterTeams(userId: number, teams: Team[]): Promise<Team[]> {
@@ -182,13 +262,27 @@ export class PermissionService {
   }
 
   async filterTeamMembers(userId: number, teamMembers: TeamMember[]): Promise<TeamMember[]> {
-    const userTeams = await db
+    // Hole die Unternehmenszugehörigkeit des aktuellen Benutzers
+    const [currentUser] = await db
       .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.userId, userId));
-
-    const userTeamIds = new Set(userTeams.map(tm => tm.teamId));
-    return teamMembers.filter(tm => userTeamIds.has(tm.teamId));
+      .from(users)
+      .where(eq(users.id, userId));
+    
+    if (!currentUser || !currentUser.companyId) {
+      // Wenn kein Unternehmen zugeordnet ist, Zugriff nur auf eigene Team-Mitgliedschaften
+      return teamMembers.filter(tm => tm.userId === userId);
+    }
+    
+    // Hole alle Teams des Unternehmens
+    const companyTeams = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.companyId, currentUser.companyId));
+      
+    const companyTeamIds = new Set(companyTeams.map(team => team.id));
+    
+    // Filtere Team-Mitglieder, die zu Teams des gleichen Unternehmens gehören
+    return teamMembers.filter(tm => companyTeamIds.has(tm.teamId));
   }
 
   async filterColumns(userId: number, columns: Column[]): Promise<Column[]> {
@@ -236,55 +330,85 @@ export class PermissionService {
     return filteredItems.filter((item): item is ChecklistItem => item !== null);
   }
 
-  // Activity Log Filterung
+  // Activity Log Filterung basierend auf Unternehmenszugehörigkeit
   async getVisibleActivityLogs(userId: number): Promise<ActivityLog[]> {
+    // Hole den Benutzer mit Unternehmensinformationen
+    const [currentUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!currentUser) return [];
+    
+    // Hole Team-Mitgliedschaften des Benutzers
     const userTeams = await db
       .select()
       .from(teamMembers)
       .where(eq(teamMembers.userId, userId));
 
     const userTeamIds = userTeams.map(tm => tm.teamId);
-
-    return await db
-      .select({
-        ...activityLogs,
-        board_title: boards.title,
-        project_title: projects.title,
-        objective_title: objectives.title,
-        user_name: users.username,
-        avatar_url: users.avatarUrl
-      })
-      .from(activityLogs)
-      .leftJoin(users, eq(activityLogs.userId, users.id))
-      .leftJoin(boards, eq(activityLogs.boardId, boards.id))
-      .leftJoin(projects, eq(activityLogs.projectId, projects.id))
-      .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
-      .where(
+    
+    // Abfrage erstellen
+    const query = db.select({
+      ...activityLogs,
+      board_title: boards.title,
+      project_title: projects.title,
+      objective_title: objectives.title,
+      user_name: users.username,
+      avatar_url: users.avatarUrl
+    })
+    .from(activityLogs)
+    .leftJoin(users, eq(activityLogs.userId, users.id))
+    .leftJoin(boards, eq(activityLogs.boardId, boards.id))
+    .leftJoin(projects, eq(activityLogs.projectId, projects.id))
+    .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(30);
+    
+    // Wenn der Benutzer ein Unternehmen hat, füge Unternehmensfilter hinzu
+    if (currentUser.companyId) {
+      // Benutzer darf nur Aktivitäten von Benutzern im selben Unternehmen sehen
+      return await query.where(
         or(
           // Benutzer ist Ersteller oder direkt sichtbar
-          eq(activityLogs.userId, userId),
-          inArray(activityLogs.visibleToUsers, [userId]),
-          // Benutzer-Teams haben Zugriff
-          inArray(activityLogs.visibleToTeams, userTeamIds),
-          // Benutzer hat Zugriff auf das referenzierte Board
           and(
+            eq(activityLogs.userId, userId),
+            eq(users.companyId, currentUser.companyId)
+          ),
+          // Aktivität bezieht sich auf einen anderen Benutzer im selben Unternehmen
+          and(
+            eq(users.companyId, currentUser.companyId),
+            inArray(activityLogs.visibleToUsers, [userId])
+          ),
+          // Benutzer-Teams haben Zugriff
+          and(
+            eq(users.companyId, currentUser.companyId),
+            inArray(activityLogs.visibleToTeams, userTeamIds)
+          ),
+          // Benutzer hat Zugriff auf das referenzierte Board im selben Unternehmen
+          and(
+            eq(users.companyId, currentUser.companyId),
             eq(boards.creator_id, userId),
             eq(activityLogs.boardId, boards.id)
           ),
-          // Benutzer hat Zugriff auf das referenzierte Projekt
+          // Benutzer hat Zugriff auf das referenzierte Projekt im selben Unternehmen
           and(
+            eq(projects.companyId, currentUser.companyId),
             inArray(projects.teamIds, userTeamIds),
             eq(activityLogs.projectId, projects.id)
           ),
-          // Benutzer hat Zugriff auf das referenzierte Objective
+          // Benutzer hat Zugriff auf das referenzierte Objective im selben Unternehmen
           and(
+            eq(users.companyId, currentUser.companyId),
             eq(objectives.creatorId, userId),
             eq(activityLogs.objectiveId, objectives.id)
           )
         )
-      )
-      .orderBy(desc(activityLogs.createdAt))
-      .limit(30);
+      );
+    } else {
+      // Wenn kein Unternehmen zugeordnet, nur eigene Aktivitäten sehen
+      return await query.where(eq(activityLogs.userId, userId));
+    }
   }
 }
 
