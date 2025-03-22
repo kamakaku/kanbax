@@ -1002,49 +1002,52 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
-      // Direkte SQL-Abfrage verwenden, um Probleme mit dem storage-Mechanismus zu umgehen
-      console.log("[COMPANY_DEBUG] Using direct SQL for company lookup");
-      try {
-        // Die Daten des Unternehmens in einem einzigen JOIN-Query abrufen
-        const query = `
-          SELECT c.*
-          FROM companies c
-          INNER JOIN users u ON u.company_id = c.id
-          WHERE u.id = $1
-        `;
-        
-        console.log("[COMPANY_DEBUG] Executing query:", query);
-        
-        const result = await pool.query(query, [req.userId]);
-        console.log("[COMPANY_DEBUG] Query result:", JSON.stringify(result.rows, null, 2));
-        
-        if (result.rows.length === 0) {
-          console.log(`[COMPANY_DEBUG] No company found for user ID ${req.userId}`);
-          // Return null if no company found (not an error)
-          return res.json(null);
-        }
-        
-        // Format für die Antwort
-        const company = result.rows[0];
-        
-        // Konvertieren von snake_case zu camelCase
-        const companyResponse = {
-          id: company.id,
-          name: company.name,
-          description: company.description,
-          inviteCode: company.invite_code,
-          createdAt: company.created_at
-        };
-        
-        console.log("[COMPANY_DEBUG] Returning company data:", JSON.stringify(companyResponse, null, 2));
-        return res.json(companyResponse);
-      } catch (dbError) {
-        console.error("[COMPANY_DEBUG] Database error:", dbError);
-        return res.status(500).json({ message: "Datenbankfehler beim Abrufen der Unternehmensdaten" });
+      // Zuerst Benutzerinformationen abrufen
+      console.log("[COMPANY_DEBUG] Fetching user information first");
+      const userQuery = await pool.query("SELECT * FROM users WHERE id = $1", [req.userId]);
+      console.log("[COMPANY_DEBUG] User query result:", JSON.stringify(userQuery.rows, null, 2));
+      
+      if (userQuery.rows.length === 0) {
+        console.log(`[COMPANY_DEBUG] User with ID ${req.userId} not found`);
+        return res.status(404).json({ message: "Benutzer nicht gefunden" });
       }
+      
+      const user = userQuery.rows[0];
+      
+      // Prüfen, ob der Benutzer einem Unternehmen zugeordnet ist
+      if (!user.company_id) {
+        console.log(`[COMPANY_DEBUG] User has no company ID`);
+        return res.json(null);
+      }
+      
+      // Unternehmen des Benutzers abrufen
+      console.log(`[COMPANY_DEBUG] Fetching company with ID ${user.company_id}`);
+      const companyQuery = await pool.query("SELECT * FROM companies WHERE id = $1", [user.company_id]);
+      console.log("[COMPANY_DEBUG] Company query result:", JSON.stringify(companyQuery.rows, null, 2));
+      
+      if (companyQuery.rows.length === 0) {
+        console.log(`[COMPANY_DEBUG] No company found with ID ${user.company_id}`);
+        // Return null if no company found (not an error)
+        return res.json(null);
+      }
+      
+      // Format für die Antwort
+      const company = companyQuery.rows[0];
+      
+      // Konvertieren von snake_case zu camelCase
+      const companyResponse = {
+        id: company.id,
+        name: company.name,
+        description: company.description,
+        inviteCode: company.invite_code,
+        createdAt: company.created_at
+      };
+      
+      console.log("[COMPANY_DEBUG] Returning company data:", JSON.stringify(companyResponse, null, 2));
+      return res.json(companyResponse);
     } catch (error) {
       console.error("Error fetching current company:", error);
-      res.status(500).json({ 
+      return res.status(500).json({ 
         message: "Fehler beim Abrufen der aktuellen Unternehmensdaten",
         details: error instanceof Error ? error.message : String(error)
       });
