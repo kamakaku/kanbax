@@ -85,49 +85,64 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(400).json({ message: "Einladungscode ist erforderlich" });
       }
 
-      // Find company with invite code
-      const companies = await db
-        .select()
-        .from(schema.companies)
-        .where(eq(schema.companies.inviteCode, inviteCode));
+      // Find company with invite code using direct SQL to avoid potential ORM issues
+      const companyQuery = await pool.query(
+        'SELECT * FROM companies WHERE invite_code = $1',
+        [inviteCode]
+      );
+      
+      console.log("Company database query result:", {
+        rowCount: companyQuery.rowCount,
+        rows: companyQuery.rows.map(r => ({ id: r.id, name: r.name }))
+      });
 
-      console.log("Found companies with invite code:", companies);
-
-      if (!companies || companies.length === 0) {
+      if (companyQuery.rowCount === 0) {
         return res.status(400).json({ message: "Ungültiger Einladungscode" });
       }
 
-      const company = companies[0];
+      const company = companyQuery.rows[0];
 
       // Hash password
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(result.data.password, salt);
 
-      // Create user with company assignment and inactive status
-      const userData = {
-        username: result.data.username,
-        email: result.data.email,
-        passwordHash,
-        isActive: false,  // User needs to be activated by admin
-        isCompanyAdmin: false
+      // Create user with company assignment and inactive status using direct SQL
+      // to avoid potential issues with Drizzle field conversion
+      const userResult = await pool.query(
+        `INSERT INTO users 
+        (username, email, password_hash, company_id, is_active, is_company_admin) 
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *`,
+        [
+          result.data.username,
+          result.data.email, 
+          passwordHash,
+          company.id,
+          false, // is_active
+          false  // is_company_admin
+        ]
+      );
+      
+      if (userResult.rowCount === 0) {
+        throw new Error("Fehler beim Erstellen des Benutzers - keine Daten zurückgegeben");
+      }
+      
+      const user = userResult.rows[0];
+      
+      // Convert snake_case to camelCase for response
+      const userResponse = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatar_url,
+        companyId: user.company_id,
+        isCompanyAdmin: user.is_company_admin,
+        isActive: user.is_active,
+        createdAt: user.created_at
       };
-      
-      // Add companyId separately to avoid TypeScript error
-      const completeUserData = { 
-        ...userData, 
-        companyId: company.id 
-      };
-      
-      console.log("Creating user with data:", {
-        ...completeUserData,
-        passwordHash: "[redacted]"
-      });
-      
-      const user = await storage.createUser(0, completeUserData);
 
-      // Remove password hash from response
-      const { passwordHash: _, ...userWithoutPassword } = user;
-      res.status(201).json(userWithoutPassword);
+      // Return user object without password hash
+      res.status(201).json(userResponse);
     } catch (error) {
       console.error("Failed to create user:", error);
       res.status(500).json({ message: "Benutzerregistrierung fehlgeschlagen" });
