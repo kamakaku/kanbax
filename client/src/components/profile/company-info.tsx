@@ -56,7 +56,7 @@ export function CompanyInfoSection() {
     data: company,
     isLoading,
     error,
-  } = useQuery({
+  } = useQuery<CompanyResponse>({
     queryKey: ['/api/companies/current'],
     queryFn: () => apiRequest('GET', '/api/companies/current'),
     enabled: !!user,
