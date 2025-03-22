@@ -268,7 +268,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       const updatedUser = result.rows[0];
 
       // Aktivitätslog erstellen
-      await storage.createActivityLog({
+      await storage.createActivityLog(adminUserId, {
         action: "update",
         details: `Benutzer ${targetUser.username} aktiviert`,
         userId: adminUserId,
@@ -488,7 +488,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       const project = await storage.createProject(result.data);
 
       // Log the activity with correct userId
-      await storage.createActivityLog({
+      await storage.createActivityLog(userId, {
         action: "create",
         details: "Neues Projekt erstellt",
         userId: userId, // Use consistent userId field
@@ -520,10 +520,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       // Log the activity with all relevant IDs
-      await storage.createActivityLog({
+      // Verwende req.userId falls verfügbar, ansonsten einen alternativen Benutzer
+      const userId = req.userId || (result.data.userId || 1); // Fallback auf 1 für den Systembenutzer
+      await storage.createActivityLog(userId, {
         action: "update",
         details: "Projekt aktualisiert",
-        userId: result.data.creator_id, // Using creator_id from request body for consistency.  Consider userId if available.
+        userId: userId,
         projectId: id,
         boardId: null,
         objectiveId: null,
@@ -548,11 +550,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       const userId = req.userId!;
 
       // Log the activity before deletion
-      await storage.createActivityLog({
+      await storage.createActivityLog(userId, {
         action: "delete",
         details: "Projekt gelöscht",
-        user_id: userId,
-        project_id: id
+        userId: userId,
+        projectId: id
       });
 
       await storage.deleteProject(userId, id);
@@ -608,10 +610,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       console.log("Board created:", board);
 
       // Create activity log entry
-      await storage.createActivityLog({
+      const creatorId = result.data.creator_id;
+      await storage.createActivityLog(creatorId, {
         action: "create",
         details: "Neues Board erstellt",
-        userId: result.data.creator_id,
+        userId: creatorId,
         boardId: board.id
       });
 
