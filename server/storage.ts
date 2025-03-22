@@ -78,8 +78,24 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // Project operations
   async getProjects(userId: number): Promise<Project[]> {
-    const projects = await db.select().from(projects);
-    return permissionService.filterProjects(userId, projects);
+    try {
+      console.log("Fetching projects for user:", userId);
+      const projectResults = await db.select().from(projects);
+      
+      // Berechtigungsprüfung für alle Projekte
+      const accessibleProjectsPromises = projectResults.map(async (project) => {
+        const hasAccess = await permissionService.canAccessProject(userId, project.id);
+        return hasAccess ? project : null;
+      });
+      
+      const accessibleProjects = (await Promise.all(accessibleProjectsPromises)).filter((project): project is Project => project !== null);
+      console.log(`User ${userId} has access to ${accessibleProjects.length} of ${projectResults.length} projects`);
+      
+      return accessibleProjects;
+    } catch (error) {
+      console.error("Error in getProjects:", error);
+      throw error;
+    }
   }
 
   async getProject(userId: number, id: number): Promise<Project> {
@@ -141,8 +157,14 @@ export class DatabaseStorage implements IStorage {
       console.log("Fetching boards for user:", userId);
       const boardResults = await db.select().from(boards);
 
-      const accessibleBoards = boardResults.filter(async (board) => await permissionService.canAccessBoard(userId, board.id));
-
+      // Berechtigungsprüfung für alle Boards
+      const accessibleBoardsPromises = boardResults.map(async (board) => {
+        const hasAccess = await permissionService.canAccessBoard(userId, board.id);
+        return hasAccess ? board : null;
+      });
+      
+      const accessibleBoards = (await Promise.all(accessibleBoardsPromises)).filter((board): board is Board => board !== null);
+      console.log(`User ${userId} has access to ${accessibleBoards.length} of ${boardResults.length} boards`);
 
       const processedBoards = await Promise.all(accessibleBoards.map(async (board) => {
         let teamsData: Team[] = [];
@@ -195,11 +217,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBoardsByProject(userId: number, projectId: number): Promise<Board[]> {
-    const boards = await db
-      .select()
-      .from(boards)
-      .where(eq(boards.projectId, projectId));
-    return permissionService.filterBoards(userId, boards);
+    try {
+      console.log(`Fetching boards for project ${projectId} and user ${userId}`);
+      const boardResults = await db
+        .select()
+        .from(boards)
+        .where(eq(boards.project_id, projectId));
+      
+      // Berechtigungsprüfung für alle Boards
+      const accessibleBoardsPromises = boardResults.map(async (board) => {
+        const hasAccess = await permissionService.canAccessBoard(userId, board.id);
+        return hasAccess ? board : null;
+      });
+      
+      const accessibleBoards = (await Promise.all(accessibleBoardsPromises)).filter((board): board is Board => board !== null);
+      console.log(`User ${userId} has access to ${accessibleBoards.length} of ${boardResults.length} boards in project ${projectId}`);
+      
+      return accessibleBoards;
+    } catch (error) {
+      console.error(`Error in getBoardsByProject for project ${projectId}:`, error);
+      throw error;
+    }
   }
 
   async getBoard(userId: number, id: number): Promise<Board> {
