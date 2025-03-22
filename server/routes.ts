@@ -1002,43 +1002,27 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
-      // Hole die aktuellen Benutzerinformationen
-      try {
-        // Verwende den storage-Service statt direkter SQL-Abfragen
-        const user = await storage.getUser(req.userId, req.userId);
-        console.log("[COMPANY_DEBUG] User data:", JSON.stringify(user, null, 2));
-        
-        // Wenn der Benutzer keinem Unternehmen zugeordnet ist
-        if (!user.companyId) {
-          console.log("[COMPANY_DEBUG] User has no company");
-          return res.json(null);
-        }
-        
-        try {
-          // Verwende den storage-Service für den Unternehmenszugriff
-          const company = await storage.getCurrentUserCompany(req.userId);
-          console.log("[COMPANY_DEBUG] Company data:", JSON.stringify(company, null, 2));
-          
-          if (!company) {
-            console.log("[COMPANY_DEBUG] No company found for user");
-            return res.json(null);
-          }
-          
-          return res.json(company);
-        } catch (companyError) {
-          console.error("[COMPANY_DEBUG] Error fetching company:", companyError);
-          // Wenn es ein Problem beim Abrufen des Unternehmens gibt, geben wir null zurück
-          return res.json(null);
-        }
-      } catch (userError) {
-        console.error("[COMPANY_DEBUG] Error fetching user:", userError);
-        if (userError instanceof Error && userError.message.includes("not found")) {
-          return res.status(404).json({ message: "Benutzer nicht gefunden" });
-        }
-        throw userError; // Werfe den Fehler weiter, wenn es kein "not found" Fehler ist
-      }
+      // Hole die aktuellen Unternehmensdaten direkt mit getCurrentUserCompany
+      // Diese Methode prüft bereits ob der User existiert und zu einem Unternehmen gehört
+      const company = await storage.getCurrentUserCompany(req.userId);
+      console.log("[COMPANY_DEBUG] Company data:", JSON.stringify(company, null, 2));
+      
+      // company kann null sein, wenn der User kein Unternehmen hat
+      return res.json(company);
+      
     } catch (error) {
-      console.error("Error fetching current company:", error);
+      console.error("[COMPANY_DEBUG] Unexpected error:", error);
+      
+      // Spezifische Fehlermeldungen für verschiedene Fehlertypen
+      if (error instanceof Error) {
+        if (error.message.includes("not found")) {
+          return res.status(404).json({ message: "Benutzer nicht gefunden" });
+        } else if (error.message.includes("Ungültige")) {
+          return res.status(400).json({ message: error.message });
+        }
+      }
+      
+      // Allgemeiner Serverfehler für alle anderen Fehler
       return res.status(500).json({
         message: "Fehler beim Abrufen der Unternehmensdaten",
         details: error instanceof Error ? error.message : String(error)
