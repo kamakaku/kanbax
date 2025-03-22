@@ -160,7 +160,7 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
                 <FormItem>
                   <FormLabel>Team-Mitglieder</FormLabel>
                   <FormControl>
-                    <DialogMultiSelect
+                    <MultiSelect
                       options={userOptions}
                       selected={field.value || []}
                       onChange={field.onChange}
