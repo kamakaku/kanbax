@@ -971,8 +971,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       console.log(`Company found: ${!!company}`);
 
       if (!company) {
-        // Ungültige Unternehmens-ID im Benutzerprofil - ein Fehlerfall
-        return res.status(404).json({ message: "Unternehmen nicht gefunden" });
+        // Ungültige Unternehmens-ID im Benutzerprofil
+        // Wir geben null zurück statt einem Fehler, damit das Frontend
+        // konsistent damit umgehen kann, wie wenn kein Unternehmen zugewiesen ist
+        console.log("Invalid company ID in user profile, returning null");
+        return res.status(200).json(null);
       }
 
       // Erfolgreiche Antwort mit den Unternehmensdaten
