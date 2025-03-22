@@ -63,8 +63,26 @@ export function CompanyInfoSection() {
         if (!user?.id) {
           return null;
         }
-        const response = await apiRequest('GET', '/api/companies/current');
-        return response;
+        
+        // Verwende fetch direkt mit einem Fallback zu null bei Fehlern
+        const res = await fetch('/api/companies/current', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        // Wenn die Antwort nicht OK ist (z.B. 400, 404, 500), geben wir null zurück
+        if (!res.ok) {
+          console.log(`Server returned ${res.status}: ${res.statusText}`);
+          return null;
+        }
+        
+        // Versuche JSON zu parsen, bei Fehler return null
+        try {
+          return await res.json();
+        } catch (jsonError) {
+          console.error('Error parsing JSON response:', jsonError);
+          return null;
+        }
       } catch (err) {
         console.error('Error fetching company:', err);
         return null;
