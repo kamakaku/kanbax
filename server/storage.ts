@@ -76,6 +76,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  permissionService = permissionService;
   // Project operations
   async getProjects(userId: number): Promise<Project[]> {
     try {
