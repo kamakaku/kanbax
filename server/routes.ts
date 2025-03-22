@@ -959,22 +959,44 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       console.log(`Fetching current company for user ID: ${req.userId}`);
       
+      // Prüfen ob der Benutzer authentifiziert ist
       if (!req.userId) {
+        console.log("User not authenticated");
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
-      try {
-        // Verwenden wir die Storage-Implementierung, um das aktuelle Unternehmen abzurufen
-        const company = await storage.getCurrentUserCompany(req.userId);
+      // Direkt den Benutzer aus der Datenbank abrufen, um die aktuelle CompanyID zu erhalten
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, req.userId));
         
-        // Erfolgreiche Antwort mit den Unternehmensdaten oder null
-        console.log("Returning company data:", company);
-        return res.json(company);
-      } catch (storageError) {
-        console.error("Error from storage layer:", storageError);
-        // Bei Fehlern im Storage-Layer geben wir null zurück, um konsistentes Verhalten zu gewährleisten
-        return res.status(200).json(null);
+      if (!user) {
+        console.log(`User ID ${req.userId} not found in database`);
+        return res.status(404).json({ message: "Benutzer nicht gefunden" });
       }
+      
+      console.log("User found:", { id: user.id, email: user.email, companyId: user.companyId });
+      
+      if (!user.companyId) {
+        console.log(`User ID ${req.userId} has no company assigned`);
+        return res.json(null); // Kein Fehler, sondern null für Benutzer ohne Unternehmen
+      }
+      
+      // Unternehmen aus der Datenbank abrufen
+      const [company] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, user.companyId));
+        
+      if (!company) {
+        console.log(`Company ID ${user.companyId} not found in database`);
+        return res.json(null); // Kein Fehler, sondern null wenn das Unternehmen nicht existiert
+      }
+      
+      // Erfolgreiche Antwort mit den Unternehmensdaten
+      console.log("Returning company data:", company);
+      return res.json(company);
     } catch (error) {
       console.error("Error fetching current company:", error);
       res.status(500).json({ 

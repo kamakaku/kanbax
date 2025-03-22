@@ -56,24 +56,51 @@ export function CompanyInfoSection() {
     data: company,
     isLoading,
     error,
+    isError,
+    failureCount,
+    refetch
   } = useQuery<CompanyResponse>({
     queryKey: ['/api/companies/current'],
     queryFn: async () => {
       try {
+        console.log("Abfrage der Unternehmensdaten mit Benutzer:", user?.id);
         if (!user?.id) {
+          console.log("Kein Benutzer gefunden, gebe null zurück");
           return null;
         }
         
+        // Füge Debug-Informationen hinzu und prüfe die Session vor der Anfrage
+        const sessionCheck = await fetch('/api/auth/current-user', { 
+          credentials: 'include'
+        });
+        console.log("Session Check Status:", sessionCheck.status);
+        if (sessionCheck.ok) {
+          const sessionData = await sessionCheck.json();
+          console.log("Session Check Daten:", sessionData ? "Authentifiziert" : "Nicht authentifiziert");
+        }
+        
         // Verwende die neu konfigurierte API-Anfrage
+        console.log("Sende API-Anfrage an /api/companies/current");
         const res = await apiRequest<CompanyResponse>('GET', '/api/companies/current');
+        console.log("Unternehmensdaten erfolgreich abgerufen:", res);
         return res; // Kann ein Unternehmen oder null sein, je nach Antwort vom Server
       } catch (err) {
         console.error('Error fetching company:', err);
-        // Bei jedem Fehler geben wir null zurück (kein Unternehmen)
+        // Bei Authentifizierungsproblemen werfen wir den Fehler, damit er im UI angezeigt wird
+        if (err instanceof Error && (
+            err.message.includes("401") || 
+            err.message.includes("403") || 
+            err.message.includes("nicht authentifiziert") ||
+            err.message.includes("Ungültige")
+        )) {
+          throw err;
+        }
+        // Bei anderen Fehlern geben wir null zurück (kein Unternehmen)
         return null;
       }
     },
     enabled: !!user,
+    retry: 1, // Nur einen Wiederholungsversuch machen
   });
 
   // Abfrage der Unternehmensmitglieder mit korrekter company ID

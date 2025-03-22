@@ -23,6 +23,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email: string, password: string) => {
     try {
       set({ loading: true, error: null });
+      console.log("Versuche Login mit:", { email });
+      
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,14 +32,30 @@ export const useAuthStore = create<AuthState>((set) => ({
         credentials: "include"
       });
 
+      // Prüfen ob die Antwort JSON ist
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Server antwortete nicht mit JSON:", contentType);
+        throw new Error("Server antwortete in einem ungültigen Format");
+      }
+
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Anmeldung fehlgeschlagen");
       }
 
       const user = await res.json();
+      console.log("Login erfolgreich, User:", user);
       set({ user, loading: false });
+      
+      // Sofort die aktuelle Benutzer-Session validieren
+      try {
+        await fetch('/api/auth/current-user', { credentials: 'include' });
+      } catch (e) {
+        console.warn("Validierung der Benutzer-Session fehlgeschlagen:", e);
+      }
     } catch (error) {
+      console.error("Login-Fehler:", error);
       set({ 
         error: error instanceof Error ? error.message : "Anmeldung fehlgeschlagen",
         loading: false 
