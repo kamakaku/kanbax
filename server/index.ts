@@ -8,6 +8,8 @@ import knex from "knex";
 import session from "express-session";
 import MemoryStore from "memorystore";
 import { createServer } from "http";
+import { optionalAuth } from './middleware/auth';
+import { storage } from './storage';
 
 const app = express();
 
@@ -63,7 +65,7 @@ app.use((req, res, next) => {
   if (req.session) {
     console.log(`Session data:`, {
       userId: req.session.userId,
-      isNew: req.session.isNew
+      isNew: req.session && 'isNew' in req.session ? req.session.isNew : undefined
     });
   }
 
@@ -102,6 +104,21 @@ app.use((req, res, next) => {
     log("Routes registered successfully");
 
     // Add this after routes are registered but before error handler
+    app.get('/api/auth/current-user', optionalAuth, async (req, res) => {
+      try {
+        if (!req.userId) {
+          return res.json(null);
+        }
+  
+        const user = await storage.getUser(req.userId, req.userId);
+        const { passwordHash: _, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+      } catch (error) {
+        console.error("Error fetching current user:", error);
+        res.status(500).json({ message: "Fehler beim Abrufen des aktuellen Benutzers" });
+      }
+    });
+    
     app.get('*', (req, res, next) => {
       // Skip API routes and static files
       if (req.url.startsWith('/api') || req.url.startsWith('/assets')) {

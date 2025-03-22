@@ -48,6 +48,22 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });
+  
+  // Current user endpoint
+  app.get("/api/auth/current-user", optionalAuth, async (req, res) => {
+    try {
+      if (!req.userId) {
+        return res.json(null);
+      }
+
+      const user = await storage.getUser(req.userId, req.userId);
+      const { passwordHash: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen des aktuellen Benutzers" });
+    }
+  });
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
