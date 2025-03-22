@@ -2,21 +2,33 @@ import { pgTable, text, serial, integer, timestamp, boolean, primaryKey } from "
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User table with avatar support
+// Companies table
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  inviteCode: text("invite_code").notNull().unique(), // Einladungscode für das Unternehmen
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User table with avatar support and company association
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   avatarUrl: text("avatar_url"),
+  companyId: integer("company_id").references(() => companies.id),
+  isCompanyAdmin: boolean("is_company_admin").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Add new table for teams
+// Add new table for teams with company association
 export const teams = pgTable("teams", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  companyId: integer("company_id").notNull().references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -36,6 +48,7 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   teamIds: integer("team_ids").array().default([]),
   isFavorite: boolean("is_favorite").default(false),
+  companyId: integer("company_id").references(() => companies.id),
 });
 
 // Update boards table definition
@@ -134,10 +147,12 @@ export const insertProjectSchema = createInsertSchema(projects)
   .pick({
     title: true,
     description: true,
+    companyId: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
     description: z.string().optional(),
+    companyId: z.number().int().positive("Unternehmens-ID ist erforderlich"),
     teamIds: z.array(z.number().int().positive()).optional(),
   });
 
@@ -272,10 +287,12 @@ export const insertTeamSchema = createInsertSchema(teams)
   .pick({
     name: true,
     description: true,
+    companyId: true,
   })
   .extend({
     name: z.string().min(1, "Team name is required"),
     description: z.string().optional(),
+    companyId: z.number().int().positive("Company ID ist erforderlich"),
     member_ids: z.array(z.string()).optional(), // Changed from memberIds to member_ids
   });
 
@@ -430,7 +447,22 @@ export const insertObjectiveSchema = createInsertSchema(objectives)
     creatorId: z.number().int().positive("Creator ID ist erforderlich"),
   });
 
+// Export company schema
+export const insertCompanySchema = createInsertSchema(companies)
+  .pick({
+    name: true,
+    description: true,
+    inviteCode: true,
+  })
+  .extend({
+    name: z.string().min(1, "Unternehmensname ist erforderlich"),
+    inviteCode: z.string().min(6, "Einladungscode muss mindestens 6 Zeichen haben"),
+    description: z.string().optional(),
+  });
+
 // Export types
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 // Update Board type definition
