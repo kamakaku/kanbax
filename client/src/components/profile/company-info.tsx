@@ -65,47 +65,13 @@ export function CompanyInfoSection() {
       if (!user?.id) {
         return null;
       }
-      
-      const response = await apiRequest<CompanyResponse>('GET', '/api/companies/current');
-      return response;
+      return apiRequest<CompanyResponse>('GET', '/api/companies/current');
     },
     enabled: !!user?.id,
     retry: false,
     onError: (error) => {
       console.error('Fehler beim Abrufen der Unternehmensdaten:', error);
     }
-      }
-
-      const response = await apiRequest<CompanyResponse>('GET', '/api/companies/current');
-      if (!response) {
-        throw new Error('Keine Unternehmensdaten gefunden');
-      }
-      return response;
-    },
-    enabled: !!user?.id,
-    retry: false,
-    onError: (error) => {
-      console.error('Fehler beim Abrufen der Unternehmensdaten:', error);
-    }nutzer
-        // keinem Unternehmen zugeordnet ist oder ein Problem beim Abrufen besteht
-        // Wir loggen den Fehler, aber brechen die Komponente nicht ab
-        if (err instanceof Error) {
-          console.log('Fehlerdetails:', err.message);
-          
-          // Bei Auth-Fehlern Toast anzeigen
-          if (err.message.includes("401") || err.message.includes("403")) {
-            toast({
-              title: "Authentifizierungsproblem",
-              description: "Bitte melden Sie sich erneut an.",
-              variant: "destructive"
-            });
-          }
-        }
-        return null;
-      }
-    },
-    enabled: !!user,
-    retry: 1, // Nur einen Wiederholungsversuch machen
   });
 
   // Abfrage der Unternehmensmitglieder mit korrekter company ID
