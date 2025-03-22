@@ -62,17 +62,18 @@ export function CompanyInfoSection() {
   } = useQuery<CompanyResponse>({
     queryKey: ['/api/companies/current'],
     queryFn: async () => {
-      if (!user?.id) {
+      if (!user?.id || !user?.companyId) {
         return null;
       }
-      return apiRequest<CompanyResponse>('GET', '/api/companies/current');
+      const response = await apiRequest<CompanyResponse>('GET', `/api/companies/${user.companyId}`);
+      return response;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!user?.companyId,
     retry: false,
     onError: (error) => {
       console.error('Fehler beim Abrufen der Unternehmensdaten:', error);
     }
-  });
+  }););
 
   // Abfrage der Unternehmensmitglieder mit korrekter company ID
   const {
