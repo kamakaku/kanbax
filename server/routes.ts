@@ -335,8 +335,8 @@ export async function registerRoutes(app: Express, db: Knex) {
       // Get current user's company
       const [user] = await db
         .select()
-        .from(users)
-        .where(eq(users.id, userId));
+        .from(schema.users)
+        .where(eq(schema.users.id, userId));
 
       if (!user || !user.companyId) {
         return res.json([]);
@@ -345,17 +345,17 @@ export async function registerRoutes(app: Express, db: Knex) {
       // Get all users from the same company
       const companyUsers = await db
         .select({
-          id: users.id,
-          username: users.username,
-          email: users.email,
-          avatarUrl: users.avatarUrl,
-          companyId: users.companyId,
-          isCompanyAdmin: users.isCompanyAdmin,
-          isActive: users.isActive,
-          createdAt: users.createdAt
+          id: schema.users.id,
+          username: schema.users.username,
+          email: schema.users.email,
+          avatarUrl: schema.users.avatarUrl,
+          companyId: schema.users.companyId,
+          isCompanyAdmin: schema.users.isCompanyAdmin,
+          isActive: schema.users.isActive,
+          createdAt: schema.users.createdAt
         })
-        .from(users)
-        .where(eq(users.companyId, user.companyId));
+        .from(schema.users)
+        .where(eq(schema.users.companyId, user.companyId));
 
       res.json(companyUsers);
     } catch (error) {
