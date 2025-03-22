@@ -331,10 +331,33 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
       const userId = req.userId as number;
-      const users = await storage.getUsers(userId);
-      // Entferne sensitive Daten vor dem Senden
-      const safeUsers = users.map(({ passwordHash, ...user }) => user);
-      res.json(safeUsers);
+      
+      // Get current user's company
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user || !user.companyId) {
+        return res.json([]);
+      }
+
+      // Get all users from the same company
+      const companyUsers = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          avatarUrl: users.avatarUrl,
+          companyId: users.companyId,
+          isCompanyAdmin: users.isCompanyAdmin,
+          isActive: users.isActive,
+          createdAt: users.createdAt
+        })
+        .from(users)
+        .where(eq(users.companyId, user.companyId));
+
+      res.json(companyUsers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
