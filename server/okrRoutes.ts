@@ -17,7 +17,16 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      console.log(`Fetching objective with ID: ${id}`);
+      // Holen Sie die Benutzer-ID aus dem Authentifizierungskontext
+      const userId = req.userId!;
+      console.log(`Fetching objective with ID: ${id} for user: ${userId}`);
+
+      // Prüfen Sie die Berechtigung des Benutzers für dieses Objective
+      const hasAccess = await storage.permissionService.canAccessObjective(userId, id);
+      if (!hasAccess) {
+        console.log(`User ${userId} does not have permission to access objective ${id}`);
+        return res.status(403).json({ message: "Keine Berechtigung für dieses Objective" });
+      }
 
       // First get the objective
       const [objective] = await db.select()
@@ -70,10 +79,27 @@ export function registerOkrRoutes(app: Express) {
   // Objectives Endpoint
   app.get("/api/objectives", requireAuth, async (req: Request, res: Response) => {
     try {
+      // Holen Sie die Benutzer-ID aus dem Authentifizierungskontext
+      const userId = req.userId!;
+      console.log(`Fetching objectives for user: ${userId}`);
+      
+      // Holen Sie alle Objectives aus der Datenbank
       const allObjectives = await db.select().from(objectives);
+      
+      // Filtern Sie die Objectives basierend auf Berechtigungen
+      const accessibleObjectivesPromises = allObjectives.map(async (objective) => {
+        const hasAccess = await storage.permissionService.canAccessObjective(userId, objective.id);
+        return hasAccess ? objective : null;
+      });
+      
+      const accessibleObjectives = (await Promise.all(accessibleObjectivesPromises))
+        .filter((objective): objective is typeof objectives.$inferSelect => objective !== null);
+      
+      console.log(`User ${userId} has access to ${accessibleObjectives.length} of ${allObjectives.length} objectives`);
 
+      // Bereite die Daten für jedes zugängliche Objective auf
       const objectivesWithData = await Promise.all(
-        allObjectives.map(async (objective) => {
+        accessibleObjectives.map(async (objective) => {
           const objectiveKeyResults = await db.select()
             .from(keyResults)
             .where(eq(keyResults.objectiveId, objective.id));
@@ -228,6 +254,17 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
+      // Holen Sie die Benutzer-ID aus dem Authentifizierungskontext
+      const userId = req.userId!;
+      console.log(`Updating objective with ID: ${id} by user: ${userId}`);
+
+      // Prüfen Sie die Berechtigung des Benutzers für dieses Objective
+      const hasAccess = await storage.permissionService.canAccessObjective(userId, id);
+      if (!hasAccess) {
+        console.log(`User ${userId} does not have permission to update objective ${id}`);
+        return res.status(403).json({ message: "Keine Berechtigung zum Aktualisieren dieses Objectives" });
+      }
+
       const updated = await db.update(objectives)
         .set(req.body)
         .where(eq(objectives.id, id))
@@ -249,7 +286,30 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
+      // Holen Sie die Benutzer-ID aus dem Authentifizierungskontext
+      const userId = req.userId!;
+      console.log(`Deleting objective with ID: ${id} by user: ${userId}`);
+
+      // Prüfen Sie die Berechtigung des Benutzers für dieses Objective
+      const hasAccess = await storage.permissionService.canAccessObjective(userId, id);
+      if (!hasAccess) {
+        console.log(`User ${userId} does not have permission to delete objective ${id}`);
+        return res.status(403).json({ message: "Keine Berechtigung zum Löschen dieses Objectives" });
+      }
+
       await db.delete(objectives).where(eq(objectives.id, id));
+      
+      // Aktivitätsprotokoll für das Löschen des Objectives
+      await storage.createActivityLog({
+        action: "delete",
+        details: "Objective gelöscht",
+        userId: userId,
+        objectiveId: id,
+        taskId: null,
+        boardId: null,
+        projectId: null
+      });
+      
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Objective:", error);
@@ -265,6 +325,17 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
+      // Holen Sie die Benutzer-ID aus dem Authentifizierungskontext
+      const userId = req.userId!;
+      console.log(`Fetching key results for objective: ${objectiveId} by user: ${userId}`);
+
+      // Prüfen Sie die Berechtigung des Benutzers für dieses Objective
+      const hasAccess = await storage.permissionService.canAccessObjective(userId, objectiveId);
+      if (!hasAccess) {
+        console.log(`User ${userId} does not have permission to access objective ${objectiveId}'s key results`);
+        return res.status(403).json({ message: "Keine Berechtigung für diese Key Results" });
+      }
+      
       const krs = await db.select().from(keyResults).where(eq(keyResults.objectiveId, objectiveId));
       // Parse checklistItems from JSON strings back to objects
       const processedKrs = krs.map(kr => ({
@@ -437,14 +508,31 @@ export function registerOkrRoutes(app: Express) {
   });
 
   // New endpoint to get all key results
-  app.get("/api/key-results", requireAuth, async (_req: Request, res: Response) => {
+  app.get("/api/key-results", requireAuth, async (req: Request, res: Response) => {
     try {
-      const krs = await db.select().from(keyResults);
+      const userId = req.userId!;
+      console.log(`Fetching all key results for user: ${userId}`);
+      
+      // Holen Sie alle Key Results aus der Datenbank
+      const allKeyResults = await db.select().from(keyResults);
+      
+      // Für jedes KeyResult prüfen, ob der Benutzer Zugriff auf das zugehörige Objective hat
+      const accessibleKeyResultsPromises = allKeyResults.map(async (kr) => {
+        const hasAccess = await storage.permissionService.canAccessObjective(userId, kr.objectiveId);
+        return hasAccess ? kr : null;
+      });
+      
+      const accessibleKeyResults = (await Promise.all(accessibleKeyResultsPromises))
+        .filter((kr): kr is typeof keyResults.$inferSelect => kr !== null);
+      
+      console.log(`User ${userId} has access to ${accessibleKeyResults.length} of ${allKeyResults.length} key results`);
+      
       // Parse checklistItems from JSON strings back to objects
-      const processedKrs = krs.map(kr => ({
+      const processedKrs = accessibleKeyResults.map(kr => ({
         ...kr,
         checklistItems: kr.checklistItems ? kr.checklistItems.map(item => JSON.parse(item)) : [],
       }));
+      
       res.json(processedKrs);
     } catch (error) {
       console.error("Fehler beim Abrufen der Key Results:", error);
