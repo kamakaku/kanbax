@@ -38,16 +38,16 @@ export function UserManagement() {
   const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate'>('activate');
 
   // Benutzer aus dem aktuellen Unternehmen abrufen
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<UserType[]>({
     queryKey: ['/api/users'],
-    queryFn: () => apiRequest('GET', '/api/users'),
+    queryFn: () => apiRequest<UserType[]>('GET', '/api/users'),
     enabled: !!user
   });
 
   // Ausstehende Benutzer (nicht aktivierte) abrufen
-  const { data: pendingUsers = [], isLoading: pendingLoading } = useQuery({
+  const { data: pendingUsers = [], isLoading: pendingLoading } = useQuery<UserType[]>({
     queryKey: ['/api/companies', user?.companyId, 'users/pending'],
-    queryFn: () => apiRequest('GET', `/api/companies/${user?.companyId}/users/pending`),
+    queryFn: () => apiRequest<UserType[]>('GET', `/api/companies/${user?.companyId}/users/pending`),
     enabled: !!user?.companyId && !!user?.isCompanyAdmin,
   });
 
@@ -56,11 +56,13 @@ export function UserManagement() {
     mutationFn: async ({ userId, activate }: { userId: number, activate: boolean }) => {
       if (!user?.companyId) throw new Error("Keine Unternehmens-ID verfügbar");
       
-      return apiRequest(
+      const response = await apiRequest(
         'PATCH',
         `/api/companies/${user.companyId}/users/${userId}/activate`,
         { activate }
       );
+      
+      return response;
     },
     onSuccess: () => {
       // Beide Benutzerlisten aktualisieren

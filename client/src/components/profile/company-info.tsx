@@ -59,40 +59,37 @@ export function CompanyInfoSection() {
     isError,
     failureCount,
     refetch
-  } = useQuery<CompanyResponse>({
+  } = useQuery<Company | null>({
     queryKey: ['/api/companies/current'],
     queryFn: async () => {
       if (!user?.id || !user?.companyId) {
         return null;
       }
-      const response = await apiRequest<CompanyResponse>('GET', `/api/companies/${user.companyId}`);
+      const response = await apiRequest<Company | null>('GET', `/api/companies/${user.companyId}`);
       return response;
     },
     enabled: !!user?.id && !!user?.companyId,
-    retry: false,
-    onError: (error) => {
-      console.error('Fehler beim Abrufen der Unternehmensdaten:', error);
-    }
+    retry: false
   });
 
   // Abfrage der Unternehmensmitglieder mit korrekter company ID
   const {
     data: companyMembers,
     isLoading: isMembersLoading,
-  } = useQuery<any[]>({
+  } = useQuery<UserType[]>({
     queryKey: ['/api/companies', company?.id, 'members'],
     enabled: !!company?.id,
-    queryFn: () => apiRequest<any[]>('GET', `/api/companies/${company?.id}/members`),
+    queryFn: () => apiRequest<UserType[]>('GET', `/api/companies/${company?.id}/members`),
   });
 
   // Abfrage der ausstehenden Benutzer für Administratoren
   const {
     data: pendingUsers,
     isLoading: isPendingUsersLoading,
-  } = useQuery<any[]>({
+  } = useQuery<UserType[]>({
     queryKey: ['/api/companies', company?.id, 'users/pending'],
     enabled: !!company?.id && !!user?.isCompanyAdmin,
-    queryFn: () => apiRequest<any[]>('GET', `/api/companies/${company?.id}/users/pending`),
+    queryFn: () => apiRequest<UserType[]>('GET', `/api/companies/${company?.id}/users/pending`),
   });
 
   // Mutation zum Generieren eines Einladungscodes
