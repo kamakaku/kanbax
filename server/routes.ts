@@ -86,28 +86,44 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       // Find company with invite code
-      const [company] = await db
+      const companies = await db
         .select()
         .from(schema.companies)
         .where(eq(schema.companies.inviteCode, inviteCode));
 
-      if (!company) {
+      console.log("Found companies with invite code:", companies);
+
+      if (!companies || companies.length === 0) {
         return res.status(400).json({ message: "Ungültiger Einladungscode" });
       }
+
+      const company = companies[0];
 
       // Hash password
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(result.data.password, salt);
 
       // Create user with company assignment and inactive status
-      const user = await storage.createUser(0, {
+      const userData = {
         username: result.data.username,
         email: result.data.email,
         passwordHash,
-        companyId: company.id,
         isActive: false,  // User needs to be activated by admin
-        isCompanyAdmin: false,
+        isCompanyAdmin: false
+      };
+      
+      // Add companyId separately to avoid TypeScript error
+      const completeUserData = { 
+        ...userData, 
+        companyId: company.id 
+      };
+      
+      console.log("Creating user with data:", {
+        ...completeUserData,
+        passwordHash: "[redacted]"
       });
+      
+      const user = await storage.createUser(0, completeUserData);
 
       // Remove password hash from response
       const { passwordHash: _, ...userWithoutPassword } = user;
