@@ -27,6 +27,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include"
       });
 
       if (!res.ok) {
@@ -51,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password, inviteCode }),
+        credentials: "include"
       });
 
       if (!res.ok) {
@@ -71,7 +73,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   checkActivationStatus: async (userId: number) => {
     try {
       set({ loading: true, error: null });
-      const res = await fetch(`/api/users/${userId}/activation-status`);
+      const res = await fetch(`/api/users/${userId}/activation-status`, {
+        credentials: "include"
+      });
       
       if (!res.ok) {
         const error = await res.json();
@@ -89,7 +93,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       return false;
     }
   },
-  logout: () => {
+  logout: async () => {
+    try {
+      // Call logout endpoint to clear server-side session
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
+    // Clear client-side state regardless of server response
     set({ user: null, loading: false, error: null });
   },
 }));
