@@ -18,6 +18,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DialogMultiSelect, type Option } from "@/components/ui/dialog-multi-select";
 import { type User } from "@shared/schema";
 import { useEffect } from "react";
+import { useAuth } from "@/lib/auth-store";
 
 interface TeamFormProps {
   open: boolean;

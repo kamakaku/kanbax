@@ -33,7 +33,7 @@ export const teams = pgTable("teams", {
   name: text("name").notNull(),
   description: text("description"),
   companyId: integer("company_id").notNull().references(() => companies.id),
-  creatorId: integer("creator_id"),
+  creatorId: integer("creator_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -297,11 +297,13 @@ export const insertTeamSchema = createInsertSchema(teams)
     name: true,
     description: true,
     companyId: true,
+    creatorId: true,
   })
   .extend({
     name: z.string().min(1, "Team name is required"),
     description: z.string().optional(),
     companyId: z.number().int().positive("Company ID ist erforderlich"),
+    creatorId: z.number().int().positive("Creator ID ist erforderlich"),
     member_ids: z.array(z.string()).optional(), // Changed from memberIds to member_ids
   });
 

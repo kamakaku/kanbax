@@ -1026,7 +1026,14 @@ export class DatabaseStorage implements IStorage {
   async deleteTeam(userId: number, id: number): Promise<void> {
     // Zuerst das Team abrufen, um den Ersteller zu überprüfen
     const [existingTeam] = await db
-      .select()
+      .select({
+        id: teams.id,
+        name: teams.name,
+        description: teams.description,
+        companyId: teams.companyId,
+        creatorId: teams.creatorId,
+        createdAt: teams.createdAt,
+      })
       .from(teams)
       .where(eq(teams.id, id));
 
@@ -1068,7 +1075,14 @@ export class DatabaseStorage implements IStorage {
 
     // Get all teams from the user's company
     const companyTeams = await db
-      .select()
+      .select({
+        id: teams.id,
+        name: teams.name,
+        description: teams.description,
+        companyId: teams.companyId,
+        creatorId: teams.creatorId,
+        createdAt: teams.createdAt,
+      })
       .from(teams)
       .where(eq(teams.companyId, user.companyId));
 
