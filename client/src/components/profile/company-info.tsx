@@ -58,6 +58,7 @@ export function CompanyInfoSection() {
     error,
   } = useQuery({
     queryKey: ['/api/companies/current'],
+    queryFn: () => apiRequest('GET', '/api/companies/current'),
     enabled: !!user,
   });
 
@@ -68,7 +69,7 @@ export function CompanyInfoSection() {
   } = useQuery({
     queryKey: ['/api/companies', company?.id, 'members'],
     enabled: !!company?.id,
-    queryFn: () => apiRequest(`/api/companies/${company?.id}/members`),
+    queryFn: () => apiRequest('GET', `/api/companies/${company?.id}/members`),
   });
 
   // Abfrage der ausstehenden Benutzer für Administratoren
@@ -78,14 +79,14 @@ export function CompanyInfoSection() {
   } = useQuery({
     queryKey: ['/api/companies', company?.id, 'users/pending'],
     enabled: !!company?.id && !!user?.isCompanyAdmin,
-    queryFn: () => apiRequest(`/api/companies/${company?.id}/users/pending`),
+    queryFn: () => apiRequest('GET', `/api/companies/${company?.id}/users/pending`),
   });
 
   // Mutation zum Generieren eines Einladungscodes
   const generateInviteMutation = useMutation({
     mutationFn: async () => {
       if (!company?.id) throw new Error("Keine Unternehmens-ID vorhanden");
-      return apiRequest(`/api/companies/${company.id}/invite`, "POST");
+      return apiRequest("POST", `/api/companies/${company.id}/invite`);
     },
     onSuccess: (data) => {
       setInviteCode(data.inviteCode);
@@ -107,7 +108,7 @@ export function CompanyInfoSection() {
   const activateUserMutation = useMutation({
     mutationFn: (userId: number) => {
       if (!company?.id) throw new Error("Keine Unternehmens-ID vorhanden");
-      return apiRequest(`/api/companies/${company.id}/users/${userId}/activate`, "PATCH");
+      return apiRequest("PATCH", `/api/companies/${company.id}/users/${userId}/activate`);
     },
     onSuccess: () => {
       toast({
@@ -130,7 +131,7 @@ export function CompanyInfoSection() {
   // Mutation zum Beitreten zu einem Unternehmen
   const joinCompanyMutation = useMutation({
     mutationFn: (inviteCode: string) => 
-      apiRequest("/api/companies/join", "POST", { inviteCode }),
+      apiRequest("POST", "/api/companies/join", { inviteCode }),
     onSuccess: () => {
       setJoinDialogOpen(false);
       setJoinCode("");
@@ -153,7 +154,7 @@ export function CompanyInfoSection() {
   // Mutation zum Erstellen eines Unternehmens
   const createCompanyMutation = useMutation({
     mutationFn: (data: CompanyFormValues) => 
-      apiRequest("/api/companies", "POST", data),
+      apiRequest("POST", "/api/companies", data),
     onSuccess: () => {
       setCreateDialogOpen(false);
       form.reset();
@@ -190,7 +191,7 @@ export function CompanyInfoSection() {
   // Mutation zum Ändern der Admin-Rolle eines Benutzers
   const updateRoleMutation = useMutation({
     mutationFn: ({ userId, isAdmin }: { userId: number, isAdmin: boolean }) => 
-      apiRequest(`/api/companies/members/${userId}/role`, "PATCH", { isAdmin }),
+      apiRequest("PATCH", `/api/companies/members/${userId}/role`, { isAdmin }),
     onSuccess: () => {
       toast({
         title: "Erfolg!",
