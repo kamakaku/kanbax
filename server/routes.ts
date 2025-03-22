@@ -358,31 +358,39 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       // Prüfen, ob der Anfragesteller ein Admin des Unternehmens ist
-      const [admin] = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, adminUserId));
+      const adminQuery = await pool.query(
+        'SELECT * FROM users WHERE id = $1',
+        [adminUserId]
+      );
 
-      if (!admin || !admin.companyId || !admin.isCompanyAdmin || admin.companyId !== companyId) {
-        return res.status(403).json({ message: "Sie haben keine Berechtigung, ausstehende Benutzer zu sehen" });
+      if (adminQuery.rowCount === 0) {
+        return res.status(404).json({ message: "Admin-Benutzer nicht gefunden" });
+      }
+
+      const admin = adminQuery.rows[0];
+      
+      if (!admin.company_id || !admin.is_company_admin || admin.company_id !== companyId) {
+        return res.status(403).json({ 
+          message: "Sie haben keine Berechtigung, ausstehende Benutzer zu sehen" 
+        });
       }
 
       // Ausstehende Benutzer für dieses Unternehmen abrufen
-      const pendingUsers = await db
-        .select({
-          id: schema.users.id,
-          username: schema.users.username,
-          email: schema.users.email,
-          avatarUrl: schema.users.avatarUrl,
-          createdAt: schema.users.createdAt
-        })
-        .from(schema.users)
-        .where(
-          and(
-            eq(schema.users.companyId, companyId),
-            eq(schema.users.isActive, false)
-          )
-        );
+      const pendingUsersQuery = await pool.query(
+        `SELECT id, username, email, avatar_url, created_at 
+         FROM users 
+         WHERE company_id = $1 AND is_active = false`,
+        [companyId]
+      );
+
+      // Format für Frontend konvertieren (snake_case zu camelCase)
+      const pendingUsers = pendingUsersQuery.rows.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatar_url,
+        createdAt: user.created_at
+      }));
 
       res.json(pendingUsers);
     } catch (error) {

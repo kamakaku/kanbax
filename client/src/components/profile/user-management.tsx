@@ -38,13 +38,13 @@ export function UserManagement() {
   const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate'>('activate');
 
   // Benutzer aus dem aktuellen Unternehmen abrufen
-  const { data: users, isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['/api/users'],
     enabled: !!user
   });
 
   // Ausstehende Benutzer (nicht aktivierte) abrufen
-  const { data: pendingUsers, isLoading: pendingLoading } = useQuery({
+  const { data: pendingUsers = [], isLoading: pendingLoading } = useQuery({
     queryKey: ['/api/companies', user?.companyId, 'users/pending'],
     enabled: !!user?.companyId && !!user?.isCompanyAdmin,
   });
