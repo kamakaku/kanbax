@@ -957,51 +957,67 @@ export async function registerRoutes(app: Express, db: Knex) {
   // GET /api/companies/current
   app.get("/api/companies/current", requireAuth, async (req, res) => {
     try {
-      console.log(`Fetching current company for user ID: ${req.userId}`);
+      console.log(`[COMPANY_DEBUG] Fetching current company for user ID: ${req.userId}`);
       
       // Prüfen ob der Benutzer authentifiziert ist
       if (!req.userId) {
-        console.log("User not authenticated");
+        console.log("[COMPANY_DEBUG] User not authenticated");
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
       // Direkte SQL-Abfrage verwenden, um Probleme mit dem storage-Mechanismus zu umgehen
-      console.log("Using direct SQL for company lookup");
+      console.log("[COMPANY_DEBUG] Using direct SQL for company lookup");
       try {
-        // Zuerst die Benutzerinformationen abrufen, um die companyId zu erhalten
+        // 1. Debug: Den Benutzer vollständig abrufen, um zu sehen, was in der Datenbank ist
+        const fullUserResult = await pool.query(
+          `SELECT * FROM users WHERE id = $1`,
+          [req.userId]
+        );
+        console.log("[COMPANY_DEBUG] Full user data:", JSON.stringify(fullUserResult.rows[0], null, 2));
+        
+        // 2. Zuerst die companyId des Benutzers abrufen
         const userResult = await pool.query(
           `SELECT company_id FROM users WHERE id = $1`,
           [req.userId]
         );
         
-        console.log("User query result:", userResult.rows);
+        console.log("[COMPANY_DEBUG] User query result:", JSON.stringify(userResult.rows, null, 2));
         
-        if (userResult.rows.length === 0 || !userResult.rows[0].company_id) {
-          console.log(`User ID ${req.userId} has no company assigned`);
+        if (userResult.rows.length === 0) {
+          console.log(`[COMPANY_DEBUG] User ID ${req.userId} not found`);
+          return res.status(404).json({ message: "Benutzer nicht gefunden" });
+        }
+        
+        if (userResult.rows[0].company_id === null) {
+          console.log(`[COMPANY_DEBUG] User ID ${req.userId} has no company assigned (null value)`);
           return res.json(null); // Kein Fehler, sondern null für Benutzer ohne Unternehmen
         }
         
         const companyId = userResult.rows[0].company_id;
-        console.log(`Found company ID ${companyId} for user ${req.userId}`);
+        console.log(`[COMPANY_DEBUG] Found company ID ${companyId} for user ${req.userId}`);
         
-        // Dann die Unternehmensdaten abrufen
+        // 3. Alle Unternehmen auflisten, um zu sehen, was in der Datenbank ist
+        const allCompaniesResult = await pool.query(`SELECT * FROM companies`);
+        console.log("[COMPANY_DEBUG] All companies:", JSON.stringify(allCompaniesResult.rows, null, 2));
+        
+        // 4. Dann die spezifischen Unternehmensdaten abrufen
         const companyResult = await pool.query(
           `SELECT * FROM companies WHERE id = $1`,
           [companyId]
         );
         
-        console.log("Company query result:", companyResult.rows);
+        console.log("[COMPANY_DEBUG] Company query result:", JSON.stringify(companyResult.rows, null, 2));
         
         if (companyResult.rows.length === 0) {
-          console.log(`Company ID ${companyId} not found`);
+          console.log(`[COMPANY_DEBUG] Company ID ${companyId} not found in database`);
           return res.status(400).json({ message: "Ungültige Unternehmens-ID" });
         }
         
         const company = companyResult.rows[0];
-        console.log("Returning company data:", company);
+        console.log("[COMPANY_DEBUG] Returning company data:", JSON.stringify(company, null, 2));
         return res.json(company);
       } catch (dbError) {
-        console.error("Database error:", dbError);
+        console.error("[COMPANY_DEBUG] Database error:", dbError);
         return res.status(500).json({ message: "Datenbankfehler beim Abrufen der Unternehmensdaten" });
       }
     } catch (error) {
