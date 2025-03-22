@@ -11,7 +11,7 @@ export const companies = pgTable("companies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// User table with avatar support and company association
+// User table with avatar support, company association, activation and subscription
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -20,6 +20,10 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   companyId: integer("company_id").references(() => companies.id),
   isCompanyAdmin: boolean("is_company_admin").default(false),
+  isActive: boolean("is_active").default(false), // Benutzer muss von einem Admin aktiviert werden
+  lastLoginAt: timestamp("last_login_at"),
+  subscriptionTier: text("subscription_tier").default("free"), // free, basic, premium, enterprise
+  subscriptionExpiresAt: timestamp("subscription_expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -134,13 +138,17 @@ export const insertUserSchema = createInsertSchema(users)
     username: true,
     email: true,
     passwordHash: true,
+    companyId: true,
+    isActive: true,
   })
   .extend({
-    username: z.string().min(3, "Username must be at least 3 characters"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    username: z.string().min(3, "Benutzername muss mindestens 3 Zeichen lang sein"),
+    email: z.string().email("Ungültige E-Mail-Adresse"),
+    password: z.string().min(8, "Passwort muss mindestens 8 Zeichen lang sein"),
+    inviteCode: z.string().min(6, "Einladungscode muss mindestens 6 Zeichen lang sein"),
+    isActive: z.boolean().default(false),
   })
-  .omit({ passwordHash: true });
+  .omit({ passwordHash: true, companyId: true });
 
 // Update project schema
 export const insertProjectSchema = createInsertSchema(projects)

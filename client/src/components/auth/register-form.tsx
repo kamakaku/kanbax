@@ -9,41 +9,46 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-store";
 import { useToast } from "@/hooks/use-toast";
+import * as z from "zod";
 
-type RegisterForm = {
-  username: string;
-  email: string;
-  password: string;
-};
+const registerFormSchema = z.object({
+  username: insertUserSchema.shape.username,
+  email: insertUserSchema.shape.email,
+  password: insertUserSchema.shape.password,
+  inviteCode: z.string().min(1, "Unternehmenseinladungscode ist erforderlich")
+});
+
+type RegisterForm = z.infer<typeof registerFormSchema>;
 
 export function RegisterForm() {
   const { register } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<RegisterForm>({
-    resolver: zodResolver(
-      insertUserSchema.extend({
-        password: insertUserSchema.shape.password,
-      })
-    ),
+    resolver: zodResolver(registerFormSchema),
     defaultValues: {
       username: "",
       email: "",
       password: "",
+      inviteCode: "",
     },
   });
 
   const onSubmit = async (data: RegisterForm) => {
     try {
-      await register(data.username, data.email, data.password);
-      toast({ title: "Successfully registered" });
+      await register(data.username, data.email, data.password, data.inviteCode);
+      toast({ 
+        title: "Registrierung erfolgreich", 
+        description: "Ihr Konto wurde erstellt. Ein Administrator muss Ihren Account noch freischalten.",
+      });
     } catch (error) {
       toast({
-        title: "Failed to register",
+        title: "Registrierung fehlgeschlagen",
         description: (error as Error).message,
         variant: "destructive",
       });
@@ -58,7 +63,7 @@ export function RegisterForm() {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>Benutzername</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -72,7 +77,7 @@ export function RegisterForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>E-Mail</FormLabel>
               <FormControl>
                 <Input type="email" {...field} />
               </FormControl>
@@ -86,7 +91,7 @@ export function RegisterForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>Passwort</FormLabel>
               <FormControl>
                 <Input type="password" {...field} />
               </FormControl>
@@ -94,9 +99,26 @@ export function RegisterForm() {
             </FormItem>
           )}
         />
+        
+        <FormField
+          control={form.control}
+          name="inviteCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Unternehmenseinladungscode</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormDescription>
+                Der Einladungscode wird von einem Administrator Ihres Unternehmens bereitgestellt.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <Button type="submit" className="w-full">
-          Register
+          Registrieren
         </Button>
       </form>
     </Form>

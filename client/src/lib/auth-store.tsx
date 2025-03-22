@@ -8,9 +8,10 @@ interface AuthState {
   error: string | null;
   setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string, inviteCode: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  checkActivationStatus: (userId: number) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -43,13 +44,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw error;
     }
   },
-  register: async (username: string, email: string, password: string) => {
+  register: async (username: string, email: string, password: string, inviteCode: string) => {
     try {
       set({ loading: true, error: null });
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, email, password, inviteCode }),
       });
 
       if (!res.ok) {
@@ -65,6 +66,27 @@ export const useAuthStore = create<AuthState>((set) => ({
         loading: false 
       });
       throw error;
+    }
+  },
+  checkActivationStatus: async (userId: number) => {
+    try {
+      set({ loading: true, error: null });
+      const res = await fetch(`/api/users/${userId}/activation-status`);
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Fehler beim Abrufen des Aktivierungsstatus");
+      }
+      
+      const { isActive } = await res.json();
+      set({ loading: false });
+      return isActive;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Fehler beim Abrufen des Aktivierungsstatus",
+        loading: false
+      });
+      return false;
     }
   },
   logout: () => {
