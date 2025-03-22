@@ -941,26 +941,48 @@ export async function registerRoutes(app: Express, db: Knex) {
   // GET /api/companies/current
   app.get("/api/companies/current", requireAuth, async (req, res) => {
     try {
+      console.log(`Fetching current company for user ID: ${req.userId}`);
+      
+      if (!req.userId) {
+        return res.status(401).json({ message: "Nicht authentifiziert" });
+      }
+      
       const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, req.userId!)
+        where: eq(schema.users.id, req.userId)
       });
 
-      if (!user || !user.companyId) {
-        return res.status(404).json({ message: "Kein Unternehmen zugewiesen" });
+      console.log(`User found: ${!!user}, has companyId: ${!!user?.companyId}`);
+
+      if (!user) {
+        return res.status(404).json({ message: "Benutzer nicht gefunden" });
+      }
+      
+      if (!user.companyId) {
+        // Der Benutzer hat kein Unternehmen - wir geben null zurück,
+        // damit das Frontend erkennen kann, dass kein Unternehmen zugewiesen ist
+        console.log("User has no company assigned");
+        return res.status(200).json(null);
       }
 
       const company = await db.query.companies.findFirst({
         where: eq(schema.companies.id, user.companyId)
       });
 
+      console.log(`Company found: ${!!company}`);
+
       if (!company) {
+        // Ungültige Unternehmens-ID im Benutzerprofil - ein Fehlerfall
         return res.status(404).json({ message: "Unternehmen nicht gefunden" });
       }
 
+      // Erfolgreiche Antwort mit den Unternehmensdaten
       res.json(company);
     } catch (error) {
       console.error("Error fetching current company:", error);
-      res.status(500).json({ message: "Fehler beim Abrufen der aktuellen Unternehmensdaten" });
+      res.status(500).json({ 
+        message: "Fehler beim Abrufen der aktuellen Unternehmensdaten",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
