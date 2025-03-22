@@ -374,7 +374,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
                     <SelectValue placeholder="Benutzer auswählen" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent className="z-50">
                   <SelectGroup>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id.toString()}>
