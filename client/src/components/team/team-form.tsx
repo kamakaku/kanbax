@@ -30,6 +30,7 @@ interface TeamFormProps {
 export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Fetch available users
   const { data: users = [] } = useQuery<User[]>({
@@ -54,6 +55,8 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
       name: "",
       description: "",
       member_ids: [], // Umbenannt von memberIds zu member_ids
+      companyId: user?.companyId || 0, 
+      creatorId: user?.id || 0,
     },
   });
 
@@ -64,32 +67,43 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
         name: defaultValues.name,
         description: defaultValues.description,
         member_ids: defaultValues.member_ids, // Umbenannt von memberIds zu member_ids
+        companyId: defaultValues.companyId || user?.companyId || 0,
+        creatorId: defaultValues.creatorId || user?.id || 0,
       });
     } else {
       form.reset({
         name: "",
         description: "",
         member_ids: [], // Umbenannt von memberIds zu member_ids
+        companyId: user?.companyId || 0,
+        creatorId: user?.id || 0,
       });
     }
-  }, [defaultValues, form.reset]);
+  }, [defaultValues, form.reset, user]);
 
   const handleSubmit = async (data: InsertTeam) => {
     try {
       console.log("Submitting team data:", JSON.stringify(data, null, 2));
 
+      // Sicherstellen, dass creatorId und companyId gesetzt sind
+      const teamData = {
+        ...data,
+        creatorId: data.creatorId || user?.id || 0,
+        companyId: data.companyId || user?.companyId || 0,
+        member_ids: data.member_ids?.map(id => parseInt(id)) || [] // Umbenannt von memberIds zu member_ids
+      };
+      
+      console.log("Prepared team data:", JSON.stringify(teamData, null, 2));
+
       if (onSubmit) {
-        await onSubmit(data);
+        await onSubmit(teamData);
       } else {
         const res = await fetch('/api/teams', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            ...data,
-            member_ids: data.member_ids?.map(id => parseInt(id)) || [] // Umbenannt von memberIds zu member_ids
-          })
+          body: JSON.stringify(teamData)
         });
 
         if (!res.ok) {

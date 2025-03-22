@@ -103,19 +103,30 @@ export function TeamList() {
         open={!!editingTeam}
         onClose={() => setEditingTeam(null)}
         defaultValues={editingTeam ? {
-          ...editingTeam,
-          member_ids: getTeamMembers(editingTeam.id)
+          name: editingTeam.name,
+          description: editingTeam.description || "",
+          member_ids: getTeamMembers(editingTeam.id),
+          companyId: editingTeam.companyId,
+          creatorId: editingTeam.creatorId
         } : undefined}
         onSubmit={async (data) => {
           if (!editingTeam) return;
 
           try {
+            // Stelle sicher, dass creatorId beim Update nicht verloren geht
+            const teamData = {
+              ...data,
+              creatorId: editingTeam.creatorId // Wichtig: Die ursprüngliche creatorId beibehalten
+            };
+            
+            console.log("Updating team data:", JSON.stringify(teamData, null, 2));
+            
             const res = await fetch(`/api/teams/${editingTeam.id}`, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify(data)
+              body: JSON.stringify(teamData)
             });
 
             if (!res.ok) {
