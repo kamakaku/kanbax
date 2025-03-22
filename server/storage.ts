@@ -6,6 +6,7 @@ import { teams, type Team, type InsertTeam } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 import { objectives, type Objective, type InsertObjective } from "@shared/schema";
+import { userFavoriteProjects, userFavoriteBoards, userFavoriteObjectives, type UserFavoriteProject, type UserFavoriteBoard, type UserFavoriteObjective } from "@shared/schema";
 import { permissionService } from "./permissions";
 
 
@@ -158,10 +159,26 @@ export class DatabaseStorage implements IStorage {
       console.log("Fetching boards for user:", userId);
       const boardResults = await db.select().from(boards);
 
+      // Favoriten für diesen Benutzer abrufen
+      const favoriteBoards = await db
+        .select()
+        .from(userFavoriteBoards)
+        .where(eq(userFavoriteBoards.userId, userId));
+      
+      // Set mit Favoriten-Board-IDs erstellen für schnelle Suche
+      const favoriteBoardIds = new Set(favoriteBoards.map(fb => fb.boardId));
+
       // Berechtigungsprüfung für alle Boards
       const accessibleBoardsPromises = boardResults.map(async (board) => {
         const hasAccess = await permissionService.canAccessBoard(userId, board.id);
-        return hasAccess ? board : null;
+        if (hasAccess) {
+          // Personalisierter Favoriten-Status basierend auf userFavoriteBoards
+          return {
+            ...board,
+            is_favorite: favoriteBoardIds.has(board.id)
+          };
+        }
+        return null;
       });
       
       const accessibleBoards = (await Promise.all(accessibleBoardsPromises)).filter((board): board is Board => board !== null);
@@ -169,16 +186,16 @@ export class DatabaseStorage implements IStorage {
 
       const processedBoards = await Promise.all(accessibleBoards.map(async (board) => {
         let teamsData: Team[] = [];
-        if (board.teamIds && Array.isArray(board.teamIds) && board.teamIds.length > 0) {
+        if (board.team_ids && Array.isArray(board.team_ids) && board.team_ids.length > 0) {
           teamsData = await db
             .select()
             .from(teams)
-            .where(inArray(teams.id, board.teamIds));
+            .where(inArray(teams.id, board.team_ids));
         }
 
         let assignedUsers = [];
-        if (board.assignedUserIds && Array.isArray(board.assignedUserIds) && board.assignedUserIds.length > 0) {
-          const users = await db
+        if (board.assigned_user_ids && Array.isArray(board.assigned_user_ids) && board.assigned_user_ids.length > 0) {
+          const usersList = await db
             .select({
               id: users.id,
               username: users.username,
@@ -186,19 +203,19 @@ export class DatabaseStorage implements IStorage {
               avatarUrl: users.avatarUrl
             })
             .from(users)
-            .where(inArray(users.id, board.assignedUserIds));
-          assignedUsers = users;
+            .where(inArray(users.id, board.assigned_user_ids));
+          assignedUsers = usersList;
         }
 
         let projectData = null;
-        if (board.projectId) {
+        if (board.project_id) {
           const [project] = await db
             .select({
               id: projects.id,
               title: projects.title,
             })
             .from(projects)
-            .where(eq(projects.id, board.projectId));
+            .where(eq(projects.id, board.project_id));
           projectData = project;
         }
 
@@ -916,19 +933,51 @@ export class DatabaseStorage implements IStorage {
       if (!(await permissionService.canAccessProject(userId, id))) {
         throw new Error(`Project ${id} not found or unauthorized access`);
       }
+      
+      // Projekt abrufen
       const [project] = await db
-        .update(projects)
-        .set({
-          isFavorite: sql`NOT is_favorite`
-        })
-        .where(eq(projects.id, id))
-        .returning();
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id));
 
       if (!project) {
         throw new Error(`Project ${id} not found`);
       }
-
-      return project;
+      
+      // Prüfen, ob das Projekt bereits als Favorit markiert ist
+      const favorites = await db
+        .select()
+        .from(userFavoriteProjects)
+        .where(and(
+          eq(userFavoriteProjects.userId, userId),
+          eq(userFavoriteProjects.projectId, id)
+        ));
+      
+      const isFavorite = favorites.length > 0;
+      
+      if (isFavorite) {
+        // Favorit entfernen
+        await db
+          .delete(userFavoriteProjects)
+          .where(and(
+            eq(userFavoriteProjects.userId, userId),
+            eq(userFavoriteProjects.projectId, id)
+          ));
+      } else {
+        // Als Favorit hinzufügen
+        await db
+          .insert(userFavoriteProjects)
+          .values({
+            userId: userId,
+            projectId: id
+          });
+      }
+      
+      // Projekt mit aktualisiertem isFavorite-Status zurückgeben
+      return {
+        ...project,
+        isFavorite: !isFavorite
+      };
     } catch (error) {
       console.error('Error toggling project favorite:', error);
       throw error;
@@ -940,19 +989,51 @@ export class DatabaseStorage implements IStorage {
       if (!(await permissionService.canAccessBoard(userId, id))) {
         throw new Error(`Board ${id} not found or unauthorized access`);
       }
+      
+      // Board abrufen
       const [board] = await db
-        .update(boards)
-        .set({
-          is_favorite: sql`NOT is_favorite`
-        })
-        .where(eq(boards.id, id))
-        .returning();
+        .select()
+        .from(boards)
+        .where(eq(boards.id, id));
 
       if (!board) {
         throw new Error(`Board ${id} not found`);
       }
-
-      return board;
+      
+      // Prüfen, ob das Board bereits als Favorit markiert ist
+      const favorites = await db
+        .select()
+        .from(userFavoriteBoards)
+        .where(and(
+          eq(userFavoriteBoards.userId, userId),
+          eq(userFavoriteBoards.boardId, id)
+        ));
+      
+      const isFavorite = favorites.length > 0;
+      
+      if (isFavorite) {
+        // Favorit entfernen
+        await db
+          .delete(userFavoriteBoards)
+          .where(and(
+            eq(userFavoriteBoards.userId, userId),
+            eq(userFavoriteBoards.boardId, id)
+          ));
+      } else {
+        // Als Favorit hinzufügen
+        await db
+          .insert(userFavoriteBoards)
+          .values({
+            userId: userId,
+            boardId: id
+          });
+      }
+      
+      // Board mit aktualisiertem isFavorite-Status zurückgeben
+      return {
+        ...board,
+        is_favorite: !isFavorite
+      };
     } catch (error) {
       console.error('Error toggling board favorite:', error);
       throw error;
@@ -964,19 +1045,51 @@ export class DatabaseStorage implements IStorage {
       if (!(await permissionService.canAccessObjective(userId, id))) {
         throw new Error(`Objective ${id} not found or unauthorized access`);
       }
+      
+      // Objective abrufen
       const [objective] = await db
-        .update(objectives)
-        .set({
-          isFavorite: sql`NOT is_favorite`
-        })
-        .where(eq(objectives.id, id))
-        .returning();
+        .select()
+        .from(objectives)
+        .where(eq(objectives.id, id));
 
       if (!objective) {
         throw new Error(`Objective ${id} not found`);
       }
-
-      return objective;
+      
+      // Prüfen, ob das Objective bereits als Favorit markiert ist
+      const favorites = await db
+        .select()
+        .from(userFavoriteObjectives)
+        .where(and(
+          eq(userFavoriteObjectives.userId, userId),
+          eq(userFavoriteObjectives.objectiveId, id)
+        ));
+      
+      const isFavorite = favorites.length > 0;
+      
+      if (isFavorite) {
+        // Favorit entfernen
+        await db
+          .delete(userFavoriteObjectives)
+          .where(and(
+            eq(userFavoriteObjectives.userId, userId),
+            eq(userFavoriteObjectives.objectiveId, id)
+          ));
+      } else {
+        // Als Favorit hinzufügen
+        await db
+          .insert(userFavoriteObjectives)
+          .values({
+            userId: userId,
+            objectiveId: id
+          });
+      }
+      
+      // Objective mit aktualisiertem isFavorite-Status zurückgeben
+      return {
+        ...objective,
+        isFavorite: !isFavorite
+      };
     } catch (error) {
       console.error('Error toggling objective favorite:', error);
       throw error;
