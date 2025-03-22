@@ -1262,16 +1262,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
 
-  // Company routes
-  app.get("/api/companies/current", requireAuth, async (req, res) => {
-    try {
-      const company = await storage.getCurrentUserCompany(req.userId as number);
-      res.json(company);
-    } catch (error) {
-      console.error("Error in GET /api/companies/current:", error);
-      res.status(500).json({ error: "Fehler beim Abrufen des aktuellen Unternehmens" });
-    }
-  });
+  // Company routes - Diese Methode wurde nach oben verschoben und verbessert
 
   app.get("/api/companies/:id", requireAuth, async (req, res) => {
     try {
