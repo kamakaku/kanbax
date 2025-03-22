@@ -332,32 +332,39 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const userId = req.userId as number;
       
-      // Get current user's company
-      const [user] = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, userId));
+      // Get current user's company using direct SQL query
+      const userResult = await pool.query(
+        'SELECT company_id FROM users WHERE id = $1',
+        [userId]
+      );
 
-      if (!user || !user.companyId) {
+      if (userResult.rows.length === 0 || !userResult.rows[0].company_id) {
         return res.json([]);
       }
 
-      // Get all users from the same company
-      const companyUsers = await db
-        .select({
-          id: schema.users.id,
-          username: schema.users.username,
-          email: schema.users.email,
-          avatarUrl: schema.users.avatarUrl,
-          companyId: schema.users.companyId,
-          isCompanyAdmin: schema.users.isCompanyAdmin,
-          isActive: schema.users.isActive,
-          createdAt: schema.users.createdAt
-        })
-        .from(schema.users)
-        .where(eq(schema.users.companyId, user.companyId));
+      const companyId = userResult.rows[0].company_id;
 
-      res.json(companyUsers);
+      // Get all users from the same company using direct SQL query
+      const companyUsers = await pool.query(
+        `SELECT id, username, email, avatar_url, company_id, 
+         is_company_admin, is_active, created_at 
+         FROM users WHERE company_id = $1`,
+        [companyId]
+      );
+
+      // Transform snake_case to camelCase
+      const users = companyUsers.rows.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatar_url,
+        companyId: user.company_id,
+        isCompanyAdmin: user.is_company_admin,
+        isActive: user.is_active,
+        createdAt: user.created_at
+      }));
+
+      res.json(users);
     } catch (error) {
       console.error("Failed to fetch users:", error);
       res.status(500).json({ message: "Failed to fetch users" });

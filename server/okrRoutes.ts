@@ -7,6 +7,8 @@ import {
 } from "@shared/schema";
 import { eq } from 'drizzle-orm';
 import { requireAuth } from './middleware/auth';
+import * as schema from '@shared/schema'; //Import schema explicitly
+
 
 export function registerOkrRoutes(app: Express) {
   // Single Objective Endpoint
@@ -37,16 +39,13 @@ export function registerOkrRoutes(app: Express) {
         console.log(`No objective found with ID: ${id}`);
         return res.status(404).json({ message: "Objective nicht gefunden" });
       }
-      
+
       // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
-      const [favorite] = await db
-        .select()
-        .from(userFavoriteObjectives)
-        .where(and(
-          eq(userFavoriteObjectives.userId, userId),
-          eq(userFavoriteObjectives.objectiveId, id)
-        ));
-      
+      const favorite = await db.query.userFavoriteObjectives.findFirst({
+        where: schema.userFavoriteObjectives.userId.equals(userId).and(schema.userFavoriteObjectives.objectiveId.equals(objective.id))
+      });
+
+
       // Personalisierter Favoriten-Status hinzufügen
       const objectiveWithFavorite = {
         ...objective,
@@ -77,7 +76,7 @@ export function registerOkrRoutes(app: Express) {
       }
 
       const response = {
-        ...objective,
+        ...objectiveWithFavorite,
         cycle,
         progress,
         keyResults: objectiveKeyResults
@@ -97,19 +96,19 @@ export function registerOkrRoutes(app: Express) {
       // Holen Sie die Benutzer-ID aus dem Authentifizierungskontext
       const userId = req.userId!;
       console.log(`Fetching objectives for user: ${userId}`);
-      
+
       // Holen Sie alle Objectives aus der Datenbank
       const allObjectives = await db.select().from(objectives);
-      
+
       // Filtern Sie die Objectives basierend auf Berechtigungen
       const accessibleObjectivesPromises = allObjectives.map(async (objective) => {
         const hasAccess = await storage.permissionService.canAccessObjective(userId, objective.id);
         return hasAccess ? objective : null;
       });
-      
+
       const accessibleObjectives = (await Promise.all(accessibleObjectivesPromises))
         .filter((objective): objective is typeof objectives.$inferSelect => objective !== null);
-      
+
       console.log(`User ${userId} has access to ${accessibleObjectives.length} of ${allObjectives.length} objectives`);
 
       // Bereite die Daten für jedes zugängliche Objective auf
@@ -313,7 +312,7 @@ export function registerOkrRoutes(app: Express) {
       }
 
       await db.delete(objectives).where(eq(objectives.id, id));
-      
+
       // Aktivitätsprotokoll für das Löschen des Objectives
       await storage.createActivityLog({
         action: "delete",
@@ -324,7 +323,7 @@ export function registerOkrRoutes(app: Express) {
         boardId: null,
         projectId: null
       });
-      
+
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Objective:", error);
@@ -350,7 +349,7 @@ export function registerOkrRoutes(app: Express) {
         console.log(`User ${userId} does not have permission to access objective ${objectiveId}'s key results`);
         return res.status(403).json({ message: "Keine Berechtigung für diese Key Results" });
       }
-      
+
       const krs = await db.select().from(keyResults).where(eq(keyResults.objectiveId, objectiveId));
       // Parse checklistItems from JSON strings back to objects
       const processedKrs = krs.map(kr => ({
@@ -464,10 +463,10 @@ export function registerOkrRoutes(app: Express) {
     try {
       // Get the key result before deletion to access objectiveId
       const [keyResult] = await db.select().from(keyResults).where(eq(keyResults.id, id));
-      
+
       if (keyResult) {
         await db.delete(keyResults).where(eq(keyResults.id, id));
-        
+
         // Create activity log for deleted key result
         await storage.createActivityLog({
           action: "delete",
@@ -479,7 +478,7 @@ export function registerOkrRoutes(app: Express) {
           projectId: null
         });
       }
-      
+
       res.status(204).send();
     } catch (error) {
       console.error("Fehler beim Löschen des Key Result:", error);
@@ -527,27 +526,27 @@ export function registerOkrRoutes(app: Express) {
     try {
       const userId = req.userId!;
       console.log(`Fetching all key results for user: ${userId}`);
-      
+
       // Holen Sie alle Key Results aus der Datenbank
       const allKeyResults = await db.select().from(keyResults);
-      
+
       // Für jedes KeyResult prüfen, ob der Benutzer Zugriff auf das zugehörige Objective hat
       const accessibleKeyResultsPromises = allKeyResults.map(async (kr) => {
         const hasAccess = await storage.permissionService.canAccessObjective(userId, kr.objectiveId);
         return hasAccess ? kr : null;
       });
-      
+
       const accessibleKeyResults = (await Promise.all(accessibleKeyResultsPromises))
         .filter((kr): kr is typeof keyResults.$inferSelect => kr !== null);
-      
+
       console.log(`User ${userId} has access to ${accessibleKeyResults.length} of ${allKeyResults.length} key results`);
-      
+
       // Parse checklistItems from JSON strings back to objects
       const processedKrs = accessibleKeyResults.map(kr => ({
         ...kr,
         checklistItems: kr.checklistItems ? kr.checklistItems.map(item => JSON.parse(item)) : [],
       }));
-      
+
       res.json(processedKrs);
     } catch (error) {
       console.error("Fehler beim Abrufen der Key Results:", error);
