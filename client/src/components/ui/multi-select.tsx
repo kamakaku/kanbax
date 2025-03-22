@@ -91,7 +91,10 @@ export function MultiSelect({
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-full p-0" onInteractOutside={(e) => {
+        // Verhindern, dass Klicks auf andere Formularelemente das Popover schließen
+        e.preventDefault();
+      }}>
         <Command>
           <CommandInput placeholder="Suchen..." />
           <CommandEmpty>Keine Ergebnisse gefunden.</CommandEmpty>
