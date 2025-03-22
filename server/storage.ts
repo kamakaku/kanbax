@@ -84,10 +84,26 @@ export class DatabaseStorage implements IStorage {
       console.log("Fetching projects for user:", userId);
       const projectResults = await db.select().from(projects);
       
+      // Favoriten für diesen Benutzer abrufen
+      const favoriteProjects = await db
+        .select()
+        .from(userFavoriteProjects)
+        .where(eq(userFavoriteProjects.userId, userId));
+      
+      // Set mit Favoriten-Projekt-IDs erstellen für schnelle Suche
+      const favoriteProjectIds = new Set(favoriteProjects.map(fp => fp.projectId));
+      
       // Berechtigungsprüfung für alle Projekte
       const accessibleProjectsPromises = projectResults.map(async (project) => {
         const hasAccess = await permissionService.canAccessProject(userId, project.id);
-        return hasAccess ? project : null;
+        if (hasAccess) {
+          // Personalisierter Favoriten-Status basierend auf userFavoriteProjects
+          return {
+            ...project,
+            isFavorite: favoriteProjectIds.has(project.id)
+          };
+        }
+        return null;
       });
       
       const accessibleProjects = (await Promise.all(accessibleProjectsPromises)).filter((project): project is Project => project !== null);
