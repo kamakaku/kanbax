@@ -132,25 +132,42 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(400).json({ message: "E-Mail und Passwort sind erforderlich" });
       }
 
-      // Find user
-      const user = await storage.getUserByEmail(0, email);
-      console.log("User lookup result:", { userFound: !!user });
-
-      if (!user) {
+      // Direkt aus der Datenbank abrufen, um Probleme mit storage zu umgehen
+      const userQuery = await pool.query(
+        `SELECT * FROM users WHERE email = $1 LIMIT 1`,
+        [email]
+      );
+      
+      console.log("User lookup SQL result:", { 
+        rowCount: userQuery.rowCount,
+        userFound: userQuery.rowCount > 0
+      });
+      
+      if (userQuery.rowCount === 0) {
         return res.status(400).json({ message: "Ungültige Anmeldedaten" });
       }
+      
+      const user = userQuery.rows[0];
+      console.log("Found user:", {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        companyId: user.company_id,
+        hasPasswordHash: !!user.password_hash
+      });
 
-      // Verify password
-      const isValid = await bcrypt.compare(password, user.passwordHash);
-      console.log("Password verification:", { isValid });
+      // Verify password - Beachte dass das Datenbankfeld snake_case verwendet
+      const passwordHash = user.password_hash;
+      const isValid = await bcrypt.compare(password, passwordHash);
+      console.log("Password verification:", { isValid, passwordProvided: password, hashLength: passwordHash?.length });
 
       if (!isValid) {
         return res.status(400).json({ message: "Ungültige Anmeldedaten" });
       }
 
       // Check if user is active - nur prüfen, wenn Wert explizit auf false gesetzt ist
-      // Standardmäßig ist isActive null, was als aktiv betrachtet wird (für Abwärtskompatibilität)
-      if (user.isActive === false) {
+      // Standardmäßig ist is_active null, was als aktiv betrachtet wird (für Abwärtskompatibilität)
+      if (user.is_active === false) {
         return res.status(403).json({ 
           message: "Ihr Konto wurde noch nicht aktiviert. Bitte warten Sie auf die Aktivierung durch einen Administrator.",
           isActive: false 
@@ -163,11 +180,10 @@ export async function registerRoutes(app: Express, db: Knex) {
         
         // Update last login timestamp
         try {
-          await db.execute(`
-            UPDATE users 
-            SET "lastLoginAt" = NOW() 
-            WHERE id = $1
-          `, [user.id]);
+          await pool.query(
+            `UPDATE users SET last_login_at = NOW() WHERE id = $1`,
+            [user.id]
+          );
           console.log("Updated last login timestamp for user:", user.id);
         } catch (updateError) {
           console.error("Failed to update last login timestamp:", updateError);
@@ -179,9 +195,22 @@ export async function registerRoutes(app: Express, db: Knex) {
         console.log("No session object available");
       }
 
-      // Remove password hash from response
-      const { passwordHash: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      // Format user in camelCase für die Antwort
+      const userResponse = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatar_url,
+        companyId: user.company_id,
+        isCompanyAdmin: user.is_company_admin,
+        isActive: user.is_active,
+        lastLoginAt: user.last_login_at,
+        subscriptionTier: user.subscription_tier,
+        subscriptionExpiresAt: user.subscription_expires_at,
+        createdAt: user.created_at
+      };
+      
+      res.json(userResponse);
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Anmeldefehler" });
@@ -968,54 +997,39 @@ export async function registerRoutes(app: Express, db: Knex) {
       // Direkte SQL-Abfrage verwenden, um Probleme mit dem storage-Mechanismus zu umgehen
       console.log("[COMPANY_DEBUG] Using direct SQL for company lookup");
       try {
-        // 1. Debug: Den Benutzer vollständig abrufen, um zu sehen, was in der Datenbank ist
-        const fullUserResult = await pool.query(
-          `SELECT * FROM users WHERE id = $1`,
-          [req.userId]
-        );
-        console.log("[COMPANY_DEBUG] Full user data:", JSON.stringify(fullUserResult.rows[0], null, 2));
+        // Die Daten des Unternehmens in einem einzigen JOIN-Query abrufen
+        const query = `
+          SELECT c.*
+          FROM companies c
+          INNER JOIN users u ON u.company_id = c.id
+          WHERE u.id = $1
+        `;
         
-        // 2. Zuerst die companyId des Benutzers abrufen
-        const userResult = await pool.query(
-          `SELECT company_id FROM users WHERE id = $1`,
-          [req.userId]
-        );
+        console.log("[COMPANY_DEBUG] Executing query:", query);
         
-        console.log("[COMPANY_DEBUG] User query result:", JSON.stringify(userResult.rows, null, 2));
+        const result = await pool.query(query, [req.userId]);
+        console.log("[COMPANY_DEBUG] Query result:", JSON.stringify(result.rows, null, 2));
         
-        if (userResult.rows.length === 0) {
-          console.log(`[COMPANY_DEBUG] User ID ${req.userId} not found`);
-          return res.status(404).json({ message: "Benutzer nicht gefunden" });
+        if (result.rows.length === 0) {
+          console.log(`[COMPANY_DEBUG] No company found for user ID ${req.userId}`);
+          // Return null if no company found (not an error)
+          return res.json(null);
         }
         
-        if (userResult.rows[0].company_id === null) {
-          console.log(`[COMPANY_DEBUG] User ID ${req.userId} has no company assigned (null value)`);
-          return res.json(null); // Kein Fehler, sondern null für Benutzer ohne Unternehmen
-        }
+        // Format für die Antwort
+        const company = result.rows[0];
         
-        const companyId = userResult.rows[0].company_id;
-        console.log(`[COMPANY_DEBUG] Found company ID ${companyId} for user ${req.userId}`);
+        // Konvertieren von snake_case zu camelCase
+        const companyResponse = {
+          id: company.id,
+          name: company.name,
+          description: company.description,
+          inviteCode: company.invite_code,
+          createdAt: company.created_at
+        };
         
-        // 3. Alle Unternehmen auflisten, um zu sehen, was in der Datenbank ist
-        const allCompaniesResult = await pool.query(`SELECT * FROM companies`);
-        console.log("[COMPANY_DEBUG] All companies:", JSON.stringify(allCompaniesResult.rows, null, 2));
-        
-        // 4. Dann die spezifischen Unternehmensdaten abrufen
-        const companyResult = await pool.query(
-          `SELECT * FROM companies WHERE id = $1`,
-          [companyId]
-        );
-        
-        console.log("[COMPANY_DEBUG] Company query result:", JSON.stringify(companyResult.rows, null, 2));
-        
-        if (companyResult.rows.length === 0) {
-          console.log(`[COMPANY_DEBUG] Company ID ${companyId} not found in database`);
-          return res.status(400).json({ message: "Ungültige Unternehmens-ID" });
-        }
-        
-        const company = companyResult.rows[0];
-        console.log("[COMPANY_DEBUG] Returning company data:", JSON.stringify(company, null, 2));
-        return res.json(company);
+        console.log("[COMPANY_DEBUG] Returning company data:", JSON.stringify(companyResponse, null, 2));
+        return res.json(companyResponse);
       } catch (dbError) {
         console.error("[COMPANY_DEBUG] Database error:", dbError);
         return res.status(500).json({ message: "Datenbankfehler beim Abrufen der Unternehmensdaten" });

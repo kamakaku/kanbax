@@ -107,27 +107,27 @@ export function CompanyInfoSection() {
   const {
     data: companyMembers,
     isLoading: isMembersLoading,
-  } = useQuery({
+  } = useQuery<any[]>({
     queryKey: ['/api/companies', company?.id, 'members'],
     enabled: !!company?.id,
-    queryFn: () => apiRequest('GET', `/api/companies/${company?.id}/members`),
+    queryFn: () => apiRequest<any[]>('GET', `/api/companies/${company?.id}/members`),
   });
 
   // Abfrage der ausstehenden Benutzer für Administratoren
   const {
     data: pendingUsers,
     isLoading: isPendingUsersLoading,
-  } = useQuery({
+  } = useQuery<any[]>({
     queryKey: ['/api/companies', company?.id, 'users/pending'],
     enabled: !!company?.id && !!user?.isCompanyAdmin,
-    queryFn: () => apiRequest('GET', `/api/companies/${company?.id}/users/pending`),
+    queryFn: () => apiRequest<any[]>('GET', `/api/companies/${company?.id}/users/pending`),
   });
 
   // Mutation zum Generieren eines Einladungscodes
   const generateInviteMutation = useMutation({
     mutationFn: async () => {
       if (!company?.id) throw new Error("Keine Unternehmens-ID vorhanden");
-      return apiRequest("POST", `/api/companies/${company.id}/invite`);
+      return apiRequest<{inviteCode: string}>("POST", `/api/companies/${company.id}/invite`);
     },
     onSuccess: (data) => {
       setInviteCode(data.inviteCode);
