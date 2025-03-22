@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { DialogMultiSelect, type Option } from "@/components/ui/dialog-multi-select";
+import { MultiSelect, type Option } from "@/components/ui/multi-select";
 import { type User } from "@shared/schema";
 import { useEffect } from "react";
 
