@@ -62,31 +62,21 @@ export function CompanyInfoSection() {
   } = useQuery<CompanyResponse>({
     queryKey: ['/api/companies/current'],
     queryFn: async () => {
-      try {
-        console.log("Abfrage der Unternehmensdaten mit Benutzer:", user?.id);
-        if (!user?.id) {
-          console.log("Kein Benutzer gefunden, gebe null zurück");
-          return null;
-        }
-        
-        // Füge Debug-Informationen hinzu und prüfe die Session vor der Anfrage
-        const sessionCheck = await fetch('/api/auth/current-user', { 
-          credentials: 'include'
-        });
-        console.log("Session Check Status:", sessionCheck.status);
-        if (sessionCheck.ok) {
-          const sessionData = await sessionCheck.json();
-          console.log("Session Check Daten:", sessionData ? "Authentifiziert" : "Nicht authentifiziert");
-        }
-        
-        // Verwende die neu konfigurierte API-Anfrage
-        console.log("Sende API-Anfrage an /api/companies/current");
-        const res = await apiRequest<CompanyResponse>('GET', '/api/companies/current');
-        console.log("Unternehmensdaten erfolgreich abgerufen:", res);
-        return res; // Kann ein Unternehmen oder null sein, je nach Antwort vom Server
-      } catch (err) {
-        console.error('Error fetching company:', err);
-        // Bei allen Fehlern geben wir null zurück, was bedeutet, dass der Benutzer
+      if (!user?.id) {
+        return null;
+      }
+
+      const response = await apiRequest<CompanyResponse>('GET', '/api/companies/current');
+      if (!response) {
+        throw new Error('Keine Unternehmensdaten gefunden');
+      }
+      return response;
+    },
+    enabled: !!user?.id,
+    retry: false,
+    onError: (error) => {
+      console.error('Fehler beim Abrufen der Unternehmensdaten:', error);
+    }nutzer
         // keinem Unternehmen zugeordnet ist oder ein Problem beim Abrufen besteht
         // Wir loggen den Fehler, aber brechen die Komponente nicht ab
         if (err instanceof Error) {
