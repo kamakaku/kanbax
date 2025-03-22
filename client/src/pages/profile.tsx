@@ -148,130 +148,164 @@ export default function Profile() {
   };
 
   return (
-    <div className="container max-w-2xl py-10 space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-6 mb-8">
-            <div className="relative">
-              <Avatar className="h-20 w-20">
-                {user?.avatarUrl && <AvatarImage src={user.avatarUrl} />}
-                <AvatarFallback className="bg-primary/10">
-                  <User className="h-10 w-10" />
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                size="icon"
-                variant="outline"
-                className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Camera className="h-4 w-4" />
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-            </div>
-          </div>
+    <div className="container max-w-4xl py-10 space-y-8">
+      <div className="flex items-center gap-6 mb-8">
+        <div className="relative">
+          <Avatar className="h-20 w-20">
+            {user?.avatarUrl && <AvatarImage src={user.avatarUrl} />}
+            <AvatarFallback className="bg-primary/10">
+              <User className="h-10 w-10" />
+            </AvatarFallback>
+          </Avatar>
+          <Button
+            size="icon"
+            variant="outline"
+            className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Camera className="h-4 w-4" />
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">{user?.username}</h1>
+          <p className="text-muted-foreground">{user?.email}</p>
+        </div>
+      </div>
+      
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="w-full mb-6 grid grid-cols-4 h-12">
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            <span>Profil</span>
+          </TabsTrigger>
+          <TabsTrigger value="company" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span>Unternehmen</span>
+          </TabsTrigger>
+          {user?.isCompanyAdmin && (
+            <TabsTrigger id="tab-user-management" value="user-management" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span>Benutzerverwaltung</span>
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            <span>Benachrichtigungen</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="profile" className="mt-6 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profileinstellungen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Benutzername</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-Mail</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Passwort ändern</h3>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Change Password</h3>
+                    <FormField
+                      control={form.control}
+                      name="currentPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Aktuelles Passwort</FormLabel>
+                          <FormControl>
+                            <Input type="password" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <FormField
-                  control={form.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Current Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={form.control}
+                      name="newPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Neues Passwort</FormLabel>
+                          <FormControl>
+                            <Input type="password" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <FormField
-                  control={form.control}
-                  name="newPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>New Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Neues Passwort bestätigen</FormLabel>
+                          <FormControl>
+                            <Input type="password" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm New Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* Unternehmensinformationen */}
-      <CompanyInfoSection />
-
-      {/* Benutzerverwaltung (nur für Administratoren) */}
-      {user?.isCompanyAdmin && <UserManagement />}
-
-      {/* Notification Settings */}
-      <NotificationSettingsForm />
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? "Wird gespeichert..." : "Änderungen speichern"}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="company" className="mt-6">
+          <CompanyInfoSection />
+        </TabsContent>
+        
+        {user?.isCompanyAdmin && (
+          <TabsContent value="user-management" className="mt-6">
+            <UserManagement />
+          </TabsContent>
+        )}
+        
+        <TabsContent value="notifications" className="mt-6">
+          <NotificationSettingsForm />
+        </TabsContent>
+      </Tabs>
 
       <AvatarCropDialog
         open={isCropOpen}
