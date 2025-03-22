@@ -976,6 +976,22 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(403).json({ message: "Keine Berechtigung zum Zugriff auf dieses Unternehmen" });
       }
 
+      // Unternehmen abrufen
+      const company = await db.query.companies.findFirst({
+        where: eq(schema.companies.id, companyId)
+      });
+
+      if (!company) {
+        return res.status(404).json({ message: "Unternehmen nicht gefunden" });
+      }
+
+      res.json(company);
+    } catch (error) {
+      console.error("Error fetching company:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der Unternehmensdaten" });
+    }griff auf dieses Unternehmen" });
+      }
+
       const company = await db.query.companies.findFirst({
         where: eq(schema.companies.id, companyId)
       });
