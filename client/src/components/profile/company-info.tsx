@@ -180,10 +180,7 @@ export function CompanyInfoSection() {
     } catch (error) {
       console.error("Fehler beim Erstellen des Unternehmens:", error);
     }
-  }t") ||
-        errorMessage.includes("Sie sind bereits Mitglied eines Unternehmens")
-      ) {
-        toast({
+  }
           title: "Nicht möglich",
           description: errorMessage,
           variant: "destructive",
