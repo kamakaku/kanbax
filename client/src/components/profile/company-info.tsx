@@ -59,11 +59,16 @@ export function CompanyInfoSection() {
   } = useQuery<CompanyResponse>({
     queryKey: ['/api/companies/current'],
     queryFn: async () => {
-      if (!user?.id) {
+      try {
+        if (!user?.id) {
+          return null;
+        }
+        const response = await apiRequest('GET', '/api/companies/current');
+        return response;
+      } catch (err) {
+        console.error('Error fetching company:', err);
         return null;
       }
-      const response = await apiRequest('GET', '/api/companies/current');
-      return response;
     },
     enabled: !!user,
   });
