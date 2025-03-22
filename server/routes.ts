@@ -262,55 +262,88 @@ export async function registerRoutes(app: Express, db: Knex) {
       const companyId = parseInt(req.params.companyId);
       const targetUserId = parseInt(req.params.userId);
       const adminUserId = req.userId as number;
+      const { activate = true } = req.body; // Default ist aktivieren, aber kann auch deaktivieren
 
       if (isNaN(companyId) || isNaN(targetUserId)) {
         return res.status(400).json({ message: "Ungültige Benutzer- oder Unternehmens-ID" });
       }
 
       // Prüfen, ob der Anfragesteller ein Admin des Unternehmens ist
-      const [admin] = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, adminUserId));
+      const adminQuery = await pool.query(
+        'SELECT * FROM users WHERE id = $1',
+        [adminUserId]
+      );
 
-      if (!admin || !admin.companyId || !admin.isCompanyAdmin || admin.companyId !== companyId) {
-        return res.status(403).json({ message: "Sie haben keine Berechtigung, Benutzer zu aktivieren" });
+      if (adminQuery.rowCount === 0) {
+        return res.status(404).json({ message: "Admin-Benutzer nicht gefunden" });
+      }
+
+      const admin = adminQuery.rows[0];
+      
+      if (!admin.company_id || !admin.is_company_admin || admin.company_id !== companyId) {
+        return res.status(403).json({ 
+          message: "Sie haben keine Berechtigung, Benutzer zu aktivieren oder zu deaktivieren" 
+        });
       }
 
       // Prüfen, ob der Zielbenutzer im selben Unternehmen ist
-      const [targetUser] = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, targetUserId));
+      const targetUserQuery = await pool.query(
+        'SELECT * FROM users WHERE id = $1',
+        [targetUserId]
+      );
 
-      if (!targetUser || targetUser.companyId !== companyId) {
-        return res.status(404).json({ message: "Benutzer nicht gefunden oder nicht in Ihrem Unternehmen" });
+      if (targetUserQuery.rowCount === 0) {
+        return res.status(404).json({ message: "Zielbenutzer nicht gefunden" });
       }
 
-      // Benutzer aktivieren
-      // Verwende Raw-SQL statt Builder-API
-      const result = await db.execute(`
+      const targetUser = targetUserQuery.rows[0];
+      
+      if (targetUser.company_id !== companyId) {
+        return res.status(404).json({ 
+          message: "Benutzer nicht gefunden oder nicht in Ihrem Unternehmen" 
+        });
+      }
+
+      // Benutzer aktivieren oder deaktivieren
+      const result = await pool.query(`
         UPDATE users 
-        SET "isActive" = true 
-        WHERE id = $1
+        SET is_active = $1
+        WHERE id = $2
         RETURNING *
-      `, [targetUserId]);
+      `, [activate, targetUserId]);
+      
+      if (result.rowCount === 0) {
+        return res.status(500).json({ message: "Fehler beim Aktualisieren des Benutzerstatus" });
+      }
       
       const updatedUser = result.rows[0];
 
       // Aktivitätslog erstellen
-      await storage.createActivityLog({
-        action: "update",
-        details: `Benutzer ${targetUser.username} aktiviert`,
-        userId: adminUserId,
-        visibleToUsers: [targetUserId, adminUserId]
-      });
+      const actionDetails = activate 
+        ? `Benutzer ${targetUser.username} aktiviert` 
+        : `Benutzer ${targetUser.username} deaktiviert`;
+        
+      await pool.query(`
+        INSERT INTO activity_logs (action, details, user_id, visible_to_users)
+        VALUES ($1, $2, $3, $4)
+      `, ["update", actionDetails, adminUserId, [targetUserId, adminUserId]]);
 
-      const { passwordHash: _, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
+      // Format user in camelCase für die Antwort
+      const userResponse = {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        avatarUrl: updatedUser.avatar_url,
+        companyId: updatedUser.company_id,
+        isCompanyAdmin: updatedUser.is_company_admin,
+        isActive: updatedUser.is_active,
+        createdAt: updatedUser.created_at
+      };
+      
+      res.json(userResponse);
     } catch (error) {
-      console.error("Fehler beim Aktivieren des Benutzers:", error);
-      res.status(500).json({ message: "Fehler beim Aktivieren des Benutzers" });
+      console.error("Fehler beim Ändern des Benutzerstatus:", error);
+      res.status(500).json({ message: "Fehler beim Ändern des Benutzerstatus" });
     }
   });
 

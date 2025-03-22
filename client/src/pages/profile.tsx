@@ -20,6 +20,7 @@ import { Camera, User } from "lucide-react";
 import { AvatarCropDialog } from "@/components/ui/avatar-crop-dialog";
 import { NotificationSettingsForm } from "@/components/profile/notification-settings";
 import { CompanyInfoSection } from "@/components/profile/company-info";
+import { UserManagement } from "@/components/profile/user-management";
 
 const profileSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -264,6 +265,9 @@ export default function Profile() {
 
       {/* Unternehmensinformationen */}
       <CompanyInfoSection />
+
+      {/* Benutzerverwaltung (nur für Administratoren) */}
+      {user?.isCompanyAdmin && <UserManagement />}
 
       {/* Notification Settings */}
       <NotificationSettingsForm />
