@@ -323,10 +323,15 @@ export async function registerRoutes(app: Express, db: Knex) {
         ? `Benutzer ${targetUser.username} aktiviert` 
         : `Benutzer ${targetUser.username} deaktiviert`;
         
-      await pool.query(`
-        INSERT INTO activity_logs (action, details, user_id, visible_to_users)
-        VALUES ($1, $2, $3, $4)
-      `, ["update", actionDetails, adminUserId, [targetUserId, adminUserId]]);
+      try {
+        await pool.query(`
+          INSERT INTO activity_logs (action, details, user_id)
+          VALUES ($1, $2, $3)
+        `, ["update", actionDetails, adminUserId]);
+      } catch (error) {
+        console.error("Fehler beim Erstellen des Aktivitätslogs:", error);
+        // Fehler ignorieren, um die Hauptfunktion nicht zu beeinträchtigen
+      }
 
       // Format user in camelCase für die Antwort
       const userResponse = {
