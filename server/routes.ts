@@ -963,45 +963,16 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
-      const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, req.userId)
-      });
-
-      console.log(`User found: ${!!user}, has companyId: ${!!user?.companyId}`);
-
-      if (!user) {
-        return res.status(404).json({ message: "Benutzer nicht gefunden" });
-      }
-      
-      if (!user.companyId) {
-        // Der Benutzer hat kein Unternehmen - wir geben null zurück,
-        // damit das Frontend erkennen kann, dass kein Unternehmen zugewiesen ist
-        console.log("User has no company assigned");
-        return res.status(200).json(null);
-      }
-
       try {
-        console.log(`Looking for company with ID: ${user.companyId}`);
-        const company = await db.query.companies.findFirst({
-          where: eq(schema.companies.id, user.companyId)
-        });
-
-        console.log(`Company found: ${!!company}`);
+        // Verwenden wir die Storage-Implementierung, um das aktuelle Unternehmen abzurufen
+        const company = await storage.getCurrentUserCompany(req.userId);
         
-        if (!company) {
-          // Ungültige Unternehmens-ID im Benutzerprofil
-          // Wir geben null zurück statt einem Fehler, damit das Frontend
-          // konsistent damit umgehen kann, wie wenn kein Unternehmen zugewiesen ist
-          console.log("Invalid company ID in user profile, returning null");
-          return res.status(200).json(null);
-        }
-
-        // Erfolgreiche Antwort mit den Unternehmensdaten
+        // Erfolgreiche Antwort mit den Unternehmensdaten oder null
         console.log("Returning company data:", company);
         return res.json(company);
-      } catch (companyError) {
-        // Bei Datenbankfehlern beim Abrufen des Unternehmens geben wir null zurück
-        console.error("Error querying company:", companyError);
+      } catch (storageError) {
+        console.error("Error from storage layer:", storageError);
+        // Bei Fehlern im Storage-Layer geben wir null zurück, um konsistentes Verhalten zu gewährleisten
         return res.status(200).json(null);
       }
     } catch (error) {
