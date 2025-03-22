@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { Separator } from "@/components/ui/separator";
-import { User, Building, Users, Copy, Plus } from "lucide-react";
+import { User, Building, Users, Copy, Plus, CheckCircle, Clock, UserCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import type { Company, User as UserType } from "@shared/schema";
@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 export function CompanyInfoSection() {
   const { user } = useAuth();
@@ -44,6 +46,16 @@ export function CompanyInfoSection() {
     queryFn: () => apiRequest(`/api/companies/${company?.id}/members`),
   });
 
+  // Abfrage der ausstehenden Benutzer für Administratoren
+  const {
+    data: pendingUsers,
+    isLoading: isPendingUsersLoading,
+  } = useQuery({
+    queryKey: ['/api/companies', company?.id, 'users/pending'],
+    enabled: !!company?.id && !!user?.isCompanyAdmin,
+    queryFn: () => apiRequest(`/api/companies/${company?.id}/users/pending`),
+  });
+
   // Mutation zum Generieren eines Einladungscodes
   const generateInviteMutation = useMutation({
     mutationFn: async () => {
@@ -61,6 +73,30 @@ export function CompanyInfoSection() {
       toast({
         title: "Fehler",
         description: "Einladungscode konnte nicht generiert werden.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mutation zum Aktivieren ausstehender Benutzer
+  const activateUserMutation = useMutation({
+    mutationFn: (userId: number) => {
+      if (!company?.id) throw new Error("Keine Unternehmens-ID vorhanden");
+      return apiRequest(`/api/companies/${company.id}/users/${userId}/activate`, "PATCH");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Erfolg!",
+        description: "Benutzer wurde aktiviert.",
+      });
+      // Aktualisiere Listen für ausstehende Benutzer und Mitglieder
+      queryClient.invalidateQueries({ queryKey: ['/api/companies', company?.id, 'users/pending'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/companies', company?.id, 'members'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Benutzer konnte nicht aktiviert werden.",
         variant: "destructive",
       });
     },
@@ -227,6 +263,76 @@ export function CompanyInfoSection() {
             </div>
 
             <Separator />
+            
+            {/* Ausstehende Benutzerbestätigungen (nur für Admins) */}
+            {user?.isCompanyAdmin && (
+              <>
+                <div>
+                  <div className="flex items-center mb-4">
+                    <Clock className="h-5 w-5 mr-2 text-primary" />
+                    <h3 className="font-medium">Ausstehende Aktivierungen</h3>
+                  </div>
+                  
+                  {isPendingUsersLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  ) : pendingUsers && Array.isArray(pendingUsers) && pendingUsers.length > 0 ? (
+                    <Card>
+                      <CardContent className="px-4 py-2">
+                        <ul className="space-y-2 py-2">
+                          {pendingUsers.map((pendingUser: any) => (
+                            <li key={pendingUser.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md border border-amber-200/30">
+                              <div className="flex items-center">
+                                <div className="relative">
+                                  {pendingUser.avatarUrl ? (
+                                    <img 
+                                      src={pendingUser.avatarUrl} 
+                                      alt={pendingUser.username} 
+                                      className="h-8 w-8 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
+                                      <User className="h-4 w-4 text-amber-600" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="ml-3">
+                                  <p className="text-sm font-medium">{pendingUser.username}</p>
+                                  <p className="text-xs text-muted-foreground">{pendingUser.email}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Registriert: {format(new Date(pendingUser.createdAt), 'dd.MM.yyyy', { locale: de })}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                                onClick={() => activateUserMutation.mutate(pendingUser.id)}
+                                disabled={activateUserMutation.isPending}
+                              >
+                                <UserCheck className="h-4 w-4 mr-2" />
+                                Aktivieren
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="text-center p-4 bg-muted/30 rounded-md">
+                      <p className="text-sm text-muted-foreground">
+                        Keine ausstehenden Benutzeraktivierungen.
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <Separator />
+              </>
+            )}
 
             {/* Mitgliederliste */}
             <div>
