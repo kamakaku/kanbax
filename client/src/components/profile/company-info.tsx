@@ -73,7 +73,7 @@ export function CompanyInfoSection() {
     onError: (error) => {
       console.error('Fehler beim Abrufen der Unternehmensdaten:', error);
     }
-  }););
+  });
 
   // Abfrage der Unternehmensmitglieder mit korrekter company ID
   const {
