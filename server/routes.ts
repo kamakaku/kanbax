@@ -146,11 +146,17 @@ export async function registerRoutes(app: Express, db: Knex) {
         req.session.userId = user.id;
         
         // Update last login timestamp
-        await db
-          .update(schema.users)
-          .set({ lastLoginAt: new Date() })
-          .where(eq(schema.users.id, user.id))
-          .execute();
+        try {
+          await db.execute(`
+            UPDATE users 
+            SET "lastLoginAt" = NOW() 
+            WHERE id = $1
+          `, [user.id]);
+          console.log("Updated last login timestamp for user:", user.id);
+        } catch (updateError) {
+          console.error("Failed to update last login timestamp:", updateError);
+          // Continue with login even if update fails
+        }
           
         console.log("Session set for user:", user.id);
       } else {
@@ -198,12 +204,15 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       // Benutzer aktivieren
-      const [updatedUser] = await db
-        .update(schema.users)
-        .set({ isActive: true })
-        .where(eq(schema.users.id, targetUserId))
-        .returning()
-        .execute();
+      // Verwende Raw-SQL statt Builder-API
+      const result = await db.execute(`
+        UPDATE users 
+        SET "isActive" = true 
+        WHERE id = $1
+        RETURNING *
+      `, [targetUserId]);
+      
+      const updatedUser = result.rows[0];
 
       // Aktivitätslog erstellen
       await storage.createActivityLog({
