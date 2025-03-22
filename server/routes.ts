@@ -1002,53 +1002,45 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
-      // Zuerst Benutzerinformationen abrufen
-      console.log("[COMPANY_DEBUG] Fetching user information first");
-      const userQuery = await pool.query("SELECT * FROM users WHERE id = $1", [req.userId]);
-      console.log("[COMPANY_DEBUG] User query result:", JSON.stringify(userQuery.rows, null, 2));
-      
-      if (userQuery.rows.length === 0) {
-        console.log(`[COMPANY_DEBUG] User with ID ${req.userId} not found`);
-        return res.status(404).json({ message: "Benutzer nicht gefunden" });
+      // Hole die aktuellen Benutzerinformationen
+      try {
+        // Verwende den storage-Service statt direkter SQL-Abfragen
+        const user = await storage.getUser(req.userId, req.userId);
+        console.log("[COMPANY_DEBUG] User data:", JSON.stringify(user, null, 2));
+        
+        // Wenn der Benutzer keinem Unternehmen zugeordnet ist
+        if (!user.companyId) {
+          console.log("[COMPANY_DEBUG] User has no company");
+          return res.json(null);
+        }
+        
+        try {
+          // Verwende den storage-Service für den Unternehmenszugriff
+          const company = await storage.getCurrentUserCompany(req.userId);
+          console.log("[COMPANY_DEBUG] Company data:", JSON.stringify(company, null, 2));
+          
+          if (!company) {
+            console.log("[COMPANY_DEBUG] No company found for user");
+            return res.json(null);
+          }
+          
+          return res.json(company);
+        } catch (companyError) {
+          console.error("[COMPANY_DEBUG] Error fetching company:", companyError);
+          // Wenn es ein Problem beim Abrufen des Unternehmens gibt, geben wir null zurück
+          return res.json(null);
+        }
+      } catch (userError) {
+        console.error("[COMPANY_DEBUG] Error fetching user:", userError);
+        if (userError instanceof Error && userError.message.includes("not found")) {
+          return res.status(404).json({ message: "Benutzer nicht gefunden" });
+        }
+        throw userError; // Werfe den Fehler weiter, wenn es kein "not found" Fehler ist
       }
-      
-      const user = userQuery.rows[0];
-      
-      // Prüfen, ob der Benutzer einem Unternehmen zugeordnet ist
-      if (!user.company_id) {
-        console.log(`[COMPANY_DEBUG] User has no company ID`);
-        return res.json(null);
-      }
-      
-      // Unternehmen des Benutzers abrufen
-      console.log(`[COMPANY_DEBUG] Fetching company with ID ${user.company_id}`);
-      const companyQuery = await pool.query("SELECT * FROM companies WHERE id = $1", [user.company_id]);
-      console.log("[COMPANY_DEBUG] Company query result:", JSON.stringify(companyQuery.rows, null, 2));
-      
-      if (companyQuery.rows.length === 0) {
-        console.log(`[COMPANY_DEBUG] No company found with ID ${user.company_id}`);
-        // Return null if no company found (not an error)
-        return res.json(null);
-      }
-      
-      // Format für die Antwort
-      const company = companyQuery.rows[0];
-      
-      // Konvertieren von snake_case zu camelCase
-      const companyResponse = {
-        id: company.id,
-        name: company.name,
-        description: company.description,
-        inviteCode: company.invite_code,
-        createdAt: company.created_at
-      };
-      
-      console.log("[COMPANY_DEBUG] Returning company data:", JSON.stringify(companyResponse, null, 2));
-      return res.json(companyResponse);
     } catch (error) {
       console.error("Error fetching current company:", error);
-      return res.status(500).json({ 
-        message: "Fehler beim Abrufen der aktuellen Unternehmensdaten",
+      return res.status(500).json({
+        message: "Fehler beim Abrufen der Unternehmensdaten",
         details: error instanceof Error ? error.message : String(error)
       });
     }
