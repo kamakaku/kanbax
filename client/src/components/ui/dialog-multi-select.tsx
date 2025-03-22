@@ -1,6 +1,9 @@
 import * as React from "react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { createPortal } from "react-dom";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Command,
   CommandEmpty,
@@ -8,10 +11,11 @@ import {
   CommandInput,
   CommandItem,
 } from "@/components/ui/command";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export interface Option {
   value: string;
@@ -30,145 +34,134 @@ export function DialogMultiSelect({
   options,
   selected,
   onChange,
-  placeholder = "Auswählen...",
+  placeholder = "Items auswählen...",
   className,
 }: DialogMultiSelectProps) {
   const [open, setOpen] = React.useState(false);
-  const [portal, setPortal] = React.useState<HTMLDivElement | null>(null);
-  const triggerRef = React.useRef<HTMLButtonElement>(null);
-  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [localSelected, setLocalSelected] = React.useState<string[]>([]);
 
+  // Initialisiere die lokale Auswahl mit der übergebenen Auswahl
   React.useEffect(() => {
-    // Erstellen eines Portal-Elements, das direkt am Body angehängt wird
-    const div = document.createElement("div");
-    div.style.position = "fixed";
-    div.style.zIndex = "9999";
-    div.style.top = "0";
-    div.style.left = "0";
-    document.body.appendChild(div);
-    setPortal(div);
+    setLocalSelected(selected);
+  }, [selected]);
 
-    return () => {
-      document.body.removeChild(div);
-    };
-  }, []);
-
-  // Position des Dropdown-Inhalts basierend auf dem Trigger-Button
-  React.useEffect(() => {
-    if (open && portal && triggerRef.current && contentRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      contentRef.current.style.position = "absolute";
-      contentRef.current.style.width = `${rect.width}px`;
-      contentRef.current.style.top = `${rect.bottom + window.scrollY}px`;
-      contentRef.current.style.left = `${rect.left + window.scrollX}px`;
-    }
-  }, [open, portal]);
-
-  // Schließen des Dropdowns bei Klick außerhalb
-  React.useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (
-        open &&
-        contentRef.current &&
-        !contentRef.current.contains(e.target as Node) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, [open]);
-
-  const handleUnselect = (value: string) => {
-    onChange(selected.filter((item) => item !== value));
+  const handleUnselect = (item: string) => {
+    setLocalSelected(localSelected.filter((i) => i !== item));
   };
 
   const handleSelect = (value: string) => {
-    if (selected.includes(value)) {
-      onChange(selected.filter((item) => item !== value));
+    if (localSelected.includes(value)) {
+      setLocalSelected(localSelected.filter((item) => item !== value));
     } else {
-      onChange([...selected, value]);
+      setLocalSelected([...localSelected, value]);
     }
   };
 
-  return (
-    <>
-      <Button
-        ref={triggerRef}
-        variant="outline"
-        role="combobox"
-        aria-expanded={open}
-        className={cn("w-full justify-between", className)}
-        onClick={() => setOpen(!open)}
-      >
-        <div className="flex gap-1 flex-wrap">
-          {selected.length === 0 && placeholder}
-          {selected.map((value) => (
-            <Badge
-              variant="secondary"
-              key={value}
-              className="mr-1 mb-1"
-            >
-              {options.find((option) => option.value === value)?.label}
-              <span
-                role="button"
-                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleUnselect(value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleUnselect(value);
-                  }
-                }}
-                tabIndex={0}
-              >
-                <X className="h-3 w-3" />
-              </span>
-            </Badge>
-          ))}
-        </div>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-      </Button>
+  const handleSave = () => {
+    onChange(localSelected);
+    setOpen(false);
+  };
 
-      {open && portal && createPortal(
-        <div 
-          ref={contentRef}
-          className="z-[9999] w-72 rounded-md border bg-popover p-0 text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95"
-        >
+  const handleCancel = () => {
+    setLocalSelected(selected);
+    setOpen(false);
+  };
+
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm) return options;
+    return options.filter(option => 
+      option.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [options, searchTerm]);
+
+  return (
+    <div className="relative w-full">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn("w-full justify-between", className)}
+            onClick={() => setOpen(true)}
+          >
+            <div className="flex flex-wrap gap-1 mr-2">
+              {selected.length > 0 ? (
+                selected.map((item) => (
+                  <Badge
+                    variant="secondary"
+                    key={item}
+                    className="mr-1 mb-1"
+                  >
+                    {options.find((option) => option.value === item)?.label}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-muted-foreground">{placeholder}</span>
+              )}
+            </div>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="p-0 w-[300px] max-w-[96vw]" onInteractOutside={(e) => {
+          // Verhindern, dass der Dialog geschlossen wird, wenn man außerhalb klickt
+          e.preventDefault();
+        }}>
+          <div className="p-2">
+            <CommandInput 
+              placeholder="Suchen..."
+              value={searchTerm}
+              onValueChange={setSearchTerm}
+            />
+          </div>
           <Command>
-            <CommandInput placeholder="Suchen..." />
             <CommandEmpty>Keine Ergebnisse gefunden.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-60">
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => handleSelect(option.value)}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selected.includes(option.value)
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    {option.label}
-                  </CommandItem>
-                ))}
+              <ScrollArea className="h-60 overflow-auto">
+                {filteredOptions.map((option) => {
+                  const isSelected = localSelected.includes(option.value);
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      onSelect={() => handleSelect(option.value)}
+                      className="flex items-center"
+                    >
+                      <div
+                        className={cn(
+                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "opacity-50 [&_svg]:invisible"
+                        )}
+                      >
+                        <Check className="h-4 w-4" />
+                      </div>
+                      <span>{option.label}</span>
+                    </CommandItem>
+                  );
+                })}
               </ScrollArea>
             </CommandGroup>
           </Command>
-        </div>,
-        portal
-      )}
-    </>
+          <div className="flex justify-end p-2 border-t">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCancel}
+              className="mr-2"
+            >
+              Abbrechen
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleSave}
+            >
+              Auswählen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
