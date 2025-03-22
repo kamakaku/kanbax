@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, User } from "lucide-react";
 import { AvatarCropDialog } from "@/components/ui/avatar-crop-dialog";
 import { NotificationSettingsForm } from "@/components/profile/notification-settings";
+import { CompanyInfoSection } from "@/components/profile/company-info";
 
 const profileSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -260,6 +261,9 @@ export default function Profile() {
           </Form>
         </CardContent>
       </Card>
+
+      {/* Unternehmensinformationen */}
+      <CompanyInfoSection />
 
       {/* Notification Settings */}
       <NotificationSettingsForm />

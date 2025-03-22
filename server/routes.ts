@@ -12,6 +12,9 @@ import { Knex } from 'knex';
 import { queryClient } from './utils'; // Assuming queryClient is imported from a utils file
 import { requireAuth, optionalAuth } from './middleware/auth';
 import { permissionService } from './permissions';
+import { db } from './db';
+import * as schema from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -757,6 +760,94 @@ export async function registerRoutes(app: Express, db: Knex) {
         message: "Failed to fetch activity logs",
         details: error instanceof Error ? error.message : String(error)
       });
+    }
+  });
+
+  // GET /api/companies/:id
+  app.get("/api/companies/:id", requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) {
+        return res.status(400).json({ message: "Ungültige Unternehmens-ID" });
+      }
+
+      // Berechtigungsprüfung
+      const canAccess = await permissionService.canAccessCompany(req.userId!, companyId);
+      if (!canAccess) {
+        return res.status(403).json({ message: "Keine Berechtigung zum Zugriff auf dieses Unternehmen" });
+      }
+
+      const company = await db.query.companies.findFirst({
+        where: eq(schema.companies.id, companyId)
+      });
+
+      if (!company) {
+        return res.status(404).json({ message: "Unternehmen nicht gefunden" });
+      }
+
+      res.json(company);
+    } catch (error) {
+      console.error("Error fetching company:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der Unternehmensdaten" });
+    }
+  });
+
+  // GET /api/companies/current
+  app.get("/api/companies/current", requireAuth, async (req, res) => {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.id, req.userId!)
+      });
+
+      if (!user || !user.companyId) {
+        return res.status(404).json({ message: "Kein Unternehmen zugewiesen" });
+      }
+
+      const company = await db.query.companies.findFirst({
+        where: eq(schema.companies.id, user.companyId)
+      });
+
+      if (!company) {
+        return res.status(404).json({ message: "Unternehmen nicht gefunden" });
+      }
+
+      res.json(company);
+    } catch (error) {
+      console.error("Error fetching current company:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der aktuellen Unternehmensdaten" });
+    }
+  });
+
+  // GET /api/companies/members/:companyId
+  app.get("/api/companies/members/:companyId", requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      if (isNaN(companyId)) {
+        return res.status(400).json({ message: "Ungültige Unternehmens-ID" });
+      }
+
+      // Berechtigungsprüfung
+      const canAccess = await permissionService.canAccessCompany(req.userId!, companyId);
+      if (!canAccess) {
+        return res.status(403).json({ message: "Keine Berechtigung zum Zugriff auf dieses Unternehmen" });
+      }
+
+      // Benutzer aus diesem Unternehmen abrufen
+      const members = await db.query.users.findMany({
+        where: eq(schema.users.companyId, companyId),
+        columns: {
+          id: true,
+          username: true,
+          email: true, 
+          avatarUrl: true,
+          isCompanyAdmin: true
+        }
+      });
+
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching company members:", error);
+      res.status(500).json({ message: "Fehler beim Abrufen der Unternehmensmitglieder" });
     }
   });
 
