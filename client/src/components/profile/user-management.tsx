@@ -40,12 +40,14 @@ export function UserManagement() {
   // Benutzer aus dem aktuellen Unternehmen abrufen
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['/api/users'],
+    queryFn: () => apiRequest('GET', '/api/users'),
     enabled: !!user
   });
 
   // Ausstehende Benutzer (nicht aktivierte) abrufen
   const { data: pendingUsers = [], isLoading: pendingLoading } = useQuery({
     queryKey: ['/api/companies', user?.companyId, 'users/pending'],
+    queryFn: () => apiRequest('GET', `/api/companies/${user?.companyId}/users/pending`),
     enabled: !!user?.companyId && !!user?.isCompanyAdmin,
   });
 
