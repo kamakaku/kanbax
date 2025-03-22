@@ -65,6 +65,16 @@ export function CompanyInfoSection() {
       if (!user?.id) {
         return null;
       }
+      
+      const response = await apiRequest<CompanyResponse>('GET', '/api/companies/current');
+      return response;
+    },
+    enabled: !!user?.id,
+    retry: false,
+    onError: (error) => {
+      console.error('Fehler beim Abrufen der Unternehmensdaten:', error);
+    }
+      }
 
       const response = await apiRequest<CompanyResponse>('GET', '/api/companies/current');
       if (!response) {
