@@ -41,7 +41,7 @@ export function CompanyInfoSection() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joinCode, setJoinCode] = useState("");
-  
+
   // Formular zum Erstellen eines Unternehmens
   const form = useForm<CompanyFormValues>({
     resolver: zodResolver(companyFormSchema),
@@ -50,7 +50,7 @@ export function CompanyInfoSection() {
       description: "",
     },
   });
-  
+
   // Abfrage der Unternehmensdetails über den "current" Endpunkt
   const {
     data: company,
@@ -103,7 +103,7 @@ export function CompanyInfoSection() {
       });
     },
   });
-  
+
   // Mutation zum Aktivieren ausstehender Benutzer
   const activateUserMutation = useMutation({
     mutationFn: (userId: number) => {
@@ -150,7 +150,7 @@ export function CompanyInfoSection() {
       });
     },
   });
-  
+
   // Mutation zum Erstellen eines Unternehmens
   const createCompanyMutation = useMutation({
     mutationFn: (data: CompanyFormValues) => 
@@ -166,11 +166,20 @@ export function CompanyInfoSection() {
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Fehler beim Erstellen des Unternehmens.";
-      toast({
-        title: "Fehler",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      if (errorMessage.includes("Die Erstellung eines Unternehmens erfordert mindestens ein Basic-Abonnement") ||
+          errorMessage.includes("Sie sind bereits Mitglied eines Unternehmens")) {
+        toast({
+          title: "Nicht möglich",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Fehler",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -181,19 +190,6 @@ export function CompanyInfoSection() {
       console.error("Fehler beim Erstellen des Unternehmens:", error);
     }
   }
-          title: "Nicht möglich",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Fehler",
-          description: "Fehler beim Erstellen des Unternehmens.",
-          variant: "destructive",
-        });
-      }
-    },
-  });
 
   // Mutation zum Ändern der Admin-Rolle eines Benutzers
   const updateRoleMutation = useMutation({
@@ -339,7 +335,7 @@ export function CompanyInfoSection() {
             </div>
 
             <Separator />
-            
+
             {/* Ausstehende Benutzerbestätigungen (nur für Admins) */}
             {user?.isCompanyAdmin && (
               <>
@@ -348,7 +344,7 @@ export function CompanyInfoSection() {
                     <Clock className="h-5 w-5 mr-2 text-primary" />
                     <h3 className="font-medium">Ausstehende Aktivierungen</h3>
                   </div>
-                  
+
                   {isPendingUsersLoading ? (
                     <div className="space-y-2">
                       <Skeleton className="h-8 w-full" />
@@ -405,7 +401,7 @@ export function CompanyInfoSection() {
                     </div>
                   )}
                 </div>
-                
+
                 <Separator />
               </>
             )}
@@ -554,7 +550,7 @@ export function CompanyInfoSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Dialog zum Erstellen eines Unternehmens */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
