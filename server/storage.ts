@@ -1192,6 +1192,181 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+
+  // Company operations
+  async getCompany(userId: number, id: number): Promise<Company> {
+    try {
+      // Berechtigungsprüfung für Unternehmen
+      const canAccess = await this.permissionService.canAccessCompany(userId, id);
+      if (!canAccess) {
+        throw new Error(`Unternehmen ${id} nicht gefunden oder keine Zugriffsberechtigung`);
+      }
+
+      const [company] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, id));
+
+      if (!company) {
+        throw new Error(`Unternehmen ${id} nicht gefunden`);
+      }
+
+      return company;
+    } catch (error) {
+      console.error("Error in getCompany:", error);
+      throw error;
+    }
+  }
+
+  async getCurrentUserCompany(userId: number): Promise<Company> {
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user || !user.companyId) {
+        throw new Error("Kein Unternehmen zugewiesen");
+      }
+
+      const [company] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, user.companyId));
+
+      if (!company) {
+        throw new Error("Unternehmen nicht gefunden");
+      }
+
+      return company;
+    } catch (error) {
+      console.error("Error in getCurrentUserCompany:", error);
+      throw error;
+    }
+  }
+
+  async getCompanyMembers(userId: number, companyId: number): Promise<User[]> {
+    try {
+      // Berechtigungsprüfung für Unternehmen
+      const canAccess = await this.permissionService.canAccessCompany(userId, companyId);
+      if (!canAccess) {
+        throw new Error(`Unternehmen ${companyId} nicht gefunden oder keine Zugriffsberechtigung`);
+      }
+
+      // Benutzer aus diesem Unternehmen abrufen
+      const members = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email, 
+          avatarUrl: users.avatarUrl,
+          isCompanyAdmin: users.isCompanyAdmin,
+          createdAt: users.createdAt
+        })
+        .from(users)
+        .where(eq(users.companyId, companyId));
+
+      return members;
+    } catch (error) {
+      console.error("Error in getCompanyMembers:", error);
+      throw error;
+    }
+  }
+
+  async updateUserCompanyRole(userId: number, targetUserId: number, isAdmin: boolean): Promise<User> {
+    try {
+      // Prüfen, ob der Benutzer ein Admin ist
+      const [currentUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!currentUser || !currentUser.companyId || !currentUser.isCompanyAdmin) {
+        throw new Error("Nur Unternehmensadministratoren können Rollen ändern");
+      }
+
+      // Prüfen, ob der Zielbenutzer im selben Unternehmen ist
+      const [targetUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, targetUserId));
+
+      if (!targetUser || targetUser.companyId !== currentUser.companyId) {
+        throw new Error("Zielbenutzer nicht gefunden oder nicht im selben Unternehmen");
+      }
+
+      // Rolle aktualisieren
+      const [updatedUser] = await db
+        .update(users)
+        .set({ isCompanyAdmin: isAdmin })
+        .where(eq(users.id, targetUserId))
+        .returning();
+
+      return updatedUser;
+    } catch (error) {
+      console.error("Error in updateUserCompanyRole:", error);
+      throw error;
+    }
+  }
+
+  async generateCompanyInviteCode(userId: number, companyId: number): Promise<string> {
+    try {
+      // Prüfen, ob der Benutzer ein Admin ist
+      const [currentUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!currentUser || !currentUser.companyId || !currentUser.isCompanyAdmin) {
+        throw new Error("Nur Unternehmensadministratoren können Einladungscodes generieren");
+      }
+
+      if (currentUser.companyId !== companyId) {
+        throw new Error("Sie können nur für Ihr eigenes Unternehmen Einladungscodes generieren");
+      }
+
+      // Einen eindeutigen Einladungscode generieren
+      const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+      // Einladungscode aktualisieren
+      const [updatedCompany] = await db
+        .update(companies)
+        .set({ inviteCode })
+        .where(eq(companies.id, companyId))
+        .returning();
+
+      return updatedCompany.inviteCode;
+    } catch (error) {
+      console.error("Error in generateCompanyInviteCode:", error);
+      throw error;
+    }
+  }
+
+  async joinCompanyWithInviteCode(userId: number, inviteCode: string): Promise<Company> {
+    try {
+      // Unternehmen mit diesem Einladungscode finden
+      const [company] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.inviteCode, inviteCode));
+
+      if (!company) {
+        throw new Error("Ungültiger Einladungscode");
+      }
+
+      // Benutzer aktualisieren
+      const [updatedUser] = await db
+        .update(users)
+        .set({ companyId: company.id })
+        .where(eq(users.id, userId))
+        .returning();
+
+      return company;
+    } catch (error) {
+      console.error("Error in joinCompanyWithInviteCode:", error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

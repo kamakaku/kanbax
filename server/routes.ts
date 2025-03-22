@@ -1094,6 +1094,97 @@ export async function registerRoutes(app: Express, db: Knex) {
   const { registerOkrRoutes } = await import("./okrRoutes.js");
   registerOkrRoutes(app);
 
+  // Company routes
+  app.get("/api/companies/current", requireAuth, async (req, res) => {
+    try {
+      const company = await storage.getCurrentUserCompany(req.userId as number);
+      res.json(company);
+    } catch (error) {
+      console.error("Error in GET /api/companies/current:", error);
+      res.status(500).json({ error: "Fehler beim Abrufen des aktuellen Unternehmens" });
+    }
+  });
+
+  app.get("/api/companies/:id", requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) {
+        return res.status(400).json({ error: "Ungültige Unternehmens-ID" });
+      }
+      
+      const company = await storage.getCompany(req.userId as number, companyId);
+      res.json(company);
+    } catch (error) {
+      console.error("Error in GET /api/companies/:id:", error);
+      res.status(500).json({ error: "Fehler beim Abrufen des Unternehmens" });
+    }
+  });
+
+  app.get("/api/companies/:companyId/members", requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      if (isNaN(companyId)) {
+        return res.status(400).json({ error: "Ungültige Unternehmens-ID" });
+      }
+      
+      const members = await storage.getCompanyMembers(req.userId as number, companyId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error in GET /api/companies/:companyId/members:", error);
+      res.status(500).json({ error: "Fehler beim Abrufen der Unternehmensmitglieder" });
+    }
+  });
+
+  app.patch("/api/companies/members/:userId/role", requireAuth, async (req, res) => {
+    try {
+      const targetUserId = parseInt(req.params.userId);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ error: "Ungültige Benutzer-ID" });
+      }
+
+      const { isAdmin } = req.body;
+      if (typeof isAdmin !== 'boolean') {
+        return res.status(400).json({ error: "isAdmin muss ein boolescher Wert sein" });
+      }
+      
+      const user = await storage.updateUserCompanyRole(req.userId as number, targetUserId, isAdmin);
+      res.json(user);
+    } catch (error) {
+      console.error("Error in PATCH /api/companies/members/:userId/role:", error);
+      res.status(500).json({ error: "Fehler beim Aktualisieren der Benutzerrolle" });
+    }
+  });
+
+  app.post("/api/companies/:companyId/invite", requireAuth, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      if (isNaN(companyId)) {
+        return res.status(400).json({ error: "Ungültige Unternehmens-ID" });
+      }
+      
+      const inviteCode = await storage.generateCompanyInviteCode(req.userId as number, companyId);
+      res.json({ inviteCode });
+    } catch (error) {
+      console.error("Error in POST /api/companies/:companyId/invite:", error);
+      res.status(500).json({ error: "Fehler beim Generieren des Einladungscodes" });
+    }
+  });
+
+  app.post("/api/companies/join", requireAuth, async (req, res) => {
+    try {
+      const { inviteCode } = req.body;
+      if (!inviteCode || typeof inviteCode !== 'string') {
+        return res.status(400).json({ error: "Gültiger Einladungscode erforderlich" });
+      }
+      
+      const company = await storage.joinCompanyWithInviteCode(req.userId as number, inviteCode);
+      res.json(company);
+    } catch (error) {
+      console.error("Error in POST /api/companies/join:", error);
+      res.status(500).json({ error: "Fehler beim Beitreten zum Unternehmen" });
+    }
+  });
+
   // Add team-members route
   app.get("/api/team-members", requireAuth, async (req, res) => {
     try {

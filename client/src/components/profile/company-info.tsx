@@ -2,41 +2,127 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { Separator } from "@/components/ui/separator";
-import { User, Building, Users } from "lucide-react";
+import { User, Building, Users, Copy, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import type { Company } from "@shared/schema";
+import type { Company, User as UserType } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 export function CompanyInfoSection() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joinCode, setJoinCode] = useState("");
   
-  // Abfrage der Unternehmensdetails, wenn der Benutzer einer Firma angehört
+  // Abfrage der Unternehmensdetails über den "current" Endpunkt
   const {
     data: company,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['/api/companies', user?.companyId],
-    enabled: !!user?.companyId,
+    queryKey: ['/api/companies/current'],
+    enabled: !!user,
   });
 
-  // Abfrage der Unternehmensmitglieder
+  // Abfrage der Unternehmensmitglieder mit korrekter company ID
   const {
     data: companyMembers,
     isLoading: isMembersLoading,
   } = useQuery({
-    queryKey: ['/api/companies/members', user?.companyId],
-    enabled: !!user?.companyId,
+    queryKey: ['/api/companies', company?.id, 'members'],
+    enabled: !!company?.id,
+    queryFn: () => apiRequest(`/api/companies/${company?.id}/members`),
   });
 
+  // Mutation zum Generieren eines Einladungscodes
+  const generateInviteMutation = useMutation({
+    mutationFn: async () => {
+      if (!company?.id) throw new Error("Keine Unternehmens-ID vorhanden");
+      return apiRequest(`/api/companies/${company.id}/invite`, "POST");
+    },
+    onSuccess: (data) => {
+      setInviteCode(data.inviteCode);
+      toast({
+        title: "Erfolg!",
+        description: "Einladungscode wurde generiert.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Einladungscode konnte nicht generiert werden.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation zum Beitreten zu einem Unternehmen
+  const joinCompanyMutation = useMutation({
+    mutationFn: (inviteCode: string) => 
+      apiRequest("/api/companies/join", "POST", { inviteCode }),
+    onSuccess: () => {
+      setJoinDialogOpen(false);
+      setJoinCode("");
+      toast({
+        title: "Erfolg!",
+        description: "Sie sind dem Unternehmen beigetreten.",
+      });
+      // Aktualisiere die Daten
+      queryClient.invalidateQueries({ queryKey: ['/api/companies/current'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Ungültiger Einladungscode oder Fehler beim Beitreten.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation zum Ändern der Admin-Rolle eines Benutzers
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ userId, isAdmin }: { userId: number, isAdmin: boolean }) => 
+      apiRequest(`/api/companies/members/${userId}/role`, "PATCH", { isAdmin }),
+    onSuccess: () => {
+      toast({
+        title: "Erfolg!",
+        description: "Benutzerrolle wurde aktualisiert.",
+      });
+      // Aktualisiere die Mitgliederliste
+      queryClient.invalidateQueries({ queryKey: ['/api/companies', company?.id, 'members'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Benutzerrolle konnte nicht aktualisiert werden.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Funktion zum Kopieren des Einladungscodes in die Zwischenablage
+  const copyInviteCode = () => {
+    if (inviteCode) {
+      navigator.clipboard.writeText(inviteCode);
+      toast({
+        title: "Kopiert!",
+        description: "Einladungscode wurde in die Zwischenablage kopiert.",
+      });
+    }
+  };
+
   // Wenn der Benutzer keinem Unternehmen angehört
-  if (!user?.companyId) {
+  if (user && !isLoading && !company) {
     return (
       <Card>
         <CardHeader>
@@ -47,10 +133,18 @@ export function CompanyInfoSection() {
             <Building className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium">Kein Unternehmen zugewiesen</h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-md">
-              Sie sind derzeit keinem Unternehmen zugewiesen. Der Administrator kann Sie zu einem Unternehmen hinzufügen.
+              Sie sind derzeit keinem Unternehmen zugewiesen. Treten Sie mit einem Einladungscode einem Unternehmen bei.
             </p>
           </div>
         </CardContent>
+        <CardFooter className="flex justify-center">
+          <Button 
+            variant="outline" 
+            onClick={() => setJoinDialogOpen(true)}
+          >
+            Unternehmen beitreten
+          </Button>
+        </CardFooter>
       </Card>
     );
   }
@@ -92,87 +186,192 @@ export function CompanyInfoSection() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Unternehmensinformationen</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {/* Unternehmensdaten */}
-          <div>
-            <div className="flex items-center">
-              <Building className="h-5 w-5 mr-2 text-primary" />
-              <h3 className="text-lg font-medium">{company?.name}</h3>
-            </div>
-            {company?.description && (
-              <p className="text-sm text-muted-foreground mt-2">
-                {company.description}
-              </p>
-            )}
-            <div className="mt-2">
-              {user?.isCompanyAdmin && (
-                <Badge variant="outline" className="mr-2 bg-primary/10">
-                  Administrator
-                </Badge>
-              )}
-              <Badge variant="outline">
-                Mitglied
-              </Badge>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Mitgliederliste */}
-          <div>
-            <div className="flex items-center mb-4">
-              <Users className="h-5 w-5 mr-2 text-primary" />
-              <h3 className="font-medium">Unternehmensmitglieder</h3>
-            </div>
-
-            {isMembersLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Unternehmensinformationen</CardTitle>
+          {user?.isCompanyAdmin && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setInviteDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Mitglied einladen
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Unternehmensdaten */}
+            <div>
+              <div className="flex items-center">
+                <Building className="h-5 w-5 mr-2 text-primary" />
+                <h3 className="text-lg font-medium">{company?.name}</h3>
               </div>
-            ) : (
-              <ul className="space-y-2">
-                {companyMembers?.map((member: any) => (
-                  <li key={member.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
-                    <div className="flex items-center">
-                      <div className="relative">
-                        {member.avatarUrl ? (
-                          <img 
-                            src={member.avatarUrl} 
-                            alt={member.username} 
-                            className="h-8 w-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-4 w-4 text-primary" />
+              {company?.description && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {company.description}
+                </p>
+              )}
+              <div className="mt-2">
+                {user?.isCompanyAdmin && (
+                  <Badge variant="outline" className="mr-2 bg-primary/10">
+                    Administrator
+                  </Badge>
+                )}
+                <Badge variant="outline">
+                  Mitglied
+                </Badge>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Mitgliederliste */}
+            <div>
+              <div className="flex items-center mb-4">
+                <Users className="h-5 w-5 mr-2 text-primary" />
+                <h3 className="font-medium">Unternehmensmitglieder</h3>
+              </div>
+
+              {isMembersLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {companyMembers && Array.isArray(companyMembers) && companyMembers.map((member: any) => (
+                    <li key={member.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
+                      <div className="flex items-center">
+                        <div className="relative">
+                          {member.avatarUrl ? (
+                            <img 
+                              src={member.avatarUrl} 
+                              alt={member.username} 
+                              className="h-8 w-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-4 w-4 text-primary" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm font-medium">{member.username}</p>
+                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        {user?.isCompanyAdmin && user.id !== member.id && (
+                          <div className="mr-3 flex items-center">
+                            <Switch 
+                              id={`admin-${member.id}`}
+                              checked={!!member.isCompanyAdmin}
+                              onCheckedChange={(isChecked) => {
+                                updateRoleMutation.mutate({ 
+                                  userId: member.id, 
+                                  isAdmin: isChecked 
+                                });
+                              }}
+                            />
+                            <Label htmlFor={`admin-${member.id}`} className="ml-2 text-xs">
+                              Admin
+                            </Label>
                           </div>
                         )}
+                        {member.isCompanyAdmin && (
+                          <Badge variant="outline" className="bg-primary/10">
+                            Admin
+                          </Badge>
+                        )}
                       </div>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium">{member.username}</p>
-                        <p className="text-xs text-muted-foreground">{member.email}</p>
-                      </div>
-                    </div>
-                    <div>
-                      {member.isCompanyAdmin && (
-                        <Badge variant="outline" className="bg-primary/10">
-                          Admin
-                        </Badge>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dialog zum Erstellen eines Einladungscodes */}
+      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Neues Mitglied einladen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Generieren Sie einen Einladungscode und teilen Sie ihn mit dem neuen Mitglied.
+            </p>
+            {inviteCode ? (
+              <div className="flex items-center space-x-2">
+                <Input 
+                  value={inviteCode} 
+                  readOnly 
+                  className="font-mono"
+                />
+                <Button size="icon" variant="outline" onClick={copyInviteCode}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                onClick={() => generateInviteMutation.mutate()}
+                disabled={generateInviteMutation.isPending}
+              >
+                Einladungscode generieren
+              </Button>
             )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setInviteDialogOpen(false);
+              setInviteCode("");
+            }}>
+              Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog zum Beitreten zu einem Unternehmen */}
+      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unternehmen beitreten</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Geben Sie den Einladungscode ein, um einem Unternehmen beizutreten.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="inviteCode">Einladungscode</Label>
+              <Input 
+                id="inviteCode"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                placeholder="ABCD1234"
+                className="font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJoinDialogOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button 
+              onClick={() => joinCompanyMutation.mutate(joinCode)}
+              disabled={!joinCode || joinCompanyMutation.isPending}
+            >
+              Beitreten
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
