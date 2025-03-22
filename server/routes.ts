@@ -965,38 +965,39 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
-      // Direkt den Benutzer aus der Datenbank abrufen, um die aktuelle CompanyID zu erhalten
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, req.userId));
+      // Vorhandenen storage-Mechanismus verwenden, der bereits funktioniert
+      try {
+        const company = await storage.getCurrentUserCompany(req.userId);
         
-      if (!user) {
-        console.log(`User ID ${req.userId} not found in database`);
-        return res.status(404).json({ message: "Benutzer nicht gefunden" });
-      }
-      
-      console.log("User found:", { id: user.id, email: user.email, companyId: user.companyId });
-      
-      if (!user.companyId) {
-        console.log(`User ID ${req.userId} has no company assigned`);
-        return res.json(null); // Kein Fehler, sondern null für Benutzer ohne Unternehmen
-      }
-      
-      // Unternehmen aus der Datenbank abrufen
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, user.companyId));
+        if (!company) {
+          console.log(`User ID ${req.userId} has no company assigned or company not found`);
+          return res.json(null); // Kein Fehler, sondern null für Benutzer ohne Unternehmen
+        }
         
-      if (!company) {
-        console.log(`Company ID ${user.companyId} not found in database`);
-        return res.json(null); // Kein Fehler, sondern null wenn das Unternehmen nicht existiert
+        console.log("Returning company data:", company);
+        return res.json(company);
+      } catch (storageError) {
+        console.error("Error accessing company from storage:", storageError);
+        
+        // Als Fallback direkte SQL-Abfrage verwenden
+        console.log("Using direct SQL as fallback for company lookup");
+        const result = await pool.query(
+          `SELECT c.* 
+           FROM companies c
+           JOIN users u ON u.company_id = c.id
+           WHERE u.id = $1`,
+          [req.userId]
+        );
+        
+        if (result.rows.length === 0) {
+          console.log(`No company found for user ID: ${req.userId} using SQL fallback`);
+          return res.json(null);
+        }
+        
+        const company = result.rows[0];
+        console.log("Returning company data from SQL fallback:", company);
+        return res.json(company);
       }
-      
-      // Erfolgreiche Antwort mit den Unternehmensdaten
-      console.log("Returning company data:", company);
-      return res.json(company);
     } catch (error) {
       console.error("Error fetching current company:", error);
       res.status(500).json({ 

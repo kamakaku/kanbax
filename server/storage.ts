@@ -1221,29 +1221,56 @@ export class DatabaseStorage implements IStorage {
 
   async getCurrentUserCompany(userId: number): Promise<Company | null> {
     try {
+      console.log(`[storage] Fetching company for user ID: ${userId}`);
+      
       if (!userId) {
+        console.log("[storage] User ID is missing, returning null");
         return null;
       }
 
       // Benutzer mit CompanyId abrufen
-      const [user] = await db
+      console.log(`[storage] Querying user with ID: ${userId}`);
+      const userResult = await db
         .select()
         .from(users)
         .where(eq(users.id, userId));
-
-      if (!user || !user.companyId) {
+      
+      console.log(`[storage] User query result:`, userResult);
+      
+      if (!userResult || userResult.length === 0) {
+        console.log(`[storage] User with ID ${userId} not found`);
         return null;
       }
+      
+      const user = userResult[0];
+      
+      if (!user.companyId) {
+        console.log(`[storage] User has no company ID assigned`);
+        return null;
+      }
+      
+      console.log(`[storage] User belongs to company ID: ${user.companyId}`);
 
       // Unternehmen des Benutzers abrufen
-      const [company] = await db
+      console.log(`[storage] Querying company with ID: ${user.companyId}`);
+      const companyResult = await db
         .select()
         .from(companies)
         .where(eq(companies.id, user.companyId));
-
-      return company || null;
+      
+      console.log(`[storage] Company query result:`, companyResult);
+      
+      if (!companyResult || companyResult.length === 0) {
+        console.log(`[storage] Company with ID ${user.companyId} not found`);
+        return null;
+      }
+      
+      const company = companyResult[0];
+      console.log(`[storage] Returning company:`, company);
+      
+      return company;
     } catch (error) {
-      console.error("Error in getCurrentUserCompany:", error);
+      console.error("[storage] Error in getCurrentUserCompany:", error);
       return null;
     }
   }
