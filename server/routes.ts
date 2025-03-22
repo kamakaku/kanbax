@@ -980,22 +980,30 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(200).json(null);
       }
 
-      const company = await db.query.companies.findFirst({
-        where: eq(schema.companies.id, user.companyId)
-      });
+      try {
+        console.log(`Looking for company with ID: ${user.companyId}`);
+        const company = await db.query.companies.findFirst({
+          where: eq(schema.companies.id, user.companyId)
+        });
 
-      console.log(`Company found: ${!!company}`);
+        console.log(`Company found: ${!!company}`);
+        
+        if (!company) {
+          // Ungültige Unternehmens-ID im Benutzerprofil
+          // Wir geben null zurück statt einem Fehler, damit das Frontend
+          // konsistent damit umgehen kann, wie wenn kein Unternehmen zugewiesen ist
+          console.log("Invalid company ID in user profile, returning null");
+          return res.status(200).json(null);
+        }
 
-      if (!company) {
-        // Ungültige Unternehmens-ID im Benutzerprofil
-        // Wir geben null zurück statt einem Fehler, damit das Frontend
-        // konsistent damit umgehen kann, wie wenn kein Unternehmen zugewiesen ist
-        console.log("Invalid company ID in user profile, returning null");
+        // Erfolgreiche Antwort mit den Unternehmensdaten
+        console.log("Returning company data:", company);
+        return res.json(company);
+      } catch (companyError) {
+        // Bei Datenbankfehlern beim Abrufen des Unternehmens geben wir null zurück
+        console.error("Error querying company:", companyError);
         return res.status(200).json(null);
       }
-
-      // Erfolgreiche Antwort mit den Unternehmensdaten
-      res.json(company);
     } catch (error) {
       console.error("Error fetching current company:", error);
       res.status(500).json({ 
