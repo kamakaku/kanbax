@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MultiSelect, type Option } from "@/components/ui/multi-select";
+import { DialogMultiSelect, type Option } from "@/components/ui/dialog-multi-select";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
@@ -115,19 +115,47 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
       if (onSubmit) {
         await onSubmit(formattedData);
+        
+        // Da wir beim Aktualisieren eines Boards sind, aktualisieren wir den Cache manuell
+        if (defaultValues && 'id' in defaultValues && defaultValues.id) {
+          const boardId = defaultValues.id;
+          console.log("Invalidating queries for board update:", boardId);
+          // Aktualisiere alle relevanten Caches
+          await queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+          await queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
+          await queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
+          
+          // Wenn das Board einem Projekt zugeordnet ist, aktualisiere auch die Projekt-Boards
+          if (formattedData.project_id) {
+            await queryClient.invalidateQueries({ 
+              queryKey: [`/api/projects/${formattedData.project_id}/boards`] 
+            });
+          }
+          
+          // Zeige eine Erfolgsmeldung
+          toast({ title: "Board erfolgreich aktualisiert" });
+        }
+        
+        onClose();
       } else {
+        // Hier erstellen wir ein neues Board
         const response = await fetch('/api/boards', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formattedData)
         });
 
-        if (!response.ok) throw new Error('Failed to create board');
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to create board: ${errorText}`);
+        }
 
         const newBoard = await response.json();
         console.log("Created board:", newBoard);
 
+        // Aktualisiere Caches
         await queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
         if (currentProject?.id) {
           await queryClient.invalidateQueries({ queryKey: [`/api/projects/${currentProject.id}/boards`] });
         }
@@ -138,9 +166,10 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
         setLocation(`/boards/${newBoard.id}`);
       }
     } catch (error) {
-      console.error("Error creating board:", error);
+      console.error("Error saving board:", error);
       toast({
         title: "Fehler beim Speichern des Boards",
+        description: error instanceof Error ? error.message : "Bitte versuchen Sie es erneut",
         variant: "destructive",
       });
     }
@@ -235,7 +264,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                   <FormItem>
                     <FormLabel>Teams zuweisen</FormLabel>
                     <FormControl>
-                      <MultiSelect
+                      <DialogMultiSelect
                         placeholder="Teams auswählen..."
                         options={teamOptions}
                         selected={Array.isArray(field.value) ? field.value.map(String) : []}
@@ -265,7 +294,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
                   <FormItem>
                     <FormLabel>Benutzer zuweisen</FormLabel>
                     <FormControl>
-                      <MultiSelect
+                      <DialogMultiSelect
                         placeholder="Benutzer auswählen..."
                         options={userOptions}
                         selected={Array.isArray(field.value) ? field.value.map(String) : []}
