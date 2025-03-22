@@ -908,13 +908,28 @@ export class DatabaseStorage implements IStorage {
 
   // Team operations
   async getTeams(userId: number): Promise<Team[]> {
-    const teamsData = await db.select().from(teams);
+    const teamsData = await db.select({
+      id: teams.id,
+      name: teams.name,
+      description: teams.description,
+      companyId: teams.companyId,
+      creatorId: teams.creatorId,
+      createdAt: teams.createdAt,
+    }).from(teams);
+    
     return permissionService.filterTeams(userId, teamsData);
   }
 
   async getTeam(userId: number, id: number): Promise<Team> {
     const [team] = await db
-      .select()
+      .select({
+        id: teams.id,
+        name: teams.name,
+        description: teams.description,
+        companyId: teams.companyId,
+        creatorId: teams.creatorId,
+        createdAt: teams.createdAt,
+      })
       .from(teams)
       .where(eq(teams.id, id));
 
@@ -959,7 +974,14 @@ export class DatabaseStorage implements IStorage {
 
     // Zuerst das Team abrufen, um den Ersteller zu überprüfen
     const [existingTeam] = await db
-      .select()
+      .select({
+        id: teams.id,
+        name: teams.name,
+        description: teams.description,
+        companyId: teams.companyId,
+        creatorId: teams.creatorId,
+        createdAt: teams.createdAt,
+      })
       .from(teams)
       .where(eq(teams.id, id));
 
