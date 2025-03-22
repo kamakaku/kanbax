@@ -705,11 +705,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       const updatedBoard = await storage.updateBoard(userId, id, result.data);
 
       // Log the activity
-      await storage.createActivityLog({
+      await storage.createActivityLog(userId, {
         action: "update",
         details: "Board aktualisiert",
-        user_id: userId,
-        board_id: id
+        userId: userId,
+        boardId: id
       });
 
       res.json(updatedBoard);
@@ -732,11 +732,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       const userId = req.userId!;
 
       // Log the activity before deletion
-      await storage.createActivityLog({
+      await storage.createActivityLog(userId, {
         action: "delete",
         details: "Board gelöscht",
-        user_id: userId,
-        board_id: id
+        userId: userId,
+        boardId: id
       });
 
       await storage.deleteBoard(userId, id);
@@ -794,12 +794,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       const task = await storage.createTask(userId, result.data);
 
       // Log the activity
-      await storage.createActivityLog({
+      await storage.createActivityLog(userId, {
         action: "create",
         details: "Neue Aufgabe erstellt",
-        user_id: userId,
-        board_id: boardId,
-        task_id: task.id
+        userId: userId,
+        boardId: boardId,
+        taskId: task.id
       });
 
       res.status(201).json(task);
@@ -828,12 +828,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       const task = await storage.updateTask(userId, id, result.data);
 
       // Log the activity
-      await storage.createActivityLog({
+      await storage.createActivityLog(userId, {
         action: "update",
         details: "Aufgabe aktualisiert",
-        user_id: userId,
-        task_id: id,
-        board_id: task.boardId
+        userId: userId,
+        taskId: id,
+        boardId: task.boardId
       });
 
       res.json(task);
