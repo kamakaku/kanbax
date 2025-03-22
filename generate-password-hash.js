@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs';
 
 async function generateHash() {
-  const password = 'password123';
+  // Get password from command line argument or use default
+  const password = process.argv[2] || 'password123';
   const salt = await bcrypt.genSalt(10);
   const hash = await bcrypt.hash(password, salt);
   console.log(`Password: ${password}`);
