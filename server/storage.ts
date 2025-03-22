@@ -988,8 +988,8 @@ export class DatabaseStorage implements IStorage {
   }
   // Team member operations
   async getTeamMembers(userId: number): Promise<TeamMember[]> {
-    const teamMembers = await db.select().from(teamMembers);
-    return permissionService.filterTeamMembers(userId, teamMembers);
+    const teamMembersData = await db.select().from(teamMembers);
+    return permissionService.filterTeamMembers(userId, teamMembersData);
   }
 
   async toggleProjectFavorite(userId: number, id: number): Promise<Project> {
