@@ -1483,12 +1483,12 @@ export async function registerRoutes(app: Express, db: Knex) {
         project_id: result.data.projectId || null
       });
 
-      const activityLog = await storage.createActivityLog({
+      const activityLog = await storage.createActivityLog(result.data.creatorId, {
         action: "create",
         details: "Neues OKR erstellt",
-        user_id: result.data.creatorId,
-        objective_id: objective.id,
-        project_id: result.data.projectId || null,
+        userId: result.data.creatorId,
+        objectiveId: objective.id,
+        projectId: result.data.projectId || null,
         board_id: null,
         task_id: null
       });
@@ -1524,12 +1524,12 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      await storage.createActivityLog({
+      await storage.createActivityLog(userId, {
         action: "delete",
         details: "Aufgabe gelöscht",
-        user_id: userId,
-        task_id: id,
-        board_id: task.boardId
+        userId: userId,
+        taskId: id,
+        boardId: task.boardId
       });
       
       await storage.deleteTask(userId, id);
