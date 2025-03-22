@@ -14,7 +14,7 @@ import { requireAuth, optionalAuth } from './middleware/auth';
 import { permissionService } from './permissions';
 import { db } from './db';
 import * as schema from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // Configure multer for avatar uploads
 const upload = multer({
