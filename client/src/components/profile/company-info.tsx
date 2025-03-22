@@ -162,15 +162,25 @@ export function CompanyInfoSection() {
         title: "Erfolg!",
         description: "Unternehmen wurde erfolgreich erstellt.",
       });
-      // Aktualisiere die Daten
       queryClient.invalidateQueries({ queryKey: ['/api/companies/current'] });
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Fehler beim Erstellen des Unternehmens.";
-      
-      // Spezifische Fehlermeldungen für bekannte Fehler
-      if (
-        errorMessage.includes("Die Erstellung eines Unternehmens erfordert mindestens ein Basic-Abonnement") ||
+      toast({
+        title: "Fehler",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  async function onSubmit(data: CompanyFormValues) {
+    try {
+      await createCompanyMutation.mutateAsync(data);
+    } catch (error) {
+      console.error("Fehler beim Erstellen des Unternehmens:", error);
+    }
+  }t") ||
         errorMessage.includes("Sie sind bereits Mitglied eines Unternehmens")
       ) {
         toast({

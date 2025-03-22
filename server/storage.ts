@@ -1225,21 +1225,26 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        with: {
-          company: true
-        }
-      });
+      // Benutzer mit CompanyId abrufen
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
 
-      if (!user || !user.company) {
+      if (!user || !user.companyId) {
         return null;
       }
 
-      return user.company;
+      // Unternehmen des Benutzers abrufen
+      const [company] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, user.companyId));
+
+      return company || null;
     } catch (error) {
       console.error("Error in getCurrentUserCompany:", error);
-      return null; // Return null instead of throwing to avoid 400 error
+      return null;
     }
   }
 
