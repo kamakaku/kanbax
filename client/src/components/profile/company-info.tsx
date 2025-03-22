@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { User, Building, Users, Copy, Plus, CheckCircle, Clock, UserCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import type { Company, User as UserType } from "@shared/schema";
+import type { Company, User as UserType, CompanyResponse } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

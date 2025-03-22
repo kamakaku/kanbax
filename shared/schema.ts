@@ -471,6 +471,9 @@ export const insertCompanySchema = createInsertSchema(companies)
 // Export types
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
+
+// Erweitert den Typ für null-Rückgabe
+export type CompanyResponse = Company | null;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 // Update Board type definition

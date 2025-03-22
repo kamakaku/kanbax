@@ -78,7 +78,7 @@ export interface IStorage {
   
   // Company operations
   getCompany(userId: number, id: number): Promise<Company>;
-  getCurrentUserCompany(userId: number): Promise<Company>;
+  getCurrentUserCompany(userId: number): Promise<CompanyResponse>;
   getCompanyMembers(userId: number, companyId: number): Promise<User[]>;
   updateUserCompanyRole(userId: number, targetUserId: number, isAdmin: boolean): Promise<User>;
   generateCompanyInviteCode(userId: number, companyId: number): Promise<string>;
@@ -1219,15 +1219,30 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getCurrentUserCompany(userId: number): Promise<Company> {
+  async getCurrentUserCompany(userId: number): Promise<Company | null> {
     try {
+      console.log(`Fetching company for userId: ${userId}`);
+      
+      if (!userId) {
+        console.log("No userId provided");
+        return null;
+      }
+      
       const [user] = await db
         .select()
         .from(users)
         .where(eq(users.id, userId));
 
-      if (!user || !user.companyId) {
-        throw new Error("Kein Unternehmen zugewiesen");
+      console.log(`User found: ${!!user}, has companyId: ${!!user?.companyId}`);
+      
+      if (!user) {
+        console.log("User not found");
+        return null;
+      }
+      
+      if (!user.companyId) {
+        console.log("User has no company assigned");
+        return null;
       }
 
       const [company] = await db
@@ -1235,8 +1250,11 @@ export class DatabaseStorage implements IStorage {
         .from(companies)
         .where(eq(companies.id, user.companyId));
 
+      console.log(`Company found: ${!!company}`);
+      
       if (!company) {
-        throw new Error("Unternehmen nicht gefunden");
+        console.log("Company not found with ID:", user.companyId);
+        return null;
       }
 
       return company;
