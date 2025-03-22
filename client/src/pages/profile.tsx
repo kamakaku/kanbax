@@ -16,11 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, User } from "lucide-react";
+import { Camera, User, Shield, Users, Bell } from "lucide-react";
 import { AvatarCropDialog } from "@/components/ui/avatar-crop-dialog";
 import { NotificationSettingsForm } from "@/components/profile/notification-settings";
 import { CompanyInfoSection } from "@/components/profile/company-info";
 import { UserManagement } from "@/components/profile/user-management";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const profileSchema = z.object({
   username: z.string().min(1, "Username is required"),

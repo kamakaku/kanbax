@@ -349,70 +349,29 @@ export function CompanyInfoSection() {
 
             <Separator />
 
-            {/* Ausstehende Benutzerbestätigungen (nur für Admins) */}
+            {/* Hinweis auf Benutzerverwaltung für Admins */}
             {user?.isCompanyAdmin && (
               <>
                 <div>
                   <div className="flex items-center mb-4">
                     <Clock className="h-5 w-5 mr-2 text-primary" />
-                    <h3 className="font-medium">Ausstehende Aktivierungen</h3>
+                    <h3 className="font-medium">Benutzerverwaltung</h3>
                   </div>
-
-                  {isPendingUsersLoading ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-8 w-full" />
-                      <Skeleton className="h-8 w-full" />
-                    </div>
-                  ) : pendingUsers && Array.isArray(pendingUsers) && pendingUsers.length > 0 ? (
-                    <Card>
-                      <CardContent className="px-4 py-2">
-                        <ul className="space-y-2 py-2">
-                          {pendingUsers.map((pendingUser: any) => (
-                            <li key={pendingUser.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md border border-amber-200/30">
-                              <div className="flex items-center">
-                                <div className="relative">
-                                  {pendingUser.avatarUrl ? (
-                                    <img 
-                                      src={pendingUser.avatarUrl} 
-                                      alt={pendingUser.username} 
-                                      className="h-8 w-8 rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
-                                      <User className="h-4 w-4 text-amber-600" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="ml-3">
-                                  <p className="text-sm font-medium">{pendingUser.username}</p>
-                                  <p className="text-xs text-muted-foreground">{pendingUser.email}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Registriert: {format(new Date(pendingUser.createdAt), 'dd.MM.yyyy', { locale: de })}
-                                  </p>
-                                </div>
-                              </div>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-                                onClick={() => activateUserMutation.mutate(pendingUser.id)}
-                                disabled={activateUserMutation.isPending}
-                              >
-                                <UserCheck className="h-4 w-4 mr-2" />
-                                Aktivieren
-                              </Button>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="text-center p-4 bg-muted/30 rounded-md">
-                      <p className="text-sm text-muted-foreground">
-                        Keine ausstehenden Benutzeraktivierungen.
-                      </p>
-                    </div>
-                  )}
+                  
+                  <div className="bg-muted/30 rounded-md p-4">
+                    <p className="text-sm">
+                      Benutzer können im Tab "Benutzerverwaltung" aktiviert oder deaktiviert werden.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => document.getElementById('tab-user-management')?.click()}
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Zur Benutzerverwaltung
+                    </Button>
+                  </div>
                 </div>
 
                 <Separator />
