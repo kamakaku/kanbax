@@ -1,16 +1,10 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -46,16 +40,14 @@ export function DialogMultiSelect({
     setLocalSelected(selected);
   }, [selected]);
 
-  const handleUnselect = (item: string) => {
-    setLocalSelected(localSelected.filter((i) => i !== item));
-  };
-
   const handleSelect = (value: string) => {
-    if (localSelected.includes(value)) {
-      setLocalSelected(localSelected.filter((item) => item !== value));
-    } else {
-      setLocalSelected([...localSelected, value]);
-    }
+    setLocalSelected(prev => {
+      if (prev.includes(value)) {
+        return prev.filter(item => item !== value);
+      } else {
+        return [...prev, value];
+      }
+    });
   };
 
   const handleSave = () => {
@@ -104,47 +96,57 @@ export function DialogMultiSelect({
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </DialogTrigger>
-        <DialogContent className="p-0 w-[300px] max-w-[96vw]" onInteractOutside={(e) => {
+        <DialogContent className="p-2 w-[300px] max-w-[96vw]" onInteractOutside={(e) => {
           // Verhindern, dass der Dialog geschlossen wird, wenn man außerhalb klickt
           e.preventDefault();
         }}>
-          <div className="p-2">
-            <CommandInput 
+          <div className="flex items-center border-b px-3 mb-2">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Input
               placeholder="Suchen..."
               value={searchTerm}
-              onValueChange={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex h-11 w-full border-0 bg-transparent py-3 text-sm outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
-          <Command>
-            <CommandEmpty>Keine Ergebnisse gefunden.</CommandEmpty>
-            <CommandGroup>
-              <ScrollArea className="h-60 overflow-auto">
-                {filteredOptions.map((option) => {
+          
+          <div className="flex flex-col">
+            <ScrollArea className="h-60 overflow-auto">
+              {filteredOptions.length === 0 ? (
+                <div className="py-6 text-center text-sm">
+                  Keine Ergebnisse gefunden.
+                </div>
+              ) : (
+                filteredOptions.map((option) => {
                   const isSelected = localSelected.includes(option.value);
                   return (
-                    <CommandItem
+                    <div
                       key={option.value}
-                      onSelect={() => handleSelect(option.value)}
-                      className="flex items-center"
+                      className={cn(
+                        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                        isSelected && "bg-accent text-accent-foreground"
+                      )}
+                      onClick={() => handleSelect(option.value)}
                     >
                       <div
                         className={cn(
                           "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
                           isSelected
                             ? "bg-primary text-primary-foreground"
-                            : "opacity-50 [&_svg]:invisible"
+                            : "opacity-50"
                         )}
                       >
-                        <Check className="h-4 w-4" />
+                        {isSelected && <Check className="h-4 w-4" />}
                       </div>
                       <span>{option.label}</span>
-                    </CommandItem>
+                    </div>
                   );
-                })}
-              </ScrollArea>
-            </CommandGroup>
-          </Command>
-          <div className="flex justify-end p-2 border-t">
+                })
+              )}
+            </ScrollArea>
+          </div>
+          
+          <div className="flex justify-end p-2 border-t mt-2">
             <Button 
               variant="outline" 
               size="sm" 
