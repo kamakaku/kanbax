@@ -1358,6 +1358,11 @@ export class DatabaseStorage implements IStorage {
       if (!targetUser || targetUser.companyId !== currentUser.companyId) {
         throw new Error("Zielbenutzer nicht gefunden oder nicht im selben Unternehmen");
       }
+      
+      // Prüfen, ob der Benutzer aktiviert ist
+      if (!targetUser.isActive) {
+        throw new Error("Benutzer muss erst aktiviert werden, bevor er zum Administrator gemacht werden kann");
+      }
 
       // Rolle aktualisieren
       const [updatedUser] = await db

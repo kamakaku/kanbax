@@ -417,10 +417,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       const companyId = userResult.rows[0].company_id;
 
       // Get all users from the same company using direct SQL query
+      // Nur Benutzer anzeigen, die aktiv sind oder Admins sind
       const companyUsers = await pool.query(
         `SELECT id, username, email, avatar_url, company_id, 
          is_company_admin, is_active, created_at 
-         FROM users WHERE company_id = $1`,
+         FROM users WHERE company_id = $1 AND is_active IS NOT FALSE`,
         [companyId]
       );
 
