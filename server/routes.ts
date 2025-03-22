@@ -965,38 +965,44 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
       
-      // Vorhandenen storage-Mechanismus verwenden, der bereits funktioniert
+      // Direkte SQL-Abfrage verwenden, um Probleme mit dem storage-Mechanismus zu umgehen
+      console.log("Using direct SQL for company lookup");
       try {
-        const company = await storage.getCurrentUserCompany(req.userId);
-        
-        if (!company) {
-          console.log(`User ID ${req.userId} has no company assigned or company not found`);
-          return res.json(null); // Kein Fehler, sondern null für Benutzer ohne Unternehmen
-        }
-        
-        console.log("Returning company data:", company);
-        return res.json(company);
-      } catch (storageError) {
-        console.error("Error accessing company from storage:", storageError);
-        
-        // Als Fallback direkte SQL-Abfrage verwenden
-        console.log("Using direct SQL as fallback for company lookup");
-        const result = await pool.query(
-          `SELECT c.* 
-           FROM companies c
-           JOIN users u ON u.company_id = c.id
-           WHERE u.id = $1`,
+        // Zuerst die Benutzerinformationen abrufen, um die companyId zu erhalten
+        const userResult = await pool.query(
+          `SELECT company_id FROM users WHERE id = $1`,
           [req.userId]
         );
         
-        if (result.rows.length === 0) {
-          console.log(`No company found for user ID: ${req.userId} using SQL fallback`);
-          return res.json(null);
+        console.log("User query result:", userResult.rows);
+        
+        if (userResult.rows.length === 0 || !userResult.rows[0].company_id) {
+          console.log(`User ID ${req.userId} has no company assigned`);
+          return res.json(null); // Kein Fehler, sondern null für Benutzer ohne Unternehmen
         }
         
-        const company = result.rows[0];
-        console.log("Returning company data from SQL fallback:", company);
+        const companyId = userResult.rows[0].company_id;
+        console.log(`Found company ID ${companyId} for user ${req.userId}`);
+        
+        // Dann die Unternehmensdaten abrufen
+        const companyResult = await pool.query(
+          `SELECT * FROM companies WHERE id = $1`,
+          [companyId]
+        );
+        
+        console.log("Company query result:", companyResult.rows);
+        
+        if (companyResult.rows.length === 0) {
+          console.log(`Company ID ${companyId} not found`);
+          return res.status(400).json({ message: "Ungültige Unternehmens-ID" });
+        }
+        
+        const company = companyResult.rows[0];
+        console.log("Returning company data:", company);
         return res.json(company);
+      } catch (dbError) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Datenbankfehler beim Abrufen der Unternehmensdaten" });
       }
     } catch (error) {
       console.error("Error fetching current company:", error);
