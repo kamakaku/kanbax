@@ -158,8 +158,16 @@ export async function registerRoutes(app: Express, db: Knex) {
 
       // Verify password - Beachte dass das Datenbankfeld snake_case verwendet
       const passwordHash = user.password_hash;
+      console.log("Password comparison:", { 
+        password: password, 
+        hash: passwordHash,
+        hashType: typeof passwordHash,
+        hashLength: passwordHash?.length 
+      });
+      
+      // Führe Vergleich durch und protokolliere Ergebnis
       const isValid = await bcrypt.compare(password, passwordHash);
-      console.log("Password verification:", { isValid, passwordProvided: password, hashLength: passwordHash?.length });
+      console.log("Password verification result:", { isValid });
 
       if (!isValid) {
         return res.status(400).json({ message: "Ungültige Anmeldedaten" });
