@@ -193,8 +193,8 @@ app.use((req, res, next) => {
       }
     };
 
-    // Start at port 5001 since 5000 seems to be in use
-    const port = parseInt(process.env.PORT || "5001", 10);
+    // Start at port 5000 to match Replit's expectation and Vite's settings
+    const port = parseInt(process.env.PORT || "5000", 10);
     log(`Starting server on port ${port}`);
     await startServer(port);
   } catch (error) {

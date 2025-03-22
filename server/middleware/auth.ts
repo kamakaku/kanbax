@@ -25,6 +25,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   try {
     // Check if user exists in session
     if (!req.session || !req.session.userId) {
+      console.log(`[AUTH] Unauthentifizierter Zugriff auf ${req.method} ${req.path}`);
       return res.status(401).json({ message: 'Nicht authentifiziert' });
     }
 
@@ -35,12 +36,15 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       .where(eq(users.id, req.session.userId));
 
     if (!user) {
+      console.log(`[AUTH] Benutzer mit ID ${req.session.userId} nicht gefunden`);
       return res.status(401).json({ message: 'Benutzer nicht gefunden' });
     }
 
     // Add user and userId to request
     req.user = user;
     req.userId = user.id;
+    
+    console.log(`[AUTH] Authentifizierter Zugriff: Benutzer ${user.username} (ID: ${user.id}) auf ${req.method} ${req.path}`);
 
     next();
   } catch (error) {
@@ -61,7 +65,12 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
       if (user) {
         req.user = user;
         req.userId = user.id;
+        console.log(`[AUTH-OPTIONAL] Authentifizierter Benutzer ${user.username} (ID: ${user.id}) auf ${req.method} ${req.path}`);
+      } else {
+        console.log(`[AUTH-OPTIONAL] Ungültige Benutzer-ID in Session: ${req.session.userId}`);
       }
+    } else {
+      console.log(`[AUTH-OPTIONAL] Keine Benutzer-Session für ${req.method} ${req.path}`);
     }
     next();
   } catch (error) {

@@ -1,11 +1,12 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { storage } from "./storage";
 import { insertUserProductivityMetricsSchema, insertTaskTimeEntrySchema, insertTaskStateChangeSchema } from "@shared/schema";
 import { subDays, startOfDay } from "date-fns";
+import { requireAuth } from "./middleware/auth";
 
 export function registerProductivityRoutes(app: Express) {
   // Get productivity metrics for a user
-  app.get("/api/productivity/metrics/:userId", async (req, res) => {
+  app.get("/api/productivity/metrics/:userId", requireAuth, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
       const days = parseInt(req.query.days as string) || 7;
@@ -47,7 +48,7 @@ export function registerProductivityRoutes(app: Express) {
   });
 
   // Get task distribution for a user
-  app.get("/api/productivity/task-distribution/:userId", async (req, res) => {
+  app.get("/api/productivity/task-distribution/:userId", requireAuth, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
       
@@ -64,7 +65,7 @@ export function registerProductivityRoutes(app: Express) {
   });
 
   // Start time tracking for a task
-  app.post("/api/productivity/time-entries", async (req, res) => {
+  app.post("/api/productivity/time-entries", requireAuth, async (req, res) => {
     try {
       const result = insertTaskTimeEntrySchema.safeParse(req.body);
       
@@ -81,7 +82,7 @@ export function registerProductivityRoutes(app: Express) {
   });
 
   // End time tracking for a task
-  app.patch("/api/productivity/time-entries/:id", async (req, res) => {
+  app.patch("/api/productivity/time-entries/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const endTime = new Date(req.body.endTime);
@@ -103,7 +104,7 @@ export function registerProductivityRoutes(app: Express) {
   });
 
   // Record a task state change
-  app.post("/api/productivity/state-changes", async (req, res) => {
+  app.post("/api/productivity/state-changes", requireAuth, async (req, res) => {
     try {
       const result = insertTaskStateChangeSchema.safeParse(req.body);
       
