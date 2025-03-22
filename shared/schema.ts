@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -744,3 +744,39 @@ export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type NotificationSettings = typeof notificationSettings.$inferSelect;
 export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;
+
+// User favorite tables for personalized favorites
+export const userFavoriteProjects = pgTable("user_favorite_projects", {
+  userId: integer("user_id").notNull(),
+  projectId: integer("project_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.userId, table.projectId] })
+  };
+});
+
+export const userFavoriteBoards = pgTable("user_favorite_boards", {
+  userId: integer("user_id").notNull(),
+  boardId: integer("board_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.userId, table.boardId] })
+  };
+});
+
+export const userFavoriteObjectives = pgTable("user_favorite_objectives", {
+  userId: integer("user_id").notNull(),
+  objectiveId: integer("objective_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.userId, table.objectiveId] })
+  };
+});
+
+// Export types for favorite tables
+export type UserFavoriteProject = typeof userFavoriteProjects.$inferSelect;
+export type UserFavoriteBoard = typeof userFavoriteBoards.$inferSelect;
+export type UserFavoriteObjective = typeof userFavoriteObjectives.$inferSelect;
