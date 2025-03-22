@@ -1325,12 +1325,30 @@ export async function registerRoutes(app: Express, db: Knex) {
       return res.status(400).json({ message: "Invalid team ID" });
     }
 
-    const result = insertTeamSchema.partial().safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
-    }
-
     try {
+      // Log für Debugging
+      console.log("Team update request body:", req.body);
+      
+      // Konvertiere member_ids zu Strings, falls sie als Zahlen übergeben werden
+      const teamData = {
+        ...req.body,
+        member_ids: req.body.member_ids 
+          ? Array.isArray(req.body.member_ids) 
+              ? req.body.member_ids.map(id => id.toString()) 
+              : [req.body.member_ids.toString()]
+          : undefined
+      };
+      
+      // Validiere Daten
+      const result = insertTeamSchema.partial().safeParse(teamData);
+      if (!result.success) {
+        console.error("Team validation error:", result.error.format());
+        return res.status(400).json({ 
+          message: "Invalid team data", 
+          errors: result.error.errors 
+        });
+      }
+
       // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
       const userId = req.userId!;
       const team = await storage.updateTeam(userId, id, result.data);

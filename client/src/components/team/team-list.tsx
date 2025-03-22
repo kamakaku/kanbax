@@ -114,10 +114,18 @@ export function TeamList() {
 
           try {
             // Stelle sicher, dass creatorId beim Update nicht verloren geht
+            // Entferne member_ids vom Objekt, wenn es ein leeres Array ist
             const teamData = {
-              ...data,
+              name: data.name,
+              description: data.description || "",
+              companyId: data.companyId || editingTeam.companyId,
               creatorId: editingTeam.creatorId // Wichtig: Die ursprüngliche creatorId beibehalten
             };
+            
+            // Füge member_ids nur hinzu, wenn es nicht leer ist
+            if (data.member_ids && data.member_ids.length > 0) {
+              teamData.member_ids = data.member_ids;
+            }
             
             console.log("Updating team data:", JSON.stringify(teamData, null, 2));
             
@@ -130,15 +138,18 @@ export function TeamList() {
             });
 
             if (!res.ok) {
-              throw new Error("Failed to update team");
+              const errorData = await res.json().catch(() => null);
+              console.error("Server error:", errorData);
+              throw new Error(errorData?.message || "Failed to update team");
             }
 
             toast({ title: "Team erfolgreich aktualisiert" });
             setEditingTeam(null);
           } catch (error) {
+            console.error("Error updating team:", error);
             toast({
               title: "Fehler",
-              description: "Das Team konnte nicht aktualisiert werden",
+              description: error instanceof Error ? error.message : "Das Team konnte nicht aktualisiert werden",
               variant: "destructive",
             });
           }

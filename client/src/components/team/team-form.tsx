@@ -90,7 +90,8 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
         ...data,
         creatorId: data.creatorId || user?.id || 0,
         companyId: data.companyId || user?.companyId || 0,
-        member_ids: data.member_ids?.map(id => parseInt(id)) || [] // Umbenannt von memberIds zu member_ids
+        // Umbenannt von memberIds zu member_ids, aber strings als strings lassen
+        member_ids: data.member_ids || [] 
       };
       
       console.log("Prepared team data:", JSON.stringify(teamData, null, 2));
