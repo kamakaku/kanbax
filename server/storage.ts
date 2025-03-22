@@ -1254,7 +1254,13 @@ export class DatabaseStorage implements IStorage {
       // Unternehmen des Benutzers abrufen
       console.log(`[storage] Querying company with ID: ${user.companyId}`);
       const companyResult = await db
-        .select()
+        .select({
+          id: companies.id,
+          name: companies.name,
+          description: companies.description,
+          inviteCode: companies.inviteCode,
+          createdAt: companies.createdAt
+        })
         .from(companies)
         .where(eq(companies.id, user.companyId));
       
@@ -1268,10 +1274,12 @@ export class DatabaseStorage implements IStorage {
       const company = companyResult[0];
       console.log(`[storage] Returning company:`, company);
       
+      // Stelle sicher, dass Felder im camelCase sind
       return company;
     } catch (error) {
       console.error("[storage] Error in getCurrentUserCompany:", error);
-      return null;
+      // Wirf Fehler weiter, um im Endpunkt entsprechend zu reagieren
+      throw new Error(`Fehler beim Abrufen des Unternehmens: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
