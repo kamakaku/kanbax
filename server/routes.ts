@@ -1161,6 +1161,29 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
   
   // Alle Benachrichtigungen als gelesen markieren
+  app.patch("/api/notifications/read-all", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      
+      // Alle ungelesenen Benachrichtigungen des Benutzers als gelesen markieren
+      await db.update(notifications)
+        .set({ read: true })
+        .where(and(
+          eq(notifications.userId, userId),
+          eq(notifications.read, false)
+        ));
+      
+      res.json({ message: "Alle Benachrichtigungen als gelesen markiert" });
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+      res.status(500).json({
+        message: "Benachrichtigungen konnten nicht als gelesen markiert werden",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Alle Benachrichtigungen als gelesen markieren
   app.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;

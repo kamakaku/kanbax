@@ -40,6 +40,16 @@ export function NotificationDropdown() {
       console.error("Failed to mark notification as read:", error);
     }
   };
+  
+  const markAllAsRead = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Verhindert, dass das Dropdown geschlossen wird
+    try {
+      await apiRequest("PATCH", `/api/notifications/read-all`);
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  };
 
   const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
@@ -61,8 +71,37 @@ export function NotificationDropdown() {
         return "👥";
       case "okr":
         return "🎯";
+      case "approval":
+        return "✅";
+      case "mention":
+        return "💬";
+      case "assignment":
+        return "📌";
       default:
         return "📬";
+    }
+  };
+  
+  const getNotificationTypeClass = (type: string) => {
+    switch (type) {
+      case "approval":
+        return "text-green-500";
+      case "mention":
+        return "text-blue-500";
+      case "assignment":
+        return "text-amber-500";
+      case "task":
+        return "text-purple-500";
+      case "board":
+        return "text-cyan-500";
+      case "project":
+        return "text-indigo-500";
+      case "team":
+        return "text-pink-500";
+      case "okr":
+        return "text-orange-500";
+      default:
+        return "text-gray-500";
     }
   };
 
@@ -80,13 +119,25 @@ export function NotificationDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80" align="end">
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Benachrichtigungen</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {unreadCount
-                ? `${unreadCount} ungelesene Benachrichtigung${unreadCount !== 1 ? "en" : ""}`
-                : "Keine neuen Benachrichtigungen"}
-            </p>
+          <div className="flex justify-between items-center">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">Benachrichtigungen</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {unreadCount
+                  ? `${unreadCount} ungelesene Benachrichtigung${unreadCount !== 1 ? "en" : ""}`
+                  : "Keine neuen Benachrichtigungen"}
+              </p>
+            </div>
+            {unreadCount > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-xs text-muted-foreground hover:text-primary"
+                onClick={markAllAsRead}
+              >
+                Alle als gelesen markieren
+              </Button>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -105,7 +156,7 @@ export function NotificationDropdown() {
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
-                  <span className="text-xl">
+                  <span className={`text-xl ${getNotificationTypeClass(notification.type)}`}>
                     {renderNotificationIcon(notification.type)}
                   </span>
                   <div className="flex-1 space-y-1">
