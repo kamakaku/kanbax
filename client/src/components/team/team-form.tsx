@@ -127,6 +127,14 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
     }
   };
 
+  // Finde den Creator-Namen, wenn das Team bearbeitet wird
+  const getCreatorName = () => {
+    if (!defaultValues?.creatorId) return user?.username || "Unbekannt";
+    
+    const creator = users.find(u => u.id === defaultValues.creatorId);
+    return creator?.username || user?.username || "Unbekannt";
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
@@ -134,6 +142,12 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
           <DialogTitle>
             {defaultValues ? "Team bearbeiten" : "Neues Team erstellen"}
           </DialogTitle>
+          {defaultValues && (
+            <div className="text-sm text-muted-foreground mt-1">
+              Erstellt von <span className="font-medium">{getCreatorName()}</span>
+              {defaultValues.creatorId === user?.id && " (Sie)"}
+            </div>
+          )}
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
