@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation, useParams, useNavigate } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -180,8 +180,9 @@ function AuthenticatedApp() {
       <Route path="/all-okrs/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
       {/* Fallback für alte Links */}
       <Route path="/objectives/:id" component={() => {
-        const [, params] = useLocation();
-        const id = params.split('/').pop();
+        const [, setLocation] = useLocation();
+        // Holen Sie die ID direkt aus der URL
+        const id = window.location.pathname.split('/').pop();
         if (id) {
           setLocation(`/all-okrs/${id}`);
         }

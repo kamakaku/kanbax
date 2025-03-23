@@ -288,7 +288,7 @@ export function OKRDetailPage() {
                   <Calendar className="h-4 w-4" />
                   Zyklus
                 </div>
-                <div>{objective.cycleId ? objective.cycle?.title : "Kein Zyklus"}</div>
+                <div>{objective.cycleId ? (objective.cycle?.title || "Zyklus " + objective.cycleId) : "Kein Zyklus"}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-muted-foreground">Verantwortlich</div>
@@ -433,7 +433,7 @@ export function OKRDetailPage() {
                               <div className="flex items-center gap-4">
                                 <Checkbox
                                   checked={kr.currentValue === 100}
-                                  onCheckedChange={(checked) => handleProgressUpdate(kr, checked)}
+                                  onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
                                 />
                                 <span className="text-sm">Abgeschlossen</span>
                               </div>
@@ -451,7 +451,7 @@ export function OKRDetailPage() {
                                       <Checkbox
                                         checked={checklistItem.completed}
                                         onCheckedChange={(checked) => 
-                                          handleChecklistItemUpdate(kr, index, checked as boolean)
+                                          handleChecklistItemUpdate(kr, index, checked === true)
                                         }
                                       />
                                       <span className="text-sm">{checklistItem.title}</span>

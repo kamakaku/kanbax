@@ -42,7 +42,7 @@ export function registerOkrRoutes(app: Express) {
 
       // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
       const favorite = await db.query.userFavoriteObjectives.findFirst({
-        where: schema.userFavoriteObjectives.userId.equals(userId).and(schema.userFavoriteObjectives.objectiveId.equals(objective.id))
+        where: (uf) => uf.userId.equals(userId).and(uf.objectiveId.equals(objective.id))
       });
 
 
