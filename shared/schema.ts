@@ -566,7 +566,15 @@ export type Project = typeof projects.$inferSelect & {
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 
-export type Objective = typeof objectives.$inferSelect;
+export type Objective = typeof objectives.$inferSelect & {
+  cycle?: {
+    id: number;
+    title: string;
+    startDate: Date;
+    endDate: Date;
+    status: string;
+  } | null;
+};
 export type InsertObjective = z.infer<typeof insertObjectiveSchema>;
 
 export type KeyResult = typeof keyResults.$inferSelect;
