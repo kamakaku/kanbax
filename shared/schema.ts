@@ -116,17 +116,22 @@ export const comments = pgTable("comments", {
 // Update the activity_logs table definition
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  action: text("action").notNull(),
+  action: text("action").notNull(), // 'create', 'update', 'delete', 'assign', 'mention', 'comment', 'approval'
   details: text("details"),
   userId: integer("user_id").references(() => users.id),
   boardId: integer("board_id").references(() => boards.id),
   projectId: integer("project_id").references(() => projects.id),
   objectiveId: integer("objective_id").references(() => objectives.id),
   taskId: integer("task_id").references(() => tasks.id),
+  commentId: integer("comment_id").references(() => comments.id),
+  teamId: integer("team_id").references(() => teams.id),
+  targetUserId: integer("target_user_id").references(() => users.id), // Empfänger der Aktivität
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  // Add visibility control
+  // Sichtbarkeitskontrolle
   visibleToTeams: integer("visible_to_teams").array(),
   visibleToUsers: integer("visible_to_users").array(),
+  requiresNotification: boolean("requires_notification").default(false),
+  notificationSent: boolean("notification_sent").default(false),
 });
 
 const checklistItemSchema = z.object({
@@ -276,19 +281,29 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     projectId: true,
     objectiveId: true,
     taskId: true,
+    commentId: true,
+    teamId: true,
+    targetUserId: true,
     visibleToTeams: true,
     visibleToUsers: true,
+    requiresNotification: true,
+    notificationSent: true
   })
   .extend({
-    action: z.string().min(1, "Action is required"),
+    action: z.enum(["create", "update", "delete", "assign", "mention", "comment", "approval"]),
     details: z.string().optional(),
     userId: z.number().int().positive().optional(),
     boardId: z.number().int().positive().optional(),
     projectId: z.number().int().positive().optional(),
     objectiveId: z.number().int().positive().optional(),
     taskId: z.number().int().positive().optional(),
+    commentId: z.number().int().positive().optional(),
+    teamId: z.number().int().positive().optional(),
+    targetUserId: z.number().int().positive().optional(),
     visibleToTeams: z.array(z.number().int().positive()).optional(),
     visibleToUsers: z.array(z.number().int().positive()).optional(),
+    requiresNotification: z.boolean().default(false),
+    notificationSent: z.boolean().default(false)
   });
 
 // Add team schemas
@@ -523,8 +538,13 @@ export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect & {
   board_title?: string;
   project_title?: string;
-  okr_title?: string;
-  user_name?: string;
+  objective_title?: string;
+  task_title?: string;
+  team_title?: string;
+  comment_content?: string;
+  username?: string;
+  avatar_url?: string;
+  target_username?: string;
 };
 
 export const updateTaskSchema = insertTaskSchema.partial();
@@ -779,7 +799,7 @@ export const insertNotificationSchema = createInsertSchema(notifications)
     link: true,
   })
   .extend({
-    type: z.enum(["task", "board", "project", "team", "okr"]),
+    type: z.enum(["task", "board", "project", "team", "okr", "approval", "mention", "assignment"]),
   });
 
 export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings)
