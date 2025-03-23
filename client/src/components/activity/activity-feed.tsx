@@ -32,6 +32,8 @@ interface ExtendedActivityLog {
   project_id?: number;
   objective_title?: string;
   objective_id?: number;
+  team_title?: string;
+  team_id?: number; // Hinzugefügt für snake_case Kompatibilität
   username?: string;
   avatar_url?: string;
   
@@ -60,6 +62,18 @@ const renderContextLink = (activity: ExtendedActivityLog) => {
       prefix: " im OKR ",
       href: `/all-okrs/${activity.objective_id}`,
       title: activity.objective_title
+    };
+  } else if (activity.teamId && activity.team_title) {
+    contextInfo = {
+      prefix: " im Team ",
+      href: `/teams/${activity.teamId}`,
+      title: activity.team_title
+    };
+  } else if (activity.team_id && activity.team_title) {
+    contextInfo = {
+      prefix: " im Team ",
+      href: `/teams/${activity.team_id}`,
+      title: activity.team_title
     };
   }
 
