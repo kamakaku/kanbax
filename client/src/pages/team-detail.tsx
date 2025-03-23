@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Team, Board, Objective, Project, User } from "@shared/schema";
+import { Team, Board, Objective, Project, User, InsertTeam } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Calendar, Clipboard, Kanban, ChevronRight, ChevronLeft, Edit, ExternalLink } from "lucide-react";
@@ -398,7 +398,7 @@ export default function TeamDetail() {
           onSubmit={async (data) => {
             try {
               // Stelle sicher, dass creatorId beim Update nicht verloren geht
-              const teamData = {
+              const teamData: InsertTeam & { member_ids?: string[] } = {
                 name: data.name,
                 description: data.description || "",
                 companyId: data.companyId || editingTeam.companyId,

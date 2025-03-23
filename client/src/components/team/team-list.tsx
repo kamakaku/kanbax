@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type Team, type TeamMember } from "@shared/schema";
+import { type Team, type TeamMember, type InsertTeam } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -134,7 +134,7 @@ export function TeamList() {
           try {
             // Stelle sicher, dass creatorId beim Update nicht verloren geht
             // Entferne member_ids vom Objekt, wenn es ein leeres Array ist
-            const teamData = {
+            const teamData: InsertTeam & { member_ids?: string[] } = {
               name: data.name,
               description: data.description || "",
               companyId: data.companyId || editingTeam.companyId,
