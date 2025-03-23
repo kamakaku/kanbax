@@ -97,16 +97,18 @@ export default function TeamDetail() {
   });
 
   // Filtern der Boards für dieses Team
-  const teamBoards = allBoards.filter(board => board.team_ids?.includes(teamId));
+  const teamBoards = allBoards.filter(board => 
+    (board.team_ids && Array.isArray(board.team_ids) && board.team_ids.includes(teamId))
+  );
 
   // Filtern der Objectives (OKRs) für dieses Team
   const teamObjectives = allObjectives.filter(obj => 
-    obj.teams && Array.isArray(obj.teams) && obj.teams.some((t: any) => t.id === teamId)
+    (obj.teamId === teamId) || (obj.teamIds && Array.isArray(obj.teamIds) && obj.teamIds.includes(teamId))
   );
 
   // Filtern der Projekte, die mit diesem Team verbunden sind
   const teamProjects = allProjects.filter(proj => 
-    proj.teams && Array.isArray(proj.teams) && proj.teams.some((t: any) => t.id === teamId)
+    (proj.teamIds && Array.isArray(proj.teamIds) && proj.teamIds.includes(teamId))
   );
 
   // Team-Mitglieder-Liste erstellen

@@ -163,12 +163,18 @@ export default function ProjectDetail() {
     return null;
   }
 
-  // Prüfe, ob der aktuelle Benutzer der Ersteller ist
-  const isCreator = project.creator_id === user?.id;
+  // Logge Projekt-Struktur zur Analyse
+  console.log("Projekt-Struktur:", project);
+
+  // Verwende creatorId statt creator_id wenn vorhanden
+  const isCreator = project.creatorId ? project.creatorId === user?.id : false;
 
   const getProjectCreatorName = () => {
-    const creator = users.find(u => u.id === project.creator_id);
-    return creator?.username || "Unbekannt";
+    if (project.creatorId) {
+      const creator = users.find(u => u.id === project.creatorId);
+      return creator?.username || "Unbekannt";
+    }
+    return "Unbekannt";
   };
 
   return (
