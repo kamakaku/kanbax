@@ -46,11 +46,23 @@ export function OKRDetailPage() {
   const { data: objective, isLoading: isLoadingObjective, error } = useQuery<Objective>({
     queryKey: ["/api/objectives", objectiveId],
     queryFn: async () => {
-      const response = await fetch(`/api/objectives/${objectiveId}`);
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden des Objectives");
+      try {
+        console.log(`Requesting objective with ID: ${objectiveId}`);
+        const response = await fetch(`/api/objectives/${objectiveId}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error fetching objective ${objectiveId}:`, response.status, errorText);
+          throw new Error(`Fehler beim Laden des Objectives: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log(`Successfully loaded objective:`, data);
+        return data;
+      } catch (err) {
+        console.error("Error in objective fetch:", err);
+        throw err;
       }
-      return response.json();
     },
     enabled: !!objectiveId && !isNaN(objectiveId),
   });

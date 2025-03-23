@@ -1,4 +1,5 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, useParams, useNavigate } from "wouter";
+import { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -177,6 +178,15 @@ function AuthenticatedApp() {
       <Route path="/boards/:id" component={() => <ProtectedRoute component={Board} />} />
       <Route path="/all-okrs" component={() => <ProtectedRoute component={AllOKRs} />} />
       <Route path="/all-okrs/:id" component={() => <ProtectedRoute component={OKRDetailPage} />} />
+      {/* Fallback für alte Links */}
+      <Route path="/objectives/:id" component={() => {
+        const [, params] = useLocation();
+        const id = params.split('/').pop();
+        if (id) {
+          setLocation(`/all-okrs/${id}`);
+        }
+        return null;
+      }} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
