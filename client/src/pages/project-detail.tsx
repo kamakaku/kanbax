@@ -1,47 +1,101 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
-import { type Project } from "@shared/schema";
-import { BoardList } from "@/components/project/board-list";
+import { useRoute, useLocation, Link } from "wouter";
+import { type Project, UpdateProject, Team, Board, Objective, User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Pencil, Users, Star } from "lucide-react";
-import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Pencil, 
+  Users, 
+  Star, 
+  Calendar, 
+  Clipboard, 
+  Kanban, 
+  ChevronRight, 
+  ChevronLeft, 
+  Edit 
+} from "lucide-react";
+import { useState, useEffect } from "react";
 import { ProjectForm } from "@/components/project/project-form";
-import { ProjectOKRList } from "@/components/project/project-okr-list";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-
+import { GlassCard } from "@/components/ui/glass-card";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-store";
 
 export default function ProjectDetail() {
-  const params = useParams();
-  const projectId = parseInt(params.id as string);
-  const [showEditForm, setShowEditForm] = useState(false);
+  const [, params] = useRoute("/projects/:id");
+  const [, navigate] = useLocation();
+  const projectId = parseInt(params?.id || "0");
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const { toast } = useToast();
+  const { user } = useAuth();
 
-  const { data: project, isLoading } = useQuery<Project>({
+  // Abfrage für Projekt-Details
+  const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useQuery<Project>({
     queryKey: [`/api/projects/${projectId}`],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch project");
+      const response = await fetch(`/api/projects/${projectId}`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden des Projekts");
       }
-      return res.json();
+      return response.json();
     },
+    enabled: !!projectId && projectId > 0,
   });
 
-  // Fetch teams for the project
-  const { data: teams = [] } = useQuery({
+  // Abfrage für Teams
+  const { data: allTeams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
     queryFn: async () => {
-      const res = await fetch("/api/teams");
-      if (!res.ok) {
-        throw new Error("Failed to fetch teams");
+      const response = await fetch("/api/teams");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Teams");
       }
-      return res.json();
+      return response.json();
     },
-    enabled: !!project?.teamIds?.length,
   });
 
+  // Abfrage für Boards
+  const { data: allBoards = [] } = useQuery<Board[]>({
+    queryKey: ["/api/boards"],
+    queryFn: async () => {
+      const response = await fetch("/api/boards");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Boards");
+      }
+      return response.json();
+    },
+  });
+
+  // Abfrage für User-Daten
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
+
+  // Abfrage für OKRs
+  const { data: allObjectives = [] } = useQuery<Objective[]>({
+    queryKey: ["/api/objectives"],
+    queryFn: async () => {
+      const response = await fetch("/api/objectives");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der OKRs");
+      }
+      return response.json();
+    },
+  });
+
+  // Mutation für Favoriten-Toggle
   const toggleFavorite = useMutation({
     mutationFn: async () => {
       return await apiRequest('PATCH', `/api/projects/${projectId}/favorite`);
@@ -50,91 +104,280 @@ export default function ProjectDetail() {
       // Invalidate the project query to refresh the data
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      
+      toast({
+        title: project?.isFavorite 
+          ? "Aus Favoriten entfernt" 
+          : "Zu Favoriten hinzugefügt",
+      });
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Projekt wird geladen...</p>
-      </div>
-    );
+  // Filtern der Boards für dieses Projekt
+  const projectBoards = allBoards.filter(board => board.projectId === projectId);
+
+  // Filtern der Objectives (OKRs) für dieses Projekt
+  const projectObjectives = allObjectives.filter(obj => obj.projectId === projectId);
+
+  // Filtern der Teams, die mit diesem Projekt verbunden sind
+  const projectTeams = project?.teams?.length 
+    ? allTeams.filter(team => project.teams?.some(t => t.id === team.id))
+    : [];
+
+  // Umleiten, wenn Projekt nicht gefunden wird
+  useEffect(() => {
+    if (!projectLoading && !project && projectId > 0) {
+      toast({
+        title: "Projekt nicht gefunden",
+        description: "Das angeforderte Projekt konnte nicht gefunden werden.",
+        variant: "destructive",
+      });
+      navigate("/all-projects");
+    }
+  }, [project, projectLoading, projectId, toast, navigate]);
+
+  if (projectLoading) {
+    return <div>Lade Projekt...</div>;
+  }
+
+  if (projectError) {
+    return <div>Fehler beim Laden des Projekts</div>;
   }
 
   if (!project) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Projekt nicht gefunden</p>
-      </div>
-    );
+    return null;
   }
 
-  const assignedTeams = teams.filter(team => project.teamIds?.includes(team.id));
+  // Prüfe, ob der aktuelle Benutzer der Ersteller ist
+  const isCreator = project.creatorId === user?.id;
+
+  const getProjectCreatorName = () => {
+    const creator = users.find(u => u.id === project.creatorId);
+    return creator?.username || "Unbekannt";
+  };
 
   return (
-    <div className="container mx-auto p-8">
-      <Card className="mb-8">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-3xl">{project.title}</CardTitle>
-            <p className="text-muted-foreground mt-2">{project.description}</p>
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => toggleFavorite.mutate()}
-              className="hover:bg-yellow-100"
-            >
-              <Star 
-                className={`h-5 w-5 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
-              />
-            </Button>
-            <Button variant="outline" onClick={() => setShowEditForm(true)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Projekt bearbeiten
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Erstellt am {new Date(project.createdAt).toLocaleDateString()}
-            </p>
-
-            {/* Show assigned teams */}
-            {assignedTeams.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <p className="text-sm font-medium">Zugewiesene Teams:</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {assignedTeams.map(team => (
-                    <Badge key={team.id} variant="secondary">
-                      {team.name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-12">
-        {/* Project OKRs */}
-        <ProjectOKRList projectId={projectId} />
-
-        {/* Boards */}
-        <BoardList projectId={projectId} />
+    <div className="container py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={() => navigate("/all-projects")}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Zurück
+          </Button>
+          <h1 className="text-2xl font-bold">{project.title}</h1>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => toggleFavorite.mutate()}
+            className="hover:bg-yellow-100"
+          >
+            <Star 
+              className={`h-4 w-4 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
+            />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setEditingProject(project)}>
+            <Edit className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      <ProjectForm
-        open={showEditForm}
-        onClose={() => setShowEditForm(false)}
-        existingProject={project}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          <GlassCard className="p-6">
+            <div className="flex justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Projekt-Details</h2>
+                <p className="text-muted-foreground mt-2">{project.description || "Keine Beschreibung vorhanden"}</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Erstellt von</div>
+                <div className="font-medium">{getProjectCreatorName()}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {new Date(project.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+            
+            <Separator className="my-4" />
+            
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary" className="flex items-center">
+                <Users className="h-3 w-3 mr-1" />
+                {projectTeams.length} Teams
+              </Badge>
+              <Badge variant="secondary" className="flex items-center">
+                <Kanban className="h-3 w-3 mr-1" />
+                {projectBoards.length} Boards
+              </Badge>
+              <Badge variant="secondary" className="flex items-center">
+                <Calendar className="h-3 w-3 mr-1" />
+                {projectObjectives.length} OKRs
+              </Badge>
+            </div>
+          </GlassCard>
+
+          <Tabs defaultValue="boards" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="boards">Boards</TabsTrigger>
+              <TabsTrigger value="objectives">OKRs</TabsTrigger>
+              <TabsTrigger value="teams">Teams</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="boards" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {projectBoards.map(board => (
+                  <Card key={board.id} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{board.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {board.description || "Keine Beschreibung"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardFooter className="flex justify-end">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/boards/${board.id}`}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+                
+                {projectBoards.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground col-span-2">
+                    Keine Boards in diesem Projekt
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => navigate(`/board/new?projectId=${projectId}`)}>
+                  Neues Board erstellen
+                </Button>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="objectives" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {projectObjectives.map(objective => (
+                  <Card key={objective.id} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{objective.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {objective.description || "Keine Beschreibung"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="flex items-center">
+                        <div className="text-xs text-muted-foreground mr-2">Fortschritt:</div>
+                        <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-primary h-2" 
+                            style={{ width: `${objective.progress || 0}%` }}
+                          ></div>
+                        </div>
+                        <div className="ml-2 text-xs">{objective.progress || 0}%</div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-0 flex justify-end">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/objectives/${objective.id}`}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+              
+              {projectObjectives.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Keine OKRs für dieses Projekt
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="teams" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {projectTeams.map(team => (
+                  <Card key={team.id} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{team.name}</CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {team.description || "Keine Beschreibung"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardFooter className="flex justify-end">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/teams/${team.id}`}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+              
+              {projectTeams.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Keine Teams für dieses Projekt
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+        
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Projekt-Teams</h3>
+          <div className="bg-card rounded-lg border p-4 space-y-3">
+            {projectTeams.map(team => (
+              <div key={team.id} className="flex items-center space-x-2">
+                <div className="flex-grow">
+                  <div className="text-sm font-medium">{team.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{team.description}</div>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {team.role || "Mitglied"}
+                </Badge>
+              </div>
+            ))}
+            
+            {projectTeams.length === 0 && (
+              <div className="text-sm text-muted-foreground">Keine Teams zugewiesen</div>
+            )}
+          </div>
+
+          <h3 className="text-lg font-semibold mt-6">Neueste Boards</h3>
+          <div className="bg-card rounded-lg border p-4 space-y-3">
+            {projectBoards.slice(0, 3).map(board => (
+              <div key={board.id} className="flex items-center space-x-2">
+                <div className="flex-grow">
+                  <div className="text-sm font-medium">{board.title}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {board.description || "Keine Beschreibung"}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" asChild className="px-2">
+                  <Link href={`/boards/${board.id}`}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            ))}
+            
+            {projectBoards.length === 0 && (
+              <div className="text-sm text-muted-foreground">Keine Boards vorhanden</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {editingProject && (
+        <ProjectForm
+          open={!!editingProject}
+          onClose={() => setEditingProject(null)}
+          existingProject={editingProject}
+        />
+      )}
     </div>
   );
 }
