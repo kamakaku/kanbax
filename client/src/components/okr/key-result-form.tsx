@@ -140,6 +140,19 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         teamId: data.teamId ? parseInt(data.teamId) : null,
         userIds: data.userIds.map(id => parseInt(id)),
         taskId: data.taskId ? parseInt(data.taskId) : null,
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Ein Fehler ist aufgetreten');
+      }
+
+      return response.json();
       };
 
       return await apiRequest<KeyResult>(
