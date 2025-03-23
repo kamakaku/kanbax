@@ -114,14 +114,17 @@ export default function ProjectDetail() {
   });
 
   // Filtern der Boards für dieses Projekt
-  const projectBoards = allBoards.filter(board => board.projectId === projectId);
+  const projectBoards = allBoards.filter(board => board.project_id === projectId);
 
   // Filtern der Objectives (OKRs) für dieses Projekt
   const projectObjectives = allObjectives.filter(obj => obj.projectId === projectId);
 
   // Filtern der Teams, die mit diesem Projekt verbunden sind
+  // Prüfe auf teams-Eigenschaft oder teamIds (je nach API-Antwort)
   const projectTeams = project?.teams?.length 
-    ? allTeams.filter(team => project.teams?.some(t => t.id === team.id))
+    ? allTeams.filter(team => project.teams?.some((t: any) => t.id === team.id))
+    : project?.teamIds?.length
+    ? allTeams.filter(team => project.teamIds?.includes(team.id))
     : [];
 
   // Umleiten, wenn Projekt nicht gefunden wird
@@ -149,10 +152,10 @@ export default function ProjectDetail() {
   }
 
   // Prüfe, ob der aktuelle Benutzer der Ersteller ist
-  const isCreator = project.creatorId === user?.id;
+  const isCreator = project.creator_id === user?.id;
 
   const getProjectCreatorName = () => {
-    const creator = users.find(u => u.id === project.creatorId);
+    const creator = users.find(u => u.id === project.creator_id);
     return creator?.username || "Unbekannt";
   };
 
@@ -220,7 +223,6 @@ export default function ProjectDetail() {
             <TabsList className="mb-4">
               <TabsTrigger value="boards">Boards</TabsTrigger>
               <TabsTrigger value="objectives">OKRs</TabsTrigger>
-              <TabsTrigger value="teams">Teams</TabsTrigger>
             </TabsList>
             
             <TabsContent value="boards" className="space-y-4">
@@ -295,34 +297,6 @@ export default function ProjectDetail() {
                 </div>
               )}
             </TabsContent>
-            
-            <TabsContent value="teams" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {projectTeams.map(team => (
-                  <Card key={team.id} className="overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">{team.name}</CardTitle>
-                      <CardDescription className="line-clamp-2">
-                        {team.description || "Keine Beschreibung"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardFooter className="flex justify-end">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/teams/${team.id}`}>
-                          <ChevronRight className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-              
-              {projectTeams.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  Keine Teams für dieses Projekt
-                </div>
-              )}
-            </TabsContent>
           </Tabs>
         </div>
         
@@ -336,7 +310,7 @@ export default function ProjectDetail() {
                   <div className="text-xs text-muted-foreground truncate">{team.description}</div>
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  {team.role || "Mitglied"}
+                  Mitglied
                 </Badge>
               </div>
             ))}
