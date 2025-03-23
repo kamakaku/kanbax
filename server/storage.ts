@@ -51,7 +51,7 @@ export interface IStorage {
 
   // Activity Log operations
   getActivityLogs(userId: number): Promise<ActivityLog[]>;
-  createActivityLog(userId: number, log: InsertActivityLog): Promise<ActivityLog>;
+  createActivityLog(log: InsertActivityLog | any): Promise<ActivityLog>;
 
   // User operations
   getUser(userId: number, id: number): Promise<User>;
@@ -718,7 +718,7 @@ export class DatabaseStorage implements IStorage {
     return await permissionService.getVisibleActivityLogs(userId);
   }
 
-  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+  async createActivityLog(log: InsertActivityLog | any): Promise<ActivityLog> {
     try {
       // Baue das Objekt aus den übergebenen Daten
       const dbLog = {

@@ -41,19 +41,19 @@ export function registerOkrRoutes(app: Express) {
       }
 
       // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
-      // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
-      const favorite = await db
+      const favorites = await db
         .select()
         .from(schema.userFavoriteObjectives)
-        .where(eq(schema.userFavoriteObjectives.userId, userId))
-        .where(eq(schema.userFavoriteObjectives.objectiveId, objective.id))
-        .then((results: any[]) => results.length > 0 ? results[0] : null);
+        .where(eq(schema.userFavoriteObjectives.userId, userId) && 
+               eq(schema.userFavoriteObjectives.objectiveId, objective.id));
+      
+      const isFavorite = favorites.length > 0;
 
 
       // Personalisierter Favoriten-Status hinzufügen
       const objectiveWithFavorite = {
         ...objective,
-        isFavorite: favorite ? true : false
+        isFavorite: isFavorite
       };
 
       // Then get the cycle if it exists
@@ -391,13 +391,12 @@ export function registerOkrRoutes(app: Express) {
         title: keyResults.title,
         description: keyResults.description,
         objectiveId: keyResults.objectiveId,
-        startValue: keyResults.startValue,
         currentValue: keyResults.currentValue,
         targetValue: keyResults.targetValue,
-        unit: keyResults.unit,
         checklistItems: keyResults.checklistItems,
-        creatorId: keyResults.creatorId,
-        createdAt: keyResults.createdAt
+        createdAt: keyResults.createdAt,
+        type: keyResults.type,
+        status: keyResults.status
       });
 
       // Create activity log for new key result
@@ -525,15 +524,31 @@ export function registerOkrRoutes(app: Express) {
     const { objectiveId, keyResultId } = req.query;
 
     try {
-      let query = db.select().from(okrComments);
-      if (objectiveId) {
-        query = query.where(eq(okrComments.objectiveId, Number(objectiveId)));
+      // Verwende SQL anstelle des Drizzle Query Builders
+      let comments;
+      
+      if (objectiveId && keyResultId) {
+        comments = await db.execute(
+          `SELECT * FROM okr_comments WHERE objective_id = $1 AND key_result_id = $2`,
+          [Number(objectiveId), Number(keyResultId)]
+        );
+      } else if (objectiveId) {
+        comments = await db.execute(
+          `SELECT * FROM okr_comments WHERE objective_id = $1`,
+          [Number(objectiveId)]
+        );
+      } else if (keyResultId) {
+        comments = await db.execute(
+          `SELECT * FROM okr_comments WHERE key_result_id = $1`,
+          [Number(keyResultId)]
+        );
+      } else {
+        comments = await db.execute(
+          `SELECT * FROM okr_comments`
+        );
       }
-      if (keyResultId) {
-        query = query.where(eq(okrComments.keyResultId, Number(keyResultId)));
-      }
-      const comments = await query;
-      res.json(comments);
+      
+      res.json(Array.isArray(comments) ? comments : comments.rows || []);
     } catch (error) {
       console.error("Fehler beim Abrufen der Kommentare:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Kommentare" });
@@ -547,7 +562,28 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      const [comment] = await db.insert(okrComments).values(result.data).returning();
+      // Verwende SQL anstelle des Drizzle Query Builders
+      const { userId, objectiveId, keyResultId, content } = result.data;
+      
+      const query = `
+        INSERT INTO okr_comments (user_id, objective_id, key_result_id, content, created_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        RETURNING *
+      `;
+      
+      const commentResult = await db.execute(query, [
+        userId,
+        objectiveId,
+        keyResultId,
+        content
+      ]);
+      
+      const comment = Array.isArray(commentResult) ? commentResult[0] : commentResult.rows?.[0];
+      
+      if (!comment) {
+        throw new Error('Kommentar konnte nicht erstellt werden');
+      }
+      
       res.status(201).json(comment);
     } catch (error) {
       console.error("Fehler beim Erstellen des Kommentars:", error);
