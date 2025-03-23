@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, pool } from "./db";
 import { notifications, insertNotificationSchema, users, activityLogs } from "@shared/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 
@@ -15,20 +15,18 @@ export class NotificationService {
       const validTypes = ["task", "board", "project", "team", "okr", "approval", "mention", "assignment", "general"];
       const validatedType = validTypes.includes(type) ? type : "general";
       
-      const result = await db.insert(notifications)
-        .values({
-          userId,
-          title,
-          message,
-          type: validatedType,
-          link,
-          read: false,
-          createdAt: new Date()
-        })
-        .returning({ id: notifications.id });
+      // Benachrichtigung mit Raw-SQL erstellen
+      const result = await pool.query(
+        `INSERT INTO notifications 
+        (user_id, title, message, type, link, read, created_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        RETURNING id`,
+        [userId, title, message, validatedType, link, false, new Date()]
+      );
       
-      console.log(`Created notification ${result[0].id} for user ${userId} of type ${validatedType}`);
-      return result[0].id;
+      const notificationId = result.rows[0].id;
+      console.log(`Created notification ${notificationId} for user ${userId} of type ${validatedType}`);
+      return notificationId;
     } catch (error) {
       console.error("Failed to create notification:", error);
       throw error;
@@ -40,12 +38,38 @@ export class NotificationService {
    */
   async processActivityLog(activityLogId: number): Promise<void> {
     try {
-      // Holt den Aktivitätslog aus der Datenbank
-      const [activityLog] = await db.select()
-        .from(activityLogs)
-        .where(eq(activityLogs.id, activityLogId));
+      // Aktivitätslog mit Raw-SQL abfragen
+      const activityLogResult = await pool.query(
+        `SELECT * FROM activity_logs WHERE id = $1`,
+        [activityLogId]
+      );
       
-      if (!activityLog || !activityLog.requiresNotification || activityLog.notificationSent) {
+      if (activityLogResult.rows.length === 0) {
+        console.log(`Kein Aktivitätslog mit ID ${activityLogId} gefunden.`);
+        return;
+      }
+      
+      const activityLog = activityLogResult.rows[0];
+      
+      // Konvertiere Spalten von snake_case zu camelCase
+      const activity = {
+        id: activityLog.id,
+        userId: activityLog.user_id,
+        action: activityLog.action,
+        details: activityLog.details,
+        boardId: activityLog.board_id,
+        projectId: activityLog.project_id,
+        objectiveId: activityLog.objective_id,
+        taskId: activityLog.task_id,
+        teamId: activityLog.team_id,
+        targetUserId: activityLog.target_user_id,
+        requiresNotification: activityLog.requires_notification,
+        notificationSent: activityLog.notification_sent,
+        notificationType: activityLog.notification_type,
+        visibleToUsers: activityLog.visible_to_users
+      };
+      
+      if (!activity.requiresNotification || activity.notificationSent) {
         return; // Keine Benachrichtigung erforderlich oder bereits gesendet
       }
 
@@ -53,13 +77,13 @@ export class NotificationService {
       const recipientUserIds: number[] = [];
       
       // Direkter Empfänger, falls vorhanden
-      if (activityLog.targetUserId) {
-        recipientUserIds.push(activityLog.targetUserId);
+      if (activity.targetUserId) {
+        recipientUserIds.push(activity.targetUserId);
       }
       
       // Explizit definierte Benutzer
-      if (activityLog.visibleToUsers && activityLog.visibleToUsers.length > 0) {
-        recipientUserIds.push(...activityLog.visibleToUsers);
+      if (activity.visibleToUsers && activity.visibleToUsers.length > 0) {
+        recipientUserIds.push(...activity.visibleToUsers);
       }
 
       // Wenn keine Empfänger definiert sind, nichts tun
@@ -71,11 +95,11 @@ export class NotificationService {
       let title = "Neue Benachrichtigung";
       let message = "Es gibt eine neue Aktivität für Sie.";
       let link = "/";
-      let type = activityLog.notificationType || "general";
+      let type = activity.notificationType || "general";
       
       // Wenn noch kein spezifischer Benachrichtigungstyp gesetzt ist, anhand der Aktivität bestimmen
       if (!type || type === "general") {
-        switch (activityLog.action) {
+        switch (activity.action) {
           case "assign":
             type = "assignment";
             break;
@@ -88,52 +112,52 @@ export class NotificationService {
         }
       }
       
-      switch (activityLog.action) {
+      switch (activity.action) {
         case "create":
           title = "Neues Element erstellt";
-          message = activityLog.details || "Ein neues Element wurde erstellt.";
+          message = activity.details || "Ein neues Element wurde erstellt.";
           break;
         case "update":
           title = "Element aktualisiert";
-          message = activityLog.details || "Ein Element wurde aktualisiert.";
+          message = activity.details || "Ein Element wurde aktualisiert.";
           break;
         case "delete":
           title = "Element gelöscht";
-          message = activityLog.details || "Ein Element wurde gelöscht.";
+          message = activity.details || "Ein Element wurde gelöscht.";
           break;
         case "assign":
           title = "Zuweisung";
-          message = activityLog.details || "Ein Element wurde Ihnen zugewiesen.";
+          message = activity.details || "Ein Element wurde Ihnen zugewiesen.";
           break;
         case "mention":
           title = "Erwähnung";
-          message = activityLog.details || "Sie wurden in einem Kommentar erwähnt.";
+          message = activity.details || "Sie wurden in einem Kommentar erwähnt.";
           break;
         case "comment":
           title = "Neuer Kommentar";
-          message = activityLog.details || "Es gibt einen neuen Kommentar.";
+          message = activity.details || "Es gibt einen neuen Kommentar.";
           break;
         case "approval":
           title = "Freigabeanfrage";
-          message = activityLog.details || "Eine Freigabe wird benötigt.";
+          message = activity.details || "Eine Freigabe wird benötigt.";
           break;
       }
       
       // Link basierend auf dem betroffenen Element erstellen
-      if (activityLog.taskId) {
-        link = `/tasks/${activityLog.taskId}`;
+      if (activity.taskId) {
+        link = `/tasks/${activity.taskId}`;
         if (type === "general") type = "task";
-      } else if (activityLog.boardId) {
-        link = `/boards/${activityLog.boardId}`;
+      } else if (activity.boardId) {
+        link = `/boards/${activity.boardId}`;
         if (type === "general") type = "board";
-      } else if (activityLog.projectId) {
-        link = `/projects/${activityLog.projectId}`;
+      } else if (activity.projectId) {
+        link = `/projects/${activity.projectId}`;
         if (type === "general") type = "project";
-      } else if (activityLog.objectiveId) {
-        link = `/objectives/${activityLog.objectiveId}`;
+      } else if (activity.objectiveId) {
+        link = `/objectives/${activity.objectiveId}`;
         if (type === "general") type = "okr";
-      } else if (activityLog.teamId) {
-        link = `/teams/${activityLog.teamId}`;
+      } else if (activity.teamId) {
+        link = `/teams/${activity.teamId}`;
         if (type === "general") type = "team";
       }
       
@@ -142,15 +166,16 @@ export class NotificationService {
       
       for (const recipientId of uniqueRecipientIds) {
         // Keine Benachrichtigung für den Ersteller der Aktivität
-        if (recipientId === activityLog.userId) continue;
+        if (recipientId === activity.userId) continue;
         
         await this.createNotification(recipientId, title, message, type, link);
       }
       
       // Aktivitätslog als verarbeitet markieren
-      await db.update(activityLogs)
-        .set({ notificationSent: true })
-        .where(eq(activityLogs.id, activityLogId));
+      await pool.query(
+        `UPDATE activity_logs SET notification_sent = true WHERE id = $1`,
+        [activityLogId]
+      );
         
     } catch (error) {
       console.error("Failed to process activity log for notifications:", error);
@@ -165,8 +190,12 @@ export class NotificationService {
       // Prüfen, ob die Spalten existieren
       const checkColumnsExist = async () => {
         try {
-          await db.execute(sql`SELECT requires_notification, notification_sent FROM activity_logs LIMIT 1`);
-          return true;
+          const result = await pool.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'activity_logs' 
+            AND column_name IN ('requires_notification', 'notification_sent')
+          `);
+          return result.rows.length === 2;
         } catch (error) {
           console.warn("Activity logs notification columns may not exist yet:", error);
           return false;
@@ -175,14 +204,12 @@ export class NotificationService {
       
       // Nur fortfahren, wenn die Spalten existieren
       if (await checkColumnsExist()) {
-        const pendingLogs = await db.select({ id: activityLogs.id })
-          .from(activityLogs)
-          .where(and(
-            eq(activityLogs.requiresNotification, true),
-            eq(activityLogs.notificationSent, false)
-          ));
+        const pendingLogsResult = await pool.query(`
+          SELECT id FROM activity_logs 
+          WHERE requires_notification = true AND notification_sent = false
+        `);
         
-        for (const log of pendingLogs) {
+        for (const log of pendingLogsResult.rows) {
           await this.processActivityLog(log.id);
         }
       } else {
