@@ -82,6 +82,18 @@ export default function ProjectDetail() {
       return response.json();
     },
   });
+  
+  // Abfrage für Team-Mitglieder
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["/api/team-members"],
+    queryFn: async () => {
+      const response = await fetch("/api/team-members");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Team-Mitglieder");
+      }
+      return response.json();
+    },
+  });
 
   // Abfrage für OKRs
   const { data: allObjectives = [] } = useQuery<Objective[]>({
@@ -301,24 +313,73 @@ export default function ProjectDetail() {
         </div>
         
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Projekt-Teams</h3>
-          <div className="bg-card rounded-lg border p-4 space-y-3">
-            {projectTeams.map(team => (
-              <div key={team.id} className="flex items-center space-x-2">
-                <div className="flex-grow">
-                  <div className="text-sm font-medium">{team.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{team.description}</div>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  Mitglied
-                </Badge>
-              </div>
-            ))}
+          <Tabs defaultValue="teams" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="teams">Teams</TabsTrigger>
+              <TabsTrigger value="members">Mitglieder</TabsTrigger>
+            </TabsList>
             
-            {projectTeams.length === 0 && (
-              <div className="text-sm text-muted-foreground">Keine Teams zugewiesen</div>
-            )}
-          </div>
+            <TabsContent value="teams" className="space-y-4">
+              <div className="bg-card rounded-lg border p-4 space-y-3">
+                {projectTeams.map(team => (
+                  <div key={team.id} className="flex items-center space-x-2">
+                    <div className="flex-grow">
+                      <div className="text-sm font-medium">{team.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{team.description}</div>
+                    </div>
+                    <Button variant="ghost" size="sm" asChild className="px-2">
+                      <Link href={`/teams/${team.id}`}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                ))}
+                
+                {projectTeams.length === 0 && (
+                  <div className="text-sm text-muted-foreground">Keine Teams zugewiesen</div>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="members" className="space-y-4">
+              <div className="bg-card rounded-lg border p-4 space-y-3">
+                {/* Sammle alle Benutzer-IDs aus den zugewiesenen Boards */}
+                {(() => {
+                  // Sammle alle Benutzer-IDs aus den zugewiesenen Boards
+                  const userIds = new Set<number>();
+                  
+                  // Füge Board-Benutzer hinzu
+                  projectBoards.forEach(board => {
+                    if (board.assigned_user_ids) {
+                      board.assigned_user_ids.forEach(id => userIds.add(id));
+                    }
+                  });
+                  
+                  // Finde alle Benutzer anhand der IDs
+                  const teamMembers = Array.from(userIds)
+                    .map(id => users.find(user => user.id === id))
+                    .filter(Boolean); // Entferne undefined-Werte
+                  
+                  if (teamMembers.length > 0) {
+                    return teamMembers.map(member => (
+                      <div key={member!.id} className="flex items-center space-x-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member!.avatarUrl || ""} />
+                          <AvatarFallback>{member!.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-grow">
+                          <div className="text-sm font-medium">{member!.username}</div>
+                          <div className="text-xs text-muted-foreground truncate">{member!.email}</div>
+                        </div>
+                      </div>
+                    ));
+                  } else {
+                    return <div className="text-sm text-muted-foreground">Keine Mitglieder gefunden</div>;
+                  }
+                })()}
+              </div>
+            </TabsContent>
+          </Tabs>
 
           <h3 className="text-lg font-semibold mt-6">Neueste Boards</h3>
           <div className="bg-card rounded-lg border p-4 space-y-3">
