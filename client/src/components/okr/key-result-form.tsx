@@ -142,14 +142,9 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         taskId: data.taskId ? parseInt(data.taskId) : null
       };
 
-      const response = await apiRequest<KeyResult>(method, endpoint, payload);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Ein Fehler ist aufgetreten');
-      }
-
-      return response.json();
+      // Die apiRequest Funktion aus queryClient.ts wirft bereits einen Fehler, wenn die Antwort nicht ok ist
+      // und gibt das JSON-Ergebnis direkt zurück
+      return await apiRequest<KeyResult>(method, endpoint, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
