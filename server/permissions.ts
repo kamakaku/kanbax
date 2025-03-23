@@ -1,5 +1,4 @@
-import { db } from "./db";
-import { storage } from "./storage";
+import { db, pool } from "./db";
 import { eq, inArray, and, or, desc, sql, isNotNull, exists } from "drizzle-orm";
 import {
   boards,
@@ -332,82 +331,41 @@ export class PermissionService {
 
   // Activity Log Filterung basierend auf Unternehmenszugehörigkeit und Relevanz
   async getVisibleActivityLogs(userId: number): Promise<ActivityLog[]> {
-    // Benutzerdaten laden, um Unternehmen und Teams zu prüfen
-    const [currentUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId));
+    try {
+      // Verwende Raw SQL Query für eine optimierte Abfrage, die alle benötigten Daten in einer einzigen Query lädt
+      const result = await pool.query(`
+        SELECT a.*, 
+               b.title as board_title, 
+               p.title as project_title,
+               o.title as objective_title,
+               t.title as task_title,
+               tm.name as team_title,
+               u.username, 
+               u.avatar_url,
+               tu.username as target_username
+        FROM activity_logs a
+        LEFT JOIN boards b ON a.board_id = b.id
+        LEFT JOIN projects p ON a.project_id = p.id
+        LEFT JOIN objectives o ON a.objective_id = o.id
+        LEFT JOIN tasks t ON a.task_id = t.id
+        LEFT JOIN teams tm ON a.team_id = tm.id
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN users tu ON a.target_user_id = tu.id
+        WHERE a.user_id = $1 OR a.target_user_id = $1
+        ORDER BY a.created_at DESC
+        LIMIT 50
+      `, [userId]);
+
+      return result.rows;
+    } catch (error) {
+      console.error("Error getting visible activity logs:", error);
+      return [];
+    }
     
-    if (!currentUser) return [];
-    
-    // Benutzer-Teams laden für Zugriffsrechte
-    const userTeams = await db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.userId, userId));
-    
-    const userTeamIds = userTeams.map(tm => tm.teamId);
-    
-    // Abfrage mit grundlegenden Feldern erstellen
-    const logs = await db.select({
-      id: activityLogs.id,
-      action: activityLogs.action,
-      details: activityLogs.details,
-      userId: activityLogs.userId,
-      boardId: activityLogs.boardId,
-      projectId: activityLogs.projectId,
-      objectiveId: activityLogs.objectiveId,
-      taskId: activityLogs.taskId,
-      commentId: activityLogs.commentId,
-      teamId: activityLogs.teamId,
-      targetUserId: activityLogs.targetUserId,
-      requiresNotification: activityLogs.requiresNotification,
-      notificationSent: activityLogs.notificationSent,
-      createdAt: activityLogs.createdAt,
-      // Join-Felder
-      board_title: boards.title,
-      project_title: projects.title,
-      objective_title: objectives.title,
-      username: users.username,
-      avatar_url: users.avatarUrl
-    })
-    .from(activityLogs)
-    .leftJoin(users, eq(activityLogs.userId, users.id))
-    .leftJoin(boards, eq(activityLogs.boardId, boards.id))
-    .leftJoin(projects, eq(activityLogs.projectId, projects.id))
-    .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
-    .orderBy(desc(activityLogs.createdAt))
-    .limit(50)
-    .where(
-      or(
-        // Benutzer ist Ersteller der Aktivität
-        eq(activityLogs.userId, userId),
-        
-        // Benutzer ist Zielbenutzer der Aktivität
-        eq(activityLogs.targetUserId, userId),
-        
-        // Benutzer hat Zugriff auf das Board
-        and(
-          isNotNull(activityLogs.boardId),
-          eq(boards.creator_id, userId)
-        ),
-        
-        // Benutzer hat Zugriff auf das Projekt als Ersteller
-        and(
-          isNotNull(activityLogs.projectId),
-          eq(projects.creator_id, userId)
-        ),
-        
-        // Benutzer hat Zugriff auf das Objective als Ersteller
-        and(
-          isNotNull(activityLogs.objectiveId),
-          eq(objectives.creatorId, userId)
-        )
-      )
-    );
-    
-    // Alle relevanten Aktivitäten für den Benutzer zurückgeben
-    return logs as ActivityLog[];
+    // Alte implementierung wurde durch die SQL-Implementierung oben ersetzt
+    /*
+    // Hier befand sich die alte Implementierung
+    */
   }
 }
 

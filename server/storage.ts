@@ -86,8 +86,17 @@ export interface IStorage {
   createCompany(userId: number, company: InsertCompany): Promise<Company>;
 }
 
+// Wir verwenden eine Getter-Methode für permissionService, 
+// um zirkuläre Abhängigkeiten zu vermeiden
 export class DatabaseStorage implements IStorage {
-  permissionService = permissionService;
+  private _permissionService?: typeof permissionService;
+  
+  get permissionService() {
+    if (!this._permissionService) {
+      this._permissionService = permissionService;
+    }
+    return this._permissionService;
+  }
   // Project operations
   async getProjects(userId: number): Promise<Project[]> {
     try {
@@ -731,14 +740,17 @@ export class DatabaseStorage implements IStorage {
         log.taskId || null,
         log.teamId || null,
         log.targetUserId || null,
+        log.requiresNotification || false,
+        log.notificationSent || false,
+        log.notificationType || null
       ];
       
       console.log("Creating activity log with:", log);
       
       const result = await pool.query(`
         INSERT INTO activity_logs 
-        (action, details, user_id, board_id, project_id, objective_id, task_id, team_id, target_user_id, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        (action, details, user_id, board_id, project_id, objective_id, task_id, team_id, target_user_id, requires_notification, notification_sent, notification_type, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
         RETURNING *
       `, values);
       
