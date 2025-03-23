@@ -166,15 +166,12 @@ export default function ProjectDetail() {
   // Logge Projekt-Struktur zur Analyse
   console.log("Projekt-Struktur:", project);
 
-  // Verwende creatorId statt creator_id wenn vorhanden
-  const isCreator = project.creatorId ? project.creatorId === user?.id : false;
+  // Ersteller-Information wird bei Projekten noch nicht gespeichert
+  // Diese Logik wird später implementiert
+  const isCreator = user?.isCompanyAdmin;
 
   const getProjectCreatorName = () => {
-    if (project.creatorId) {
-      const creator = users.find(u => u.id === project.creatorId);
-      return creator?.username || "Unbekannt";
-    }
-    return "Unbekannt";
+    return user?.username || "Unbekannt";
   };
 
   return (
@@ -300,7 +297,7 @@ export default function ProjectDetail() {
                     </CardContent>
                     <CardFooter className="pt-0 flex justify-end">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/objectives/${objective.id}`}>
+                        <Link href={`/all-okrs/${objective.id}`}>
                           <ChevronRight className="h-4 w-4" />
                         </Link>
                       </Button>
@@ -334,7 +331,7 @@ export default function ProjectDetail() {
                       <div className="text-xs text-muted-foreground truncate">{team.description}</div>
                     </div>
                     <Button variant="ghost" size="sm" asChild className="px-2">
-                      <Link href={`/team-detail/${team.id}`}>
+                      <Link href={`/teams/${team.id}`}>
                         <ChevronRight className="h-4 w-4" />
                       </Link>
                     </Button>
