@@ -66,7 +66,22 @@ export class NotificationService {
       let title = "Neue Benachrichtigung";
       let message = "Es gibt eine neue Aktivität für Sie.";
       let link = "/";
-      let type = "general";
+      let type = activityLog.notificationType || "general";
+      
+      // Wenn noch kein spezifischer Benachrichtigungstyp gesetzt ist, anhand der Aktivität bestimmen
+      if (!type || type === "general") {
+        switch (activityLog.action) {
+          case "assign":
+            type = "assignment";
+            break;
+          case "mention":
+            type = "mention";
+            break;
+          case "approval":
+            type = "approval";
+            break;
+        }
+      }
       
       switch (activityLog.action) {
         case "create":
@@ -84,12 +99,10 @@ export class NotificationService {
         case "assign":
           title = "Zuweisung";
           message = activityLog.details || "Ein Element wurde Ihnen zugewiesen.";
-          type = "assignment";
           break;
         case "mention":
           title = "Erwähnung";
           message = activityLog.details || "Sie wurden in einem Kommentar erwähnt.";
-          type = "mention";
           break;
         case "comment":
           title = "Neuer Kommentar";
@@ -98,26 +111,25 @@ export class NotificationService {
         case "approval":
           title = "Freigabeanfrage";
           message = activityLog.details || "Eine Freigabe wird benötigt.";
-          type = "approval";
           break;
       }
       
       // Link basierend auf dem betroffenen Element erstellen
       if (activityLog.taskId) {
         link = `/tasks/${activityLog.taskId}`;
-        type = "task";
+        if (type === "general") type = "task";
       } else if (activityLog.boardId) {
         link = `/boards/${activityLog.boardId}`;
-        type = "board";
+        if (type === "general") type = "board";
       } else if (activityLog.projectId) {
         link = `/projects/${activityLog.projectId}`;
-        type = "project";
+        if (type === "general") type = "project";
       } else if (activityLog.objectiveId) {
         link = `/objectives/${activityLog.objectiveId}`;
-        type = "okr";
+        if (type === "general") type = "okr";
       } else if (activityLog.teamId) {
         link = `/teams/${activityLog.teamId}`;
-        type = "team";
+        if (type === "general") type = "team";
       }
       
       // Benachrichtigungen für alle Empfänger erstellen

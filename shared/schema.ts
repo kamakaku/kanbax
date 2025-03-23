@@ -132,6 +132,7 @@ export const activityLogs = pgTable("activity_logs", {
   visibleToUsers: integer("visible_to_users").array(),
   requiresNotification: boolean("requires_notification").default(false),
   notificationSent: boolean("notification_sent").default(false),
+  notificationType: text("notification_type"), // Spezifischer Benachrichtigungstyp
 });
 
 const checklistItemSchema = z.object({
@@ -287,7 +288,8 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     visibleToTeams: true,
     visibleToUsers: true,
     requiresNotification: true,
-    notificationSent: true
+    notificationSent: true,
+    notificationType: true
   })
   .extend({
     action: z.enum(["create", "update", "delete", "assign", "mention", "comment", "approval"]),
@@ -303,7 +305,8 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs)
     visibleToTeams: z.array(z.number().int().positive()).optional(),
     visibleToUsers: z.array(z.number().int().positive()).optional(),
     requiresNotification: z.boolean().default(false),
-    notificationSent: z.boolean().default(false)
+    notificationSent: z.boolean().default(false),
+    notificationType: z.enum(["task", "board", "project", "team", "okr", "approval", "mention", "assignment"]).optional()
   });
 
 // Add team schemas
