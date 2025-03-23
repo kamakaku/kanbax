@@ -1043,21 +1043,50 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  // Update activity logs endpoint
+  // Endpunkt zum Abrufen von Aktivitätslogs
   app.get("/api/activity", requireAuth, async (req, res) => {
     try {
       console.log("Fetching activity logs...");
       
-      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      // Benutzerdaten für Filterung laden
       const userId = req.userId!;
       
-      // Verwende die getVisibleActivityLogs-Methode vom permissionService
-      // Diese Methode filtert nur die Logs, die der Benutzer sehen darf
-      const logs = await permissionService.getVisibleActivityLogs(userId);
+      // Aktivitätslogs mit grundlegenden Joins laden
+      const logs = await db.select({
+        id: activityLogs.id,
+        action: activityLogs.action,
+        details: activityLogs.details,
+        userId: activityLogs.userId,
+        boardId: activityLogs.boardId,
+        projectId: activityLogs.projectId,
+        objectiveId: activityLogs.objectiveId,
+        taskId: activityLogs.taskId,
+        teamId: activityLogs.teamId,
+        targetUserId: activityLogs.targetUserId,
+        createdAt: activityLogs.createdAt,
+        board_title: boards.title,
+        project_title: projects.title,
+        objective_title: objectives.title,
+        username: users.username,
+        avatar_url: users.avatarUrl
+      })
+      .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
+      .leftJoin(boards, eq(activityLogs.boardId, boards.id))
+      .leftJoin(projects, eq(activityLogs.projectId, projects.id))
+      .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
+      .where(
+        or(
+          eq(activityLogs.userId, userId),
+          eq(activityLogs.targetUserId, userId)
+        )
+      )
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(50);
 
       console.log("Activity logs query:", logs.length, "results");
       if (logs.length > 0) {
-        console.log("Sample activity log with user info:", logs[0]);
+        console.log("Sample activity log:", logs[0]);
       }
 
       res.json(logs);
@@ -1065,6 +1094,81 @@ export async function registerRoutes(app: Express, db: Knex) {
       console.error("Failed to fetch activity logs:", error);
       res.status(500).json({
         message: "Failed to fetch activity logs",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Endpunkt zum Abrufen von Benachrichtigungen
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      
+      // Benachrichtigungen des Benutzers abrufen
+      const userNotifications = await db.select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(30);
+      
+      res.json(userNotifications);
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+      res.status(500).json({
+        message: "Benachrichtigungen konnten nicht abgerufen werden",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Benachrichtigung als gelesen markieren
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      const notificationId = parseInt(req.params.id);
+      
+      // Prüfen, ob die Benachrichtigung dem Benutzer gehört
+      const [notification] = await db.select()
+        .from(notifications)
+        .where(and(
+          eq(notifications.id, notificationId),
+          eq(notifications.userId, userId)
+        ));
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Benachrichtigung nicht gefunden" });
+      }
+      
+      // Benachrichtigung als gelesen markieren
+      await db.update(notifications)
+        .set({ read: true })
+        .where(eq(notifications.id, notificationId));
+      
+      res.json({ message: "Benachrichtigung als gelesen markiert" });
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+      res.status(500).json({
+        message: "Benachrichtigung konnte nicht als gelesen markiert werden",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Alle Benachrichtigungen als gelesen markieren
+  app.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      
+      // Alle Benachrichtigungen des Benutzers als gelesen markieren
+      await db.update(notifications)
+        .set({ read: true })
+        .where(eq(notifications.userId, userId));
+      
+      res.json({ message: "Alle Benachrichtigungen als gelesen markiert" });
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+      res.status(500).json({
+        message: "Benachrichtigungen konnten nicht als gelesen markiert werden",
         details: error instanceof Error ? error.message : String(error)
       });
     }

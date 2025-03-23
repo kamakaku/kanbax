@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { storage } from "./storage";
-import { eq, inArray, and, or, desc } from "drizzle-orm";
+import { eq, inArray, and, or, desc, sql, isNotNull, exists } from "drizzle-orm";
 import {
   boards,
   boardMembers,
@@ -330,31 +330,45 @@ export class PermissionService {
     return filteredItems.filter((item): item is ChecklistItem => item !== null);
   }
 
-  // Activity Log Filterung basierend auf Unternehmenszugehörigkeit
+  // Activity Log Filterung basierend auf Unternehmenszugehörigkeit und Relevanz
   async getVisibleActivityLogs(userId: number): Promise<ActivityLog[]> {
-    // Hole den Benutzer mit Unternehmensinformationen
+    // Benutzerdaten laden, um Unternehmen und Teams zu prüfen
     const [currentUser] = await db
       .select()
       .from(users)
       .where(eq(users.id, userId));
-
+    
     if (!currentUser) return [];
     
-    // Hole Team-Mitgliedschaften des Benutzers
+    // Benutzer-Teams laden für Zugriffsrechte
     const userTeams = await db
       .select()
       .from(teamMembers)
       .where(eq(teamMembers.userId, userId));
-
+    
     const userTeamIds = userTeams.map(tm => tm.teamId);
     
-    // Abfrage erstellen
-    const query = db.select({
-      ...activityLogs,
+    // Abfrage mit grundlegenden Feldern erstellen
+    const logs = await db.select({
+      id: activityLogs.id,
+      action: activityLogs.action,
+      details: activityLogs.details,
+      userId: activityLogs.userId,
+      boardId: activityLogs.boardId,
+      projectId: activityLogs.projectId,
+      objectiveId: activityLogs.objectiveId,
+      taskId: activityLogs.taskId,
+      commentId: activityLogs.commentId,
+      teamId: activityLogs.teamId,
+      targetUserId: activityLogs.targetUserId,
+      requiresNotification: activityLogs.requiresNotification,
+      notificationSent: activityLogs.notificationSent,
+      createdAt: activityLogs.createdAt,
+      // Join-Felder
       board_title: boards.title,
       project_title: projects.title,
       objective_title: objectives.title,
-      user_name: users.username,
+      username: users.username,
       avatar_url: users.avatarUrl
     })
     .from(activityLogs)
@@ -363,52 +377,37 @@ export class PermissionService {
     .leftJoin(projects, eq(activityLogs.projectId, projects.id))
     .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
     .orderBy(desc(activityLogs.createdAt))
-    .limit(30);
-    
-    // Wenn der Benutzer ein Unternehmen hat, füge Unternehmensfilter hinzu
-    if (currentUser.companyId) {
-      // Benutzer darf nur Aktivitäten von Benutzern im selben Unternehmen sehen
-      return await query.where(
-        or(
-          // Benutzer ist Ersteller oder direkt sichtbar
-          and(
-            eq(activityLogs.userId, userId),
-            eq(users.companyId, currentUser.companyId)
-          ),
-          // Aktivität bezieht sich auf einen anderen Benutzer im selben Unternehmen
-          and(
-            eq(users.companyId, currentUser.companyId),
-            inArray(activityLogs.visibleToUsers, [userId])
-          ),
-          // Benutzer-Teams haben Zugriff
-          and(
-            eq(users.companyId, currentUser.companyId),
-            inArray(activityLogs.visibleToTeams, userTeamIds)
-          ),
-          // Benutzer hat Zugriff auf das referenzierte Board im selben Unternehmen
-          and(
-            eq(users.companyId, currentUser.companyId),
-            eq(boards.creator_id, userId),
-            eq(activityLogs.boardId, boards.id)
-          ),
-          // Benutzer hat Zugriff auf das referenzierte Projekt im selben Unternehmen
-          and(
-            eq(projects.companyId, currentUser.companyId),
-            inArray(projects.teamIds, userTeamIds),
-            eq(activityLogs.projectId, projects.id)
-          ),
-          // Benutzer hat Zugriff auf das referenzierte Objective im selben Unternehmen
-          and(
-            eq(users.companyId, currentUser.companyId),
-            eq(objectives.creatorId, userId),
-            eq(activityLogs.objectiveId, objectives.id)
-          )
+    .limit(50)
+    .where(
+      or(
+        // Benutzer ist Ersteller der Aktivität
+        eq(activityLogs.userId, userId),
+        
+        // Benutzer ist Zielbenutzer der Aktivität
+        eq(activityLogs.targetUserId, userId),
+        
+        // Benutzer hat Zugriff auf das Board
+        and(
+          isNotNull(activityLogs.boardId),
+          eq(boards.creator_id, userId)
+        ),
+        
+        // Benutzer hat Zugriff auf das Projekt als Ersteller
+        and(
+          isNotNull(activityLogs.projectId),
+          eq(projects.creator_id, userId)
+        ),
+        
+        // Benutzer hat Zugriff auf das Objective als Ersteller
+        and(
+          isNotNull(activityLogs.objectiveId),
+          eq(objectives.creatorId, userId)
         )
-      );
-    } else {
-      // Wenn kein Unternehmen zugeordnet, nur eigene Aktivitäten sehen
-      return await query.where(eq(activityLogs.userId, userId));
-    }
+      )
+    );
+    
+    // Alle relevanten Aktivitäten für den Benutzer zurückgeben
+    return logs as ActivityLog[];
   }
 }
 
