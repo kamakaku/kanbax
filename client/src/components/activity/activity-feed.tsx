@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { type ActivityLog } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { User } from "lucide-react";
@@ -9,7 +8,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-interface ExtendedActivityLog extends ActivityLog {
+// Die API-Antworten haben möglicherweise einen anderen Feldnamen (created_at statt createdAt)
+interface ExtendedActivityLog {
+  id: number;
+  action: string;
+  details: string | null;
+  userId: number | null;
+  boardId: number | null;
+  projectId: number | null;
+  objectiveId: number | null;
+  taskId: number | null;
+  teamId: number | null;
+  targetUserId: number | null;
+  requiresNotification?: boolean | null;
+  notificationSent?: boolean | null;
+  visibleToUsers?: number[] | null;
+  notificationType?: string | null;
+  
+  // API-spezifische Felder
   board_title?: string;
   board_id?: number;
   project_title?: string;
@@ -18,7 +34,10 @@ interface ExtendedActivityLog extends ActivityLog {
   objective_id?: number;
   username?: string;
   avatar_url?: string;
-  created_at: string;
+  
+  // Zeitstemp - kann in verschiedenen Formaten vorliegen
+  createdAt: Date | string;
+  created_at?: string; // Abwärtskompatibilität für ältere API-Antworten
 }
 
 const renderContextLink = (activity: ExtendedActivityLog) => {
@@ -115,7 +134,7 @@ export function ActivityFeed() {
 
               {/* Zeitstempel */}
               <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(activity.created_at), {
+                {formatDistanceToNow(new Date(activity.createdAt), {
                   addSuffix: true,
                   locale: de,
                 })}
