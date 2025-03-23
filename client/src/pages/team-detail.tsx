@@ -102,9 +102,7 @@ export default function TeamDetail() {
   );
 
   // Filtern der Objectives (OKRs) für dieses Team
-  const teamObjectives = allObjectives.filter(obj => 
-    (obj.teamId === teamId) || (obj.teamIds && Array.isArray(obj.teamIds) && obj.teamIds.includes(teamId))
-  );
+  const teamObjectives = allObjectives.filter(obj => obj.teamId === teamId);
 
   // Filtern der Projekte, die mit diesem Team verbunden sind
   const teamProjects = allProjects.filter(proj => 
@@ -279,7 +277,7 @@ export default function TeamDetail() {
                     </CardContent>
                     <CardFooter className="pt-0 flex justify-end">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/objectives/${objective.id}`}>
+                        <Link href={`/all-okrs/${objective.id}`}>
                           <ChevronRight className="h-4 w-4" />
                         </Link>
                       </Button>
@@ -307,7 +305,7 @@ export default function TeamDetail() {
                     </CardHeader>
                     <CardFooter className="flex justify-end">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/project-detail/${project.id}`}>
+                        <Link href={`/projects/${project.id}`}>
                           <ChevronRight className="h-4 w-4" />
                         </Link>
                       </Button>
