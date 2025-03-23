@@ -41,9 +41,13 @@ export function registerOkrRoutes(app: Express) {
       }
 
       // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
-      const favorite = await db.query.userFavoriteObjectives.findFirst({
-        where: (uf) => uf.userId.equals(userId).and(uf.objectiveId.equals(objective.id))
-      });
+      // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
+      const favorite = await db
+        .select()
+        .from(schema.userFavoriteObjectives)
+        .where(eq(schema.userFavoriteObjectives.userId, userId))
+        .where(eq(schema.userFavoriteObjectives.objectiveId, objective.id))
+        .then((results: any[]) => results.length > 0 ? results[0] : null);
 
 
       // Personalisierter Favoriten-Status hinzufügen
@@ -382,7 +386,19 @@ export function registerOkrRoutes(app: Express) {
         checklistItems: result.data.checklistItems?.map(item => JSON.stringify(item)) || [],
       };
 
-      const [keyResult] = await db.insert(keyResults).values(data).returning();
+      const [keyResult] = await db.insert(keyResults).values(data).returning({
+        id: keyResults.id,
+        title: keyResults.title,
+        description: keyResults.description,
+        objectiveId: keyResults.objectiveId,
+        startValue: keyResults.startValue,
+        currentValue: keyResults.currentValue,
+        targetValue: keyResults.targetValue,
+        unit: keyResults.unit,
+        checklistItems: keyResults.checklistItems,
+        creatorId: keyResults.creatorId,
+        createdAt: keyResults.createdAt
+      });
 
       // Create activity log for new key result
       await storage.createActivityLog({
