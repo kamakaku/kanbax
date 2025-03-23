@@ -45,34 +45,28 @@ interface ExtendedActivityLog {
 const renderContextLink = (activity: ExtendedActivityLog) => {
   let contextInfo = null;
 
-  if (activity.board_id && activity.board_title) {
+  if (activity.boardId && activity.board_title) {
     contextInfo = {
       prefix: " im Board ",
-      href: `/board/${activity.board_id}`,
+      href: `/board/${activity.boardId}`,
       title: activity.board_title
     };
-  } else if (activity.project_id && activity.project_title) {
+  } else if (activity.projectId && activity.project_title) {
     contextInfo = {
       prefix: " im Projekt ",
-      href: `/project/${activity.project_id}`,
+      href: `/project/${activity.projectId}`,
       title: activity.project_title
     };
-  } else if (activity.objective_id && activity.objective_title) {
+  } else if (activity.objectiveId && activity.objective_title) {
     contextInfo = {
       prefix: " im OKR ",
-      href: `/okr/${activity.objective_id}`,
+      href: `/okr/${activity.objectiveId}`,
       title: activity.objective_title
     };
   } else if (activity.teamId && activity.team_title) {
     contextInfo = {
       prefix: " im Team ",
       href: `/team/${activity.teamId}`,
-      title: activity.team_title
-    };
-  } else if (activity.team_id && activity.team_title) {
-    contextInfo = {
-      prefix: " im Team ",
-      href: `/team/${activity.team_id}`,
       title: activity.team_title
     };
   }
