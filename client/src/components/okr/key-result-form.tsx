@@ -144,8 +144,8 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
 
       const response = await apiRequest<KeyResult>(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
@@ -153,11 +153,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         throw new Error(error.message || 'Ein Fehler ist aufgetreten');
       }
 
-      return response;
-        method,
-        endpoint,
-        payload
-      );
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
