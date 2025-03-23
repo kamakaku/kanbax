@@ -455,7 +455,13 @@ export function registerOkrRoutes(app: Express) {
         objectiveId: updated[0].objectiveId,
         taskId: null,
         boardId: null,
-        projectId: null
+        projectId: null,
+        teamId: null,
+        targetUserId: null,
+        visibleToTeams: [],
+        visibleToUsers: [],
+        requiresNotification: false,
+        notificationSent: false
       });
 
       const response = {
