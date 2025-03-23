@@ -213,47 +213,12 @@ export default function TeamDetail() {
             </div>
           </GlassCard>
 
-          <Tabs defaultValue="members" className="w-full">
+          <Tabs defaultValue="boards" className="w-full">
             <TabsList className="mb-4">
-              <TabsTrigger value="members">Mitglieder</TabsTrigger>
               <TabsTrigger value="boards">Boards</TabsTrigger>
               <TabsTrigger value="objectives">OKRs</TabsTrigger>
               <TabsTrigger value="projects">Projekte</TabsTrigger>
             </TabsList>
-            
-            <TabsContent value="members" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {teamUsers.map(user => (
-                  <Card key={user.id}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center space-x-2">
-                        <Avatar>
-                          <AvatarImage src={user.avatarUrl || ""} />
-                          <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <CardTitle className="text-base">{user.username}</CardTitle>
-                          <CardDescription>{user.email}</CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardFooter className="pt-2">
-                      <div className="text-xs text-muted-foreground">
-                        {user.id === team.creatorId && (
-                          <Badge variant="outline">Team-Ersteller</Badge>
-                        )}
-                      </div>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-              
-              {teamUsers.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  Keine Mitglieder in diesem Team
-                </div>
-              )}
-            </TabsContent>
             
             <TabsContent value="boards" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
