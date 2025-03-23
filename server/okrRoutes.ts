@@ -433,53 +433,121 @@ export function registerOkrRoutes(app: Express) {
       console.log("Updating key result with ID:", id);
       console.log("Original request data:", req.body);
       
-      // Erstellen Sie ein Update-Objekt nur mit den Feldern, die im Schema existieren
-      const updateData: any = {};
+      // Holen Sie zuerst das bestehende Key Result, um die objectiveId zu bekommen
+      const getResult = await pool.query(
+        `SELECT * FROM key_results WHERE id = $1`,
+        [id]
+      );
       
-      // Felder, die in unserem Schema definiert sind
-      if (req.body.title !== undefined) updateData.title = req.body.title;
-      if (req.body.description !== undefined) updateData.description = req.body.description;
-      if (req.body.targetValue !== undefined) updateData.targetValue = req.body.targetValue;
-      if (req.body.currentValue !== undefined) updateData.currentValue = req.body.currentValue;
-      if (req.body.type !== undefined) updateData.type = req.body.type;
-      if (req.body.status !== undefined) updateData.status = req.body.status;
+      if (getResult.rows.length === 0) {
+        return res.status(404).json({ message: "Key Result nicht gefunden" });
+      }
+      
+      const existingKeyResult = getResult.rows[0];
+      
+      // Erstellen Sie die SET-Klausel für das Update
+      let setClause = [];
+      let params = [];
+      let paramCount = 1;
+      
+      if (req.body.title !== undefined) {
+        setClause.push(`title = $${paramCount}`);
+        params.push(req.body.title);
+        paramCount++;
+      }
+      
+      if (req.body.description !== undefined) {
+        setClause.push(`description = $${paramCount}`);
+        params.push(req.body.description);
+        paramCount++;
+      }
+      
+      if (req.body.targetValue !== undefined) {
+        setClause.push(`target_value = $${paramCount}`);
+        params.push(req.body.targetValue);
+        paramCount++;
+      }
+      
+      if (req.body.currentValue !== undefined) {
+        setClause.push(`current_value = $${paramCount}`);
+        params.push(req.body.currentValue);
+        paramCount++;
+      }
+      
+      if (req.body.type !== undefined) {
+        setClause.push(`type = $${paramCount}`);
+        params.push(req.body.type);
+        paramCount++;
+      }
+      
+      if (req.body.status !== undefined) {
+        setClause.push(`status = $${paramCount}`);
+        params.push(req.body.status);
+        paramCount++;
+      }
       
       // ChecklistItems benötigen Verarbeitung
       if (req.body.checklistItems !== undefined) {
-        updateData.checklistItems = req.body.checklistItems.map((item: any) => 
-          JSON.stringify(item)
-        );
+        const checklistItemsJson = req.body.checklistItems.map((item: any) => JSON.stringify(item));
+        setClause.push(`checklist_items = $${paramCount}`);
+        params.push(checklistItemsJson);
+        paramCount++;
       }
       
-      console.log("Filtered update data:", updateData);
-
-      const updated = await db.update(keyResults)
-        .set(updateData)
-        .where(eq(keyResults.id, id))
-        .returning();
-
-      if (updated.length === 0) {
-        return res.status(404).json({ message: "Key Result nicht gefunden" });
+      // Wenn keine zu aktualisierenden Felder vorhanden sind, geben Sie das bestehende Key Result zurück
+      if (setClause.length === 0) {
+        // Parse checklistItems back to objects for response
+        const response = {
+          ...existingKeyResult,
+          checklistItems: existingKeyResult.checklist_items ? 
+            existingKeyResult.checklist_items.map((item: string) => JSON.parse(item)) : []
+        };
+        return res.json(response);
       }
-
-      // Activity log erstellen, aber mit korrekter Parameterreihenfolge
+      
+      console.log("Update SET clause:", setClause.join(", "));
+      console.log("Update params:", params);
+      
+      // Führen Sie das Update aus
+      params.push(id);
+      const updateQuery = `
+        UPDATE key_results 
+        SET ${setClause.join(", ")} 
+        WHERE id = $${paramCount}
+        RETURNING *
+      `;
+      
+      const updateResult = await pool.query(updateQuery, params);
+      const updated = updateResult.rows[0];
+      
+      // Activity log erstellen
       await storage.createActivityLog({
         action: "update",
         details: "Key Result aktualisiert",
         userId: req.userId!,
-        objectiveId: updated[0].objectiveId,
+        objectiveId: updated.objective_id,
         taskId: null,
         boardId: null,
         projectId: null,
         teamId: null,
         targetUserId: null
       });
-
+      
+      // Konvertiere snake_case in camelCase für die Antwort
       const response = {
-        ...updated[0],
-        checklistItems: updated[0].checklistItems?.map(item => JSON.parse(item)) || [],
+        id: updated.id,
+        title: updated.title,
+        description: updated.description,
+        objectiveId: updated.objective_id,
+        currentValue: updated.current_value,
+        targetValue: updated.target_value,
+        type: updated.type,
+        status: updated.status,
+        createdAt: updated.created_at,
+        checklistItems: updated.checklist_items ? 
+          updated.checklist_items.map((item: string) => JSON.parse(item)) : []
       };
-
+      
       res.json(response);
     } catch (error) {
       console.error("Fehler beim Aktualisieren des Key Result:", error);
@@ -495,20 +563,31 @@ export function registerOkrRoutes(app: Express) {
 
     try {
       // Get the key result before deletion to access objectiveId
-      const [keyResult] = await db.select().from(keyResults).where(eq(keyResults.id, id));
+      const getResult = await pool.query(
+        `SELECT * FROM key_results WHERE id = $1`,
+        [id]
+      );
+      
+      const keyResult = getResult.rows[0];
 
       if (keyResult) {
-        await db.delete(keyResults).where(eq(keyResults.id, id));
+        // Delete the key result
+        await pool.query(
+          `DELETE FROM key_results WHERE id = $1`,
+          [id]
+        );
 
         // Create activity log for deleted key result
         await storage.createActivityLog({
           action: "delete",
           details: "Key Result gelöscht",
-          userId: req.body.deletedBy || 1,
-          objectiveId: keyResult.objectiveId,
+          userId: req.userId || req.body.deletedBy || 1,
+          objectiveId: keyResult.objective_id,
           taskId: null,
           boardId: null,
-          projectId: null
+          projectId: null,
+          teamId: null,
+          targetUserId: null
         });
       }
 
@@ -595,24 +674,41 @@ export function registerOkrRoutes(app: Express) {
       const userId = req.userId!;
       console.log(`Fetching all key results for user: ${userId}`);
 
-      // Holen Sie alle Key Results aus der Datenbank
-      const allKeyResults = await db.select().from(keyResults);
+      // Holen Sie alle Key Results aus der Datenbank mit direktem SQL
+      const keyResultsQuery = await pool.query(`
+        SELECT kr.*, o.creator_id, o.company_id 
+        FROM key_results kr
+        JOIN objectives o ON kr.objective_id = o.id
+      `);
+      
+      const allKeyResults = keyResultsQuery.rows || [];
+      console.log(`Found ${allKeyResults.length} total key results`);
 
       // Für jedes KeyResult prüfen, ob der Benutzer Zugriff auf das zugehörige Objective hat
+      // Anmerkung: Diese Berechtigungsprüfung könnte später optimiert werden
       const accessibleKeyResultsPromises = allKeyResults.map(async (kr) => {
-        const hasAccess = await storage.permissionService.canAccessObjective(userId, kr.objectiveId);
+        const hasAccess = await storage.permissionService.canAccessObjective(userId, kr.objective_id);
         return hasAccess ? kr : null;
       });
 
       const accessibleKeyResults = (await Promise.all(accessibleKeyResultsPromises))
-        .filter((kr): kr is typeof keyResults.$inferSelect => kr !== null);
+        .filter((kr) => kr !== null);
 
       console.log(`User ${userId} has access to ${accessibleKeyResults.length} of ${allKeyResults.length} key results`);
 
       // Parse checklistItems from JSON strings back to objects
+      // und konvertiere snake_case Spaltennamen zu camelCase für die Client API
       const processedKrs = accessibleKeyResults.map(kr => ({
-        ...kr,
-        checklistItems: kr.checklistItems ? kr.checklistItems.map(item => JSON.parse(item)) : [],
+        id: kr.id,
+        title: kr.title,
+        description: kr.description,
+        objectiveId: kr.objective_id,
+        currentValue: kr.current_value,
+        targetValue: kr.target_value,
+        createdAt: kr.created_at,
+        type: kr.type,
+        status: kr.status,
+        checklistItems: kr.checklist_items ? kr.checklist_items.map(item => JSON.parse(item)) : [],
       }));
 
       res.json(processedKrs);
