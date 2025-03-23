@@ -142,11 +142,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         taskId: data.taskId ? parseInt(data.taskId) : null
       };
 
-      const response = await apiRequest<KeyResult>(endpoint, {
-        method,
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiRequest<KeyResult>(method, endpoint, payload);
 
       if (!response.ok) {
         const error = await response.json();
