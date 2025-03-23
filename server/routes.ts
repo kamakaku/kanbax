@@ -1183,25 +1183,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
   
-  // Alle Benachrichtigungen als gelesen markieren
-  app.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
-    try {
-      const userId = req.userId!;
-      
-      // Alle Benachrichtigungen des Benutzers als gelesen markieren
-      await db.update(notifications)
-        .set({ read: true })
-        .where(eq(notifications.userId, userId));
-      
-      res.json({ message: "Alle Benachrichtigungen als gelesen markiert" });
-    } catch (error) {
-      console.error("Failed to mark all notifications as read:", error);
-      res.status(500).json({
-        message: "Benachrichtigungen konnten nicht als gelesen markiert werden",
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+  // Der POST-Endpunkt wurde entfernt, da wir bereits einen PATCH-Endpunkt für die gleiche Funktionalität haben
 
   // GET /api/companies/:id
   app.get("/api/companies/:id", requireAuth, async (req, res) => {
