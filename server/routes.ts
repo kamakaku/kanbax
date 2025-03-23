@@ -1057,39 +1057,37 @@ export async function registerRoutes(app: Express, db: Knex) {
       // Benutzerdaten für Filterung laden
       const userId = req.userId!;
       
-      // Aktivitätslogs mit grundlegenden Joins laden
-      const logs = await db.select({
-        id: activityLogs.id,
-        action: activityLogs.action,
-        details: activityLogs.details,
-        userId: activityLogs.userId,
-        boardId: activityLogs.boardId,
-        projectId: activityLogs.projectId,
-        objectiveId: activityLogs.objectiveId,
-        taskId: activityLogs.taskId,
-        teamId: activityLogs.teamId,
-        targetUserId: activityLogs.targetUserId,
-        createdAt: activityLogs.createdAt,
-        board_title: boards.title,
-        project_title: projects.title,
-        objective_title: objectives.title,
-        username: users.username,
-        avatar_url: users.avatarUrl
-      })
-      .from(activityLogs)
-      .leftJoin(users, eq(activityLogs.userId, users.id))
-      .leftJoin(boards, eq(activityLogs.boardId, boards.id))
-      .leftJoin(projects, eq(activityLogs.projectId, projects.id))
-      .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
-      .where(
-        or(
-          eq(activityLogs.userId, userId),
-          eq(activityLogs.targetUserId, userId)
-        )
-      )
-      .orderBy(desc(activityLogs.createdAt))
-      .limit(50);
+      // Aktivitätslogs direkt über SQL abfragen
+      const result = await pool.query(`
+        SELECT 
+          a.id, 
+          a.action, 
+          a.details, 
+          a.user_id AS "userId", 
+          a.board_id AS "boardId", 
+          a.project_id AS "projectId", 
+          a.objective_id AS "objectiveId", 
+          a.task_id AS "taskId", 
+          a.team_id AS "teamId", 
+          a.target_user_id AS "targetUserId", 
+          a.created_at AS "createdAt",
+          b.title AS board_title, 
+          p.title AS project_title, 
+          o.title AS objective_title, 
+          u.username, 
+          u.avatar_url AS avatar_url
+        FROM activity_logs a
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN boards b ON a.board_id = b.id
+        LEFT JOIN projects p ON a.project_id = p.id
+        LEFT JOIN objectives o ON a.objective_id = o.id
+        WHERE a.user_id = $1 OR a.target_user_id = $1
+        ORDER BY a.created_at DESC
+        LIMIT 50
+      `, [userId]);
 
+      const logs = result.rows;
+      
       console.log("Activity logs query:", logs.length, "results");
       if (logs.length > 0) {
         console.log("Sample activity log:", logs[0]);
@@ -1110,14 +1108,24 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const userId = req.userId!;
       
-      // Benachrichtigungen des Benutzers abrufen
-      const userNotifications = await db.select()
-        .from(notifications)
-        .where(eq(notifications.userId, userId))
-        .orderBy(desc(notifications.createdAt))
-        .limit(30);
+      // Benachrichtigungen des Benutzers abrufen mit Raw-SQL
+      const result = await pool.query(`
+        SELECT 
+          id, 
+          user_id AS "userId", 
+          title, 
+          message, 
+          type, 
+          link, 
+          read, 
+          created_at AS "createdAt"
+        FROM notifications
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 30
+      `, [userId]);
       
-      res.json(userNotifications);
+      res.json(result.rows);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
       res.status(500).json({
@@ -1134,21 +1142,20 @@ export async function registerRoutes(app: Express, db: Knex) {
       const notificationId = parseInt(req.params.id);
       
       // Prüfen, ob die Benachrichtigung dem Benutzer gehört
-      const [notification] = await db.select()
-        .from(notifications)
-        .where(and(
-          eq(notifications.id, notificationId),
-          eq(notifications.userId, userId)
-        ));
+      const checkResult = await pool.query(
+        'SELECT id FROM notifications WHERE id = $1 AND user_id = $2',
+        [notificationId, userId]
+      );
       
-      if (!notification) {
+      if (checkResult.rows.length === 0) {
         return res.status(404).json({ message: "Benachrichtigung nicht gefunden" });
       }
       
       // Benachrichtigung als gelesen markieren
-      await db.update(notifications)
-        .set({ read: true })
-        .where(eq(notifications.id, notificationId));
+      await pool.query(
+        'UPDATE notifications SET read = true WHERE id = $1',
+        [notificationId]
+      );
       
       res.json({ message: "Benachrichtigung als gelesen markiert" });
     } catch (error) {
@@ -1166,12 +1173,10 @@ export async function registerRoutes(app: Express, db: Knex) {
       const userId = req.userId!;
       
       // Alle ungelesenen Benachrichtigungen des Benutzers als gelesen markieren
-      await db.update(notifications)
-        .set({ read: true })
-        .where(and(
-          eq(notifications.userId, userId),
-          eq(notifications.read, false)
-        ));
+      await pool.query(
+        'UPDATE notifications SET read = true WHERE user_id = $1 AND read = false',
+        [userId]
+      );
       
       res.json({ message: "Alle Benachrichtigungen als gelesen markiert" });
     } catch (error) {
@@ -1270,21 +1275,18 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       // Benutzer aus diesem Unternehmen abrufen (nur aktivierte Benutzer)
-      const members = await db.query.users.findMany({
-        where: and(
-          eq(schema.users.companyId, companyId),
-          eq(schema.users.isActive, true) // Nur aktivierte Benutzer anzeigen
-        ),
-        columns: {
-          id: true,
-          username: true,
-          email: true, 
-          avatarUrl: true,
-          isCompanyAdmin: true
-        }
-      });
+      const result = await pool.query(`
+        SELECT 
+          id, 
+          username, 
+          email, 
+          avatar_url AS "avatarUrl", 
+          is_company_admin AS "isCompanyAdmin"
+        FROM users 
+        WHERE company_id = $1 AND is_active = true
+      `, [companyId]);
 
-      res.json(members);
+      res.json(result.rows);
     } catch (error) {
       console.error("Error fetching company members:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Unternehmensmitglieder" });
