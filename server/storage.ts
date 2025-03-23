@@ -720,31 +720,29 @@ export class DatabaseStorage implements IStorage {
 
   async createActivityLog(log: InsertActivityLog | any): Promise<ActivityLog> {
     try {
-      // Baue das Objekt aus den übergebenen Daten
-      const dbLog = {
-        action: log.action,
-        details: log.details,
-        userId: log.userId,
-        boardId: log.boardId || null,
-        projectId: log.projectId || null,
-        objectiveId: log.objectiveId || null,
-        taskId: log.taskId || null,
-        teamId: log.teamId || null,
-        targetUserId: log.targetUserId || null,
-        commentId: log.commentId || null,
-        createdAt: new Date(),
-        visibleToTeams: log.visibleToTeams || [],
-        visibleToUsers: log.visibleToUsers || [],
-        requiresNotification: log.requiresNotification || false,
-        notificationSent: log.notificationSent || false
-      };
-
-      console.log("Creating activity log:", dbLog);
-
-      const [newLog] = await db
-        .insert(activityLogs)
-        .values(dbLog)
-        .returning();
+      // Verwende query statt Drizzle ORM, um Probleme mit Spalten zu vermeiden
+      const values = [
+        log.action,
+        log.details || null,
+        log.userId || null,
+        log.boardId || null,
+        log.projectId || null,
+        log.objectiveId || null,
+        log.taskId || null,
+        log.teamId || null,
+        log.targetUserId || null,
+      ];
+      
+      console.log("Creating activity log with:", log);
+      
+      const result = await pool.query(`
+        INSERT INTO activity_logs 
+        (action, details, user_id, board_id, project_id, objective_id, task_id, team_id, target_user_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        RETURNING *
+      `, values);
+      
+      const newLog = result.rows[0];
 
       return newLog;
     } catch (error) {
