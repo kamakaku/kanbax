@@ -448,10 +448,10 @@ export function registerOkrRoutes(app: Express) {
 
       // Parse checklistItems back to objects for response
       // Create activity log for updated key result
-      await storage.createActivityLog({
+      await storage.createActivityLog(req.userId!, {
         action: "update",
         details: "Key Result aktualisiert",
-        userId: req.userId || req.body.updatedBy || 1,
+        userId: req.userId!,
         objectiveId: updated[0].objectiveId,
         taskId: null,
         boardId: null,
