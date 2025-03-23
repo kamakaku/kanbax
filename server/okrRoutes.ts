@@ -431,11 +431,28 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
-      // If checklistItems is included in the update, stringify them
-      const updateData = {
-        ...req.body,
-        checklistItems: req.body.checklistItems?.map(item => JSON.stringify(item)) || undefined,
-      };
+      console.log("Updating key result with ID:", id);
+      console.log("Original request data:", req.body);
+      
+      // Erstellen Sie ein Update-Objekt nur mit den Feldern, die im Schema existieren
+      const updateData: any = {};
+      
+      // Felder, die in unserem Schema definiert sind
+      if (req.body.title !== undefined) updateData.title = req.body.title;
+      if (req.body.description !== undefined) updateData.description = req.body.description;
+      if (req.body.targetValue !== undefined) updateData.targetValue = req.body.targetValue;
+      if (req.body.currentValue !== undefined) updateData.currentValue = req.body.currentValue;
+      if (req.body.type !== undefined) updateData.type = req.body.type;
+      if (req.body.status !== undefined) updateData.status = req.body.status;
+      
+      // ChecklistItems benötigen Verarbeitung
+      if (req.body.checklistItems !== undefined) {
+        updateData.checklistItems = req.body.checklistItems.map((item: any) => 
+          JSON.stringify(item)
+        );
+      }
+      
+      console.log("Filtered update data:", updateData);
 
       const updated = await db.update(keyResults)
         .set(updateData)
@@ -446,9 +463,8 @@ export function registerOkrRoutes(app: Express) {
         return res.status(404).json({ message: "Key Result nicht gefunden" });
       }
 
-      // Parse checklistItems back to objects for response
-      // Create activity log for updated key result
-      await storage.createActivityLog(req.userId!, {
+      // Activity log erstellen, aber mit korrekter Parameterreihenfolge
+      await storage.createActivityLog({
         action: "update",
         details: "Key Result aktualisiert",
         userId: req.userId!,
@@ -457,11 +473,7 @@ export function registerOkrRoutes(app: Express) {
         boardId: null,
         projectId: null,
         teamId: null,
-        targetUserId: null,
-        visibleToTeams: [],
-        visibleToUsers: [],
-        requiresNotification: false,
-        notificationSent: false
+        targetUserId: null
       });
 
       const response = {

@@ -718,18 +718,28 @@ export class DatabaseStorage implements IStorage {
     return await permissionService.getVisibleActivityLogs(userId);
   }
 
-  async createActivityLog(userId: number, log: InsertActivityLog): Promise<ActivityLog> {
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
     try {
+      // Baue das Objekt aus den übergebenen Daten
       const dbLog = {
         action: log.action,
         details: log.details,
         userId: log.userId,
-        boardId: log.boardId,
-        projectId: log.projectId,
-        objectiveId: log.objectiveId,
-        taskId: log.taskId,
-        createdAt: new Date()
+        boardId: log.boardId || null,
+        projectId: log.projectId || null,
+        objectiveId: log.objectiveId || null,
+        taskId: log.taskId || null,
+        teamId: log.teamId || null,
+        targetUserId: log.targetUserId || null,
+        commentId: log.commentId || null,
+        createdAt: new Date(),
+        visibleToTeams: log.visibleToTeams || [],
+        visibleToUsers: log.visibleToUsers || [],
+        requiresNotification: log.requiresNotification || false,
+        notificationSent: log.notificationSent || false
       };
+
+      console.log("Creating activity log:", dbLog);
 
       const [newLog] = await db
         .insert(activityLogs)
