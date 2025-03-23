@@ -451,7 +451,7 @@ export function registerOkrRoutes(app: Express) {
       await storage.createActivityLog({
         action: "update",
         details: "Key Result aktualisiert",
-        userId: req.body.updatedBy || 1,
+        userId: req.userId || req.body.updatedBy || 1,
         objectiveId: updated[0].objectiveId,
         taskId: null,
         boardId: null,
