@@ -48,31 +48,31 @@ const renderContextLink = (activity: ExtendedActivityLog) => {
   if (activity.board_id && activity.board_title) {
     contextInfo = {
       prefix: " im Board ",
-      href: `/boards/${activity.board_id}`,
+      href: `/board/${activity.board_id}`,
       title: activity.board_title
     };
   } else if (activity.project_id && activity.project_title) {
     contextInfo = {
       prefix: " im Projekt ",
-      href: `/projects/${activity.project_id}`,
+      href: `/project/${activity.project_id}`,
       title: activity.project_title
     };
   } else if (activity.objective_id && activity.objective_title) {
     contextInfo = {
       prefix: " im OKR ",
-      href: `/all-okrs/${activity.objective_id}`,
+      href: `/okr/${activity.objective_id}`,
       title: activity.objective_title
     };
   } else if (activity.teamId && activity.team_title) {
     contextInfo = {
       prefix: " im Team ",
-      href: `/teams/${activity.teamId}`,
+      href: `/team/${activity.teamId}`,
       title: activity.team_title
     };
   } else if (activity.team_id && activity.team_title) {
     contextInfo = {
       prefix: " im Team ",
-      href: `/teams/${activity.team_id}`,
+      href: `/team/${activity.team_id}`,
       title: activity.team_title
     };
   }
