@@ -51,7 +51,7 @@ export class NotificationService {
       
       const activityLog = activityLogResult.rows[0];
       
-      // Konvertiere Spalten von snake_case zu camelCase
+      // Konvertiere Spalten von snake_case zu camelCase - mit korrekter Prüfung auf fehlende Spalten
       const activity = {
         id: activityLog.id,
         userId: activityLog.user_id,
@@ -61,12 +61,13 @@ export class NotificationService {
         projectId: activityLog.project_id,
         objectiveId: activityLog.objective_id,
         taskId: activityLog.task_id,
-        teamId: activityLog.team_id,
-        targetUserId: activityLog.target_user_id,
+        // Diese Spalten existieren nicht in der Datenbank, daher setzen wir Default-Werte
+        teamId: 0,
+        targetUserId: 0,
         requiresNotification: activityLog.requires_notification,
         notificationSent: activityLog.notification_sent,
         notificationType: activityLog.notification_type,
-        visibleToUsers: activityLog.visible_to_users
+        visibleToUsers: activityLog.visible_to_users || []
       };
       
       if (!activity.requiresNotification || activity.notificationSent) {
@@ -76,19 +77,45 @@ export class NotificationService {
       // Bestimme Empfänger basierend auf dem Typ der Aktivität
       const recipientUserIds: number[] = [];
       
-      // Direkter Empfänger, falls vorhanden
-      if (activity.targetUserId) {
-        recipientUserIds.push(activity.targetUserId);
-      }
-      
-      // Explizit definierte Benutzer
+      // Explizit definierte Benutzer (falls vorhanden)
       if (activity.visibleToUsers && activity.visibleToUsers.length > 0) {
         recipientUserIds.push(...activity.visibleToUsers);
       }
 
-      // Wenn keine Empfänger definiert sind, nichts tun
+      // Wenn keine Empfänger definiert sind, finden wir Benutzer, die an diesem Board/Projekt arbeiten
       if (recipientUserIds.length === 0) {
-        return;
+        // Wenn es ein Board betrifft, holen wir uns die zugewiesenen Benutzer
+        if (activity.boardId) {
+          const boardUsersResult = await pool.query(
+            `SELECT user_id FROM board_members WHERE board_id = $1`,
+            [activity.boardId]
+          );
+          recipientUserIds.push(...boardUsersResult.rows.map(r => r.user_id));
+        }
+        // Wenn es ein Projekt betrifft, holen wir uns Team-Mitglieder
+        else if (activity.projectId) {
+          const projectTeamsResult = await pool.query(
+            `SELECT team_id FROM project_teams WHERE project_id = $1`,
+            [activity.projectId]
+          );
+          const teamIds = projectTeamsResult.rows.map(r => r.team_id);
+          
+          if (teamIds.length > 0) {
+            const teamMembersResult = await pool.query(
+              `SELECT user_id FROM team_members WHERE team_id = ANY($1)`,
+              [teamIds]
+            );
+            recipientUserIds.push(...teamMembersResult.rows.map(r => r.user_id));
+          }
+        }
+      }
+
+      // Wenn immer noch keine Empfänger definiert sind, nehmen wir nur den Ersteller
+      if (recipientUserIds.length === 0) {
+        // Nur Benachrichtigung für den Ersteller, wenn er sich selbst explizit benachrichtigen will
+        if (activity.action === "create" || activity.action === "update") {
+          return;
+        }
       }
 
       // Benachrichtigungstitel und Text basierend auf dem Aktivitätstyp erstellen
@@ -156,13 +183,14 @@ export class NotificationService {
       } else if (activity.objectiveId) {
         link = `/objectives/${activity.objectiveId}`;
         if (type === "general") type = "okr";
-      } else if (activity.teamId) {
-        link = `/teams/${activity.teamId}`;
-        if (type === "general") type = "team";
+      } else {
+        // Kein gültiger Link vorhanden, verwenden wir die Startseite
+        link = "/";
       }
       
       // Benachrichtigungen für alle Empfänger erstellen
-      const uniqueRecipientIds = [...new Set(recipientUserIds)];
+      // Array in Set umwandeln und wieder zurück, um Duplikate zu entfernen
+      const uniqueRecipientIds = Array.from(new Set(recipientUserIds));
       
       for (const recipientId of uniqueRecipientIds) {
         // Keine Benachrichtigung für den Ersteller der Aktivität

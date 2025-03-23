@@ -1057,7 +1057,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       // Benutzerdaten für Filterung laden
       const userId = req.userId!;
       
-      // Aktivitätslogs direkt über SQL abfragen
+      // Aktivitätslogs direkt über SQL abfragen, ohne team_id und target_user_id (existieren nicht)
       const result = await pool.query(`
         SELECT 
           a.id, 
@@ -1068,8 +1068,10 @@ export async function registerRoutes(app: Express, db: Knex) {
           a.project_id AS "projectId", 
           a.objective_id AS "objectiveId", 
           a.task_id AS "taskId", 
-          a.team_id AS "teamId", 
-          a.target_user_id AS "targetUserId", 
+          -- Wir verwenden 0 als Standard-Wert für teamId, da die Spalte in der Tabelle nicht existiert
+          0 AS "teamId", 
+          -- target_user_id existiert auch nicht
+          0 AS "targetUserId", 
           a.created_at AS "createdAt",
           b.title AS board_title, 
           p.title AS project_title, 
@@ -1081,7 +1083,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         LEFT JOIN boards b ON a.board_id = b.id
         LEFT JOIN projects p ON a.project_id = p.id
         LEFT JOIN objectives o ON a.objective_id = o.id
-        WHERE a.user_id = $1 OR a.target_user_id = $1
+        WHERE a.user_id = $1
         ORDER BY a.created_at DESC
         LIMIT 50
       `, [userId]);
