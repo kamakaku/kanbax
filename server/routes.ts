@@ -1,7 +1,13 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, insertBoardMemberSchema, insertTeamSchema, insertObjectiveSchema } from "@shared/schema";
+import { 
+  insertTaskSchema, updateTaskSchema, insertBoardSchema, updateBoardSchema, 
+  insertCommentSchema, insertChecklistItemSchema, insertActivityLogSchema, 
+  insertColumnSchema, insertUserSchema, insertProjectSchema, updateProjectSchema, 
+  insertBoardMemberSchema, insertTeamSchema, insertObjectiveSchema,
+  users, boards, projects, objectives, activityLogs, notifications
+} from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { User } from "@shared/schema";
 import multer from "multer";
@@ -14,7 +20,7 @@ import { requireAuth, optionalAuth } from './middleware/auth';
 import { permissionService } from './permissions';
 import { db, pool } from './db';
 import * as schema from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or, desc } from 'drizzle-orm';
 
 // Configure multer for avatar uploads
 const upload = multer({

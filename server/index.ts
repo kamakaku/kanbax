@@ -10,6 +10,7 @@ import MemoryStore from "memorystore";
 import { createServer } from "http";
 import { optionalAuth } from './middleware/auth';
 import { storage } from './storage';
+import { notificationService } from './notification-service';
 
 const app = express();
 
@@ -214,6 +215,19 @@ app.use((req, res, next) => {
     const port = parseInt(process.env.PORT || "5000", 10);
     log(`Starting server on port ${port}`);
     await startServer(port);
+    
+    // Starte den Benachrichtigungsdienst für ausstehende Aktivitätslogs
+    log("Initialisiere Benachrichtigungsdienst...");
+    await notificationService.processAllPendingActivityLogs();
+    
+    // Richte einen regelmäßigen Job ein, um Benachrichtigungen zu verarbeiten
+    setInterval(async () => {
+      try {
+        await notificationService.processAllPendingActivityLogs();
+      } catch (error) {
+        console.error("Fehler bei der Verarbeitung ausstehender Benachrichtigungen:", error);
+      }
+    }, 60000); // Überprüfe jede Minute
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
