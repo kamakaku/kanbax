@@ -12,6 +12,7 @@ import {
 import { TeamForm } from "./team-form";
 import { Users, Plus, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 export function TeamList() {
   const [isCreating, setIsCreating] = useState(false);
@@ -66,7 +67,10 @@ export function TeamList() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {teams.map((team) => (
-          <Card key={team.id}>
+          <Card key={team.id} className="relative overflow-hidden">
+            <Link href={`/teams/${team.id}`} className="absolute inset-0 z-10">
+              <span className="sr-only">Team Details anzeigen</span>
+            </Link>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {team.name}
@@ -74,7 +78,12 @@ export function TeamList() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setEditingTeam(team)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setEditingTeam(team);
+                }}
+                className="z-20 relative"
               >
                 <Edit className="h-4 w-4" />
               </Button>
@@ -83,11 +92,21 @@ export function TeamList() {
               <CardDescription className="text-sm text-muted-foreground">
                 {team.description}
               </CardDescription>
-              <div className="mt-4 flex items-center">
-                <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {teamMembers.filter(tm => tm.teamId === team.id).length} Mitglieder
-                </span>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center">
+                  <Users className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {teamMembers.filter(tm => tm.teamId === team.id).length} Mitglieder
+                  </span>
+                </div>
+                {team.creatorId && (
+                  <div className="text-xs text-muted-foreground flex items-center">
+                    <span className="mr-1">Creator:</span>
+                    <span className="font-medium">
+                      {team.creatorId}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

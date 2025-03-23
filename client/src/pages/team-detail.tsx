@@ -100,10 +100,14 @@ export default function TeamDetail() {
   const teamBoards = allBoards.filter(board => board.team_ids?.includes(teamId));
 
   // Filtern der Objectives (OKRs) für dieses Team
-  const teamObjectives = allObjectives.filter(obj => obj.teams?.some(t => t.id === teamId));
+  const teamObjectives = allObjectives.filter(obj => 
+    obj.teams && Array.isArray(obj.teams) && obj.teams.some((t: any) => t.id === teamId)
+  );
 
   // Filtern der Projekte, die mit diesem Team verbunden sind
-  const teamProjects = allProjects.filter(proj => proj.teams?.some(t => t.id === teamId));
+  const teamProjects = allProjects.filter(proj => 
+    proj.teams && Array.isArray(proj.teams) && proj.teams.some((t: any) => t.id === teamId)
+  );
 
   // Team-Mitglieder-Liste erstellen
   const getTeamUserIds = () => {
