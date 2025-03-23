@@ -139,9 +139,10 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         projectId: data.projectId ? parseInt(data.projectId) : null,
         teamId: data.teamId ? parseInt(data.teamId) : null,
         userIds: data.userIds.map(id => parseInt(id)),
-        taskId: data.taskId ? parseInt(data.taskId) : null,
+        taskId: data.taskId ? parseInt(data.taskId) : null
+      };
 
-      const response = await fetch(endpoint, {
+      const response = await apiRequest<KeyResult>(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -152,10 +153,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess }: KeyResultFo
         throw new Error(error.message || 'Ein Fehler ist aufgetreten');
       }
 
-      return response.json();
-      };
-
-      return await apiRequest<KeyResult>(
+      return response;
         method,
         endpoint,
         payload
