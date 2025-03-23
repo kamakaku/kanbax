@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { storage } from "./storage";
 import { 
   objectives, keyResults, okrComments, okrCycles,
@@ -524,31 +524,29 @@ export function registerOkrRoutes(app: Express) {
     const { objectiveId, keyResultId } = req.query;
 
     try {
-      // Verwende SQL anstelle des Drizzle Query Builders
-      let comments;
+      // Verwende pool.query für direkte SQL-Abfragen
+      let result;
       
       if (objectiveId && keyResultId) {
-        comments = await db.execute(
+        result = await pool.query(
           `SELECT * FROM okr_comments WHERE objective_id = $1 AND key_result_id = $2`,
           [Number(objectiveId), Number(keyResultId)]
         );
       } else if (objectiveId) {
-        comments = await db.execute(
+        result = await pool.query(
           `SELECT * FROM okr_comments WHERE objective_id = $1`,
           [Number(objectiveId)]
         );
       } else if (keyResultId) {
-        comments = await db.execute(
+        result = await pool.query(
           `SELECT * FROM okr_comments WHERE key_result_id = $1`,
           [Number(keyResultId)]
         );
       } else {
-        comments = await db.execute(
-          `SELECT * FROM okr_comments`
-        );
+        result = await pool.query(`SELECT * FROM okr_comments`);
       }
       
-      res.json(Array.isArray(comments) ? comments : comments.rows || []);
+      res.json(result.rows || []);
     } catch (error) {
       console.error("Fehler beim Abrufen der Kommentare:", error);
       res.status(500).json({ message: "Fehler beim Abrufen der Kommentare" });
@@ -563,22 +561,22 @@ export function registerOkrRoutes(app: Express) {
 
     try {
       // Verwende SQL anstelle des Drizzle Query Builders
-      const { userId, objectiveId, keyResultId, content } = result.data;
+      const { authorId, objectiveId, keyResultId, content } = result.data;
       
       const query = `
-        INSERT INTO okr_comments (user_id, objective_id, key_result_id, content, created_at)
+        INSERT INTO okr_comments (author_id, objective_id, key_result_id, content, created_at)
         VALUES ($1, $2, $3, $4, NOW())
         RETURNING *
       `;
       
-      const commentResult = await db.execute(query, [
-        userId,
-        objectiveId,
-        keyResultId,
+      const commentResult = await pool.query(query, [
+        authorId,
+        objectiveId || null,
+        keyResultId || null,
         content
       ]);
       
-      const comment = Array.isArray(commentResult) ? commentResult[0] : commentResult.rows?.[0];
+      const comment = commentResult.rows?.[0];
       
       if (!comment) {
         throw new Error('Kommentar konnte nicht erstellt werden');
