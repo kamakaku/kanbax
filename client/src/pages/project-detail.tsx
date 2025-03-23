@@ -264,7 +264,7 @@ export default function ProjectDetail() {
                 )}
               </div>
               <div className="flex justify-end">
-                <Button variant="outline" onClick={() => navigate(`/board/new?projectId=${projectId}`)}>
+                <Button variant="outline" onClick={() => navigate(`/boards/new?projectId=${projectId}`)}>
                   Neues Board erstellen
                 </Button>
               </div>
@@ -328,7 +328,7 @@ export default function ProjectDetail() {
                       <div className="text-xs text-muted-foreground truncate">{team.description}</div>
                     </div>
                     <Button variant="ghost" size="sm" asChild className="px-2">
-                      <Link href={`/teams/${team.id}`}>
+                      <Link href={`/team-detail/${team.id}`}>
                         <ChevronRight className="h-4 w-4" />
                       </Link>
                     </Button>

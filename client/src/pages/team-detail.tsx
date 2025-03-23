@@ -237,7 +237,7 @@ export default function TeamDetail() {
                         )}
                       </div>
                       <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/board/${board.id}`}>
+                        <Link href={`/boards/${board.id}`}>
                           <ChevronRight className="h-4 w-4" />
                         </Link>
                       </Button>
@@ -305,7 +305,7 @@ export default function TeamDetail() {
                     </CardHeader>
                     <CardFooter className="flex justify-end">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/projects/${project.id}`}>
+                        <Link href={`/project-detail/${project.id}`}>
                           <ChevronRight className="h-4 w-4" />
                         </Link>
                       </Button>
