@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { notifications, insertNotificationSchema, users, activityLogs } from "@shared/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 /**
  * Der Notification Service ist verantwortlich für die Erstellung und Verwaltung von Benachrichtigungen
@@ -11,18 +11,23 @@ export class NotificationService {
    */
   async createNotification(userId: number, title: string, message: string, type: string, link: string): Promise<number> {
     try {
+      // Validieren, dass der Typ ein gültiger Benachrichtigungstyp ist
+      const validTypes = ["task", "board", "project", "team", "okr", "approval", "mention", "assignment", "general"];
+      const validatedType = validTypes.includes(type) ? type : "general";
+      
       const result = await db.insert(notifications)
         .values({
           userId,
           title,
           message,
-          type,
+          type: validatedType,
           link,
           read: false,
           createdAt: new Date()
         })
         .returning({ id: notifications.id });
       
+      console.log(`Created notification ${result[0].id} for user ${userId} of type ${validatedType}`);
       return result[0].id;
     } catch (error) {
       console.error("Failed to create notification:", error);
@@ -157,15 +162,31 @@ export class NotificationService {
    */
   async processAllPendingActivityLogs(): Promise<void> {
     try {
-      const pendingLogs = await db.select({ id: activityLogs.id })
-        .from(activityLogs)
-        .where(and(
-          eq(activityLogs.requiresNotification, true),
-          eq(activityLogs.notificationSent, false)
-        ));
+      // Prüfen, ob die Spalten existieren
+      const checkColumnsExist = async () => {
+        try {
+          await db.execute(sql`SELECT requires_notification, notification_sent FROM activity_logs LIMIT 1`);
+          return true;
+        } catch (error) {
+          console.warn("Activity logs notification columns may not exist yet:", error);
+          return false;
+        }
+      };
       
-      for (const log of pendingLogs) {
-        await this.processActivityLog(log.id);
+      // Nur fortfahren, wenn die Spalten existieren
+      if (await checkColumnsExist()) {
+        const pendingLogs = await db.select({ id: activityLogs.id })
+          .from(activityLogs)
+          .where(and(
+            eq(activityLogs.requiresNotification, true),
+            eq(activityLogs.notificationSent, false)
+          ));
+        
+        for (const log of pendingLogs) {
+          await this.processActivityLog(log.id);
+        }
+      } else {
+        console.log("Skipping notification processing, columns not ready");
       }
     } catch (error) {
       console.error("Failed to process pending activity logs:", error);
