@@ -727,14 +727,14 @@ export async function registerRoutes(app: Express, db: Knex) {
       };
 
       console.log("Creating board with data:", boardData);
-      const board = await storage.createBoard(boardData);
+      const board = await storage.createBoard(req.userId!, boardData);
       console.log("Board created:", board);
 
       // Create activity log entry
       await storage.createActivityLog({
         action: "create",
         details: "Neues Board erstellt",
-        userId: result.data.creator_id,
+        userId: req.userId,
         boardId: board.id
       });
 
@@ -976,7 +976,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const comments = await storage.getComments(taskId);
+      const userId = req.userId!;
+      const comments = await storage.getComments(userId, taskId);
       res.json(comments);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
@@ -1005,7 +1006,8 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       console.log("Validated comment data:", result.data);
-      const comment = await storage.createComment(result.data);
+      const userId = req.userId!;
+      const comment = await storage.createComment(userId, result.data);
       console.log("Created comment:", comment);
       res.status(201).json(comment);
     } catch (error) {
@@ -1022,7 +1024,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const items = await storage.getChecklistItems(taskId);
+      const userId = req.userId!;
+      const items = await storage.getChecklistItems(userId, taskId);
       res.json(items);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
@@ -1051,7 +1054,8 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       console.log("Validated checklist item data:", result.data);
-      const item = await storage.createChecklistItem(result.data);
+      const userId = req.userId!;
+      const item = await storage.createChecklistItem(userId, result.data);
       console.log("Created checklist item:", item);
       res.status(201).json(item);
     } catch (error) {
