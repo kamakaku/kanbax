@@ -170,6 +170,7 @@ export const insertProjectSchema = createInsertSchema(projects)
     description: z.string().optional(),
     companyId: z.number().int().positive("Unternehmens-ID ist erforderlich"),
     teamIds: z.array(z.number().int().positive()).optional(),
+    memberIds: z.array(z.number().int().positive()).optional(),
   });
 
 export const updateProjectSchema = insertProjectSchema.partial();
@@ -585,6 +586,12 @@ export type Project = typeof projects.$inferSelect & {
     id: number;
     name: string;
     role: string;
+  }[];
+  members?: {
+    id: number;
+    username: string;
+    email: string;
+    avatarUrl: string | null;
   }[];
 };
 export type InsertProject = z.infer<typeof insertProjectSchema>;

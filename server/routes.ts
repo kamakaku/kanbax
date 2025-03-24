@@ -598,7 +598,9 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const project = await storage.updateProject(id, result.data);
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const project = await storage.updateProject(userId, id, result.data);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -607,17 +609,54 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Projekt aktualisiert",
-        userId: result.data.creator_id, // Using creator_id from request body for consistency.  Consider userId if available.
+        userId: userId,
         projectId: id,
-        boardId: null,
-        objectiveId: null,
-        taskId: null
       });
 
       res.json(project);
     } catch (error) {
       console.error("Failed to update project:", error);
       res.status(500).json({ message: "Failed to update project" });
+    }
+  });
+  
+  // Route zum Hinzufügen/Entfernen von Mitgliedern zu einem Projekt
+  app.patch("/api/projects/:id/members", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Projekt-ID" });
+    }
+    
+    const { memberIds } = req.body;
+    if (!Array.isArray(memberIds)) {
+      return res.status(400).json({ message: "memberIds muss ein Array sein" });
+    }
+    
+    try {
+      const userId = req.userId!;
+      
+      // Projekt aktualisieren
+      const updatedProject = await storage.updateProject(userId, id, {
+        memberIds: memberIds
+      });
+      
+      // Aktivitätslog erstellen
+      await storage.createActivityLog({
+        action: "update",
+        details: "Projektmitglieder aktualisiert",
+        userId: userId,
+        projectId: id,
+        requiresNotification: true,
+        notificationType: "project"
+      });
+      
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Fehler beim Aktualisieren der Projektmitglieder:", error);
+      res.status(500).json({ 
+        message: "Fehler beim Aktualisieren der Projektmitglieder", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 

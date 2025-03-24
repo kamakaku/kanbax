@@ -151,10 +151,25 @@ export class DatabaseStorage implements IStorage {
           eq(userFavoriteProjects.projectId, id)
         ));
       
+      // Mitglieder des Projekts laden, falls vorhanden
+      let members = [];
+      if (project.memberIds && project.memberIds.length > 0) {
+        members = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(inArray(users.id, project.memberIds));
+      }
+      
       // Personalisierter Favoriten-Status basierend auf userFavoriteProjects
       return {
         ...project,
-        isFavorite: favorite ? true : false
+        isFavorite: favorite ? true : false,
+        members: members
       };
     } catch (error) {
       console.error("Error in getProject:", error);
@@ -177,6 +192,7 @@ export class DatabaseStorage implements IStorage {
     const projectData = {
       ...updateProject,
       teamIds: Array.isArray(updateProject.teamIds) ? updateProject.teamIds : [],
+      memberIds: Array.isArray(updateProject.memberIds) ? updateProject.memberIds : [],
       isFavorite: updateProject.isFavorite ?? undefined,
     };
 
@@ -190,7 +206,8 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Project ${id} not found`);
     }
 
-    return project;
+    // Aktualisiertes Projekt mit Mitgliedern holen
+    return this.getProject(userId, id);
   }
 
   async deleteProject(userId: number, id: number): Promise<void> {

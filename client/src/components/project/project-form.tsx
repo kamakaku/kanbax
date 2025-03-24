@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProjectSchema, type InsertProject, type Project, type Team } from "@shared/schema";
+import { insertProjectSchema, type InsertProject, type Project, type Team, type User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-store";
 import {
@@ -55,6 +55,18 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
       return response.json();
     },
   });
+  
+  // Fetch users
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Benutzer");
+      }
+      return response.json();
+    },
+  });
 
   const form = useForm<InsertProject>({
     resolver: zodResolver(existingProject ? insertProjectSchema.partial() : insertProjectSchema),
@@ -62,6 +74,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
       title: existingProject?.title || "",
       description: existingProject?.description || "",
       teamIds: existingProject?.teamIds || [],
+      memberIds: existingProject?.members?.map(m => m.id) || [],
       companyId: existingProject?.companyId || user?.companyId || 0,
     },
   });
@@ -100,6 +113,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
       const updateData = {
         ...data,
         teamIds: data.teamIds || [],
+        memberIds: data.memberIds || [],
         userId: user?.id, // Füge die userId für die Aktivitätsprotokollierung hinzu
       };
       console.log("Updating project with data:", updateData);
