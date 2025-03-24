@@ -179,15 +179,18 @@ export default function AllOKRs() {
       
       <CardContent className="p-4 pt-2 pb-2">
         <div className="flex items-center space-x-2 mb-3">
-          <Progress 
-            value={objective.progress || 0} 
-            className={cn(
-              "h-3 flex-1",
-              objective.progress === 100 ? 
-                "bg-green-100 [&>[role=progressbar]]:bg-green-500" : 
-                "bg-gray-100 [&>[role=progressbar]]:bg-blue-500"
-            )} 
-          />
+          <div className="h-3 flex-1 rounded-full bg-gray-100 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0wIDZoNnYtNmgtNnoiIGZpbGw9IiNkMWQxZDEiIGZpbGwtb3BhY2l0eT0iMC4yIiBzdHJva2U9Im5vbmUiLz48L3N2Zz4=')] bg-[length:6px_6px] overflow-hidden">
+            <div 
+              role="progressbar" 
+              className={cn(
+                "h-full rounded-full transition-all",
+                objective.progress === 100 ? 
+                  "bg-green-500" : 
+                  "bg-gradient-to-r from-blue-400 to-blue-600"
+              )}
+              style={{ width: `${objective.progress || 0}%` }}
+            />
+          </div>
           <span className="font-medium text-sm min-w-[40px] text-right">
             {objective.progress || 0}%
           </span>
