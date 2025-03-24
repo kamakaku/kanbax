@@ -165,6 +165,7 @@ export const insertProjectSchema = createInsertSchema(projects)
     title: true,
     description: true,
     companyId: true,
+    creator_id: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
@@ -172,6 +173,7 @@ export const insertProjectSchema = createInsertSchema(projects)
     companyId: z.number().int().positive("Unternehmens-ID ist erforderlich"),
     teamIds: z.array(z.number().int().positive()).optional(),
     memberIds: z.array(z.number().int().positive()).optional(),
+    creator_id: z.number().int().positive("Creator ID ist erforderlich"),
   });
 
 export const updateProjectSchema = insertProjectSchema.partial();

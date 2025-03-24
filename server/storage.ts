@@ -178,9 +178,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProject(userId: number, insertProject: InsertProject): Promise<Project> {
+    // Stelle sicher, dass creator_id gesetzt ist
+    const projectData = {
+      ...insertProject,
+      creator_id: userId,
+    };
+    
     const [project] = await db
       .insert(projects)
-      .values(insertProject)
+      .values(projectData)
       .returning();
     return project;
   }
