@@ -114,74 +114,101 @@ export default function AllProjects() {
     }
   };
 
-  // Projekt-Karte mit minimalistischem Design
+  // Projekt-Karte im Mac-Folder-Style
   const ProjectCard = ({ project, isArchived = false }: { project: Project, isArchived?: boolean }) => {
     const boardCount = getBoardCount(project.id);
     const okrCount = getOkrCount(project.id);
     
+    // Farbklassen für verschiedene Status
+    const folderColor = isArchived
+      ? "from-gray-200 to-gray-100" 
+      : project.isFavorite
+        ? "from-blue-200 to-blue-100"
+        : "from-blue-100 to-blue-50";
+    
+    const titleColor = isArchived 
+      ? "text-gray-500" 
+      : "text-gray-800";
+    
     return (
-      <Card
-        key={project.id}
+      <div
         className={cn(
-          "group cursor-pointer flex flex-col transition-all duration-300 border overflow-hidden",
-          isArchived 
-            ? "opacity-75 border-gray-200" 
-            : project.isFavorite 
-              ? "border-primary/30 hover:shadow-md hover:border-primary/40" 
-              : "border-gray-200 hover:shadow-md hover:border-gray-300",
-          "hover:translate-y-[-2px]"
+          "group cursor-pointer relative rounded-lg overflow-hidden transition-all duration-300",
+          "border border-gray-200 shadow-sm hover:shadow-md hover:translate-y-[-2px]",
+          "flex flex-col"
         )}
         onClick={() => handleProjectClick(project)}
       >
-        {/* Projekt-Header */}
-        <CardHeader className="p-4 pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <CardTitle className={cn(
-                "text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors",
-                isArchived ? "text-gray-500" : "text-gray-800"
-              )}>
-                {project.title}
-              </CardTitle>
-              {isArchived && (
-                <Badge variant="outline" className="text-xs ml-2">Archiviert</Badge>
-              )}
-            </div>
-            
-            {/* Status-Indikator (Favorit) */}
+        {/* Mac-Style Folder Oberer Teil */}
+        <div className={cn(
+          "h-[35px] w-full rounded-t-lg bg-gradient-to-b",
+          folderColor,
+          "flex items-center relative"
+        )}>
+          {/* Folder Tab */}
+          <div className="absolute top-0 left-6 h-[4px] w-24 rounded-b-md bg-gray-100/50"></div>
+          
+          {/* Folder Icons (Favorit, Archiv) */}
+          <div className="absolute right-2 top-[6px] flex space-x-1">
             {project.isFavorite && !isArchived && (
-              <div className="absolute top-0 right-0">
-                <div className="w-8 h-8 bg-yellow-400/40 rotate-45 transform origin-bottom-right"></div>
-                <Star className="absolute top-1 right-1 h-3 w-3 text-yellow-600" />
+              <div className="h-5 w-5 flex items-center justify-center">
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-500" />
+              </div>
+            )}
+            {isArchived && (
+              <div className="h-5 w-5 flex items-center justify-center">
+                <Archive className="h-4 w-4 text-gray-500" />
               </div>
             )}
           </div>
           
+          {/* Folder Icon */}
+          <div className="ml-3">
+            <Folder className={cn(
+              "h-5 w-5",
+              isArchived ? "text-gray-500" : project.isFavorite ? "text-blue-500" : "text-blue-400"
+            )} />
+          </div>
+        </div>
+        
+        {/* Folder Inhalt */}
+        <div className="p-4 pt-3 flex-grow bg-white">
+          {/* Titel */}
+          <div className="mb-2 flex items-start">
+            <h3 className={cn(
+              "font-medium text-base line-clamp-1 group-hover:text-primary transition-colors",
+              titleColor
+            )}>
+              {project.title}
+            </h3>
+            {isArchived && (
+              <Badge variant="outline" className="text-xs ml-2 mt-0.5">Archiviert</Badge>
+            )}
+          </div>
+          
           {/* Beschreibung */}
-          <CardDescription className={cn(
-            "text-sm mt-1 line-clamp-2",
-            isArchived ? "text-gray-500" : "text-gray-700"
+          <p className={cn(
+            "text-sm line-clamp-2 mb-3",
+            isArchived ? "text-gray-500" : "text-gray-600"
           )}>
             {project.description || "Keine Beschreibung"}
-          </CardDescription>
-        </CardHeader>
-        
-        {/* Statistiken */}
-        <CardContent className="px-4 pb-2 pt-0 flex-grow">
-          <div className="flex space-x-4">
+          </p>
+          
+          {/* Statistiken */}
+          <div className="flex space-x-4 mb-1">
             <div className="flex items-center">
-              <LayoutGrid className="h-4 w-4 text-gray-500 mr-1.5" />
-              <span className="text-sm text-gray-600 font-medium">{boardCount}</span>
+              <LayoutGrid className="h-4 w-4 text-blue-500 mr-1.5" />
+              <span className="text-sm text-gray-700 font-medium">{boardCount}</span>
             </div>
             <div className="flex items-center">
-              <Target className="h-4 w-4 text-gray-500 mr-1.5" />
-              <span className="text-sm text-gray-600 font-medium">{okrCount}</span>
+              <Target className="h-4 w-4 text-green-500 mr-1.5" />
+              <span className="text-sm text-gray-700 font-medium">{okrCount}</span>
             </div>
           </div>
-        </CardContent>
+        </div>
         
         {/* Footer */}
-        <CardFooter className="px-4 py-3 mt-auto border-t flex justify-between items-center">
+        <div className="px-4 py-2.5 border-t border-gray-100 flex justify-between items-center bg-gray-50">
           <div className="flex items-center">
             <Calendar className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
             <span className="text-xs text-muted-foreground">
@@ -194,38 +221,38 @@ export default function AllProjects() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="p-1 h-8 w-8 rounded-full hover:bg-blue-50"
+                className="p-1 h-7 w-7 rounded-full hover:bg-blue-50"
                 onClick={(e) => unarchiveProject(project, e)}
                 title="Wiederherstellen"
               >
-                <RotateCcw className="h-4 w-4 text-blue-500" />
+                <RotateCcw className="h-3.5 w-3.5 text-blue-500" />
               </Button>
             ) : (
               <>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="p-1 h-8 w-8 rounded-full hover:bg-yellow-50"
+                  className="p-1 h-7 w-7 rounded-full hover:bg-yellow-50"
                   onClick={(e) => toggleFavorite(project, e)}
                   title={project.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
                 >
-                  <Star className={`h-4 w-4 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+                  <Star className={`h-3.5 w-3.5 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
                 </Button>
                 
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="p-1 h-8 w-8 rounded-full hover:bg-gray-100"
+                  className="p-1 h-7 w-7 rounded-full hover:bg-gray-100"
                   onClick={(e) => archiveProject(project, e)}
                   title="Projekt archivieren"
                 >
-                  <Archive className="h-4 w-4 text-gray-500" />
+                  <Archive className="h-3.5 w-3.5 text-gray-500" />
                 </Button>
               </>
             )}
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     );
   };
 
