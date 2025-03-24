@@ -52,6 +52,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   teamIds: integer("team_ids").array().default([]),
+  memberIds: integer("member_ids").array().default([]),
   isFavorite: boolean("is_favorite").default(false),
   companyId: integer("company_id").references(() => companies.id),
 });
