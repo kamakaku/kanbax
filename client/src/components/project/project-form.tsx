@@ -88,6 +88,7 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
         teamIds: data.teamIds || [],
         memberIds: data.memberIds || [],
         creator_id: user?.id,
+        companyId: user?.companyId || data.companyId,
         userId: user?.id, // Füge die userId für die Aktivitätsprotokollierung hinzu
       };
       console.log("Creating project with data:", projectData);
@@ -117,6 +118,8 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
         ...data,
         teamIds: data.teamIds || [],
         memberIds: data.memberIds || [],
+        companyId: user?.companyId || data.companyId || existingProject.companyId,
+        creator_id: existingProject.creator_id || user?.id,
         userId: user?.id, // Füge die userId für die Aktivitätsprotokollierung hinzu
       };
       console.log("Updating project with data:", updateData);
