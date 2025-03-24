@@ -144,111 +144,112 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {existingProject ? "Projekt bearbeiten" : "Neues Projekt erstellen"}
-          </DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="teamIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teams</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      const id = parseInt(value);
-                      if (!field.value?.includes(id)) {
-                        field.onChange([...(field.value || []), id]);
-                      }
-                    }}
-                  >
+      <DialogContent className="sm:max-w-[500px] p-0">
+        <div className="p-6 pb-0">
+          <DialogTitle>{existingProject ? "Projekt bearbeiten" : "Neues Projekt erstellen"}</DialogTitle>
+        </div>
+        
+        <div className="overflow-y-auto px-6 pb-0 pt-2" style={{ maxHeight: "calc(85vh - 160px)" }}>
+          <Form {...form}>
+            <form id="project-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titel</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Team hinzufügen" />
-                      </SelectTrigger>
+                      <Input {...field} />
                     </FormControl>
-                    <SelectContent>
-                      {teams.map((team) => (
-                        <SelectItem key={team.id} value={team.id.toString()}>
-                          {team.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {field.value?.map((teamId) => {
-                      const team = teams.find((t) => t.id === teamId);
-                      return (
-                        <Badge key={teamId} variant="secondary">
-                          {team?.name}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 ml-1"
-                            onClick={() => {
-                              field.onChange(field.value?.filter((id) => id !== teamId));
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <DialogFooter>
-              <Button
-                variant="outline"
-                type="button"
-                onClick={onClose}
-              >
-                Abbrechen
-              </Button>
-              <Button
-                type="submit"
-                disabled={createProject.isPending || updateProject.isPending}
-              >
-                {existingProject ? "Änderungen speichern" : "Projekt erstellen"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beschreibung</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="teamIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teams</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        const id = parseInt(value);
+                        if (!field.value?.includes(id)) {
+                          field.onChange([...(field.value || []), id]);
+                        }
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Team hinzufügen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {teams.map((team) => (
+                          <SelectItem key={team.id} value={team.id.toString()}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {field.value?.map((teamId) => {
+                        const team = teams.find((t) => t.id === teamId);
+                        return (
+                          <Badge key={teamId} variant="secondary">
+                            {team?.name}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 ml-1"
+                              onClick={() => {
+                                field.onChange(field.value?.filter((id) => id !== teamId));
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        </div>
+        
+        <div className="p-6 border-t flex flex-row justify-end gap-2">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            type="submit"
+            form="project-form"
+            disabled={createProject.isPending || updateProject.isPending}
+          >
+            {existingProject ? "Änderungen speichern" : "Projekt erstellen"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

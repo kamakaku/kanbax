@@ -177,148 +177,161 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] p-0">
+        <div className="p-6 pb-0">
           <DialogTitle>{defaultValues ? "Board bearbeiten" : "Neues Board erstellen"}</DialogTitle>
-        </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            {/* Title field */}
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Titel</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Geben Sie einen Titel ein..." {...field} />
-                  </FormControl>
-                  {form.formState.errors.title && (
-                    <FormMessage>{form.formState.errors.title.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
-            />
-
-            {/* Description field */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Beschreiben Sie Ihr Board..."
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  {form.formState.errors.description && (
-                    <FormMessage>{form.formState.errors.description.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
-            />
-
-            {/* Project selection */}
-            <FormField
-              control={form.control}
-              name="project_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Projekt (Optional)</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(value === "0" ? null : parseInt(value))}
-                    defaultValue={field.value?.toString() || "0"}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Wählen Sie ein Projekt (optional)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="0">Kein Projekt</SelectItem>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id.toString()}>
-                          {project.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.project_id && (
-                    <FormMessage>{form.formState.errors.project_id.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
-            />
-
-            {/* Team selection */}
-            <FormField
-              control={form.control}
-              name="team_ids"
-              render={({ field }) => {
-                console.log("Team field value:", field.value);
-                return (
+        </div>
+        
+        <div className="overflow-y-auto px-6 pb-0 pt-2" style={{ maxHeight: "calc(85vh - 160px)" }}>
+          <Form {...form}>
+            <form id="board-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              {/* Title field */}
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Teams zuweisen</FormLabel>
+                    <FormLabel>Titel</FormLabel>
                     <FormControl>
-                      <DialogMultiSelect
-                        placeholder="Teams auswählen..."
-                        options={teamOptions}
-                        selected={Array.isArray(field.value) ? field.value.map(String) : []}
-                        onChange={(values) => {
-                          console.log("Selected team values:", values);
-                          const numberValues = values.map(v => parseInt(v));
-                          console.log("Converted team values:", numberValues);
-                          field.onChange(numberValues);
-                        }}
-                      />
+                      <Input placeholder="Geben Sie einen Titel ein..." {...field} />
                     </FormControl>
-                    {form.formState.errors.team_ids?.message && (
-                      <FormMessage>{form.formState.errors.team_ids.message}</FormMessage>
+                    {form.formState.errors.title && (
+                      <FormMessage>{form.formState.errors.title.message}</FormMessage>
                     )}
                   </FormItem>
-                );
-              }}
-            />
+                )}
+              />
 
-            {/* User selection */}
-            <FormField
-              control={form.control}
-              name="assigned_user_ids"
-              render={({ field }) => {
-                console.log("User field value:", field.value);
-                return (
+              {/* Description field */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Benutzer zuweisen</FormLabel>
+                    <FormLabel>Beschreibung</FormLabel>
                     <FormControl>
-                      <DialogMultiSelect
-                        placeholder="Benutzer auswählen..."
-                        options={userOptions}
-                        selected={Array.isArray(field.value) ? field.value.map(String) : []}
-                        onChange={(values) => {
-                          console.log("Selected user values:", values);
-                          const numberValues = values.map(v => parseInt(v));
-                          console.log("Converted user values:", numberValues);
-                          field.onChange(numberValues);
-                        }}
+                      <Textarea
+                        placeholder="Beschreiben Sie Ihr Board..."
+                        {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
-                    {form.formState.errors.assigned_user_ids?.message && (
-                      <FormMessage>{form.formState.errors.assigned_user_ids.message}</FormMessage>
+                    {form.formState.errors.description && (
+                      <FormMessage>{form.formState.errors.description.message}</FormMessage>
                     )}
                   </FormItem>
-                );
-              }}
-            />
+                )}
+              />
 
-            <Button type="submit" className="w-full">
-              {defaultValues ? "Board aktualisieren" : "Board erstellen"}
-            </Button>
-          </form>
-        </Form>
+              {/* Project selection */}
+              <FormField
+                control={form.control}
+                name="project_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Projekt (Optional)</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value === "0" ? null : parseInt(value))}
+                      defaultValue={field.value?.toString() || "0"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Wählen Sie ein Projekt (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">Kein Projekt</SelectItem>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id.toString()}>
+                            {project.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {form.formState.errors.project_id && (
+                      <FormMessage>{form.formState.errors.project_id.message}</FormMessage>
+                    )}
+                  </FormItem>
+                )}
+              />
+
+              {/* Team selection */}
+              <FormField
+                control={form.control}
+                name="team_ids"
+                render={({ field }) => {
+                  console.log("Team field value:", field.value);
+                  return (
+                    <FormItem>
+                      <FormLabel>Teams zuweisen</FormLabel>
+                      <FormControl>
+                        <DialogMultiSelect
+                          placeholder="Teams auswählen..."
+                          options={teamOptions}
+                          selected={Array.isArray(field.value) ? field.value.map(String) : []}
+                          onChange={(values) => {
+                            console.log("Selected team values:", values);
+                            const numberValues = values.map(v => parseInt(v));
+                            console.log("Converted team values:", numberValues);
+                            field.onChange(numberValues);
+                          }}
+                        />
+                      </FormControl>
+                      {form.formState.errors.team_ids?.message && (
+                        <FormMessage>{form.formState.errors.team_ids.message}</FormMessage>
+                      )}
+                    </FormItem>
+                  );
+                }}
+              />
+
+              {/* User selection */}
+              <FormField
+                control={form.control}
+                name="assigned_user_ids"
+                render={({ field }) => {
+                  console.log("User field value:", field.value);
+                  return (
+                    <FormItem>
+                      <FormLabel>Benutzer zuweisen</FormLabel>
+                      <FormControl>
+                        <DialogMultiSelect
+                          placeholder="Benutzer auswählen..."
+                          options={userOptions}
+                          selected={Array.isArray(field.value) ? field.value.map(String) : []}
+                          onChange={(values) => {
+                            console.log("Selected user values:", values);
+                            const numberValues = values.map(v => parseInt(v));
+                            console.log("Converted user values:", numberValues);
+                            field.onChange(numberValues);
+                          }}
+                        />
+                      </FormControl>
+                      {form.formState.errors.assigned_user_ids?.message && (
+                        <FormMessage>{form.formState.errors.assigned_user_ids.message}</FormMessage>
+                      )}
+                    </FormItem>
+                  );
+                }}
+              />
+            </form>
+          </Form>
+        </div>
+        
+        <div className="p-6 border-t flex flex-row justify-end gap-2">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            type="submit"
+            form="board-form"
+          >
+            {defaultValues ? "Board aktualisieren" : "Board erstellen"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

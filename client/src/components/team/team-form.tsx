@@ -137,8 +137,8 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] p-0">
+        <div className="p-6 pb-0">
           <DialogTitle>
             {defaultValues ? "Team bearbeiten" : "Neues Team erstellen"}
           </DialogTitle>
@@ -148,65 +148,79 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
               {defaultValues.creatorId === user?.id && " (Sie)"}
             </div>
           )}
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Entwicklungsteam" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        </div>
+        
+        <div className="overflow-y-auto px-6 pb-0 pt-2" style={{ maxHeight: "calc(85vh - 160px)" }}>
+          <Form {...form}>
+            <form id="team-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Entwicklungsteam" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beschreibung</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Beschreiben Sie das Team..."
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beschreibung</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Beschreiben Sie das Team..."
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="member_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Team-Mitglieder</FormLabel>
-                  <FormControl>
-                    <DialogMultiSelect
-                      options={userOptions}
-                      selected={field.value || []}
-                      onChange={field.onChange}
-                      placeholder="Mitglieder auswählen"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" className="w-full">
-              {defaultValues ? "Team aktualisieren" : "Team erstellen"}
-            </Button>
-          </form>
-        </Form>
+              <FormField
+                control={form.control}
+                name="member_ids"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Team-Mitglieder</FormLabel>
+                    <FormControl>
+                      <DialogMultiSelect
+                        options={userOptions}
+                        selected={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Mitglieder auswählen"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        </div>
+        
+        <div className="p-6 border-t flex flex-row justify-end gap-2">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            type="submit"
+            form="team-form"
+          >
+            {defaultValues ? "Team aktualisieren" : "Team erstellen"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
