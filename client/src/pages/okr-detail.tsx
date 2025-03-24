@@ -89,6 +89,8 @@ export function OKRDetailPage() {
   const [editingProgress, setEditingProgress] = useState<{[key: number]: number}>({});
   const [isEditingObjective, setIsEditingObjective] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showUnarchiveDialog, setShowUnarchiveDialog] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -261,6 +263,66 @@ export function OKRDetailPage() {
         title: "Fehler",
         description: `Fehler beim Aktualisieren des Favoriten-Status: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,
         variant: "destructive"
+      });
+    }
+  };
+  
+  const handleArchive = () => {
+    setShowArchiveDialog(true);
+  };
+  
+  const confirmArchive = async () => {
+    try {
+      await apiRequest("PATCH", `/api/objectives/${objectiveId}`, {
+        status: "archived"
+      });
+
+      // Aktualisiere sowohl die Detailansicht als auch die Listenansicht
+      await queryClient.invalidateQueries({ queryKey: ["/api/objectives", objectiveId] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
+      
+      toast({
+        title: "Objective archiviert",
+        description: "Das Objective wurde erfolgreich archiviert.",
+      });
+      
+      setShowArchiveDialog(false);
+    } catch (error) {
+      console.error("Error archiving objective:", error);
+      toast({
+        title: "Fehler beim Archivieren",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleUnarchive = () => {
+    setShowUnarchiveDialog(true);
+  };
+  
+  const confirmUnarchive = async () => {
+    try {
+      await apiRequest("PATCH", `/api/objectives/${objectiveId}`, {
+        status: "active"
+      });
+
+      // Aktualisiere sowohl die Detailansicht als auch die Listenansicht
+      await queryClient.invalidateQueries({ queryKey: ["/api/objectives", objectiveId] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
+      
+      toast({
+        title: "Objective wiederhergestellt",
+        description: "Das Objective wurde erfolgreich wiederhergestellt.",
+      });
+      
+      setShowUnarchiveDialog(false);
+    } catch (error) {
+      console.error("Error unarchiving objective:", error);
+      toast({
+        title: "Fehler beim Wiederherstellen",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        variant: "destructive",
       });
     }
   };
@@ -647,6 +709,40 @@ export function OKRDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Archive Dialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Objective archivieren?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Möchten Sie das Objective "{objective.title}" wirklich archivieren? 
+              Es wird aus der Liste der aktiven Objectives entfernt, kann aber später wiederhergestellt werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmArchive}>Archivieren</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unarchive Dialog */}
+      <AlertDialog open={showUnarchiveDialog} onOpenChange={setShowUnarchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Objective wiederherstellen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Möchten Sie das Objective "{objective.title}" wirklich wiederherstellen? 
+              Es wird wieder in der Liste der aktiven Objectives angezeigt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUnarchive}>Wiederherstellen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
