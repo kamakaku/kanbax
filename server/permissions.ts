@@ -119,11 +119,17 @@ export class PermissionService {
 
     if (!board) return false;
 
-    // Ersteller hat immer Zugriff
-    if (board.creator_id === userId) return true;
+    // WICHTIG: Ersteller hat immer Zugriff, unabhängig von allen anderen Berechtigungen
+    if (board.creator_id === userId) {
+      console.log(`Access GRANTED: User ${userId} is creator of board ${boardId}`);
+      return true;
+    }
 
     // Prüfe direkte Benutzerzuweisung
-    if (board.assigned_user_ids.includes(userId)) return true;
+    if (board.assigned_user_ids.includes(userId)) {
+      console.log(`Access GRANTED: User ${userId} is directly assigned to board ${boardId}`);
+      return true;
+    }
 
     // Prüfe Board-Mitgliedsrolle
     const [boardMember] = await db
