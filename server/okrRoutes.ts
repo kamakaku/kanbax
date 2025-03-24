@@ -76,8 +76,10 @@ export function registerOkrRoutes(app: Express) {
       const favorites = await db
         .select()
         .from(schema.userFavoriteObjectives)
-        .where(eq(schema.userFavoriteObjectives.userId, userId) && 
-               eq(schema.userFavoriteObjectives.objectiveId, objective.id));
+        .where(and(
+          eq(schema.userFavoriteObjectives.userId, userId),
+          eq(schema.userFavoriteObjectives.objectiveId, objective.id)
+        ));
       
       const isFavorite = favorites.length > 0;
 
