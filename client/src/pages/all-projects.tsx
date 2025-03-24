@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { type Project } from "@shared/schema";
 import { useLocation } from "wouter";
-import { CardDescription, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Plus, Star, Archive, RotateCcw, LayoutGrid, Target, Calendar, AlertTriangle } from "lucide-react";
+import { Plus, Star, Archive, RotateCcw, LayoutGrid, Target, Calendar } from "lucide-react";
 import { useState } from "react";
 import { ProjectForm } from "@/components/project/project-form";
 import { apiRequest } from "@/lib/queryClient";
@@ -13,24 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from "@/components/ui/alert-dialog";
-import { FileCard } from "@/components/ui/file-card";
 
 export default function AllProjects() {
   const [, setLocation] = useLocation();
   const { setCurrentProject } = useStore();
   const [showForm, setShowForm] = useState(false);
-  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
-  const [projectToArchive, setProjectToArchive] = useState<Project | null>(null);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -55,25 +42,6 @@ export default function AllProjects() {
       await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
-    }
-  };
-
-  // Funktion zum Archivieren eines Projekts
-  const handleArchiveProject = (project: Project) => {
-    setProjectToArchive(project);
-    setShowArchiveDialog(true);
-  };
-  
-  const confirmArchive = async () => {
-    if (!projectToArchive) return;
-    
-    try {
-      await apiRequest('PATCH', `/api/projects/${projectToArchive.id}/archive`);
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      setShowArchiveDialog(false);
-      setProjectToArchive(null);
-    } catch (error) {
-      console.error("Fehler beim Archivieren des Projekts:", error);
     }
   };
 
@@ -140,12 +108,10 @@ export default function AllProjects() {
     const okrCount = getOkrCount(project.id);
     
     return (
-      <FileCard
+      <Card
         key={project.id}
-        className="group hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col"
-        archived={isArchived}
-        cutoutSize={24}
-        radius={8}
+        className={`group hover:shadow-lg transition-all duration-300 cursor-pointer border flex flex-col
+          ${isArchived ? 'border-gray-200 bg-gray-50/50' : project.isFavorite ? 'border-primary/20' : 'border-primary/10 hover:border-primary/20'}`}
         onClick={() => handleProjectClick(project)}
       >
         <CardHeader className="p-4 pb-2 space-y-2">
@@ -185,7 +151,7 @@ export default function AllProjects() {
             </span>
           </div>
           
-          <div className="flex space-x-1">
+          <div className="flex">
             {isArchived ? (
               <Button
                 variant="ghost"
@@ -197,33 +163,19 @@ export default function AllProjects() {
                 <RotateCcw className="h-4 w-4 text-blue-500" />
               </Button>
             ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="p-1 h-8 w-8 hover:bg-yellow-100"
-                  onClick={(e) => toggleFavorite(project, e)}
-                  title={project.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
-                >
-                  <Star className={`h-5 w-5 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="p-1 h-8 w-8 hover:bg-gray-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleArchiveProject(project);
-                  }}
-                  title="Archivieren"
-                >
-                  <Archive className="h-4 w-4 text-gray-500" />
-                </Button>
-              </>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="p-1 h-8 w-8 hover:bg-yellow-100"
+                onClick={(e) => toggleFavorite(project, e)}
+                title={project.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
+              >
+                <Star className={`h-5 w-5 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+              </Button>
             )}
           </div>
         </CardFooter>
-      </FileCard>
+      </Card>
     );
   };
 
@@ -316,37 +268,10 @@ export default function AllProjects() {
         </Tabs>
       )}
 
-      {/* Projekt-Erstellungsformular */}
       <ProjectForm
         open={showForm}
         onClose={() => setShowForm(false)}
       />
-      
-      {/* Archivierungs-Bestätigungsdialog */}
-      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Projekt archivieren</AlertDialogTitle>
-            <AlertDialogDescription>
-              Möchten Sie das Projekt "{projectToArchive?.title}" wirklich archivieren?
-              <br /><br />
-              <div className="flex items-center space-x-2 text-amber-600">
-                <AlertTriangle className="h-5 w-5" />
-                <span>Archivierte Projekte sind in der Ansicht "Archiviert" weiterhin verfügbar, aber für die meisten Benutzer nicht mehr sichtbar.</span>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmArchive}
-              className="bg-primary hover:bg-primary/90"
-            >
-              Archivieren
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
