@@ -192,8 +192,8 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent>
+        <DialogHeader>
           <DialogTitle>
             {keyResult ? "Key Result bearbeiten" : "Neues Key Result erstellen"}
           </DialogTitle>
@@ -202,7 +202,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
-            className="space-y-4 overflow-y-auto pr-1"
+            className="space-y-4"
           >
             <FormField
               control={form.control}
@@ -417,25 +417,23 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
               </div>
             )}
 
-            <div className="pt-4">
-              <DialogFooter className="flex-shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Abbrechen
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={mutation.isPending}
-                >
-                  {mutation.isPending
-                    ? keyResult ? "Wird aktualisiert..." : "Wird erstellt..."
-                    : keyResult ? "Key Result aktualisieren" : "Key Result erstellen"}
-                </Button>
-              </DialogFooter>
-            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                type="submit"
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending
+                  ? keyResult ? "Wird aktualisiert..." : "Wird erstellt..."
+                  : keyResult ? "Key Result aktualisieren" : "Key Result erstellen"}
+              </Button>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>
