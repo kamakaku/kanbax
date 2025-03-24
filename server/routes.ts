@@ -1071,7 +1071,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const item = await storage.updateChecklistItem(id, req.body);
+      const userId = req.userId!;
+      const item = await storage.updateChecklistItem(userId, id, req.body);
       res.json(item);
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
@@ -1085,7 +1086,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      await storage.deleteChecklistItem(id);
+      const userId = req.userId!;
+      await storage.deleteChecklistItem(userId, id);
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
@@ -1346,7 +1348,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const columns = await storage.getColumns(boardId);
+      const userId = req.userId!;
+      const columns = await storage.getColumns(userId, boardId);
       res.json(columns);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
