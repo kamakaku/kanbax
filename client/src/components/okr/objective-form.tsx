@@ -13,6 +13,8 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-store";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 
 const objectiveFormSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
@@ -20,8 +22,8 @@ const objectiveFormSchema = z.object({
   quarter: z.string().min(1, "Quartal ist erforderlich"),
   year: z.string().min(1, "Jahr ist erforderlich"),
   projectId: z.string().optional(),
-  teamId: z.string().optional(),
-  userId: z.string().optional(),
+  teamIds: z.array(z.number()).optional(),
+  userIds: z.array(z.number()).optional(),
   status: z.enum(["active", "completed", "archived"]).default("active"),
 });
 
@@ -88,8 +90,8 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
       quarter: "",
       year: new Date().getFullYear().toString().slice(-2),
       projectId: undefined,
-      teamId: undefined,
-      userId: undefined,
+      teamIds: [],
+      userIds: [],
       status: "active",
     },
   });
@@ -148,8 +150,8 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           status: values.status,
           projectId: values.projectId ? parseInt(values.projectId) : undefined,
           cycleId: newCycle.id,
-          teamId: values.teamId ? parseInt(values.teamId) : undefined,
-          userId: values.userId ? parseInt(values.userId) : undefined,
+          teamIds: values.teamIds || [],
+          userIds: values.userIds || [],
           creatorId: user.id, // Updated from creator_id to creatorId
         };
 
