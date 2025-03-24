@@ -14,7 +14,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +62,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
       title: existingProject?.title || "",
       description: existingProject?.description || "",
       teamIds: existingProject?.teamIds || [],
-      creator_id: user?.id || 0,
+      companyId: existingProject?.companyId || user?.companyId || 0,
     },
   });
 
@@ -138,7 +144,7 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>
             {existingProject ? "Projekt bearbeiten" : "Neues Projekt erstellen"}
@@ -226,13 +232,21 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
               )}
             />
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={createProject.isPending || updateProject.isPending}
-            >
-              {existingProject ? "Änderungen speichern" : "Projekt erstellen"}
-            </Button>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={onClose}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                type="submit"
+                disabled={createProject.isPending || updateProject.isPending}
+              >
+                {existingProject ? "Änderungen speichern" : "Projekt erstellen"}
+              </Button>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>
