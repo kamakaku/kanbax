@@ -37,9 +37,10 @@ interface ProjectFormProps {
   open: boolean;
   onClose: () => void;
   existingProject?: Project;
+  onSuccess?: () => void;
 }
 
-export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps) {
+export function ProjectForm({ open, onClose, existingProject, onSuccess }: ProjectFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -128,6 +129,10 @@ export function ProjectForm({ open, onClose, existingProject }: ProjectFormProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: "Projekt erfolgreich aktualisiert" });
+      // Rufe den onSuccess-Callback auf, wenn er existiert
+      if (onSuccess) {
+        onSuccess();
+      }
       onClose();
     },
     onError: (error) => {

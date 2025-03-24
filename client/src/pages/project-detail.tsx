@@ -421,6 +421,7 @@ export default function ProjectDetail() {
           open={!!editingProject}
           onClose={() => setEditingProject(null)}
           existingProject={editingProject}
+          onSuccess={() => refetchProject()} // Projekt-Daten nach der Aktualisierung neu laden
         />
       )}
     </div>
