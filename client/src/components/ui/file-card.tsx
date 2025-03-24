@@ -8,7 +8,7 @@ export interface FileCardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const FileCard = forwardRef<HTMLDivElement, FileCardProps>(
-  ({ className, children, cutoutSize = 22, radius = 8, archived = false, ...props }, ref) => {
+  ({ className, children, cutoutSize = 25, radius = 8, archived = false, ...props }, ref) => {
     return (
       <div
         ref={ref}
@@ -19,37 +19,43 @@ const FileCard = forwardRef<HTMLDivElement, FileCardProps>(
         )}
         style={{
           borderRadius: `${radius}px`,
+          position: 'relative'
         }}
         {...props}
       >
-        {/* Gefaltete Ecke in der oberen rechten Ecke wie im Sidebar-Icon */}
+        {/* Dokument-Ecke nach CodePen-Beispiel */}
         <div 
           className={cn(
-            "absolute top-0 right-0 w-0 h-0 transition-colors",
-            archived ? "border-gray-300" : "border-primary/20"
+            "absolute top-0 right-0 w-0 h-0 z-10",
+            archived ? "text-gray-100" : "text-primary/5"
           )}
           style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 0,
+            height: 0,
             borderStyle: 'solid',
             borderWidth: `0 ${cutoutSize}px ${cutoutSize}px 0`,
             borderColor: 'transparent',
-            borderRightColor: archived ? '#f5f5f5' : '#f0f9ff',
+            borderRightColor: 'currentColor'
           }}
         />
         <div
           className={cn(
-            "absolute transition-colors",
-            archived ? "border-gray-300" : "border-primary/10"
+            "absolute z-20",
+            archived ? "text-gray-300" : "text-primary/20"
           )}
           style={{
+            position: 'absolute',
             top: 0,
             right: 0,
-            width: `${cutoutSize}px`,
-            height: `${cutoutSize}px`,
-            borderBottom: `1px solid ${archived ? '#e5e7eb' : '#e6f1fc'}`,
-            borderLeft: `1px solid ${archived ? '#e5e7eb' : '#e6f1fc'}`,
-            borderBottomLeftRadius: `${radius}px`,
-            transform: 'rotate(-90deg) translate(-100%, 0)',
-            transformOrigin: 'top left',
+            width: 0,
+            height: 0,
+            borderStyle: 'solid',
+            borderWidth: `0 ${cutoutSize}px ${cutoutSize}px 0`,
+            borderColor: 'transparent',
+            borderRightColor: 'white'
           }}
         />
         {children}
