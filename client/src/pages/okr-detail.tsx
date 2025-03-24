@@ -44,6 +44,29 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
 
+interface ActivityLog {
+  id: number;
+  action: string;
+  details: string | null;
+  userId: number | null;
+  boardId: number | null;
+  projectId: number | null;
+  objectiveId: number | null;
+  taskId: number | null;
+  teamId: number | null;
+  targetUserId: number | null;
+  createdAt: string | Date;
+  created_at?: string;
+  username?: string;
+  avatar_url?: string;
+  key_result_title?: string;
+  board_title?: string;
+  project_title?: string;
+  objective_title?: string;
+  task_title?: string;
+  team_title?: string;
+}
+
 interface ChecklistItem {
   title: string;
   completed: boolean;
@@ -107,6 +130,18 @@ export function OKRDetailPage() {
       }
       return response.json();
     },
+  });
+  
+  const { data: activityLogs = [], isLoading: isLoadingActivities } = useQuery({
+    queryKey: ["/api/activity-logs", { objectiveId }],
+    queryFn: async () => {
+      const response = await fetch(`/api/activity-logs?objectiveId=${objectiveId}`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Aktivitäten");
+      }
+      return response.json();
+    },
+    enabled: !!objectiveId && !isNaN(objectiveId),
   });
 
   const handleUpdateKeyResult = async (data: Partial<KeyResult> & { id: number }) => {
@@ -490,9 +525,59 @@ export function OKRDetailPage() {
             </TabsContent>
 
             <TabsContent value="activities" className="space-y-4">
-              <div className="text-center py-8 text-muted-foreground">
-                Keine Aktivitäten für diesen OKR vorhanden.
-              </div>
+              {isLoadingActivities ? (
+                <div className="text-center py-8">Lade Aktivitäten...</div>
+              ) : activityLogs.length > 0 ? (
+                <Card>
+                  <div className="p-4 space-y-4">
+                    {activityLogs.map((log: ActivityLog) => (
+                      <div key={log.id} className="flex items-start gap-4 p-3 border-b last:border-b-0">
+                        <Avatar className="h-8 w-8 flex-shrink-0">
+                          {log.avatar_url ? (
+                            <AvatarImage src={log.avatar_url} alt={log.username || "Benutzer"} />
+                          ) : (
+                            <AvatarFallback>
+                              {log.username?.charAt(0).toUpperCase() || "U"}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div className="space-y-1 flex-grow">
+                          <div className="flex justify-between">
+                            <div className="font-medium text-sm">
+                              {log.username || "Benutzer"} {log.action === "create" ? "hat erstellt" : 
+                                log.action === "update" ? "hat aktualisiert" : 
+                                log.action === "delete" ? "hat gelöscht" : 
+                                log.action === "assign" ? "hat zugewiesen" : 
+                                log.action}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(log.createdAt || log.created_at || new Date()).toLocaleString('de-DE', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                          <p className="text-muted-foreground text-sm">
+                            {log.details}
+                          </p>
+                          {log.key_result_title && (
+                            <div className="text-xs mt-1 bg-primary/5 px-2 py-1 rounded inline-block">
+                              Key Result: {log.key_result_title}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Keine Aktivitäten für diesen OKR vorhanden.
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
@@ -554,8 +639,49 @@ export function OKRDetailPage() {
           </Tabs>
 
           <h3 className="text-lg font-semibold mt-6">Neueste Aktivitäten</h3>
-          <div className="bg-card rounded-lg border p-4 space-y-3 text-sm text-muted-foreground">
-            Keine aktuellen Aktivitäten
+          <div className="bg-card rounded-lg border p-4 space-y-3">
+            {isLoadingActivities ? (
+              <div className="text-center py-2 text-sm text-muted-foreground">
+                Lade Aktivitäten...
+              </div>
+            ) : activityLogs.length > 0 ? (
+              <>
+                {activityLogs.slice(0, 3).map((log: ActivityLog) => (
+                  <div key={log.id} className="flex items-start gap-2 pb-2 border-b last:border-b-0 last:pb-0">
+                    <Avatar className="h-6 w-6 flex-shrink-0">
+                      {log.avatar_url ? (
+                        <AvatarImage src={log.avatar_url} alt={log.username || "Benutzer"} />
+                      ) : (
+                        <AvatarFallback>
+                          {log.username?.charAt(0).toUpperCase() || "U"}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="space-y-1 flex-grow">
+                      <div className="text-xs font-medium">
+                        {log.username || "Benutzer"} {log.action === "create" ? "hat erstellt" : 
+                          log.action === "update" ? "hat aktualisiert" : 
+                          log.action === "delete" ? "hat gelöscht" : 
+                          log.action === "assign" ? "hat zugewiesen" : 
+                          log.action}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {new Date(log.createdAt || log.created_at).toLocaleString('de-DE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="text-center py-2 text-sm text-muted-foreground">
+                Keine aktuellen Aktivitäten
+              </div>
+            )}
           </div>
         </div>
       </div>
