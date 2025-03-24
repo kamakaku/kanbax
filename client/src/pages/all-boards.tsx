@@ -381,40 +381,6 @@ export default function AllBoards() {
                 </div>
               </div>
               <span className="text-xs text-gray-500 whitespace-nowrap">{totalTasks} Aufgaben</span>
-              
-              {/* Legende für Status-Farben */}
-              <div className="flex flex-wrap gap-2 mt-2">
-                {percentages.backlog > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${statusConfig.backlog.color}`}></div>
-                    <span className="text-xs text-gray-500">{statusConfig.backlog.label}: {statusCounts.backlog}</span>
-                  </div>
-                )}
-                {percentages.todo > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${statusConfig.todo.color}`}></div>
-                    <span className="text-xs text-gray-500">{statusConfig.todo.label}: {statusCounts.todo}</span>
-                  </div>
-                )}
-                {percentages.inProgress > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${statusConfig.inProgress.color}`}></div>
-                    <span className="text-xs text-gray-500">{statusConfig.inProgress.label}: {statusCounts.inProgress}</span>
-                  </div>
-                )}
-                {percentages.review > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${statusConfig.review.color}`}></div>
-                    <span className="text-xs text-gray-500">{statusConfig.review.label}: {statusCounts.review}</span>
-                  </div>
-                )}
-                {percentages.done > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${statusConfig.done.color}`}></div>
-                    <span className="text-xs text-gray-500">{statusConfig.done.label}: {statusCounts.done}</span>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
           
