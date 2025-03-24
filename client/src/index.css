@@ -117,7 +117,8 @@
     overflow: visible;
   }
   
-  /* Angled Corner Card Style */
+  /* Modernere Karten mit SVG-Maske (ersetzt angled-card) */
+  /* Die angled-card Klasse bleibt zur Abwärtskompatibilität */
   .angled-card {
     border-radius: 5px 0 5px 5px !important;
     position: relative;
@@ -174,5 +175,23 @@
   .mac-folder:hover {
     filter: drop-shadow(0 0 0.35rem rgba(0, 0, 0, 0.15));
     transform: translateY(-2px);
+  }
+  
+  /* Masked Card Style */
+  .masked-card {
+    position: relative;
+    overflow: hidden;
+    -webkit-mask-image: url('../assets/card-mask.svg');
+    mask-image: url('../assets/card-mask.svg');
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .masked-card:hover {
+    transform: translateY(-3px);
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.1));
   }
 }

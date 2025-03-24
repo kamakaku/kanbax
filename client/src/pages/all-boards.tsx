@@ -121,7 +121,7 @@ export default function AllBoards() {
 
   function BoardCard({ board }: { board: Board }) {
     return (
-      <div className="angled-card">
+      <div className="masked-card">
         <Card
           className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative"
           onClick={() => handleBoardClick(board)}
