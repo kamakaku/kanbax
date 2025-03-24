@@ -136,7 +136,7 @@
     width: 85px;
     height: 5px;
     top: -18px;
-    background: var(--folder-tab-color, #7036E9);
+    background: var(--folder-tab-color, hsl(var(--primary)));
     border-radius: 0 0 5px 5px;
   }
 
