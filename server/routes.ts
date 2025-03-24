@@ -959,6 +959,35 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch tasks" });
     }
   });
+  
+  // Endpunkt zum Abrufen aller Tasks für alle Boards
+  app.get("/api/all-tasks", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      
+      // Alle Boards des Benutzers abrufen
+      const boards = await storage.getBoards(userId);
+      
+      // Tasks für jedes Board sammeln
+      const allTasks: Record<number, Task[]> = {};
+      
+      for (const board of boards) {
+        try {
+          const tasks = await storage.getTasks(userId, board.id);
+          allTasks[board.id] = tasks;
+        } catch (error) {
+          console.error(`Failed to fetch tasks for board ${board.id}:`, error);
+          // Wir setzen ein leeres Array für Boards ohne Aufgaben
+          allTasks[board.id] = [];
+        }
+      }
+      
+      res.json(allTasks);
+    } catch (error) {
+      console.error("Failed to fetch all tasks:", error);
+      res.status(500).json({ message: "Failed to fetch all tasks" });
+    }
+  });
 
   app.post("/api/boards/:boardId/tasks", requireAuth, async (req, res) => {
     const boardId = parseInt(req.params.boardId);

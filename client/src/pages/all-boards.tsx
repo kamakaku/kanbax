@@ -1,11 +1,11 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Project, type Board } from "@shared/schema";
+import { type Project, type Board, type Task } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Plus, Star, Archive, RotateCcw, Calendar } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
@@ -28,6 +28,11 @@ export default function AllBoards() {
 
   const { data: boards = [], isLoading: boardsLoading } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
+  });
+  
+  // Alle Tasks für alle Boards abrufen
+  const { data: allTasksData, isLoading: tasksLoading } = useQuery<Record<number, Task[]>>({
+    queryKey: ['/api/all-tasks'],
   });
 
   const handleBoardClick = (board: Board) => {
@@ -101,11 +106,11 @@ export default function AllBoards() {
     unarchiveBoard.mutate(board.id);
   };
 
-  if (boardsLoading) {
+  if (boardsLoading || tasksLoading) {
     return (
       <div className="container mx-auto p-8">
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Lädt Boards...</p>
+          <p className="text-muted-foreground">Lädt Daten...</p>
         </div>
       </div>
     );
