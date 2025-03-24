@@ -198,69 +198,45 @@ export default function AllBoards() {
           
           {/* Status Progress Bar */}
           <div className="px-4 mb-3">
-            <div className="text-xs mb-1 text-gray-600 flex justify-between">
-              <span>Status Fortschritt</span>
-              <span>{totalTasks} Aufgaben</span>
-            </div>
-            <div className="w-full h-2 bg-gray-100 rounded-full flex overflow-hidden">
-              {percentages.backlog > 0 && (
-                <div 
-                  className={`${statusColors.backlog} h-full`} 
-                  style={{ width: backlogWidth }}
-                  title={`Backlog: ${statusCounts.backlog} Aufgaben`}
-                ></div>
-              )}
-              {percentages.todo > 0 && (
-                <div 
-                  className={`${statusColors.todo} h-full`} 
-                  style={{ width: todoWidth }}
-                  title={`ToDo: ${statusCounts.todo} Aufgaben`}
-                ></div>
-              )}
-              {percentages.inProgress > 0 && (
-                <div 
-                  className={`${statusColors.inProgress} h-full`} 
-                  style={{ width: inProgressWidth }}
-                  title={`In Progress: ${statusCounts.inProgress} Aufgaben`}
-                ></div>
-              )}
-              {percentages.review > 0 && (
-                <div 
-                  className={`${statusColors.review} h-full`} 
-                  style={{ width: reviewWidth }}
-                  title={`Review: ${statusCounts.review} Aufgaben`}
-                ></div>
-              )}
-              {percentages.done > 0 && (
-                <div 
-                  className={`${statusColors.done} h-full`} 
-                  style={{ width: doneWidth }}
-                  title={`Done: ${statusCounts.done} Aufgaben`}
-                ></div>
-              )}
-            </div>
-            
-            <div className="flex text-xs mt-1 justify-between text-gray-500">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                <span>Backlog</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="w-full h-2 bg-gray-100 rounded-full flex overflow-hidden mr-2">
+                {percentages.backlog > 0 && (
+                  <div 
+                    className={`${statusColors.backlog} h-full`} 
+                    style={{ width: backlogWidth }}
+                    title={`Backlog: ${statusCounts.backlog} Aufgaben`}
+                  ></div>
+                )}
+                {percentages.todo > 0 && (
+                  <div 
+                    className={`${statusColors.todo} h-full`} 
+                    style={{ width: todoWidth }}
+                    title={`ToDo: ${statusCounts.todo} Aufgaben`}
+                  ></div>
+                )}
+                {percentages.inProgress > 0 && (
+                  <div 
+                    className={`${statusColors.inProgress} h-full`} 
+                    style={{ width: inProgressWidth }}
+                    title={`In Progress: ${statusCounts.inProgress} Aufgaben`}
+                  ></div>
+                )}
+                {percentages.review > 0 && (
+                  <div 
+                    className={`${statusColors.review} h-full`} 
+                    style={{ width: reviewWidth }}
+                    title={`Review: ${statusCounts.review} Aufgaben`}
+                  ></div>
+                )}
+                {percentages.done > 0 && (
+                  <div 
+                    className={`${statusColors.done} h-full`} 
+                    style={{ width: doneWidth }}
+                    title={`Done: ${statusCounts.done} Aufgaben`}
+                  ></div>
+                )}
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-blue-300 rounded-full"></div>
-                <span>ToDo</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                <span>In Progress</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                <span>Review</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Done</span>
-              </div>
+              <span className="text-xs text-gray-500 whitespace-nowrap">{totalTasks} Aufgaben</span>
             </div>
           </div>
           
@@ -359,7 +335,7 @@ export default function AllBoards() {
                 {activeFavoriteBoards.length > 0 && (
                   <div className="mb-8">
                     <h2 className="text-2xl font-semibold mb-4 text-slate-900">Favorisierte Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {activeFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
@@ -370,7 +346,7 @@ export default function AllBoards() {
                 {activeNonFavoriteBoards.length > 0 && (
                   <div>
                     <h2 className="text-2xl font-semibold mb-4 text-slate-900">Weitere Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {activeNonFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
@@ -391,7 +367,7 @@ export default function AllBoards() {
                 {archivedFavoriteBoards.length > 0 && (
                   <div className="mb-8">
                     <h2 className="text-2xl font-semibold mb-4 text-slate-900">Favorisierte archivierte Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {archivedFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
@@ -402,7 +378,7 @@ export default function AllBoards() {
                 {archivedNonFavoriteBoards.length > 0 && (
                   <div>
                     <h2 className="text-2xl font-semibold mb-4 text-slate-900">Weitere archivierte Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {archivedNonFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
