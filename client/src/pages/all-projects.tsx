@@ -136,7 +136,7 @@ export default function AllProjects() {
             ? "#94a3b8" 
             : project.isFavorite 
               ? "#f59e0b" 
-              : "#4f46e5" 
+              : "hsl(var(--primary))" 
         } as React.CSSProperties}
       >
         {/* Mac-Folder Container mit den CSS-Klassen aus index.css */}
