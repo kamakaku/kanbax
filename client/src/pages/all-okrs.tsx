@@ -179,9 +179,37 @@ export default function AllOKRs() {
       
       <CardContent className="p-4 pt-2 pb-2">
         <div className="flex items-center space-x-2 mb-3">
-          <div className="h-3 flex-1 rounded-full bg-gray-100 overflow-hidden relative">
-            {/* Schraffur-Hintergrund mit SVG-Muster - nur diagonale Linien von links nach rechts */}
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOCIgaGVpZ2h0PSI4IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDxwYXRoIGQ9Ik0tMiAxMEwxMCAtMiIgc3Ryb2tlPSIjODg4IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLW9wYWNpdHk9IjAuNSIvPgo8L3N2Zz4=')] bg-[length:8px_8px]"></div>
+          <div className="h-3 flex-1 rounded-full overflow-hidden relative">
+            {/* Schraffur-Hintergrund mit durchgehenden diagonalen Linien */}
+            <div className="absolute inset-0 bg-white">
+              <svg 
+                width="100%" 
+                height="100%" 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="overflow-visible"
+              >
+                <defs>
+                  <pattern 
+                    id="diagonalHatch" 
+                    width="6" 
+                    height="6" 
+                    patternUnits="userSpaceOnUse" 
+                    patternTransform="rotate(45)"
+                  >
+                    <line 
+                      x1="0" 
+                      y1="0" 
+                      x2="0" 
+                      y2="6" 
+                      stroke="#888" 
+                      strokeWidth="1.5" 
+                      strokeOpacity="0.6"
+                    />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#diagonalHatch)" />
+              </svg>
+            </div>
             
             {/* Fortschrittsbalken */}
             <div 
