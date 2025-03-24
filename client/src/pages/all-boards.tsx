@@ -210,13 +210,33 @@ export default function AllBoards() {
     const statusCounts = getTaskStatusCounts();
     const totalTasks = Object.values(statusCounts).reduce((a, b) => a + b, 0);
     
-    // Farben für jeden Status - passend zu den Spaltenfarben im Board
-    const statusColors = {
-      backlog: "bg-slate-300",
-      todo: "bg-blue-300",
-      inProgress: "bg-amber-400", 
-      review: "bg-purple-400",
-      done: "bg-green-400"
+    // Farben und Beschreibungen für jeden Status - passend zu den Spaltenfarben im Board
+    const statusConfig = {
+      backlog: {
+        color: "bg-slate-300",
+        label: "Backlog",
+        description: "Noch nicht begonnene Aufgaben"
+      },
+      todo: {
+        color: "bg-blue-300",
+        label: "To-Do",
+        description: "Geplante Aufgaben, die als nächstes bearbeitet werden"
+      },
+      inProgress: {
+        color: "bg-amber-400",
+        label: "In Bearbeitung", 
+        description: "Aufgaben, die aktuell bearbeitet werden"
+      },
+      review: {
+        color: "bg-purple-400",
+        label: "Review",
+        description: "Aufgaben, die auf Überprüfung warten"
+      },
+      done: {
+        color: "bg-green-400",
+        label: "Erledigt",
+        description: "Abgeschlossene Aufgaben"
+      }
     };
     
     // Prozentanteile für die Fortschrittsbalken
@@ -315,38 +335,73 @@ export default function AllBoards() {
                 <div className="h-full flex relative z-10">
                   {percentages.backlog > 0 && (
                     <div 
-                      className={`${statusColors.backlog} h-full`} 
+                      className={`${statusConfig.backlog.color} h-full tooltip-wrapper group/tooltip`} 
                       style={{ width: backlogWidth }}
-                      title={`Backlog: ${statusCounts.backlog} Aufgaben`}
-                    ></div>
+                      title={`${statusConfig.backlog.label}: ${statusCounts.backlog} Aufgaben`}
+                    >
+                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
+                        <p className="font-bold">{statusConfig.backlog.label}</p>
+                        <p className="text-xs opacity-80">{statusConfig.backlog.description}</p>
+                        <p className="mt-1">{statusCounts.backlog} Aufgaben</p>
+                        <div className="tooltip-arrow"></div>
+                      </div>
+                    </div>
                   )}
                   {percentages.todo > 0 && (
                     <div 
-                      className={`${statusColors.todo} h-full`} 
+                      className={`${statusConfig.todo.color} h-full tooltip-wrapper group/tooltip`} 
                       style={{ width: todoWidth }}
-                      title={`ToDo: ${statusCounts.todo} Aufgaben`}
-                    ></div>
+                      title={`${statusConfig.todo.label}: ${statusCounts.todo} Aufgaben`}
+                    >
+                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
+                        <p className="font-bold">{statusConfig.todo.label}</p>
+                        <p className="text-xs opacity-80">{statusConfig.todo.description}</p>
+                        <p className="mt-1">{statusCounts.todo} Aufgaben</p>
+                        <div className="tooltip-arrow"></div>
+                      </div>
+                    </div>
                   )}
                   {percentages.inProgress > 0 && (
                     <div 
-                      className={`${statusColors.inProgress} h-full`} 
+                      className={`${statusConfig.inProgress.color} h-full tooltip-wrapper group/tooltip`} 
                       style={{ width: inProgressWidth }}
-                      title={`In Progress: ${statusCounts.inProgress} Aufgaben`}
-                    ></div>
+                      title={`${statusConfig.inProgress.label}: ${statusCounts.inProgress} Aufgaben`}
+                    >
+                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
+                        <p className="font-bold">{statusConfig.inProgress.label}</p>
+                        <p className="text-xs opacity-80">{statusConfig.inProgress.description}</p>
+                        <p className="mt-1">{statusCounts.inProgress} Aufgaben</p>
+                        <div className="tooltip-arrow"></div>
+                      </div>
+                    </div>
                   )}
                   {percentages.review > 0 && (
                     <div 
-                      className={`${statusColors.review} h-full`} 
+                      className={`${statusConfig.review.color} h-full tooltip-wrapper group/tooltip`} 
                       style={{ width: reviewWidth }}
-                      title={`Review: ${statusCounts.review} Aufgaben`}
-                    ></div>
+                      title={`${statusConfig.review.label}: ${statusCounts.review} Aufgaben`}
+                    >
+                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
+                        <p className="font-bold">{statusConfig.review.label}</p>
+                        <p className="text-xs opacity-80">{statusConfig.review.description}</p>
+                        <p className="mt-1">{statusCounts.review} Aufgaben</p>
+                        <div className="tooltip-arrow"></div>
+                      </div>
+                    </div>
                   )}
                   {percentages.done > 0 && (
                     <div 
-                      className={`${statusColors.done} h-full`} 
+                      className={`${statusConfig.done.color} h-full tooltip-wrapper group/tooltip`} 
                       style={{ width: doneWidth }}
-                      title={`Done: ${statusCounts.done} Aufgaben`}
-                    ></div>
+                      title={`${statusConfig.done.label}: ${statusCounts.done} Aufgaben`}
+                    >
+                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
+                        <p className="font-bold">{statusConfig.done.label}</p>
+                        <p className="text-xs opacity-80">{statusConfig.done.description}</p>
+                        <p className="mt-1">{statusCounts.done} Aufgaben</p>
+                        <div className="tooltip-arrow"></div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
