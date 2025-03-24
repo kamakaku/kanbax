@@ -114,17 +114,10 @@ export default function AllProjects() {
     }
   };
 
-  // Standard Projekt-Karte mit farbiger Bottom-Bar
+  // Standard Projekt-Karte mit einheitlicher Bottom-Bar
   const ProjectCard = ({ project, isArchived = false }: { project: Project, isArchived?: boolean }) => {
     const boardCount = getBoardCount(project.id);
     const okrCount = getOkrCount(project.id);
-    
-    // Farbklassen für verschiedene Status in der Bottom-Bar
-    const bottomBarColor = isArchived
-      ? "bg-gray-100" 
-      : project.isFavorite
-        ? "bg-blue-50"
-        : "bg-gray-50";
     
     // Text-Farbe basierend auf Status
     const textColor = isArchived ? "text-gray-500" : "text-gray-800";
@@ -168,12 +161,6 @@ export default function AllProjects() {
                 {project.description || "Keine Beschreibung"}
               </CardDescription>
             </div>
-            
-            {project.isFavorite && !isArchived && (
-              <div className="flex-shrink-0">
-                <Star className="h-5 w-5 fill-yellow-400 text-yellow-500" />
-              </div>
-            )}
           </div>
         </CardHeader>
         
@@ -190,10 +177,7 @@ export default function AllProjects() {
           </div>
         </CardContent>
         
-        <CardFooter className={cn(
-          "px-4 py-3 mt-auto border-t flex justify-between items-center",
-          bottomBarColor
-        )}>
+        <CardFooter className="px-4 py-3 mt-auto border-t flex justify-between items-center bg-gray-50">
           <div className="flex items-center">
             <Calendar className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
             <span className="text-xs text-muted-foreground">
