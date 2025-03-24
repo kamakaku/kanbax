@@ -105,7 +105,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[50] flex flex-col w-full max-w-lg max-h-[85vh] translate-x-[-50%] translate-y-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
+          "fixed left-[50%] top-[50%] z-[50] grid max-w-lg max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden w-full",
           shouldShowBottomBar ? "pb-0" : "p-6",
           className
         )}
@@ -127,13 +127,13 @@ const DialogContent = React.forwardRef<
         }}
         {...props}
       >
-        <div className={shouldShowBottomBar ? "flex-grow overflow-y-auto p-6 pb-0" : ""}>
+        <div className={shouldShowBottomBar ? "flex-grow overflow-y-auto p-6 pb-4 max-h-[calc(85vh-6rem)] min-h-[5rem]" : ""}>
           {filteredChildren}
         </div>
         
         {shouldShowBottomBar && bottomBarContentToShow && (
           <div className={cn(
-            "mt-auto border-t px-6 py-4 bg-muted/30 backdrop-blur-sm flex items-center justify-end gap-2 sticky bottom-0 z-10",
+            "border-t px-6 py-4 bg-background shadow-[0_-4px_10px_rgba(0,0,0,0.05)] flex items-center justify-end gap-2 w-full z-10",
             bottomBarClassName
           )}>
             {bottomBarContentToShow}
