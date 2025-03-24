@@ -527,28 +527,6 @@ export function OKRDetailPage() {
 
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-semibold mb-3">Verantwortliche</h3>
-            <div className="bg-card rounded-lg border p-4 space-y-3">
-              {assignedUsers.filter(Boolean).map((user) => user && (
-                <div key={user.id} className="flex items-center space-x-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatarUrl || ""} />
-                    <AvatarFallback>{user.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-grow">
-                    <div className="text-sm font-medium">{user.username}</div>
-                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-                  </div>
-                </div>
-              ))}
-              
-              {assignedUsers.filter(Boolean).length === 0 && (
-                <div className="text-sm text-muted-foreground">Keine Verantwortlichen zugewiesen</div>
-              )}
-            </div>
-          </div>
-          
-          <div>
             <h3 className="text-lg font-semibold mb-3">Details</h3>
             <div className="bg-card rounded-lg border p-4 space-y-3">
               <div className="grid grid-cols-2 gap-2">
@@ -573,6 +551,28 @@ export function OKRDetailPage() {
                   <div className="font-medium">{progress}%</div>
                 </div>
               </div>
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Verantwortliche</h3>
+            <div className="bg-card rounded-lg border p-4 space-y-3">
+              {assignedUsers.filter(Boolean).map((user) => user && (
+                <div key={user.id} className="flex items-center space-x-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatarUrl || ""} />
+                    <AvatarFallback>{user.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-grow">
+                    <div className="text-sm font-medium">{user.username}</div>
+                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                  </div>
+                </div>
+              ))}
+              
+              {assignedUsers.filter(Boolean).length === 0 && (
+                <div className="text-sm text-muted-foreground">Keine Verantwortlichen zugewiesen</div>
+              )}
             </div>
           </div>
         </div>
