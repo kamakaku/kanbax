@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface ProjectFormProps {
   open: boolean;
@@ -217,47 +218,20 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Teams</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        const id = parseInt(value);
-                        if (!field.value?.includes(id)) {
-                          field.onChange([...(field.value || []), id]);
-                        }
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Team hinzufügen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {teams.map((team) => (
-                          <SelectItem key={team.id} value={team.id.toString()}>
-                            {team.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {field.value?.map((teamId) => {
-                        const team = teams.find((t) => t.id === teamId);
-                        return (
-                          <Badge key={teamId} variant="secondary">
-                            {team?.name}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 ml-1"
-                              onClick={() => {
-                                field.onChange(field.value?.filter((id) => id !== teamId));
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
+                    <FormControl>
+                      <MultiSelect
+                        placeholder="Teams auswählen..."
+                        options={teams.map(team => ({
+                          value: team.id.toString(),
+                          label: team.name
+                        }))}
+                        selected={Array.isArray(field.value) ? field.value.map((id: number) => id.toString()) : []}
+                        onChange={(values: string[]) => {
+                          const numberValues = values.map((v: string) => parseInt(v));
+                          field.onChange(numberValues);
+                        }}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -276,9 +250,9 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
                           value: user.id.toString(),
                           label: user.username
                         }))}
-                        selected={Array.isArray(field.value) ? field.value.map(id => id.toString()) : []}
-                        onChange={(values) => {
-                          const numberValues = values.map(v => parseInt(v));
+                        selected={Array.isArray(field.value) ? field.value.map((id: number) => id.toString()) : []}
+                        onChange={(values: string[]) => {
+                          const numberValues = values.map((v: string) => parseInt(v));
                           field.onChange(numberValues);
                         }}
                       />
