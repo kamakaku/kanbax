@@ -1,16 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { type Project } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Plus, Star, Archive, RotateCcw } from "lucide-react";
+import { Plus, Star, Archive, RotateCcw, LayoutGrid, Target, Calendar } from "lucide-react";
 import { useState } from "react";
 import { ProjectForm } from "@/components/project/project-form";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 export default function AllProjects() {
   const [, setLocation] = useLocation();
@@ -72,31 +74,89 @@ export default function AllProjects() {
   const favoriteProjects = activeProjects.filter(p => p.isFavorite);
   const nonFavoriteProjects = activeProjects.filter(p => !p.isFavorite);
 
+  // API-Abfragen für Boards und OKRs pro Projekt
+  const { data: boards = [] } = useQuery({
+    queryKey: ["/api/boards"],
+    queryFn: async () => {
+      const response = await fetch("/api/boards");
+      if (!response.ok) throw new Error("Fehler beim Laden der Boards");
+      return response.json();
+    },
+  });
+
+  const { data: objectives = [] } = useQuery({
+    queryKey: ["/api/objectives"],
+    queryFn: async () => {
+      const response = await fetch("/api/objectives");
+      if (!response.ok) throw new Error("Fehler beim Laden der Objectives");
+      return response.json();
+    },
+  });
+
+  // Zähle Boards und OKRs pro Projekt
+  const getBoardCount = (projectId: number) => {
+    return boards.filter(board => board.project_id === projectId && !board.archived).length;
+  };
+
+  const getOkrCount = (projectId: number) => {
+    return objectives.filter(objective => objective.projectId === projectId && objective.status !== "archived").length;
+  };
+
   // Projekt-Karte mit optionalem Archivierungs-/Wiederherstellungssymbol
-  const ProjectCard = ({ project, isArchived = false }: { project: Project, isArchived?: boolean }) => (
-    <Card
-      key={project.id}
-      className={`group hover:shadow-lg transition-all duration-300 cursor-pointer border 
-        ${isArchived ? 'border-gray-200 bg-gray-50/50' : project.isFavorite ? 'border-primary/20' : 'border-primary/10 hover:border-primary/20'} 
-        h-[120px]`}
-      onClick={() => handleProjectClick(project)}
-    >
-      <CardHeader className="p-4 space-y-2">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-2 flex-grow">
-            <CardTitle className={`text-base line-clamp-1 group-hover:text-primary transition-colors ${isArchived ? 'text-gray-500' : ''}`}>
-              {project.title}
-            </CardTitle>
-            {isArchived && (
-              <Badge variant="outline" className="text-xs">Archiviert</Badge>
-            )}
+  const ProjectCard = ({ project, isArchived = false }: { project: Project, isArchived?: boolean }) => {
+    const boardCount = getBoardCount(project.id);
+    const okrCount = getOkrCount(project.id);
+    
+    return (
+      <Card
+        key={project.id}
+        className={`group hover:shadow-lg transition-all duration-300 cursor-pointer border flex flex-col
+          ${isArchived ? 'border-gray-200 bg-gray-50/50' : project.isFavorite ? 'border-primary/20' : 'border-primary/10 hover:border-primary/20'}`}
+        onClick={() => handleProjectClick(project)}
+      >
+        <CardHeader className="p-4 pb-2 space-y-2">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-2 flex-grow">
+              <CardTitle className={`text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors ${isArchived ? 'text-gray-500' : ''}`}>
+                {project.title}
+              </CardTitle>
+              {isArchived && (
+                <Badge variant="outline" className="text-xs">Archiviert</Badge>
+              )}
+            </div>
           </div>
+          <CardDescription className={`text-sm line-clamp-2 ${isArchived ? 'text-gray-500' : ''}`}>
+            {project.description || "Keine Beschreibung"}
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent className="p-4 pt-0 pb-2 flex-grow">
+          <div className="flex space-x-4 mt-2">
+            <div className="flex items-center space-x-1.5">
+              <LayoutGrid className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-muted-foreground">{boardCount}</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <Target className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-muted-foreground">{okrCount}</span>
+            </div>
+          </div>
+        </CardContent>
+        
+        <CardFooter className="p-4 pt-0 mt-auto border-t flex justify-between items-center">
+          <div className="flex items-center">
+            <Calendar className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(project.createdAt), "dd.MM.yyyy", { locale: de })}
+            </span>
+          </div>
+          
           <div className="flex">
             {isArchived ? (
               <Button
                 variant="ghost"
                 size="icon"
-                className="p-1 hover:bg-blue-100"
+                className="p-1 h-8 w-8 hover:bg-blue-100"
                 onClick={(e) => unarchiveProject(project, e)}
                 title="Wiederherstellen"
               >
@@ -106,7 +166,7 @@ export default function AllProjects() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="p-1 hover:bg-yellow-100"
+                className="p-1 h-8 w-8 hover:bg-yellow-100"
                 onClick={(e) => toggleFavorite(project, e)}
                 title={project.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
               >
@@ -114,13 +174,10 @@ export default function AllProjects() {
               </Button>
             )}
           </div>
-        </div>
-        <CardDescription className={`text-sm line-clamp-2 ${isArchived ? 'text-gray-500' : ''}`}>
-          {project.description}
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
+        </CardFooter>
+      </Card>
+    );
+  };
 
   return (
     <div className="container mx-auto p-8">
