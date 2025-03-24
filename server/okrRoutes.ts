@@ -5,7 +5,7 @@ import {
   objectives, keyResults, okrComments, okrCycles,
   insertObjectiveSchema, insertKeyResultSchema, insertOkrCommentSchema, insertOkrCycleSchema
 } from "@shared/schema";
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { requireAuth } from './middleware/auth';
 import * as schema from '@shared/schema'; //Import schema explicitly
 
@@ -162,6 +162,17 @@ export function registerOkrRoutes(app: Express) {
               })
             : null;
 
+          // Prüfen, ob das Objective ein Favorit des aktuellen Benutzers ist
+          const favorites = await db
+            .select()
+            .from(schema.userFavoriteObjectives)
+            .where(and(
+              eq(schema.userFavoriteObjectives.userId, userId),
+              eq(schema.userFavoriteObjectives.objectiveId, objective.id)
+            ));
+          
+          const isFavorite = favorites.length > 0;
+
           let progress = 0;
           if (objectiveKeyResults.length > 0) {
             const totalProgress = objectiveKeyResults.reduce((acc, kr) => {
@@ -174,6 +185,7 @@ export function registerOkrRoutes(app: Express) {
             ...objective,
             cycle,
             progress,
+            isFavorite,
             keyResults: objectiveKeyResults
           };
         })
@@ -392,7 +404,7 @@ export function registerOkrRoutes(app: Express) {
       // Parse checklistItems from JSON strings back to objects
       const processedKrs = krs.map(kr => ({
         ...kr,
-        checklistItems: kr.checklistItems ? kr.checklistItems.map(item => JSON.parse(item)) : [],
+        checklistItems: kr.checklistItems ? kr.checklistItems.map((item: string) => JSON.parse(item)) : [],
       }));
       res.json(processedKrs);
     } catch (error) {
@@ -447,7 +459,7 @@ export function registerOkrRoutes(app: Express) {
       // Parse checklistItems back to objects for response
       const response = {
         ...keyResult,
-        checklistItems: keyResult.checklistItems?.map(item => JSON.parse(item)) || [],
+        checklistItems: keyResult.checklistItems?.map((item: string) => JSON.parse(item)) || [],
       };
 
       res.status(201).json(response);
@@ -742,7 +754,7 @@ export function registerOkrRoutes(app: Express) {
         createdAt: kr.created_at,
         type: kr.type,
         status: kr.status,
-        checklistItems: kr.checklist_items ? kr.checklist_items.map(item => JSON.parse(item)) : [],
+        checklistItems: kr.checklist_items ? kr.checklist_items.map((item: string) => JSON.parse(item)) : [],
       }));
 
       res.json(processedKrs);
