@@ -525,6 +525,7 @@ export type Board = typeof boards.$inferSelect & {
     email: string;
     avatarUrl: string | null;
   }[];
+  created_at?: Date | string; // Hinzugefügt für Kompatibilität
 };
 export type InsertBoard = z.infer<typeof insertBoardSchema>;
 export type InsertColumn = z.infer<typeof insertColumnSchema>;
@@ -542,6 +543,7 @@ export type Task = typeof tasks.$inferSelect & {
     name: string;
     description: string | null;
   } | null;
+  columnId?: number; // Optional Spalten-ID
 };
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;

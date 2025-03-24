@@ -38,16 +38,25 @@ export default function AllBoards() {
     queryFn: () => apiRequest("GET", "/api/all-tasks"),
   });
   
-  // Debug-Log für Tasks im Board 23
+  // Debug-Log für Tasks in den Boards
   useEffect(() => {
-    if (allTasksData && allTasksData[23]) {
-      console.log("Tasks für Board 23:", allTasksData[23]);
-      console.log("Status-Counts für Board 23:", 
-        allTasksData[23].reduce((counts, task) => {
-          counts[task.status] = (counts[task.status] || 0) + 1;
-          return counts;
-        }, {} as Record<string, number>)
-      );
+    if (allTasksData) {
+      // Alle Board-IDs ausgeben
+      console.log("Verfügbare Board-IDs:", Object.keys(allTasksData));
+      
+      // Für Board 23 detaillierte Informationen ausgeben
+      if (allTasksData[23]) {
+        console.log("Tasks für Board 23:", allTasksData[23]);
+        console.log("Task Status für Board 23:", 
+          allTasksData[23].map(task => task.status)
+        );
+        console.log("Status-Counts für Board 23:", 
+          allTasksData[23].reduce((counts, task) => {
+            counts[task.status] = (counts[task.status] || 0) + 1;
+            return counts;
+          }, {} as Record<string, number>)
+        );
+      }
     }
   }, [allTasksData]);
 
@@ -168,8 +177,17 @@ export default function AllBoards() {
         done: 0
       };
       
+      // Debug-Log für das aktuelle Board
+      if (board.id === 23) {
+        console.log(`Board ${board.id} Tasks:`, boardTasks);
+        console.log(`Board ${board.id} Tasks mit Status:`, boardTasks.map(t => `${t.id}: ${t.status}`));
+      }
+      
+      // Statusverteilung genau zählen
       boardTasks.forEach(task => {
-        switch(task.status) {
+        const taskStatus = task.status ? task.status.toLowerCase() : 'backlog';
+        
+        switch(taskStatus) {
           case 'backlog':
             counts.backlog++;
             break;
@@ -187,6 +205,7 @@ export default function AllBoards() {
             break;
           default:
             // Unbekannter Status - als Backlog zählen
+            console.log(`Unbekannter Status für Task ${task.id}: ${taskStatus}`);
             counts.backlog++;
         }
       });
