@@ -121,6 +121,7 @@
     content: '';
     position: absolute;
     top: -18px;
+    left: 0;
     width: 200px;
     height: 25px;
     background: white;
