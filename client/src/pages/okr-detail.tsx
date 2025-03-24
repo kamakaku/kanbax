@@ -90,29 +90,27 @@ export function OKRDetailPage() {
     },
   });
 
-  const updateKeyResult = useMutation({
-    mutationFn: async (data: Partial<KeyResult> & { id: number }) => {
-      return await apiRequest<KeyResult>(
+  const handleUpdateKeyResult = async (data: Partial<KeyResult> & { id: number }) => {
+    try {
+      await apiRequest<KeyResult>(
         "PATCH",
         `/api/key-results/${data.id}`,
         data
       );
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+      
+      await queryClient.invalidateQueries({
         queryKey: ["/api/objectives", objectiveId, "key-results"],
       });
       toast({ title: "Key Result erfolgreich aktualisiert" });
       setEditingKR(null);
-    },
-    onError: (error) => {
+    } catch (error) {
       toast({
         title: "Fehler beim Aktualisieren",
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler',
         variant: "destructive",
       });
-    },
-  });
+    }
+  };
 
   const handleProgressUpdate = async (kr: KeyResult, value: number | boolean) => {
     let updateData: Partial<KeyResult> & { id: number } = {
@@ -133,7 +131,7 @@ export function OKRDetailPage() {
       updateData.currentValue = Math.min(Math.max(numValue, 0), 100);
     }
 
-    await updateKeyResult.mutateAsync(updateData);
+    await handleUpdateKeyResult(updateData);
   };
 
   const handleProgressInputChange = (krId: number, value: string) => {
@@ -163,7 +161,7 @@ export function OKRDetailPage() {
     const updatedItems = [...items];
     updatedItems[itemIndex] = { ...updatedItems[itemIndex], completed };
 
-    await updateKeyResult.mutateAsync({
+    await handleUpdateKeyResult({
       id: kr.id,
       checklistItems: updatedItems.map(item => JSON.stringify(item)),
       currentValue: (updatedItems.filter(item => item.completed).length / updatedItems.length) * 100,
