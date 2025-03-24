@@ -8,57 +8,44 @@ export interface FileCardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const FileCard = forwardRef<HTMLDivElement, FileCardProps>(
-  ({ className, children, cutoutSize = 25, radius = 8, archived = false, ...props }, ref) => {
+  ({ className, children, cutoutSize = 40, radius = 8, archived = false, ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(
-          "relative overflow-hidden border transition-all duration-300",
-          archived ? "border-gray-200 bg-gray-50/50" : "border-primary/10 hover:border-primary/20",
+          "folder relative overflow-hidden transition-all duration-300",
+          archived ? "opacity-70" : "opacity-100", 
           className
         )}
         style={{
-          borderRadius: `${radius}px`,
-          position: 'relative'
+          position: 'relative',
         }}
         {...props}
       >
-        {/* Dokument-Ecke nach CodePen-Beispiel */}
+        {/* Folder with tab */}
         <div 
           className={cn(
-            "absolute top-0 right-0 w-0 h-0 z-10",
-            archived ? "text-gray-100" : "text-primary/5"
+            "absolute inset-0 rounded-t-md",
+            archived ? "bg-gray-200" : "bg-primary/10"
           )}
           style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: 0,
-            height: 0,
-            borderStyle: 'solid',
-            borderWidth: `0 ${cutoutSize}px ${cutoutSize}px 0`,
-            borderColor: 'transparent',
-            borderRightColor: 'currentColor'
+            height: '20px',
+            borderTopLeftRadius: `${radius}px`,
+            borderTopRightRadius: `${radius}px`,
           }}
         />
         <div
           className={cn(
-            "absolute z-20",
-            archived ? "text-gray-300" : "text-primary/20"
+            "relative pt-5 rounded-md border",
+            archived ? "border-gray-300 bg-gray-100" : "border-primary/20 bg-white"
           )}
           style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: 0,
-            height: 0,
-            borderStyle: 'solid',
-            borderWidth: `0 ${cutoutSize}px ${cutoutSize}px 0`,
-            borderColor: 'transparent',
-            borderRightColor: 'white'
+            borderRadius: `${radius}px`,
+            boxShadow: archived ? 'none' : '0 2px 4px rgba(0,0,0,0.05)'
           }}
-        />
-        {children}
+        >
+          {children}
+        </div>
       </div>
     );
   }
