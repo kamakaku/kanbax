@@ -53,9 +53,17 @@ const keyResultSchema = z.object({
 
 type KeyResultFormData = z.infer<typeof keyResultSchema>;
 
+// Erweitere die KeyResult-Schnittstelle für unseren speziellen Anwendungsfall
+interface ExtendedKeyResult extends KeyResult {
+  projectId?: number | null;
+  teamId?: number | null;
+  userIds?: number[] | null;
+  taskId?: number | null;
+}
+
 interface KeyResultFormProps {
   objectiveId: number;
-  keyResult?: KeyResult;
+  keyResult?: ExtendedKeyResult;
   onSuccess?: () => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -104,14 +112,21 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
     label: user.username
   }));
 
+  // Safer defaultValues-Behandlung mit expliziten Eigenschaften
   const form = useForm<KeyResultFormData>({
     resolver: zodResolver(keyResultSchema),
     defaultValues: keyResult ? {
-      ...keyResult,
-      projectId: keyResult.projectId?.toString(),
-      teamId: keyResult.teamId?.toString(),
-      userIds: keyResult.userIds?.map(id => id.toString()) || [],
-      taskId: keyResult.taskId?.toString(),
+      title: keyResult.title,
+      description: keyResult.description,
+      targetValue: keyResult.targetValue,
+      currentValue: keyResult.currentValue,
+      type: keyResult.type,
+      status: keyResult.status,
+      // Explizite Typumwandlung für optionale Eigenschaften
+      projectId: (keyResult as ExtendedKeyResult).projectId?.toString(),
+      teamId: (keyResult as ExtendedKeyResult).teamId?.toString(),
+      userIds: (keyResult as ExtendedKeyResult).userIds?.map((id: number) => id.toString()) || [],
+      taskId: (keyResult as ExtendedKeyResult).taskId?.toString(),
       checklistItems: keyResult.checklistItems?.map(item => 
         typeof item === 'string' ? JSON.parse(item) : item
       ) || [],
@@ -148,7 +163,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
         objectiveId,
         projectId: data.projectId ? parseInt(data.projectId) : null,
         teamId: data.teamId ? parseInt(data.teamId) : null,
-        userIds: data.userIds.map(id => parseInt(id)),
+        userIds: data.userIds.map((id: string) => parseInt(id)),
         taskId: data.taskId ? parseInt(data.taskId) : null
       };
 
