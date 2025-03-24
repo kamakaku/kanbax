@@ -77,6 +77,7 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
       teamIds: existingProject?.teamIds || [],
       memberIds: existingProject?.members?.map(m => m.id) || [],
       companyId: existingProject?.companyId || user?.companyId || 0,
+      creator_id: existingProject?.creator_id || user?.id || 0,
     },
   });
 
@@ -146,6 +147,9 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
   });
 
   const onSubmit = async (data: InsertProject) => {
+    console.log("Formular wird abgeschickt:", data);
+    console.log("Formularfehler:", form.formState.errors);
+    
     if (!user?.id) {
       toast({
         title: "Fehler",
@@ -155,10 +159,14 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
       return;
     }
 
-    if (existingProject) {
-      await updateProject.mutateAsync(data);
-    } else {
-      await createProject.mutateAsync(data);
+    try {
+      if (existingProject) {
+        await updateProject.mutateAsync(data);
+      } else {
+        await createProject.mutateAsync(data);
+      }
+    } catch (error) {
+      console.error("Fehler beim Speichern des Projekts:", error);
     }
   };
 
