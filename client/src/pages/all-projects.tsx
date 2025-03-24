@@ -18,6 +18,8 @@ export default function AllProjects() {
   const [, setLocation] = useLocation();
   const { setCurrentProject } = useStore();
   const [showForm, setShowForm] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [projectToArchive, setProjectToArchive] = useState<Project | null>(null);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -42,6 +44,25 @@ export default function AllProjects() {
       await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
+    }
+  };
+
+  // Funktion zum Archivieren eines Projekts
+  const handleArchiveProject = (project: Project) => {
+    setProjectToArchive(project);
+    setShowArchiveDialog(true);
+  };
+  
+  const confirmArchive = async () => {
+    if (!projectToArchive) return;
+    
+    try {
+      await apiRequest('PATCH', `/api/projects/${projectToArchive.id}/archive`);
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setShowArchiveDialog(false);
+      setProjectToArchive(null);
+    } catch (error) {
+      console.error("Fehler beim Archivieren des Projekts:", error);
     }
   };
 
@@ -151,7 +172,7 @@ export default function AllProjects() {
             </span>
           </div>
           
-          <div className="flex">
+          <div className="flex space-x-1">
             {isArchived ? (
               <Button
                 variant="ghost"
@@ -163,15 +184,29 @@ export default function AllProjects() {
                 <RotateCcw className="h-4 w-4 text-blue-500" />
               </Button>
             ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="p-1 h-8 w-8 hover:bg-yellow-100"
-                onClick={(e) => toggleFavorite(project, e)}
-                title={project.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
-              >
-                <Star className={`h-5 w-5 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="p-1 h-8 w-8 hover:bg-yellow-100"
+                  onClick={(e) => toggleFavorite(project, e)}
+                  title={project.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
+                >
+                  <Star className={`h-5 w-5 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="p-1 h-8 w-8 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleArchiveProject(project);
+                  }}
+                  title="Archivieren"
+                >
+                  <Archive className="h-4 w-4 text-gray-500" />
+                </Button>
+              </>
             )}
           </div>
         </CardFooter>
