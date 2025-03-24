@@ -156,67 +156,89 @@ export default function AllOKRs() {
   const renderObjectiveCard = (objective: Objective) => (
     <GlassCard 
       key={objective.id} 
-      className="group hover:shadow-lg transition-all duration-300 cursor-pointer relative"
+      className="group hover:shadow-lg transition-all duration-300 cursor-pointer relative overflow-hidden"
       onClick={() => handleOKRClick(objective)}
     >
-      <CardHeader className="p-4">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex flex-col">
-            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-              {objective.title}
-            </CardTitle>
-            {objective.status === "archived" && (
-              <Badge variant="outline" className="mt-1 bg-gray-100 text-gray-500">
-                Archiviert
-              </Badge>
-            )}
-            {objective.status === "completed" && (
-              <Badge variant="outline" className="mt-1 bg-green-100 text-green-500">
-                Abgeschlossen
-              </Badge>
-            )}
-          </div>
-          <div className="flex flex-row gap-1">
-            {objective.status !== "archived" ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="p-1 hover:bg-red-100"
-                onClick={(e) => handleArchive(objective, e)}
-                title="Archivieren"
-              >
-                <Archive className="h-4 w-4 text-gray-500" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="p-1 hover:bg-blue-100"
-                onClick={(e) => handleUnarchive(objective, e)}
-                title="Wiederherstellen"
-              >
-                <RotateCcw className="h-4 w-4 text-blue-500" />
-              </Button>
-            )}
+      <CardHeader className="p-4 pb-2">
+        <div className="flex items-start justify-between">
+          <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
+            {objective.title}
+          </CardTitle>
+          {objective.status === "archived" && (
+            <Badge variant="outline" className="ml-2 bg-gray-100 text-gray-500">
+              Archiviert
+            </Badge>
+          )}
+          {objective.status === "completed" && (
+            <Badge variant="outline" className="ml-2 bg-green-100 text-green-500">
+              Abgeschlossen
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      
+      <CardContent className="p-4 pt-2 pb-2">
+        <div className="flex items-center space-x-2 mb-3">
+          <Progress 
+            value={objective.progress || 0} 
+            className={cn(
+              "h-3 flex-1",
+              objective.progress === 100 ? 
+                "bg-green-100 [&>[role=progressbar]]:bg-green-500" : 
+                "bg-gray-100 [&>[role=progressbar]]:bg-blue-500"
+            )} 
+          />
+          <span className="font-medium text-sm min-w-[40px] text-right">
+            {objective.progress || 0}%
+          </span>
+        </div>
+      </CardContent>
+      
+      <CardFooter className="p-4 pt-2 flex justify-between items-center border-t text-sm">
+        <div className="flex items-center text-muted-foreground">
+          <Calendar className="h-3.5 w-3.5 mr-1.5" />
+          {objective.createdAt && format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
+        </div>
+        
+        <div className="flex items-center space-x-1">
+          {objective.status !== "archived" ? (
             <Button
               variant="ghost"
               size="icon"
-              className="p-1 hover:bg-yellow-100"
-              onClick={(e) => handleToggleFavorite(objective, e)}
-              title={objective.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
+              className="h-8 w-8 p-1 hover:bg-red-50 rounded-full"
+              onClick={(e) => handleArchive(objective, e)}
+              title="Archivieren"
             >
-              <Star className={`h-5 w-5 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+              <Archive className="h-4 w-4 text-gray-500" />
             </Button>
-          </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 p-1 hover:bg-blue-50 rounded-full"
+              onClick={(e) => handleUnarchive(objective, e)}
+              title="Wiederherstellen"
+            >
+              <RotateCcw className="h-4 w-4 text-blue-500" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-8 w-8 p-1 rounded-full", 
+              objective.isFavorite ? "hover:bg-yellow-50" : "hover:bg-gray-50"
+            )}
+            onClick={(e) => handleToggleFavorite(objective, e)}
+            title={objective.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
+          >
+            <Star className={cn(
+              "h-5 w-5", 
+              objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"
+            )} />
+          </Button>
         </div>
-        <div>
-          <div className="flex items-center justify-between text-sm mb-1">
-            <span className="text-muted-foreground">Fortschritt</span>
-            <span className="font-medium">{objective.progress || 0}%</span>
-          </div>
-          <Progress value={objective.progress || 0} className="h-2" />
-        </div>
-      </CardHeader>
+      </CardFooter>
     </GlassCard>
   );
 
