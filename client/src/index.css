@@ -104,4 +104,55 @@
   .gradient-text {
     @apply text-slate-900 font-bold;
   }
+
+  /* Mac Folder Style */
+  .mac-folder {
+    width: 100%;
+    height: 100%;
+    border-radius: 5px 25px 25px 25px;
+    filter: drop-shadow(0 0 0.2rem rgba(0, 0, 0, 0.1));
+    background: white;
+    position: relative;
+    transition: all 0.3s ease;
+    overflow: visible;
+  }
+
+  .mac-folder::before {
+    content: '';
+    position: absolute;
+    top: -18px;
+    width: 200px;
+    height: 25px;
+    background: white;
+    border-radius: 25px 0 0 0;
+    clip-path: path('M 0 0 L 160 0 C 185 2, 175 16, 200 18 L 0 50 z');
+  }
+
+  .mac-folder::after {
+    content: '';
+    position: absolute;
+    left: 40px;
+    width: 85px;
+    height: 5px;
+    top: -18px;
+    background: var(--folder-tab-color, #7036E9);
+    border-radius: 0 0 5px 5px;
+  }
+
+  .mac-folder-archived {
+    opacity: 0.7;
+  }
+  
+  .mac-folder-archived::after {
+    background: #94a3b8;
+  }
+
+  .mac-folder-favorite::after {
+    background: #f59e0b;
+  }
+
+  .mac-folder:hover {
+    filter: drop-shadow(0 0 0.35rem rgba(0, 0, 0, 0.15));
+    transform: translateY(-2px);
+  }
 }

@@ -114,7 +114,7 @@ export default function AllProjects() {
     }
   };
 
-  // Mac-Folder Style Projektkarte
+  // Mac-Folder Style Projektkarte, wie im CodePen Beispiel
   const ProjectCard = ({ project, isArchived = false }: { project: Project, isArchived?: boolean }) => {
     const boardCount = getBoardCount(project.id);
     const okrCount = getOkrCount(project.id);
@@ -122,47 +122,51 @@ export default function AllProjects() {
     // Text-Farbe basierend auf Status
     const textColor = isArchived ? "text-gray-500" : "text-gray-800";
     
+    // Erstelle eine einzigartige ID für diese Karte, um CSS-Variablen zu setzen
+    const cardId = `folder-${project.id}`;
+    
     return (
       <div
-        className="group cursor-pointer transition-all duration-300 relative h-full"
+        id={cardId}
+        className="group cursor-pointer transition-all duration-300 relative h-full pt-5 mt-5"
         onClick={() => handleProjectClick(project)}
+        style={{
+          // Verwende CSS-Variablen für die Farbe und andere Eigenschaften
+          "--folder-tab-color": isArchived 
+            ? "#94a3b8" 
+            : project.isFavorite 
+              ? "#f59e0b" 
+              : "#4f46e5" 
+        } as React.CSSProperties}
       >
-        {/* Folder-Container mit den Pseudo-Elementen */}
+        {/* Mac-Folder Container mit den CSS-Klassen aus index.css */}
         <div 
           className={cn(
-            "folder relative w-full h-full flex flex-col p-4 pt-1 rounded-md rounded-tl-lg rounded-tr-3xl rounded-br-3xl rounded-bl-md",
-            "bg-white shadow-md hover:shadow-lg transition-shadow",
-            isArchived ? "opacity-70" : "",
-            "before:content-[''] before:absolute before:top-[-16px] before:w-[160px] before:h-[24px]",
-            "before:bg-white before:rounded-tl-3xl before:clip-path-[path('M_0_0_L_140_0_C_160_2,_155_14,_180_20_L_0_38_z')]",
-            "after:content-[''] after:absolute after:left-[36px] after:w-[70px] after:h-[4px]",
-            "after:top-[-16px] after:rounded-b-md",
-            isArchived 
-              ? "after:bg-gray-400" 
-              : project.isFavorite 
-                ? "after:bg-yellow-400"
-                : "after:bg-primary"
+            "mac-folder", 
+            isArchived && "mac-folder-archived",
+            project.isFavorite && !isArchived && "mac-folder-favorite",
+            "flex flex-col p-5 pb-3"
           )}
         >
           {/* Projekt-Titel und Info */}
-          <div className="mt-4 mb-1">
+          <div className="mb-3">
             <div className="flex items-start">
               <div className="flex-1 min-w-0">
                 <h3 className={cn(
-                  "text-lg font-medium line-clamp-1 group-hover:text-primary transition-colors",
+                  "text-lg font-semibold line-clamp-1 mb-1 group-hover:text-primary transition-colors",
                   textColor
                 )}>
                   {project.title}
                 </h3>
                 
                 {isArchived && (
-                  <Badge variant="outline" className="text-xs mt-1">Archiviert</Badge>
+                  <Badge variant="outline" className="text-xs">Archiviert</Badge>
                 )}
               </div>
             </div>
             
             <p className={cn(
-              "text-sm mt-1.5 line-clamp-2",
+              "text-sm line-clamp-2",
               isArchived ? "text-gray-400" : "text-gray-600"
             )}>
               {project.description || "Keine Beschreibung"}
@@ -170,13 +174,13 @@ export default function AllProjects() {
           </div>
           
           {/* Statistiken */}
-          <div className="flex space-x-6 mt-3 mb-2">
+          <div className="flex space-x-6 mt-2">
             <div className="flex items-center">
-              <LayoutGrid className="h-4 w-4 text-blue-500 mr-1.5" />
+              <LayoutGrid className="h-4 w-4 text-blue-600 mr-1.5" />
               <span className="text-sm text-gray-700 font-medium">{boardCount}</span>
             </div>
             <div className="flex items-center">
-              <Target className="h-4 w-4 text-green-500 mr-1.5" />
+              <Target className="h-4 w-4 text-green-600 mr-1.5" />
               <span className="text-sm text-gray-700 font-medium">{okrCount}</span>
             </div>
           </div>
@@ -197,7 +201,10 @@ export default function AllProjects() {
                   variant="ghost"
                   size="icon"
                   className="p-1 h-7 w-7 rounded-full hover:bg-blue-100"
-                  onClick={(e) => unarchiveProject(project, e)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    unarchiveProject(project, e);
+                  }}
                   title="Wiederherstellen"
                 >
                   <RotateCcw className="h-3.5 w-3.5 text-blue-500" />
@@ -208,7 +215,10 @@ export default function AllProjects() {
                     variant="ghost"
                     size="icon"
                     className="p-1 h-7 w-7 rounded-full hover:bg-yellow-100"
-                    onClick={(e) => toggleFavorite(project, e)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(project, e);
+                    }}
                     title={project.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
                   >
                     <Star className={`h-3.5 w-3.5 ${project.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
@@ -218,7 +228,10 @@ export default function AllProjects() {
                     variant="ghost"
                     size="icon"
                     className="p-1 h-7 w-7 rounded-full hover:bg-gray-200"
-                    onClick={(e) => archiveProject(project, e)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      archiveProject(project, e);
+                    }}
                     title="Projekt archivieren"
                   >
                     <Archive className="h-3.5 w-3.5 text-gray-500" />
