@@ -365,286 +365,216 @@ export function OKRDetailPage() {
             </div>
           </GlassCard>
 
-          <Tabs defaultValue="key-results" className="w-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="key-results">Key Results</TabsTrigger>
-              <TabsTrigger value="activities">Aktivitäten</TabsTrigger>
-            </TabsList>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h4 className="text-lg font-semibold">Key Results ({keyResults.length})</h4>
+              <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
+                <Button onClick={() => setIsKeyResultDialogOpen(true)}>
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Key Result hinzufügen
+                </Button>
+                <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
+                  <DialogHeader>
+                    <DialogTitle>Neues Key Result erstellen</DialogTitle>
+                  </DialogHeader>
+                  <KeyResultForm
+                    objectiveId={objectiveId}
+                    onSuccess={() => setIsKeyResultDialogOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
             
-            <TabsContent value="key-results" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h4 className="text-lg font-semibold">Key Results ({keyResults.length})</h4>
-                <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
-                  <Button onClick={() => setIsKeyResultDialogOpen(true)}>
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    Key Result hinzufügen
-                  </Button>
-                  <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
-                    <DialogHeader>
-                      <DialogTitle>Neues Key Result erstellen</DialogTitle>
-                    </DialogHeader>
-                    <KeyResultForm
-                      objectiveId={objectiveId}
-                      onSuccess={() => setIsKeyResultDialogOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
+            {keyResults.length > 0 ? (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px]"></TableHead>
+                      <TableHead>Titel</TableHead>
+                      <TableHead>Beschreibung</TableHead>
+                      <TableHead className="w-[100px]">Fortschritt</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {keyResults.map((kr) => {
+                      const krProgress = kr.currentValue || 0;
+                      const isExpanded = expandedRows.has(kr.id);
+
+                      // Wir verwenden zwei separate Array-Elemente: die Hauptzeile und (wenn erweitert) die Details-Zeile
+                      return [
+                        // Hauptzeile - immer sichtbar
+                        <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => toggleRow(kr.id)}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
+                            <div className="flex items-center gap-2">
+                              {kr.title}
+                              {krProgress === 100 && (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
+                          <TableCell onClick={() => toggleRow(kr.id)}>
+                            <div className="flex items-center gap-2">
+                              <Progress 
+                                value={krProgress} 
+                                className={cn(
+                                  "flex-1",
+                                  krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                                )} 
+                              />
+                              <span className="text-sm text-muted-foreground w-12 text-right">
+                                {krProgress}%
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingKR(kr);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>,
+                        
+                        // Erweiterte Zeile - nur wenn erweitert
+                        isExpanded ? (
+                          <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
+                            <TableCell colSpan={5} className="p-4">
+                              <div className="space-y-4">
+                                {kr.type === "percentage" && (
+                                  <div className="flex items-center gap-4">
+                                    <span className="text-sm font-medium">Prozent:</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
+                                      onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                      onBlur={() => handleProgressInputBlur(kr)}
+                                      className="w-24"
+                                    />
+                                  </div>
+                                )}
+
+                                {kr.type === "checkbox" && (
+                                  <div className="flex items-center gap-4">
+                                    <Checkbox
+                                      checked={kr.currentValue === 100}
+                                      onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
+                                    />
+                                    <span className="text-sm">Abgeschlossen</span>
+                                  </div>
+                                )}
+
+                                {kr.type === "checklist" && kr.checklistItems && (
+                                  <div className="space-y-2">
+                                    {kr.checklistItems.map((item, index) => {
+                                      const checklistItem = typeof item === 'string' 
+                                        ? JSON.parse(item) as ChecklistItem 
+                                        : item;
+
+                                      return (
+                                        <div key={index} className="flex items-center gap-4">
+                                          <Checkbox
+                                            checked={checklistItem.completed}
+                                            onCheckedChange={(checked) => 
+                                              handleChecklistItemUpdate(kr, index, checked === true)
+                                            }
+                                          />
+                                          <span className="text-sm">{checklistItem.title}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : null
+                      ];
+                    })}
+                  </TableBody>
+                </Table>
+              </Card>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                Keine Key Results für dieses Objective.
               </div>
-              
-              {keyResults.length > 0 ? (
-                <Card>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40px]"></TableHead>
-                        <TableHead>Titel</TableHead>
-                        <TableHead>Beschreibung</TableHead>
-                        <TableHead className="w-[100px]">Fortschritt</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {keyResults.map((kr) => {
-                        const krProgress = kr.currentValue || 0;
-                        const isExpanded = expandedRows.has(kr.id);
-
-                        // Wir verwenden zwei separate Array-Elemente: die Hauptzeile und (wenn erweitert) die Details-Zeile
-                        return [
-                          // Hauptzeile - immer sichtbar
-                          <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => toggleRow(kr.id)}
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </TableCell>
-                            <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
-                              <div className="flex items-center gap-2">
-                                {kr.title}
-                                {krProgress === 100 && (
-                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
-                            <TableCell onClick={() => toggleRow(kr.id)}>
-                              <div className="flex items-center gap-2">
-                                <Progress 
-                                  value={krProgress} 
-                                  className={cn(
-                                    "flex-1",
-                                    krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                                  )} 
-                                />
-                                <span className="text-sm text-muted-foreground w-12 text-right">
-                                  {krProgress}%
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingKR(kr);
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>,
-                          
-                          // Erweiterte Zeile - nur wenn erweitert
-                          isExpanded ? (
-                            <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
-                              <TableCell colSpan={5} className="p-4">
-                                <div className="space-y-4">
-                                  {kr.type === "percentage" && (
-                                    <div className="flex items-center gap-4">
-                                      <span className="text-sm font-medium">Prozent:</span>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
-                                        onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                                        onBlur={() => handleProgressInputBlur(kr)}
-                                        className="w-24"
-                                      />
-                                    </div>
-                                  )}
-
-                                  {kr.type === "checkbox" && (
-                                    <div className="flex items-center gap-4">
-                                      <Checkbox
-                                        checked={kr.currentValue === 100}
-                                        onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
-                                      />
-                                      <span className="text-sm">Abgeschlossen</span>
-                                    </div>
-                                  )}
-
-                                  {kr.type === "checklist" && kr.checklistItems && (
-                                    <div className="space-y-2">
-                                      {kr.checklistItems.map((item, index) => {
-                                        const checklistItem = typeof item === 'string' 
-                                          ? JSON.parse(item) as ChecklistItem 
-                                          : item;
-
-                                        return (
-                                          <div key={index} className="flex items-center gap-4">
-                                            <Checkbox
-                                              checked={checklistItem.completed}
-                                              onCheckedChange={(checked) => 
-                                                handleChecklistItemUpdate(kr, index, checked === true)
-                                              }
-                                            />
-                                            <span className="text-sm">{checklistItem.title}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ) : null
-                        ];
-                      })}
-                    </TableBody>
-                  </Table>
-                </Card>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  Keine Key Results für dieses Objective.
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="activities" className="space-y-4">
-              {isLoadingActivities ? (
-                <div className="text-center py-8">Lade Aktivitäten...</div>
-              ) : activityLogs.length > 0 ? (
-                <Card>
-                  <div className="p-4 space-y-4">
-                    {activityLogs.map((log: ActivityLog) => (
-                      <div key={log.id} className="flex items-start gap-4 p-3 border-b last:border-b-0">
-                        <Avatar className="h-8 w-8 flex-shrink-0">
-                          {log.avatar_url ? (
-                            <AvatarImage src={log.avatar_url} alt={log.username || "Benutzer"} />
-                          ) : (
-                            <AvatarFallback>
-                              {log.username?.charAt(0).toUpperCase() || "U"}
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="space-y-1 flex-grow">
-                          <div className="flex justify-between">
-                            <div className="font-medium text-sm">
-                              {log.username || "Benutzer"} {log.action === "create" ? "hat erstellt" : 
-                                log.action === "update" ? "hat aktualisiert" : 
-                                log.action === "delete" ? "hat gelöscht" : 
-                                log.action === "assign" ? "hat zugewiesen" : 
-                                log.action}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatSafeDate(log.createdAt || log.created_at, {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </div>
-                          </div>
-                          <p className="text-muted-foreground text-sm">
-                            {log.details}
-                          </p>
-                          {log.key_result_title && (
-                            <div className="text-xs mt-1 bg-primary/5 px-2 py-1 rounded inline-block">
-                              Key Result: {log.key_result_title}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  Keine Aktivitäten für diesen OKR vorhanden.
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <Tabs defaultValue="users" className="w-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="users">Verantwortliche</TabsTrigger>
-              <TabsTrigger value="details">Details</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="users" className="space-y-4">
-              <div className="bg-card rounded-lg border p-4 space-y-3">
-                {assignedUsers.filter(Boolean).map((user) => user && (
-                  <div key={user.id} className="flex items-center space-x-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatarUrl || ""} />
-                      <AvatarFallback>{user.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-grow">
-                      <div className="text-sm font-medium">{user.username}</div>
-                      <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-                    </div>
-                  </div>
-                ))}
-                
-                {assignedUsers.filter(Boolean).length === 0 && (
-                  <div className="text-sm text-muted-foreground">Keine Verantwortlichen zugewiesen</div>
-                )}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="details" className="space-y-4">
-              <div className="bg-card rounded-lg border p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Status</div>
-                    <div className="font-medium">{objective.status || "Nicht gesetzt"}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Zyklus</div>
-                    <div className="font-medium">
-                      {objective.cycleId ? (objective.cycle?.title || "Zyklus " + objective.cycleId) : "Kein Zyklus"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Erstellungsdatum</div>
-                    <div className="font-medium">
-                      {format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Fortschritt</div>
-                    <div className="font-medium">{progress}%</div>
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Verantwortliche</h3>
+            <div className="bg-card rounded-lg border p-4 space-y-3">
+              {assignedUsers.filter(Boolean).map((user) => user && (
+                <div key={user.id} className="flex items-center space-x-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatarUrl || ""} />
+                    <AvatarFallback>{user.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-grow">
+                    <div className="text-sm font-medium">{user.username}</div>
+                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                   </div>
                 </div>
+              ))}
+              
+              {assignedUsers.filter(Boolean).length === 0 && (
+                <div className="text-sm text-muted-foreground">Keine Verantwortlichen zugewiesen</div>
+              )}
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Details</h3>
+            <div className="bg-card rounded-lg border p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-sm text-muted-foreground">Status</div>
+                  <div className="font-medium">{objective.status || "Nicht gesetzt"}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Zyklus</div>
+                  <div className="font-medium">
+                    {objective.cycleId ? (objective.cycle?.title || "Zyklus " + objective.cycleId) : "Kein Zyklus"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Erstellungsdatum</div>
+                  <div className="font-medium">
+                    {format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Fortschritt</div>
+                  <div className="font-medium">{progress}%</div>
+                </div>
               </div>
-            </TabsContent>
-          </Tabs>
-
-
+            </div>
+          </div>
         </div>
       </div>
 
