@@ -121,61 +121,59 @@ export default function AllBoards() {
 
   function BoardCard({ board }: { board: Board }) {
     return (
-      <div className="masked-card">
-        <Card
-          className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative"
-          onClick={() => handleBoardClick(board)}
-        >
-          <CardHeader className="p-4">
-            <div className="flex items-start justify-between mb-2">
-              <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                {board.title}
-                {board.archived && (
-                  <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
-                    Archiviert
-                  </Badge>
-                )}
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="p-1 hover:bg-yellow-100"
-                onClick={(e) => toggleFavorite(board, e)}
-              >
-                <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-              </Button>
-            </div>
-            <CardDescription className="text-sm">
-              {board.description && (
-                <p className="line-clamp-2">{board.description}</p>
+      <Card
+        className="masked-card hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative"
+        onClick={() => handleBoardClick(board)}
+      >
+        <CardHeader className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+              {board.title}
+              {board.archived && (
+                <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
+                  Archiviert
+                </Badge>
               )}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="p-2 pt-0 flex justify-end">
-            {board.archived ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => handleUnarchive(board, e)}
-                className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-              >
-                <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                Wiederherstellen
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => handleArchive(board, e)}
-                className="text-gray-600 hover:bg-gray-50 hover:text-gray-700"
-              >
-                <Archive className="h-3.5 w-3.5 mr-1" />
-                Archivieren
-              </Button>
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="p-1 hover:bg-yellow-100"
+              onClick={(e) => toggleFavorite(board, e)}
+            >
+              <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+            </Button>
+          </div>
+          <CardDescription className="text-sm">
+            {board.description && (
+              <p className="line-clamp-2">{board.description}</p>
             )}
-          </CardFooter>
-        </Card>
-      </div>
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="p-2 pt-0 flex justify-end">
+          {board.archived ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => handleUnarchive(board, e)}
+              className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+              Wiederherstellen
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => handleArchive(board, e)}
+              className="text-gray-600 hover:bg-gray-50 hover:text-gray-700"
+            >
+              <Archive className="h-3.5 w-3.5 mr-1" />
+              Archivieren
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
     );
   }
 

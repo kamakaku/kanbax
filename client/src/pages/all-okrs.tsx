@@ -155,128 +155,127 @@ export default function AllOKRs() {
 
   function renderObjectiveCard(objective: Objective) {
     return (
-      <div key={objective.id} className="masked-card">
-        <GlassCard 
-          className="group hover:shadow-lg transition-all duration-300 cursor-pointer relative"
-          onClick={() => handleOKRClick(objective)}
-        >
-          <CardHeader className="p-4 pb-2">
-            <div className="flex items-start justify-between">
-              <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
-                {objective.title}
-              </CardTitle>
-              {objective.status === "archived" && (
-                <Badge variant="outline" className="ml-2 bg-gray-100 text-gray-500">
-                  Archiviert
-                </Badge>
-              )}
-              {objective.status === "completed" && (
-                <Badge variant="outline" className="ml-2 bg-green-100 text-green-500">
-                  Abgeschlossen
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          
-          <CardContent className="p-4 pt-2 pb-2">
-            <div className="flex items-center space-x-2 mb-3">
-              <div className="h-3 flex-1 rounded-full overflow-hidden relative">
-                {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
-                <div className="absolute inset-0 bg-white">
-                  <svg 
-                    width="100%" 
-                    height="100%" 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className="overflow-visible"
-                  >
-                    <defs>
-                      <pattern 
-                        id="diagonalHatch" 
-                        width="4" 
-                        height="4" 
-                        patternUnits="userSpaceOnUse" 
-                        patternTransform="rotate(45)"
-                      >
-                        <line 
-                          x1="0" 
-                          y1="0" 
-                          x2="0" 
-                          y2="4" 
-                          stroke="#888" 
-                          strokeWidth="1.5" 
-                          strokeOpacity="0.65"
-                        />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#diagonalHatch)" />
-                  </svg>
-                </div>
-                
-                {/* Fortschrittsbalken */}
-                <div 
-                  role="progressbar" 
-                  className={cn(
-                    "h-full rounded-full transition-all relative z-10",
-                    objective.progress === 100 ? 
-                      "bg-green-500" : 
-                      "bg-gradient-to-r from-blue-400 to-blue-600"
-                  )}
-                  style={{ width: `${objective.progress || 0}%` }}
-                />
+      <GlassCard 
+        key={objective.id}
+        className="group hover:shadow-lg transition-all duration-300 cursor-pointer masked-card"
+        onClick={() => handleOKRClick(objective)}
+      >
+        <CardHeader className="p-4 pb-2">
+          <div className="flex items-start justify-between">
+            <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
+              {objective.title}
+            </CardTitle>
+            {objective.status === "archived" && (
+              <Badge variant="outline" className="ml-2 bg-gray-100 text-gray-500">
+                Archiviert
+              </Badge>
+            )}
+            {objective.status === "completed" && (
+              <Badge variant="outline" className="ml-2 bg-green-100 text-green-500">
+                Abgeschlossen
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        
+        <CardContent className="p-4 pt-2 pb-2">
+          <div className="flex items-center space-x-2 mb-3">
+            <div className="h-3 flex-1 rounded-full overflow-hidden relative">
+              {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
+              <div className="absolute inset-0 bg-white">
+                <svg 
+                  width="100%" 
+                  height="100%" 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="overflow-visible"
+                >
+                  <defs>
+                    <pattern 
+                      id="diagonalHatch" 
+                      width="4" 
+                      height="4" 
+                      patternUnits="userSpaceOnUse" 
+                      patternTransform="rotate(45)"
+                    >
+                      <line 
+                        x1="0" 
+                        y1="0" 
+                        x2="0" 
+                        y2="4" 
+                        stroke="#888" 
+                        strokeWidth="1.5" 
+                        strokeOpacity="0.65"
+                      />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#diagonalHatch)" />
+                </svg>
               </div>
-              <span className="font-medium text-sm min-w-[40px] text-right">
-                {objective.progress || 0}%
-              </span>
+              
+              {/* Fortschrittsbalken */}
+              <div 
+                role="progressbar" 
+                className={cn(
+                  "h-full rounded-full transition-all relative z-10",
+                  objective.progress === 100 ? 
+                    "bg-green-500" : 
+                    "bg-gradient-to-r from-blue-400 to-blue-600"
+                )}
+                style={{ width: `${objective.progress || 0}%` }}
+              />
             </div>
-          </CardContent>
+            <span className="font-medium text-sm min-w-[40px] text-right">
+              {objective.progress || 0}%
+            </span>
+          </div>
+        </CardContent>
+        
+        <CardFooter className="p-4 pt-2 flex justify-between items-center border-t text-sm">
+          <div className="flex items-center text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            {objective.createdAt && format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
+          </div>
           
-          <CardFooter className="p-4 pt-2 flex justify-between items-center border-t text-sm">
-            <div className="flex items-center text-muted-foreground">
-              <Calendar className="h-3.5 w-3.5 mr-1.5" />
-              {objective.createdAt && format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
-            </div>
-            
-            <div className="flex items-center space-x-1">
-              {objective.status !== "archived" ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-1 hover:bg-red-50 rounded-full"
-                  onClick={(e) => handleArchive(objective, e)}
-                  title="Archivieren"
-                >
-                  <Archive className="h-4 w-4 text-gray-500" />
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-1 hover:bg-blue-50 rounded-full"
-                  onClick={(e) => handleUnarchive(objective, e)}
-                  title="Wiederherstellen"
-                >
-                  <RotateCcw className="h-4 w-4 text-blue-500" />
-                </Button>
-              )}
+          <div className="flex items-center space-x-1">
+            {objective.status !== "archived" ? (
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn(
-                  "h-8 w-8 p-1 rounded-full", 
-                  objective.isFavorite ? "hover:bg-yellow-50" : "hover:bg-gray-50"
-                )}
-                onClick={(e) => handleToggleFavorite(objective, e)}
-                title={objective.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
+                className="h-8 w-8 p-1 hover:bg-red-50 rounded-full"
+                onClick={(e) => handleArchive(objective, e)}
+                title="Archivieren"
               >
-                <Star className={cn(
-                  "h-5 w-5", 
-                  objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"
-                )} />
+                <Archive className="h-4 w-4 text-gray-500" />
               </Button>
-            </div>
-          </CardFooter>
-        </GlassCard>
-      </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 p-1 hover:bg-blue-50 rounded-full"
+                onClick={(e) => handleUnarchive(objective, e)}
+                title="Wiederherstellen"
+              >
+                <RotateCcw className="h-4 w-4 text-blue-500" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 p-1 rounded-full", 
+                objective.isFavorite ? "hover:bg-yellow-50" : "hover:bg-gray-50"
+              )}
+              onClick={(e) => handleToggleFavorite(objective, e)}
+              title={objective.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
+            >
+              <Star className={cn(
+                "h-5 w-5", 
+                objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"
+              )} />
+            </Button>
+          </div>
+        </CardFooter>
+      </GlassCard>
     );
   }
 
