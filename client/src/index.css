@@ -116,6 +116,12 @@
     transition: all 0.3s ease;
     overflow: visible;
   }
+  
+  /* Angled Corner Card Style */
+  .angled-card {
+    border-radius: 5px 25px 5px 5px;
+    overflow: hidden;
+  }
 
   .mac-folder::before {
     content: '';

@@ -122,7 +122,7 @@ export default function AllBoards() {
   const BoardCard = ({ board }: { board: Board }) => (
     <Card
       key={board.id}
-      className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative"
+      className="angled-card hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative"
       onClick={() => handleBoardClick(board)}
     >
       <CardHeader className="p-4">
