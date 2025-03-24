@@ -368,21 +368,16 @@ export function OKRDetailPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h4 className="text-lg font-semibold">Key Results ({keyResults.length})</h4>
-              <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
-                <Button onClick={() => setIsKeyResultDialogOpen(true)}>
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Key Result hinzufügen
-                </Button>
-                <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
-                  <DialogHeader>
-                    <DialogTitle>Neues Key Result erstellen</DialogTitle>
-                  </DialogHeader>
-                  <KeyResultForm
-                    objectiveId={objectiveId}
-                    onSuccess={() => setIsKeyResultDialogOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
+              <Button onClick={() => setIsKeyResultDialogOpen(true)}>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Key Result hinzufügen
+              </Button>
+              <KeyResultForm
+                objectiveId={objectiveId}
+                onSuccess={() => setIsKeyResultDialogOpen(false)}
+                open={isKeyResultDialogOpen}
+                onOpenChange={setIsKeyResultDialogOpen}
+              />
             </div>
             
             {keyResults.length > 0 ? (
@@ -578,20 +573,15 @@ export function OKRDetailPage() {
         </div>
       </div>
 
-      <Dialog open={!!editingKR} onOpenChange={(open) => !open && setEditingKR(null)}>
-        <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
-          <DialogHeader>
-            <DialogTitle>Key Result bearbeiten</DialogTitle>
-          </DialogHeader>
-          {editingKR && (
-            <KeyResultForm
-              objectiveId={objectiveId}
-              keyResult={editingKR}
-              onSuccess={() => setEditingKR(null)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {editingKR && (
+        <KeyResultForm
+          objectiveId={objectiveId}
+          keyResult={editingKR}
+          onSuccess={() => setEditingKR(null)}
+          open={!!editingKR}
+          onOpenChange={(open) => !open && setEditingKR(null)}
+        />
+      )}
 
       <Dialog open={isEditingObjective} onOpenChange={setIsEditingObjective}>
         <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
