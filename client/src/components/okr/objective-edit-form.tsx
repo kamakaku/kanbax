@@ -9,16 +9,16 @@ import { useToast } from "@/hooks/use-toast";
 import { type Objective, type Project, type Team, type User } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MultiSelect, type Option } from "@/components/ui/multi-select";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 
 const objectiveEditSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich"),
   description: z.string().optional(),
   projectId: z.string().optional(),
-  teamId: z.string().optional(),
-  userIds: z.array(z.string()),
+  teamIds: z.array(z.number()).optional(),
+  userIds: z.array(z.number()).optional(),
   status: z.enum(["active", "completed", "archived"]).default("active"),
 });
 
@@ -65,19 +65,14 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
     }
   });
 
-  const userOptions: Option[] = users.map(user => ({
-    value: user.id.toString(),
-    label: user.username
-  }));
-
   const form = useForm<z.infer<typeof objectiveEditSchema>>({
     resolver: zodResolver(objectiveEditSchema),
     defaultValues: {
       title: objective.title,
       description: objective.description || "",
       projectId: objective.projectId?.toString(),
-      teamId: objective.teamId?.toString(),
-      userIds: objective.userIds?.map(id => id.toString()) || [],
+      teamIds: objective.teamIds || [],
+      userIds: objective.userIds || [],
       status: objective.status as "active" | "completed" | "archived",
     },
   });
@@ -88,8 +83,8 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
         title: values.title,
         description: values.description,
         projectId: values.projectId ? parseInt(values.projectId) : null,
-        teamId: values.teamId ? parseInt(values.teamId) : null,
-        userIds: values.userIds.map(id => parseInt(id)),
+        teamIds: values.teamIds || [],
+        userIds: values.userIds || [],
         status: values.status,
       };
 
@@ -97,6 +92,14 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
 
       await queryClient.invalidateQueries({ 
         queryKey: ["/api/objectives"]
+      });
+      
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/objectives", objective.id]
+      });
+      
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/activity"]
       });
 
       toast({ title: "Objective erfolgreich aktualisiert" });
@@ -113,7 +116,7 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form id="objective-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="title"
@@ -121,7 +124,7 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
             <FormItem>
               <FormLabel>Titel</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input placeholder="Umsatz um 20% steigern" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -135,7 +138,10 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
             <FormItem>
               <FormLabel>Beschreibung</FormLabel>
               <FormControl>
-                <Textarea {...field} />
+                <Textarea 
+                  placeholder="Beschreiben Sie das Ziel und den gewünschten Outcome" 
+                  {...field} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -196,26 +202,51 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
 
         <FormField
           control={form.control}
-          name="teamId"
+          name="teamIds"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Team (optional)</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <FormLabel>Teams (optional)</FormLabel>
+              <Select
+                onValueChange={(value) => {
+                  const id = parseInt(value);
+                  if (!field.value?.includes(id)) {
+                    field.onChange([...(field.value || []), id]);
+                  }
+                }}
+              >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Team auswählen" />
+                    <SelectValue placeholder="Team hinzufügen" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectGroup>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id.toString()}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id.toString()}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {field.value?.map((teamId) => {
+                  const team = teams.find((t) => t.id === teamId);
+                  return (
+                    <Badge key={teamId} variant="secondary">
+                      {team?.name}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 ml-1"
+                        onClick={() => {
+                          field.onChange(field.value?.filter((id) => id !== teamId));
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  );
+                })}
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -226,23 +257,52 @@ export function ObjectiveEditForm({ objective, onSuccess }: ObjectiveEditFormPro
           name="userIds"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Benutzer</FormLabel>
-              <FormControl>
-                <MultiSelect
-                  options={userOptions}
-                  selected={field.value}
-                  onChange={field.onChange}
-                  placeholder="Benutzer auswählen"
-                />
-              </FormControl>
+              <FormLabel>Benutzer (optional)</FormLabel>
+              <Select
+                onValueChange={(value) => {
+                  const id = parseInt(value);
+                  if (!field.value?.includes(id)) {
+                    field.onChange([...(field.value || []), id]);
+                  }
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Benutzer hinzufügen" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="z-50">
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {field.value?.map((userId) => {
+                  const userItem = users.find((u) => u.id === userId);
+                  return (
+                    <Badge key={userId} variant="secondary">
+                      {userItem?.username}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 ml-1"
+                        onClick={() => {
+                          field.onChange(field.value?.filter((id) => id !== userId));
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  );
+                })}
+              </div>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        <DialogFooter>
-          <Button type="submit">Objective aktualisieren</Button>
-        </DialogFooter>
       </form>
     </Form>
   );

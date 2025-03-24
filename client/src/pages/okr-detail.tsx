@@ -22,8 +22,11 @@ import {
   ChevronRight,
   ChevronLeft,
   Users,
-  Clipboard
+  Clipboard,
+  Archive,
+  RotateCcw
 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
@@ -313,6 +316,26 @@ export function OKRDetailPage() {
           <Button variant="ghost" size="sm" onClick={() => setIsEditingObjective(true)}>
             <Edit className="h-4 w-4" />
           </Button>
+          
+          {objective.status !== "archived" ? (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => handleArchive()}
+              title="Archivieren"
+            >
+              <Archive className="h-4 w-4 text-gray-500" />
+            </Button>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => handleUnarchive()}
+              title="Wiederherstellen"
+            >
+              <RotateCcw className="h-4 w-4 text-blue-500" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -348,6 +371,16 @@ export function OKRDetailPage() {
                 <Target className="h-3 w-3 mr-1" />
                 {progress}% Fortschritt
               </Badge>
+              {objective.status === "archived" && (
+                <Badge variant="outline" className="bg-gray-100 text-gray-500">
+                  Archiviert
+                </Badge>
+              )}
+              {objective.status === "completed" && (
+                <Badge variant="outline" className="bg-green-100 text-green-500">
+                  Abgeschlossen
+                </Badge>
+              )}
             </div>
             
             <div className="mt-4 space-y-2">
@@ -584,14 +617,34 @@ export function OKRDetailPage() {
       )}
 
       <Dialog open={isEditingObjective} onOpenChange={setIsEditingObjective}>
-        <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
-          <DialogHeader>
-            <DialogTitle>Objective bearbeiten</DialogTitle>
-          </DialogHeader>
-          <ObjectiveEditForm
-            objective={objective}
-            onSuccess={() => setIsEditingObjective(false)}
-          />
+        <DialogContent className="sm:max-w-[600px] p-0">
+          <div className="p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle>Objective bearbeiten</DialogTitle>
+            </DialogHeader>
+          </div>
+          
+          <div className="overflow-y-auto px-6 pb-0 pt-2" style={{ maxHeight: "calc(85vh - 160px)" }}>
+            <ObjectiveEditForm
+              objective={objective}
+              onSuccess={() => setIsEditingObjective(false)}
+            />
+          </div>
+          
+          <div className="p-6 border-t flex flex-row justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsEditingObjective(false)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              type="submit"
+              form="objective-edit-form"
+            >
+              Objective aktualisieren
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
