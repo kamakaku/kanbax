@@ -356,63 +356,65 @@ export function OKRDetailPage() {
                 const krProgress = kr.currentValue || 0;
                 const isExpanded = expandedRows.has(kr.id);
 
-                return (
-                  <>
-                    <TableRow key={kr.id} className="cursor-pointer hover:bg-muted/50">
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => toggleRow(kr.id)}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
-                        <div className="flex items-center gap-2">
-                          {kr.title}
-                          {krProgress === 100 && (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
-                      <TableCell onClick={() => toggleRow(kr.id)}>
-                        <div className="flex items-center gap-2">
-                          <Progress 
-                            value={krProgress} 
-                            className={cn(
-                              "flex-1",
-                              krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                            )} 
-                          />
-                          <span className="text-sm text-muted-foreground w-12 text-right">
-                            {krProgress}%
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingKR(kr);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                // Für jedes Key Result geben wir zwei Arrays von Tabellenzeilen zurück
+                return [
+                  // Hauptzeile - Immer sichtbar
+                  <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => toggleRow(kr.id)}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableCell>
+                    <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
+                      <div className="flex items-center gap-2">
+                        {kr.title}
+                        {krProgress === 100 && (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
+                    <TableCell onClick={() => toggleRow(kr.id)}>
+                      <div className="flex items-center gap-2">
+                        <Progress 
+                          value={krProgress} 
+                          className={cn(
+                            "flex-1",
+                            krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                          )} 
+                        />
+                        <span className="text-sm text-muted-foreground w-12 text-right">
+                          {krProgress}%
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingKR(kr);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>,
 
-                    {isExpanded && (
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={5} className="p-4">
+                  // Erweiterte Zeile - Nur sichtbar, wenn erweitert
+                  isExpanded && (
+                    <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
+                      <TableCell colSpan={5} className="p-4">
                           <div className="space-y-4">
                             {kr.type === "percentage" && (
                               <div className="flex items-center gap-4">
@@ -463,10 +465,10 @@ export function OKRDetailPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    )}
-                  </>
-                );
+                    )
+                ];
               })}
+            
             </TableBody>
           </Table>
         </GlassCard>
