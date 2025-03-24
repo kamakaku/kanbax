@@ -563,13 +563,13 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      // Get user ID from request body
-      const userId = req.body.userId;
+      // Get user ID from request
+      const userId = req.userId!;
       if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
       }
 
-      const project = await storage.createProject(result.data);
+      const project = await storage.createProject(userId, result.data);
 
       // Log the activity with correct userId
       await storage.createActivityLog({
