@@ -339,26 +339,51 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
         <FormField
           control={form.control}
-          name="teamId"
+          name="teamIds"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Team (optional)</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <FormLabel>Teams (optional)</FormLabel>
+              <Select
+                onValueChange={(value) => {
+                  const id = parseInt(value);
+                  if (!field.value?.includes(id)) {
+                    field.onChange([...(field.value || []), id]);
+                  }
+                }}
+              >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Team auswählen" />
+                    <SelectValue placeholder="Team hinzufügen" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectGroup>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id.toString()}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id.toString()}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {field.value?.map((teamId) => {
+                  const team = teams.find((t) => t.id === teamId);
+                  return (
+                    <Badge key={teamId} variant="secondary">
+                      {team?.name}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 ml-1"
+                        onClick={() => {
+                          field.onChange(field.value?.filter((id) => id !== teamId));
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  );
+                })}
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -366,26 +391,51 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
         <FormField
           control={form.control}
-          name="userId"
+          name="userIds"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Benutzer (optional)</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select
+                onValueChange={(value) => {
+                  const id = parseInt(value);
+                  if (!field.value?.includes(id)) {
+                    field.onChange([...(field.value || []), id]);
+                  }
+                }}
+              >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Benutzer auswählen" />
+                    <SelectValue placeholder="Benutzer hinzufügen" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent className="z-50">
-                  <SelectGroup>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.username}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.username}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {field.value?.map((userId) => {
+                  const userItem = users.find((u) => u.id === userId);
+                  return (
+                    <Badge key={userId} variant="secondary">
+                      {userItem?.username}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 ml-1"
+                        onClick={() => {
+                          field.onChange(field.value?.filter((id) => id !== userId));
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  );
+                })}
+              </div>
               <FormMessage />
             </FormItem>
           )}
