@@ -185,28 +185,22 @@ export default function AllBoards() {
       
       // Statusverteilung genau zählen
       boardTasks.forEach(task => {
-        const taskStatus = task.status ? task.status.toLowerCase() : 'backlog';
+        const taskStatus = task.status ? task.status.toLowerCase().trim() : 'backlog';
         
-        switch(taskStatus) {
-          case 'backlog':
-            counts.backlog++;
-            break;
-          case 'todo':
-            counts.todo++;
-            break;
-          case 'in-progress':
-            counts.inProgress++;
-            break;
-          case 'review':
-            counts.review++;
-            break;
-          case 'done':
-            counts.done++;
-            break;
-          default:
-            // Unbekannter Status - als Backlog zählen
-            console.log(`Unbekannter Status für Task ${task.id}: ${taskStatus}`);
-            counts.backlog++;
+        if (taskStatus === 'backlog') {
+          counts.backlog++;
+        } else if (taskStatus === 'todo') {
+          counts.todo++;
+        } else if (taskStatus === 'in-progress') {
+          counts.inProgress++;
+        } else if (taskStatus === 'review') {
+          counts.review++;
+        } else if (taskStatus === 'done') {
+          counts.done++;
+        } else {
+          // Unbekannter Status - als Backlog zählen
+          console.log(`Unbekannter Status für Task ${task.id}: ${taskStatus}`);
+          counts.backlog++;
         }
       });
       
