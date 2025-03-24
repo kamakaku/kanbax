@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { type Project } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Card, CardDescription, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { CardDescription, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Plus, Star, Archive, RotateCcw, LayoutGrid, Target, Calendar } from "lucide-react";
+import { Plus, Star, Archive, RotateCcw, LayoutGrid, Target, Calendar, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { ProjectForm } from "@/components/project/project-form";
 import { apiRequest } from "@/lib/queryClient";
@@ -13,6 +13,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import { FileCard } from "@/components/ui/file-card";
 
 export default function AllProjects() {
   const [, setLocation] = useLocation();
@@ -129,10 +140,12 @@ export default function AllProjects() {
     const okrCount = getOkrCount(project.id);
     
     return (
-      <Card
+      <FileCard
         key={project.id}
-        className={`group hover:shadow-lg transition-all duration-300 cursor-pointer border flex flex-col
-          ${isArchived ? 'border-gray-200 bg-gray-50/50' : project.isFavorite ? 'border-primary/20' : 'border-primary/10 hover:border-primary/20'}`}
+        className="group hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col"
+        archived={isArchived}
+        cutoutSize={24}
+        radius={8}
         onClick={() => handleProjectClick(project)}
       >
         <CardHeader className="p-4 pb-2 space-y-2">
@@ -210,7 +223,7 @@ export default function AllProjects() {
             )}
           </div>
         </CardFooter>
-      </Card>
+      </FileCard>
     );
   };
 
@@ -303,10 +316,37 @@ export default function AllProjects() {
         </Tabs>
       )}
 
+      {/* Projekt-Erstellungsformular */}
       <ProjectForm
         open={showForm}
         onClose={() => setShowForm(false)}
       />
+      
+      {/* Archivierungs-Bestätigungsdialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Projekt archivieren</AlertDialogTitle>
+            <AlertDialogDescription>
+              Möchten Sie das Projekt "{projectToArchive?.title}" wirklich archivieren?
+              <br /><br />
+              <div className="flex items-center space-x-2 text-amber-600">
+                <AlertTriangle className="h-5 w-5" />
+                <span>Archivierte Projekte sind in der Ansicht "Archiviert" weiterhin verfügbar, aber für die meisten Benutzer nicht mehr sichtbar.</span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmArchive}
+              className="bg-primary hover:bg-primary/90"
+            >
+              Archivieren
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
