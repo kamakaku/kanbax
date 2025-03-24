@@ -10,9 +10,7 @@ import { useStore } from "@/lib/store";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -77,7 +75,7 @@ export function TaskDialog({
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
 
-  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
@@ -89,7 +87,7 @@ export function TaskDialog({
       return Array.isArray(data) ? data : [];
     },
     staleTime: 30000,
-    cacheTime: 5 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -440,322 +438,330 @@ export function TaskDialog({
             </div>
           )}
         </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsEditMode(true)}
-            className="gap-2"
-          >
-            <Pencil className="h-4 w-4" />
-            Bearbeiten
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Schließen
-          </Button>
-        </DialogFooter>
       </div>
     );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl p-0">
+        <div className="px-6 pt-6 pb-2">
           <DialogTitle>
             {isEditMode ? (task ? "Aufgabe bearbeiten" : "Neue Aufgabe") : "Aufgabendetails"}
           </DialogTitle>
-        </DialogHeader>
+        </div>
 
         {isEditMode ? (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Titel</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Titel der Aufgabe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beschreibung</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Beschreiben Sie die Aufgabe"
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Status auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="backlog">Backlog</SelectItem>
-                        <SelectItem value="todo">To Do</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="review">Review</SelectItem>
-                        <SelectItem value="done">Done</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priorität</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Priorität auswählen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="low">Niedrig</SelectItem>
-                        <SelectItem value="medium">Mittel</SelectItem>
-                        <SelectItem value="high">Hoch</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fälligkeitsdatum</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
+          <div className="flex flex-col h-full">
+            <div className="px-6 overflow-y-auto pb-24" style={{ maxHeight: "calc(85vh - 120px)" }}>
+              <Form {...form}>
+                <form id="task-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Titel</FormLabel>
                         <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={`w-full pl-3 text-left font-normal ${
-                              !field.value && "text-muted-foreground"
-                            }`}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "PPP", { locale: de })
-                            ) : (
-                              <span>Wählen Sie ein Datum</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
+                          <Input placeholder="Titel der Aufgabe" {...field} />
                         </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) =>
-                            field.onChange(date ? date.toISOString() : null)
-                          }
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0, 0, 0, 0))
-                          }
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="labels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Labels</FormLabel>
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {field.value?.map((label, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
-                          >
-                            <Tag className="h-3 w-3" />
-                            <span className="text-sm">{label}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeLabel(label)}
-                              className="text-primary/50 hover:text-primary"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Neues Label"
-                          value={newLabel}
-                          onChange={(e) => setNewLabel(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleAddLabel();
-                            }
-                          }}
-                        />
-                        <Button type="button" onClick={handleAddLabel} size="sm">
-                          <Tag className="h-4 w-4 mr-1" />
-                          Hinzufügen
-                        </Button>
-                      </div>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="assignedUserIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Zugewiesene Benutzer</FormLabel>
-                    {isLoadingUsers ? (
-                      <div className="text-sm text-muted-foreground">
-                        Lade Benutzer...
-                      </div>
-                    ) : users.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">
-                        Keine Benutzer verfügbar
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-3">
-                        {users.map((user) => (
-                          <Button
-                            key={user.id}
-                            type="button"
-                            variant={field.value?.includes(user.id) ? "default" : "outline"}
-                            className="flex items-center gap-2"
-                            onClick={() => {
-                              const currentValue = field.value || [];
-                              const newValue = currentValue.includes(user.id)
-                                ? currentValue.filter(id => id !== user.id)
-                                : [...currentValue, user.id];
-                              field.onChange(newValue);
-                            }}
-                          >
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage src={user.avatarUrl || ''} />
-                              <AvatarFallback>
-                                {user.username.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>{user.username}</span>
-                          </Button>
-                        ))}
-                      </div>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-2">
-                <FormLabel>Checkliste</FormLabel>
-                <div className="space-y-2">
-                  {checklist.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={() => toggleChecklistItem(index)}
-                        className="h-4 w-4"
-                      />
-                      <span className={item.checked ? "line-through text-muted-foreground" : ""}>
-                        {item.text}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => deleteChecklistItem(index)}
-                        className="ml-auto text-destructive hover:text-destructive/80"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Neues Checklist-Element"
-                    value={newChecklistItem}
-                    onChange={(e) => setNewChecklistItem(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addChecklistItem();
-                      }
-                    }}
                   />
-                  <Button type="button" onClick={addChecklistItem} size="sm">
-                    <PlusCircle className="h-4 w-4 mr-1" />
-                    Hinzufügen
-                  </Button>
-                </div>
-              </div>
 
-              {task && (
-                <div className="space-y-2">
-                  <FormLabel>Kommentare</FormLabel>
-                  <CommentList taskId={task.id} />
-                  <CommentEditor taskId={task.id} onCommentAdded={() => {
-                    queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/comments`] });
-                  }} />
-                </div>
-              )}
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Beschreibung</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Beschreiben Sie die Aufgabe"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <DialogFooter className="gap-2">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Abbrechen
-                </Button>
-                <Button type="submit">
-                  {task ? "Speichern" : "Erstellen"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Status auswählen" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="backlog">Backlog</SelectItem>
+                            <SelectItem value="todo">To Do</SelectItem>
+                            <SelectItem value="in-progress">In Progress</SelectItem>
+                            <SelectItem value="review">Review</SelectItem>
+                            <SelectItem value="done">Done</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Priorität</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Priorität auswählen" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="low">Niedrig</SelectItem>
+                            <SelectItem value="medium">Mittel</SelectItem>
+                            <SelectItem value="high">Hoch</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="dueDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fälligkeitsdatum</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={`w-full pl-3 text-left font-normal ${
+                                  !field.value && "text-muted-foreground"
+                                }`}
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "PPP", { locale: de })
+                                ) : (
+                                  <span>Wählen Sie ein Datum</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value ? new Date(field.value) : undefined}
+                              onSelect={(date) =>
+                                field.onChange(date ? date.toISOString() : null)
+                              }
+                              disabled={(date) =>
+                                date < new Date(new Date().setHours(0, 0, 0, 0))
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="labels"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Labels</FormLabel>
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            {field.value?.map((label, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
+                              >
+                                <Tag className="h-3 w-3" />
+                                <span className="text-sm">{label}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeLabel(label)}
+                                  className="text-primary/50 hover:text-primary"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Neues Label"
+                              value={newLabel}
+                              onChange={(e) => setNewLabel(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAddLabel();
+                                }
+                              }}
+                            />
+                            <Button type="button" onClick={handleAddLabel} size="sm">
+                              <Tag className="h-4 w-4 mr-1" />
+                              Hinzufügen
+                            </Button>
+                          </div>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="assignedUserIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Zugewiesene Benutzer</FormLabel>
+                        {isLoadingUsers ? (
+                          <div className="text-sm text-muted-foreground">
+                            Lade Benutzer...
+                          </div>
+                        ) : users.length === 0 ? (
+                          <div className="text-sm text-muted-foreground">
+                            Keine Benutzer verfügbar
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-3">
+                            {users.map((user) => (
+                              <Button
+                                key={user.id}
+                                type="button"
+                                variant={field.value?.includes(user.id) ? "default" : "outline"}
+                                className="flex items-center gap-2"
+                                onClick={() => {
+                                  const currentValue = field.value || [];
+                                  const newValue = currentValue.includes(user.id)
+                                    ? currentValue.filter(id => id !== user.id)
+                                    : [...currentValue, user.id];
+                                  field.onChange(newValue);
+                                }}
+                              >
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={user.avatarUrl || ''} />
+                                  <AvatarFallback>
+                                    {user.username.substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span>{user.username}</span>
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="space-y-2">
+                    <FormLabel>Checkliste</FormLabel>
+                    <div className="space-y-2">
+                      {checklist.map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => toggleChecklistItem(index)}
+                            className="h-4 w-4"
+                          />
+                          <span className={item.checked ? "line-through text-muted-foreground" : ""}>
+                            {item.text}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => deleteChecklistItem(index)}
+                            className="ml-auto text-destructive hover:text-destructive/80"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Neues Checklist-Element"
+                        value={newChecklistItem}
+                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addChecklistItem();
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={addChecklistItem} size="sm">
+                        <PlusCircle className="h-4 w-4 mr-1" />
+                        Hinzufügen
+                      </Button>
+                    </div>
+                  </div>
+
+                  {task && (
+                    <div className="space-y-2">
+                      <FormLabel>Kommentare</FormLabel>
+                      <CommentList taskId={task.id} />
+                      <CommentEditor taskId={task.id} onCommentAdded={() => {
+                        queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/comments`] });
+                      }} />
+                    </div>
+                  )}
+                </form>
+              </Form>
+            </div>
+            
+            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-end gap-2 rounded-b-lg">
+              <Button form="task-form" type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Abbrechen
+              </Button>
+              <Button form="task-form" type="submit">
+                {task ? "Speichern" : "Erstellen"}
+              </Button>
+            </div>
+          </div>
         ) : (
-          renderDetailView()
+          <div className="flex flex-col h-full">
+            <div className="px-6 overflow-y-auto pb-24" style={{ maxHeight: "calc(85vh - 120px)" }}>
+              {renderDetailView()}
+            </div>
+            
+            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-end gap-2 rounded-b-lg">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditMode(true)}
+                className="gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                Bearbeiten
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Schließen
+              </Button>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>
