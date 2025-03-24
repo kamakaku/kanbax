@@ -184,13 +184,13 @@ export default function AllBoards() {
     const statusCounts = getTaskStatusCounts();
     const totalTasks = Object.values(statusCounts).reduce((a, b) => a + b, 0);
     
-    // Farben für jeden Status
+    // Farben für jeden Status - passend zu den Spaltenfarben im Board
     const statusColors = {
-      backlog: "bg-gray-300",
+      backlog: "bg-slate-300",
       todo: "bg-blue-300",
-      inProgress: "bg-yellow-400", 
-      review: "bg-orange-400",
-      done: "bg-green-500"
+      inProgress: "bg-amber-400", 
+      review: "bg-purple-400",
+      done: "bg-green-400"
     };
     
     // Prozentanteile für die Fortschrittsbalken
