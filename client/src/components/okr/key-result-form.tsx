@@ -192,14 +192,14 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] flex flex-col p-0">
+      <DialogContent className="max-h-[85vh] flex flex-col p-0 sm:rounded-lg overflow-hidden">
         <div className="px-6 pt-6 pb-2">
           <DialogTitle>
             {keyResult ? "Key Result bearbeiten" : "Neues Key Result erstellen"}
           </DialogTitle>
         </div>
         
-        <div className="px-6 overflow-y-auto" style={{ maxHeight: "calc(85vh - 10rem)" }}>
+        <div className="px-6 pb-6 overflow-y-auto" style={{ maxHeight: "calc(85vh - 10rem)" }}>
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
@@ -423,7 +423,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
           </Form>
         </div>
         
-        <div className="border-t px-6 py-4 bg-background flex items-center justify-end gap-2 w-full">
+        <div className="border-t px-6 py-4 bg-background flex items-center justify-end gap-2 w-full sm:rounded-b-lg">
           <Button
             type="button"
             variant="outline"
