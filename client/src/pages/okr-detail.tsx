@@ -187,8 +187,23 @@ export function OKRDetailPage() {
       return await apiRequest('PATCH', `/api/objectives/${objectiveId}/favorite`);
     },
     onSuccess: () => {
+      // Aktualisiere sowohl die Detailansicht als auch die Listenansicht
+      queryClient.invalidateQueries({ queryKey: ["/api/objectives", objectiveId] });
       queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
+      
+      toast({
+        title: "Favoriten-Status aktualisiert",
+        description: "Der Favoriten-Status des Objectives wurde aktualisiert.",
+        variant: "success"
+      });
     },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: `Fehler beim Aktualisieren des Favoriten-Status: ${error.message}`,
+        variant: "destructive"
+      });
+    }
   });
 
   if (isLoadingObjective || isLoadingKeyResults) {

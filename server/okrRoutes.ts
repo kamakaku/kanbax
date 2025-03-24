@@ -11,6 +11,38 @@ import * as schema from '@shared/schema'; //Import schema explicitly
 
 
 export function registerOkrRoutes(app: Express) {
+  // Objective als Favorit markieren oder Favorit entfernen
+  app.patch("/api/objectives/:id/favorite", requireAuth, async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Objective-ID" });
+    }
+
+    try {
+      const userId = req.userId!;
+      console.log(`Toggling favorite for objective ${id} by user ${userId}`);
+      
+      const objective = await storage.toggleObjectiveFavorite(userId, id);
+      
+      // Activity log erstellen
+      await storage.createActivityLog({
+        action: objective.isFavorite ? "favorite" : "unfavorite",
+        details: objective.isFavorite ? "Objective als Favorit markiert" : "Objective aus Favoriten entfernt",
+        userId: userId,
+        objectiveId: id,
+        taskId: null,
+        boardId: null,
+        projectId: null,
+        teamId: null,
+        targetUserId: null
+      });
+      
+      res.json(objective);
+    } catch (error) {
+      console.error("Error toggling objective favorite:", error);
+      res.status(500).json({ message: "Fehler beim Ändern des Favoriten-Status" });
+    }
+  });
   // Single Objective Endpoint
   app.get("/api/objectives/:id", requireAuth, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
