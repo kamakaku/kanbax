@@ -96,11 +96,11 @@ export default function AllProjects() {
 
   // Zähle Boards und OKRs pro Projekt
   const getBoardCount = (projectId: number) => {
-    return boards.filter(board => board.project_id === projectId && !board.archived).length;
+    return boards.filter((board: any) => board.project_id === projectId && !board.archived).length;
   };
 
   const getOkrCount = (projectId: number) => {
-    return objectives.filter(objective => objective.projectId === projectId && objective.status !== "archived").length;
+    return objectives.filter((objective: any) => objective.projectId === projectId && objective.status !== "archived").length;
   };
 
   // Funktion zum Archivieren eines Projekts

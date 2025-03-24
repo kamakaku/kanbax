@@ -122,90 +122,190 @@ export default function AllBoards() {
   const archivedNonFavoriteBoards = archivedBoards.filter(b => !b.is_favorite);
 
   const BoardCard = ({ board }: { board: Board }) => {
-    // Berechne eine Statusfarbe basierend auf dem Board-Status oder Progress
-    const getProgressColor = () => {
-      if (board.archived) return "bg-gray-200";
-      
-      // Hier könnten wir später einen tatsächlichen Fortschritt berechnen
-      // Aktuell verwenden wir einen zufälligen Wert für die Demonstration
-      const progress = board.id % 5 === 0 ? 100 : (board.id % 3 === 0 ? 75 : (board.id % 2 === 0 ? 50 : 25));
-      
-      if (progress >= 100) return "bg-green-500";
-      if (progress >= 75) return "bg-blue-500";
-      if (progress >= 50) return "bg-amber-500";
-      if (progress >= 25) return "bg-orange-500";
-      return "bg-red-500";
+    // Für jede Task-Kategorie einen zufälligen Wert bestimmen (Später mit echten Daten)
+    const getTaskStatusCounts = () => {
+      // Hier würden wir später die tatsächlichen Task-Counts verwenden
+      // Aktuell werden Platzhalter-Werte basierend auf Board-ID generiert
+      const seed = board.id;
+      return {
+        backlog: seed % 7 + 1,
+        todo: seed % 5 + 2,
+        inProgress: seed % 4 + 1,
+        review: seed % 3,
+        done: seed % 6 + 2
+      };
     };
     
+    const statusCounts = getTaskStatusCounts();
+    const totalTasks = Object.values(statusCounts).reduce((a, b) => a + b, 0);
+    
+    // Farben für jeden Status
+    const statusColors = {
+      backlog: "bg-gray-300",
+      todo: "bg-blue-300",
+      inProgress: "bg-yellow-400", 
+      review: "bg-orange-400",
+      done: "bg-green-500"
+    };
+    
+    // Prozentanteile für die Fortschrittsbalken
+    const percentages = {
+      backlog: (statusCounts.backlog / totalTasks) * 100,
+      todo: (statusCounts.todo / totalTasks) * 100,
+      inProgress: (statusCounts.inProgress / totalTasks) * 100,
+      review: (statusCounts.review / totalTasks) * 100,
+      done: (statusCounts.done / totalTasks) * 100
+    };
+    
+    // Breitenstile für jeden Status-Balken
+    const backlogWidth = `${percentages.backlog}%`;
+    const todoWidth = `${percentages.todo}%`;
+    const inProgressWidth = `${percentages.inProgress}%`;
+    const reviewWidth = `${percentages.review}%`;
+    const doneWidth = `${percentages.done}%`;
+    
+    // Formatierung des Erstellungsdatums
+    const formattedDate = "2025-03-24"; // Platzhalter (später durch board.createdAt ersetzen)
+    
     return (
-      <Card
-        key={board.id}
-        className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative group overflow-hidden"
+      <div
+        className="group cursor-pointer transition-all duration-300 relative h-full pt-5 mt-5"
         onClick={() => handleBoardClick(board)}
       >
-        <div className={`absolute bottom-0 left-0 right-0 h-1 ${getProgressColor()} transition-all duration-300`}></div>
-        
-        <CardHeader className="p-4 pb-3">
-          <div className="flex items-start justify-between mb-2">
-            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-              {board.title}
-              {board.archived && (
-                <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                  Archiviert
-                </Badge>
+        <Card
+          key={board.id}
+          className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative group overflow-hidden h-full"
+        >
+          <CardHeader className="p-4 pb-3">
+            <div className="flex items-start justify-between mb-2">
+              <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                {board.title}
+                {board.archived && (
+                  <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                    Archiviert
+                  </Badge>
+                )}
+              </CardTitle>
+            </div>
+            <CardDescription className="text-sm">
+              {board.description ? (
+                <p className="line-clamp-2">{board.description}</p>
+              ) : (
+                <p className="line-clamp-2 text-gray-400">Keine Beschreibung</p>
               )}
-            </CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            {board.description ? (
-              <p className="line-clamp-2">{board.description}</p>
-            ) : (
-              <p className="line-clamp-2 text-gray-400">Keine Beschreibung</p>
-            )}
-          </CardDescription>
-        </CardHeader>
-        
-        <CardFooter className="p-4 pt-0 flex justify-between items-center border-t border-gray-100 mt-3">
-          <div className="flex items-center text-xs text-gray-500">
-            <Calendar className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
-            <span>Erstellt</span>
+            </CardDescription>
+          </CardHeader>
+          
+          {/* Status Progress Bar */}
+          <div className="px-4 mb-3">
+            <div className="text-xs mb-1 text-gray-600 flex justify-between">
+              <span>Status Fortschritt</span>
+              <span>{totalTasks} Aufgaben</span>
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full flex overflow-hidden">
+              {percentages.backlog > 0 && (
+                <div 
+                  className={`${statusColors.backlog} h-full`} 
+                  style={{ width: backlogWidth }}
+                  title={`Backlog: ${statusCounts.backlog} Aufgaben`}
+                ></div>
+              )}
+              {percentages.todo > 0 && (
+                <div 
+                  className={`${statusColors.todo} h-full`} 
+                  style={{ width: todoWidth }}
+                  title={`ToDo: ${statusCounts.todo} Aufgaben`}
+                ></div>
+              )}
+              {percentages.inProgress > 0 && (
+                <div 
+                  className={`${statusColors.inProgress} h-full`} 
+                  style={{ width: inProgressWidth }}
+                  title={`In Progress: ${statusCounts.inProgress} Aufgaben`}
+                ></div>
+              )}
+              {percentages.review > 0 && (
+                <div 
+                  className={`${statusColors.review} h-full`} 
+                  style={{ width: reviewWidth }}
+                  title={`Review: ${statusCounts.review} Aufgaben`}
+                ></div>
+              )}
+              {percentages.done > 0 && (
+                <div 
+                  className={`${statusColors.done} h-full`} 
+                  style={{ width: doneWidth }}
+                  title={`Done: ${statusCounts.done} Aufgaben`}
+                ></div>
+              )}
+            </div>
+            
+            <div className="flex text-xs mt-1 justify-between text-gray-500">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                <span>Backlog</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-blue-300 rounded-full"></div>
+                <span>ToDo</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                <span>In Progress</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                <span>Review</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Done</span>
+              </div>
+            </div>
           </div>
           
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="p-1 h-7 w-7 rounded-full hover:bg-yellow-100"
-              onClick={(e) => toggleFavorite(board, e)}
-              title={board.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
-            >
-              <Star className={`h-3.5 w-3.5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-            </Button>
+          <CardFooter className="p-4 pt-0 flex justify-between items-center border-t border-gray-100 mt-1">
+            <div className="flex items-center text-xs text-gray-500">
+              <Calendar className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
+              <span>{formattedDate}</span>
+            </div>
             
-            {board.archived ? (
+            <div className="flex gap-1">
               <Button
                 variant="ghost"
                 size="icon"
-                className="p-1 h-7 w-7 rounded-full hover:bg-blue-100"
-                onClick={(e) => handleUnarchive(board, e)}
-                title="Wiederherstellen"
+                className="p-1 h-7 w-7 rounded-full hover:bg-yellow-100"
+                onClick={(e) => toggleFavorite(board, e)}
+                title={board.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
               >
-                <RotateCcw className="h-3.5 w-3.5 text-blue-500" />
+                <Star className={`h-3.5 w-3.5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
               </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="p-1 h-7 w-7 rounded-full hover:bg-gray-100"
-                onClick={(e) => handleArchive(board, e)}
-                title="Archivieren"
-              >
-                <Archive className="h-3.5 w-3.5 text-gray-500" />
-              </Button>
-            )}
-          </div>
-        </CardFooter>
-      </Card>
+              
+              {board.archived ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="p-1 h-7 w-7 rounded-full hover:bg-blue-100"
+                  onClick={(e) => handleUnarchive(board, e)}
+                  title="Wiederherstellen"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-blue-500" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="p-1 h-7 w-7 rounded-full hover:bg-gray-100"
+                  onClick={(e) => handleArchive(board, e)}
+                  title="Archivieren"
+                >
+                  <Archive className="h-3.5 w-3.5 text-gray-500" />
+                </Button>
+              )}
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
     );
   };
 
