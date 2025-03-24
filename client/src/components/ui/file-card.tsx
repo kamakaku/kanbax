@@ -8,7 +8,7 @@ export interface FileCardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const FileCard = forwardRef<HTMLDivElement, FileCardProps>(
-  ({ className, children, cutoutSize = 30, radius = 10, archived = false, ...props }, ref) => {
+  ({ className, children, cutoutSize = 22, radius = 8, archived = false, ...props }, ref) => {
     return (
       <div
         ref={ref}
@@ -19,35 +19,37 @@ const FileCard = forwardRef<HTMLDivElement, FileCardProps>(
         )}
         style={{
           borderRadius: `${radius}px`,
-          // Clip-path erstellt die Aussparung in der oberen rechten Ecke
-          clipPath: `
-            polygon(
-              0% 0%,
-              calc(100% - ${cutoutSize + radius}px) 0%,
-              calc(100% - ${cutoutSize + radius}px) ${radius}px,
-              calc(100% - ${radius}px) ${radius}px,
-              calc(100% - ${radius}px) ${cutoutSize}px,
-              100% ${cutoutSize}px,
-              100% 100%,
-              0% 100%
-            )
-          `
         }}
         {...props}
       >
-        {/* Das ist ein dekorativer Kreis für die Tab-Aussparung */}
+        {/* Gefaltete Ecke in der oberen rechten Ecke wie im Sidebar-Icon */}
         <div 
           className={cn(
-            "absolute w-6 h-6 border-r border-b transition-colors",
+            "absolute top-0 right-0 w-0 h-0 transition-colors",
             archived ? "border-gray-300" : "border-primary/20"
           )}
           style={{
-            right: 0,
+            borderStyle: 'solid',
+            borderWidth: `0 ${cutoutSize}px ${cutoutSize}px 0`,
+            borderColor: 'transparent',
+            borderRightColor: archived ? '#f5f5f5' : '#f0f9ff',
+          }}
+        />
+        <div
+          className={cn(
+            "absolute transition-colors",
+            archived ? "border-gray-300" : "border-primary/10"
+          )}
+          style={{
             top: 0,
-            borderBottomRightRadius: `${radius}px`,
-            borderTopLeftRadius: `${radius}px`,
+            right: 0,
             width: `${cutoutSize}px`,
             height: `${cutoutSize}px`,
+            borderBottom: `1px solid ${archived ? '#e5e7eb' : '#e6f1fc'}`,
+            borderLeft: `1px solid ${archived ? '#e5e7eb' : '#e6f1fc'}`,
+            borderBottomLeftRadius: `${radius}px`,
+            transform: 'rotate(-90deg) translate(-100%, 0)',
+            transformOrigin: 'top left',
           }}
         />
         {children}
