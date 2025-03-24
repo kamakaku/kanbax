@@ -37,6 +37,19 @@ export default function AllBoards() {
     queryKey: ['/api/all-tasks'],
     queryFn: () => apiRequest("GET", "/api/all-tasks"),
   });
+  
+  // Debug-Log für Tasks im Board 23
+  useEffect(() => {
+    if (allTasksData && allTasksData[23]) {
+      console.log("Tasks für Board 23:", allTasksData[23]);
+      console.log("Status-Counts für Board 23:", 
+        allTasksData[23].reduce((counts, task) => {
+          counts[task.status] = (counts[task.status] || 0) + 1;
+          return counts;
+        }, {} as Record<string, number>)
+      );
+    }
+  }, [allTasksData]);
 
   const handleBoardClick = (board: Board) => {
     if (board.project_id) {
