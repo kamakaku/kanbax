@@ -30,6 +30,7 @@ import { ProductivityPage } from "@/pages/productivity";
 import { Board } from "@/pages/board";
 import { Topbar } from "@/components/ui/topbar";
 import { cn } from "@/lib/utils";
+import { TestDialog } from "@/components/test-dialog";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
@@ -190,6 +191,7 @@ function AuthenticatedApp() {
       }} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
+      <Route path="/test-dialog" component={() => <ProtectedRoute component={TestDialog} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
 
       {/* Redirects */}
