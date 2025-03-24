@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { DialogMultiSelect } from "@/components/ui/dialog-multi-select";
 
 interface ProjectFormProps {
   open: boolean;
@@ -219,7 +219,7 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
                   <FormItem>
                     <FormLabel>Teams</FormLabel>
                     <FormControl>
-                      <MultiSelect
+                      <DialogMultiSelect
                         placeholder="Teams auswählen..."
                         options={teams.map(team => ({
                           value: team.id.toString(),
@@ -244,7 +244,7 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
                   <FormItem>
                     <FormLabel>Mitglieder</FormLabel>
                     <FormControl>
-                      <MultiSelect
+                      <DialogMultiSelect
                         placeholder="Mitglieder auswählen..."
                         options={users.map(user => ({
                           value: user.id.toString(),
