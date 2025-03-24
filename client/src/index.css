@@ -119,8 +119,21 @@
   
   /* Angled Corner Card Style */
   .angled-card {
-    border-radius: 5px 25px 5px 5px;
+    border-radius: 5px 0 5px 5px !important;
+    position: relative;
     overflow: hidden;
+  }
+  
+  .angled-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 35px;
+    height: 35px;
+    background: linear-gradient(135deg, transparent 50%, hsl(var(--primary)) 50%);
+    z-index: 10;
+    pointer-events: none;
   }
 
   .mac-folder::before {
