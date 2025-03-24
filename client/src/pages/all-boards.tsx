@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Plus, Star, Archive, RotateCcw } from "lucide-react";
+import { Plus, Star, Archive, RotateCcw, Calendar } from "lucide-react";
 import { useState } from "react";
 import { BoardForm } from "@/components/board/board-form";
 import { apiRequest } from "@/lib/queryClient";
@@ -12,6 +12,8 @@ import { queryClient } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
@@ -119,62 +121,93 @@ export default function AllBoards() {
   const archivedFavoriteBoards = archivedBoards.filter(b => b.is_favorite);
   const archivedNonFavoriteBoards = archivedBoards.filter(b => !b.is_favorite);
 
-  const BoardCard = ({ board }: { board: Board }) => (
-    <Card
-      key={board.id}
-      className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative"
-      onClick={() => handleBoardClick(board)}
-    >
-      <CardHeader className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-            {board.title}
-            {board.archived && (
-              <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
-                Archiviert
-              </Badge>
+  const BoardCard = ({ board }: { board: Board }) => {
+    // Berechne eine Statusfarbe basierend auf dem Board-Status oder Progress
+    const getProgressColor = () => {
+      if (board.archived) return "bg-gray-200";
+      
+      // Hier könnten wir später einen tatsächlichen Fortschritt berechnen
+      // Aktuell verwenden wir einen zufälligen Wert für die Demonstration
+      const progress = board.id % 5 === 0 ? 100 : (board.id % 3 === 0 ? 75 : (board.id % 2 === 0 ? 50 : 25));
+      
+      if (progress >= 100) return "bg-green-500";
+      if (progress >= 75) return "bg-blue-500";
+      if (progress >= 50) return "bg-amber-500";
+      if (progress >= 25) return "bg-orange-500";
+      return "bg-red-500";
+    };
+    
+    return (
+      <Card
+        key={board.id}
+        className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-primary/10 hover:border-primary/20 bg-white/80 backdrop-blur-sm relative group overflow-hidden"
+        onClick={() => handleBoardClick(board)}
+      >
+        <div className={`absolute bottom-0 left-0 right-0 h-1 ${getProgressColor()} transition-all duration-300`}></div>
+        
+        <CardHeader className="p-4 pb-3">
+          <div className="flex items-start justify-between mb-2">
+            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+              {board.title}
+              {board.archived && (
+                <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                  Archiviert
+                </Badge>
+              )}
+            </CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            {board.description ? (
+              <p className="line-clamp-2">{board.description}</p>
+            ) : (
+              <p className="line-clamp-2 text-gray-400">Keine Beschreibung</p>
             )}
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="p-1 hover:bg-yellow-100"
-            onClick={(e) => toggleFavorite(board, e)}
-          >
-            <Star className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-          </Button>
-        </div>
-        <CardDescription className="text-sm">
-          {board.description && (
-            <p className="line-clamp-2">{board.description}</p>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardFooter className="p-2 pt-0 flex justify-end">
-        {board.archived ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => handleUnarchive(board, e)}
-            className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-          >
-            <RotateCcw className="h-3.5 w-3.5 mr-1" />
-            Wiederherstellen
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => handleArchive(board, e)}
-            className="text-gray-600 hover:bg-gray-50 hover:text-gray-700"
-          >
-            <Archive className="h-3.5 w-3.5 mr-1" />
-            Archivieren
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
-  );
+          </CardDescription>
+        </CardHeader>
+        
+        <CardFooter className="p-4 pt-0 flex justify-between items-center border-t border-gray-100 mt-3">
+          <div className="flex items-center text-xs text-gray-500">
+            <Calendar className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
+            <span>Erstellt</span>
+          </div>
+          
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="p-1 h-7 w-7 rounded-full hover:bg-yellow-100"
+              onClick={(e) => toggleFavorite(board, e)}
+              title={board.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen"}
+            >
+              <Star className={`h-3.5 w-3.5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+            </Button>
+            
+            {board.archived ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="p-1 h-7 w-7 rounded-full hover:bg-blue-100"
+                onClick={(e) => handleUnarchive(board, e)}
+                title="Wiederherstellen"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-blue-500" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="p-1 h-7 w-7 rounded-full hover:bg-gray-100"
+                onClick={(e) => handleArchive(board, e)}
+                title="Archivieren"
+              >
+                <Archive className="h-3.5 w-3.5 text-gray-500" />
+              </Button>
+            )}
+          </div>
+        </CardFooter>
+      </Card>
+    );
+  };
 
   return (
     <div className="container mx-auto p-8">
