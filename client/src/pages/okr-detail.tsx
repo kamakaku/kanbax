@@ -72,6 +72,12 @@ interface ChecklistItem {
   completed: boolean;
 }
 
+// Hilfsfunktion zum sicheren Konvertieren von Datumswerten
+const formatSafeDate = (dateValue: string | Date | undefined, formatOptions: Intl.DateTimeFormatOptions): string => {
+  const date = dateValue ? new Date(dateValue) : new Date();
+  return date.toLocaleString('de-DE', formatOptions);
+};
+
 export function OKRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const objectiveId = parseInt(id);
@@ -551,7 +557,7 @@ export function OKRDetailPage() {
                                 log.action}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {new Date(log.createdAt || log.created_at || new Date()).toLocaleString('de-DE', {
+                              {formatSafeDate(log.createdAt || log.created_at, {
                                 day: '2-digit',
                                 month: '2-digit',
                                 year: 'numeric',
@@ -666,7 +672,7 @@ export function OKRDetailPage() {
                           log.action}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        {new Date(log.createdAt || log.created_at).toLocaleString('de-DE', {
+                        {formatSafeDate(log.createdAt || log.created_at, {
                           day: '2-digit',
                           month: '2-digit',
                           hour: '2-digit',
