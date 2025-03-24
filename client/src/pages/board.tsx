@@ -10,10 +10,20 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star, Users, Building2, Calendar, Crown } from "lucide-react";
+import { Pencil, Star, Users, Building2, Calendar, Crown, Archive, RotateCcw } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
@@ -33,6 +43,7 @@ export function Board() {
   const [, setLocation] = useLocation();
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
@@ -128,6 +139,59 @@ export function Board() {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
       toast({ title: "Favoriten-Status aktualisiert" });
     },
+  });
+  
+  // Archivierungsmutation
+  const archiveBoard = useMutation({
+    mutationFn: async () => {
+      if (!boardId) return null;
+      return await apiRequest('PATCH', `/api/boards/${boardId}/archive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
+      
+      toast({
+        title: "Board archiviert",
+        description: "Das Board wurde erfolgreich archiviert.",
+      });
+      
+      // Zurück zur Projektseite oder Boards-Übersicht
+      setLocation(board?.project_id ? `/projects/${board.project_id}` : '/all-boards');
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Archivieren",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Wiederherstellungsmutation
+  const unarchiveBoard = useMutation({
+    mutationFn: async () => {
+      if (!boardId) return null;
+      return await apiRequest('PATCH', `/api/boards/${boardId}/unarchive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
+      
+      toast({
+        title: "Board wiederhergestellt",
+        description: "Das Board wurde erfolgreich wiederhergestellt.",
+      });
+      
+      setConfirmArchive(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Wiederherstellen",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
 
   const updateTask = useMutation({
@@ -238,9 +302,9 @@ export function Board() {
           <div className="flex items-start gap-6">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">
-                {board?.title}
+                {board.title}
               </h1>
-              {board?.project && (
+              {board.project && (
                 <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   Projekt: {board.project.title}
@@ -306,7 +370,7 @@ export function Board() {
                 className="hover:bg-slate-100"
               >
                 <Star
-                  className={`h-5 w-5 ${board?.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-slate-400"}`}
+                  className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-slate-400"}`}
                 />
               </Button>
               <Button
@@ -317,9 +381,37 @@ export function Board() {
               >
                 <Pencil className="h-4 w-4" />
               </Button>
+              {board.archived ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => unarchiveBoard.mutate()}
+                  className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Wiederherstellen</span>
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmArchive(true)}
+                  className="flex items-center gap-1 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
+                >
+                  <Archive className="h-4 w-4" />
+                  <span>Archivieren</span>
+                </Button>
+              )}
             </div>
           </div>
-          <BoardSelector />
+          <div className="flex items-center gap-4">
+            {board.archived && (
+              <Badge variant="outline" className="mr-2 bg-amber-50 text-amber-700 border-amber-200">
+                Archiviert
+              </Badge>
+            )}
+            <BoardSelector />
+          </div>
         </div>
 
         <div className="flex-1 overflow-x-auto">
@@ -348,12 +440,30 @@ export function Board() {
           onClose={() => setShowEditForm(false)}
           defaultValues={{
             ...board,
-            team_ids: board?.team_ids || [],
+            team_ids: board.team_ids || [],
           }}
           onSubmit={async (data) => {
             await updateBoard.mutateAsync(data);
           }}
         />
+        
+        {/* Archivierungsbestätigung */}
+        <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Board archivieren</AlertDialogTitle>
+              <AlertDialogDescription>
+                Möchten Sie dieses Board wirklich archivieren? Archivierte Boards werden in einer separaten Ansicht angezeigt und können später wiederhergestellt werden.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction onClick={() => archiveBoard.mutate()}>
+                Archivieren
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

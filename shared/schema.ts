@@ -54,6 +54,7 @@ export const projects = pgTable("projects", {
   teamIds: integer("team_ids").array().default([]),
   memberIds: integer("member_ids").array().default([]),
   isFavorite: boolean("is_favorite").default(false),
+  archived: boolean("archived").default(false),
   companyId: integer("company_id").references(() => companies.id),
   creator_id: integer("creator_id").notNull().default(1), // Default für existierende Einträge
 });
@@ -68,6 +69,7 @@ export const boards = pgTable("boards", {
   team_ids: integer("team_ids").array().default([]).notNull(),
   assigned_user_ids: integer("assigned_user_ids").array().default([]).notNull(),
   is_favorite: boolean("is_favorite").default(false),
+  archived: boolean("archived").default(false),
 });
 
 export const columns = pgTable("columns", {
@@ -166,6 +168,7 @@ export const insertProjectSchema = createInsertSchema(projects)
     description: true,
     companyId: true,
     creator_id: true,
+    archived: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
@@ -174,6 +177,7 @@ export const insertProjectSchema = createInsertSchema(projects)
     teamIds: z.array(z.number().int().positive()).optional(),
     memberIds: z.array(z.number().int().positive()).optional(),
     creator_id: z.number().int().positive("Creator ID ist erforderlich"),
+    archived: z.boolean().default(false),
   });
 
 export const updateProjectSchema = insertProjectSchema.partial();
@@ -188,6 +192,7 @@ export const insertBoardSchema = createInsertSchema(boards)
     team_ids: true,
     assigned_user_ids: true,
     is_favorite: true,
+    archived: true,
   })
   .extend({
     title: z.string().min(1, "Titel ist erforderlich"),
@@ -203,6 +208,7 @@ export const insertBoardSchema = createInsertSchema(boards)
       z.array(z.number().int().positive("Benutzer ID muss eine positive Zahl sein"))
     ).default([]),
     is_favorite: z.boolean().default(false),
+    archived: z.boolean().default(false),
   });
 
 export const insertColumnSchema = createInsertSchema(columns)
@@ -567,6 +573,7 @@ export const updateBoardSchema = createInsertSchema(boards)
     team_ids: true,
     assigned_user_ids: true,
     is_favorite: true,
+    archived: true,
   })
   .extend({
     title: z.string().optional(),
@@ -575,6 +582,7 @@ export const updateBoardSchema = createInsertSchema(boards)
     team_ids: z.array(z.number().int()).default([]),
     assigned_user_ids: z.array(z.number().int()).default([]),
     is_favorite: z.boolean().optional(),
+    archived: z.boolean().optional(),
   });
 export type UpdateBoard = z.infer<typeof updateBoardSchema>;
 

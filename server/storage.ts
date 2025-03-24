@@ -18,6 +18,8 @@ export interface IStorage {
   createProject(userId: number, project: InsertProject): Promise<Project>;
   updateProject(userId: number, id: number, project: UpdateProject): Promise<Project>;
   deleteProject(userId: number, id: number): Promise<void>;
+  archiveProject(userId: number, id: number): Promise<Project>;
+  unarchiveProject(userId: number, id: number): Promise<Project>;
 
   // Board operations
   getBoards(userId: number): Promise<Board[]>;
@@ -26,6 +28,8 @@ export interface IStorage {
   createBoard(userId: number, board: InsertBoard): Promise<Board>;
   updateBoard(userId: number, id: number, board: UpdateBoard): Promise<Board>;
   deleteBoard(userId: number, id: number): Promise<void>;
+  archiveBoard(userId: number, id: number): Promise<Board>;
+  unarchiveBoard(userId: number, id: number): Promise<Board>;
 
   // Column operations
   getColumns(userId: number, boardId: number): Promise<Column[]>;
@@ -245,6 +249,66 @@ export class DatabaseStorage implements IStorage {
     if (!project) {
       throw new Error(`Project ${id} not found`);
     }
+  }
+
+  async archiveProject(userId: number, id: number): Promise<Project> {
+    if (!(await permissionService.canAccessProject(userId, id))) {
+      throw new Error(`Project ${id} not found or unauthorized access`);
+    }
+    
+    // Projekt archivieren
+    const [project] = await db
+      .update(projects)
+      .set({ archived: true })
+      .where(eq(projects.id, id))
+      .returning();
+
+    if (!project) {
+      throw new Error(`Project ${id} not found`);
+    }
+
+    // Aktivitätslog erstellen
+    await this.createActivityLog({
+      action: "update",
+      details: `Projekt "${project.title}" wurde archiviert`,
+      userId: userId,
+      projectId: id,
+      requiresNotification: true,
+      notificationType: "project"
+    });
+
+    // Aktualisiertes Projekt zurückgeben
+    return this.getProject(userId, id);
+  }
+
+  async unarchiveProject(userId: number, id: number): Promise<Project> {
+    if (!(await permissionService.canAccessProject(userId, id))) {
+      throw new Error(`Project ${id} not found or unauthorized access`);
+    }
+    
+    // Projekt wiederherstellen
+    const [project] = await db
+      .update(projects)
+      .set({ archived: false })
+      .where(eq(projects.id, id))
+      .returning();
+
+    if (!project) {
+      throw new Error(`Project ${id} not found`);
+    }
+
+    // Aktivitätslog erstellen
+    await this.createActivityLog({
+      action: "update",
+      details: `Projekt "${project.title}" wurde wiederhergestellt`,
+      userId: userId,
+      projectId: id,
+      requiresNotification: true,
+      notificationType: "project"
+    });
+
+    // Aktualisiertes Projekt zurückgeben
+    return this.getProject(userId, id);
   }
 
   // Board operations
@@ -552,6 +616,66 @@ export class DatabaseStorage implements IStorage {
     if (!board) {
       throw new Error(`Board ${id} not found`);
     }
+  }
+
+  async archiveBoard(userId: number, id: number): Promise<Board> {
+    if (!(await permissionService.canAccessBoard(userId, id))) {
+      throw new Error(`Board ${id} not found or unauthorized access`);
+    }
+    
+    // Board archivieren
+    const [board] = await db
+      .update(boards)
+      .set({ archived: true })
+      .where(eq(boards.id, id))
+      .returning();
+
+    if (!board) {
+      throw new Error(`Board ${id} not found`);
+    }
+
+    // Aktivitätslog erstellen
+    await this.createActivityLog({
+      action: "update",
+      details: `Board "${board.title}" wurde archiviert`,
+      userId: userId,
+      boardId: id,
+      requiresNotification: true,
+      notificationType: "board"
+    });
+
+    // Aktualisiertes Board zurückgeben
+    return this.getBoard(userId, id);
+  }
+
+  async unarchiveBoard(userId: number, id: number): Promise<Board> {
+    if (!(await permissionService.canAccessBoard(userId, id))) {
+      throw new Error(`Board ${id} not found or unauthorized access`);
+    }
+    
+    // Board wiederherstellen
+    const [board] = await db
+      .update(boards)
+      .set({ archived: false })
+      .where(eq(boards.id, id))
+      .returning();
+
+    if (!board) {
+      throw new Error(`Board ${id} not found`);
+    }
+
+    // Aktivitätslog erstellen
+    await this.createActivityLog({
+      action: "update",
+      details: `Board "${board.title}" wurde wiederhergestellt`,
+      userId: userId,
+      boardId: id,
+      requiresNotification: true,
+      notificationType: "board"
+    });
+
+    // Aktualisiertes Board zurückgeben
+    return this.getBoard(userId, id);
   }
 
   // Board permission implementations

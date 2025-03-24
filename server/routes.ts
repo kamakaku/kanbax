@@ -686,6 +686,41 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+  // Archivierungsrouten für Projekte
+  app.patch("/api/projects/:id/archive", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Projekt-ID" });
+    }
+
+    try {
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const project = await storage.archiveProject(userId, id);
+      res.json(project);
+    } catch (error) {
+      console.error("Failed to archive project:", error);
+      res.status(500).json({ message: "Fehler beim Archivieren des Projekts" });
+    }
+  });
+
+  app.patch("/api/projects/:id/unarchive", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Projekt-ID" });
+    }
+
+    try {
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const project = await storage.unarchiveProject(userId, id);
+      res.json(project);
+    } catch (error) {
+      console.error("Failed to unarchive project:", error);
+      res.status(500).json({ message: "Fehler beim Wiederherstellen des Projekts" });
+    }
+  });
+
   // Board routes
   app.get("/api/projects/:projectId/boards", requireAuth, async (req, res) => {
     const projectId = parseInt(req.params.projectId);
@@ -866,6 +901,41 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
+    }
+  });
+
+  // Archivierungsrouten für Boards
+  app.patch("/api/boards/:id/archive", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Board-ID" });
+    }
+
+    try {
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const board = await storage.archiveBoard(userId, id);
+      res.json(board);
+    } catch (error) {
+      console.error("Failed to archive board:", error);
+      res.status(500).json({ message: "Fehler beim Archivieren des Boards" });
+    }
+  });
+
+  app.patch("/api/boards/:id/unarchive", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Ungültige Board-ID" });
+    }
+
+    try {
+      // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
+      const userId = req.userId!;
+      const board = await storage.unarchiveBoard(userId, id);
+      res.json(board);
+    } catch (error) {
+      console.error("Failed to unarchive board:", error);
+      res.status(500).json({ message: "Fehler beim Wiederherstellen des Boards" });
     }
   });
 

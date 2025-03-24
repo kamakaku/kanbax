@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { DialogMultiSelect } from "@/components/ui/dialog-multi-select";
 
 interface ProjectFormProps {

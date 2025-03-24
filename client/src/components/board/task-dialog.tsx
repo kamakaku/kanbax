@@ -36,6 +36,7 @@ import { format, startOfDay, endOfDay } from "date-fns";
 import { de } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { User } from "@shared/schema";
+import { DialogMultiSelect } from "@/components/ui/dialog-multi-select";
 
 interface TaskDialogProps {
   task?: Task;
@@ -631,41 +632,30 @@ export function TaskDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Zugewiesene Benutzer</FormLabel>
-                        {isLoadingUsers ? (
-                          <div className="text-sm text-muted-foreground">
-                            Lade Benutzer...
-                          </div>
-                        ) : users.length === 0 ? (
-                          <div className="text-sm text-muted-foreground">
-                            Keine Benutzer verfügbar
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-3">
-                            {users.map((user) => (
-                              <Button
-                                key={user.id}
-                                type="button"
-                                variant={field.value?.includes(user.id) ? "default" : "outline"}
-                                className="flex items-center gap-2"
-                                onClick={() => {
-                                  const currentValue = field.value || [];
-                                  const newValue = currentValue.includes(user.id)
-                                    ? currentValue.filter(id => id !== user.id)
-                                    : [...currentValue, user.id];
-                                  field.onChange(newValue);
-                                }}
-                              >
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage src={user.avatarUrl || ''} />
-                                  <AvatarFallback>
-                                    {user.username.substring(0, 2).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span>{user.username}</span>
-                              </Button>
-                            ))}
-                          </div>
-                        )}
+                        <FormControl>
+                          {isLoadingUsers ? (
+                            <div className="text-sm text-muted-foreground">
+                              Lade Benutzer...
+                            </div>
+                          ) : users.length === 0 ? (
+                            <div className="text-sm text-muted-foreground">
+                              Keine Benutzer verfügbar
+                            </div>
+                          ) : (
+                            <DialogMultiSelect
+                              placeholder="Benutzer auswählen..."
+                              options={users.map(user => ({
+                                value: user.id.toString(),
+                                label: user.username
+                              }))}
+                              selected={Array.isArray(field.value) ? field.value.map((id: number) => id.toString()) : []}
+                              onChange={(values: string[]) => {
+                                const numberValues = values.map((v: string) => parseInt(v));
+                                field.onChange(numberValues);
+                              }}
+                            />
+                          )}
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

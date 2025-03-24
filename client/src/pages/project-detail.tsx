@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Pencil, 
   Users, 
@@ -14,7 +24,9 @@ import {
   Kanban, 
   ChevronRight, 
   ChevronLeft, 
-  Edit 
+  Edit,
+  Archive,
+  RotateCcw
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ProjectForm } from "@/components/project/project-form";
@@ -33,6 +45,7 @@ export default function ProjectDetail() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   // Abfrage für Projekt-Details
   const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useQuery<Project>({
@@ -124,6 +137,43 @@ export default function ProjectDetail() {
       });
     },
   });
+  
+  // Mutation für Archivieren
+  const archiveProject = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('PATCH', `/api/projects/${projectId}/archive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      
+      toast({
+        title: "Projekt archiviert",
+        description: "Das Projekt wurde erfolgreich archiviert.",
+      });
+      
+      // Zurück zur Projektübersicht navigieren
+      navigate("/all-projects");
+    },
+  });
+  
+  // Mutation für Wiederherstellen
+  const unarchiveProject = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('PATCH', `/api/projects/${projectId}/unarchive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      
+      toast({
+        title: "Projekt wiederhergestellt",
+        description: "Das Projekt wurde erfolgreich wiederhergestellt.",
+      });
+      
+      setConfirmArchive(false);
+    },
+  });
 
   // Filtern der Boards für dieses Projekt
   const projectBoards = allBoards.filter(board => board.project_id === projectId);
@@ -210,6 +260,29 @@ export default function ProjectDetail() {
           <Button variant="ghost" size="sm" onClick={() => setEditingProject(project)}>
             <Edit className="h-4 w-4" />
           </Button>
+          
+          {/* Archivierungs-/Wiederherstellungsbutton basierend auf Status */}
+          {project.archived ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => unarchiveProject.mutate()}
+              className="hover:bg-blue-100"
+              title="Projekt wiederherstellen"
+            >
+              <RotateCcw className="h-4 w-4 text-blue-500" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmArchive(true)}
+              className="hover:bg-gray-100"
+              title="Projekt archivieren"
+            >
+              <Archive className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -460,6 +533,28 @@ export default function ProjectDetail() {
           onSuccess={() => refetchProject()} // Projekt-Daten nach der Aktualisierung neu laden
         />
       )}
+      
+      {/* Archivierungsbestätigungsdialog */}
+      <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Projekt archivieren</AlertDialogTitle>
+            <AlertDialogDescription>
+              Möchten Sie das Projekt "{project.title}" wirklich archivieren? 
+              Archivierte Projekte werden in den Listen ausgeblendet, können aber später wiederhergestellt werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => archiveProject.mutate()}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Archivieren
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
