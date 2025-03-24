@@ -336,67 +336,47 @@ export default function AllBoards() {
                 <div className="h-full flex relative z-10">
                   {/* Backlog */}
                   {percentages.backlog > 0 && (
-                    <EnhancedTooltip
-                      content={<span className="font-bold">{statusConfig.backlog.label}</span>}
-                      description={`${statusConfig.backlog.description} - ${statusCounts.backlog} Aufgaben`}
-                    >
-                      <div 
-                        className={`${statusConfig.backlog.color} h-full cursor-help`} 
-                        style={{ width: backlogWidth }}
-                      />
-                    </EnhancedTooltip>
+                    <div
+                      className={`${statusConfig.backlog.color} h-full cursor-help`}
+                      style={{ width: backlogWidth }}
+                      title={`${statusConfig.backlog.label}: ${statusCounts.backlog} Aufgaben`}
+                    />
                   )}
                   
                   {/* ToDo */}
                   {percentages.todo > 0 && (
-                    <EnhancedTooltip
-                      content={<span className="font-bold">{statusConfig.todo.label}</span>}
-                      description={`${statusConfig.todo.description} - ${statusCounts.todo} Aufgaben`}
-                    >
-                      <div 
-                        className={`${statusConfig.todo.color} h-full cursor-help`} 
-                        style={{ width: todoWidth }}
-                      />
-                    </EnhancedTooltip>
+                    <div
+                      className={`${statusConfig.todo.color} h-full cursor-help`}
+                      style={{ width: todoWidth }}
+                      title={`${statusConfig.todo.label}: ${statusCounts.todo} Aufgaben`}
+                    />
                   )}
                   
                   {/* In Progress */}
                   {percentages.inProgress > 0 && (
-                    <EnhancedTooltip
-                      content={<span className="font-bold">{statusConfig.inProgress.label}</span>}
-                      description={`${statusConfig.inProgress.description} - ${statusCounts.inProgress} Aufgaben`}
-                    >
-                      <div 
-                        className={`${statusConfig.inProgress.color} h-full cursor-help`} 
-                        style={{ width: inProgressWidth }}
-                      />
-                    </EnhancedTooltip>
+                    <div
+                      className={`${statusConfig.inProgress.color} h-full cursor-help`}
+                      style={{ width: inProgressWidth }}
+                      title={`${statusConfig.inProgress.label}: ${statusCounts.inProgress} Aufgaben`}
+                    />
                   )}
                   
                   {/* Review */}
                   {percentages.review > 0 && (
-                    <EnhancedTooltip
-                      content={<span className="font-bold">{statusConfig.review.label}</span>}
-                      description={`${statusConfig.review.description} - ${statusCounts.review} Aufgaben`}
-                    >
-                      <div 
-                        className={`${statusConfig.review.color} h-full cursor-help`} 
-                        style={{ width: reviewWidth }}
-                      />
-                    </EnhancedTooltip>
+                    <div
+                      className={`${statusConfig.review.color} h-full cursor-help`}
+                      style={{ width: reviewWidth }}
+                      title={`${statusConfig.review.label}: ${statusCounts.review} Aufgaben`}
+                    />
                   )}
                   
                   {/* Done */}
                   {percentages.done > 0 && (
-                    <EnhancedTooltip
-                      content={<span className="font-bold">{statusConfig.done.label}</span>}
-                      description={`${statusConfig.done.description} - ${statusCounts.done} Aufgaben`}
-                    >
-                      <div 
-                        className={`${statusConfig.done.color} h-full cursor-help`} 
-                        style={{ width: doneWidth }}
-                      />
-                    </EnhancedTooltip>
+                    <div
+                      className={`${statusConfig.done.color} h-full cursor-help`}
+                      style={{ width: doneWidth }}
+                      title={`${statusConfig.done.label}: ${statusCounts.done} Aufgaben`}
+                    />
                   )}
                 </div>
               </div>
