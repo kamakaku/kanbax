@@ -360,6 +360,25 @@ export default function ProjectDetail() {
             
             <TabsContent value="members" className="space-y-4">
               <div className="bg-card rounded-lg border p-4 space-y-3">
+                {/* Zeige den Creator explizit an der ersten Stelle */}
+                {project.creator && (
+                  <div className="flex items-center space-x-2 border-l-4 border-primary pl-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={project.creator.avatarUrl || ""} />
+                      <AvatarFallback>{project.creator.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-grow">
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium">{project.creator.username}</span>
+                        <Badge variant="outline" className="ml-2 text-xs py-0 h-5 bg-primary/10">
+                          Ersteller
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">{project.creator.email}</div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Zeige direkte Projektmitglieder und Board-Mitglieder an */}
                 {(() => {
                   // Sammle alle Benutzer-IDs
@@ -378,6 +397,11 @@ export default function ProjectDetail() {
                       board.assigned_user_ids.forEach(id => userIds.add(id));
                     }
                   });
+                  
+                  // Entferne den Creator aus der Liste, da er bereits oben angezeigt wird
+                  if (project.creator) {
+                    userIds.delete(project.creator.id);
+                  }
                   
                   // Finde alle Benutzer anhand der IDs
                   const projectMembers = Array.from(userIds)
@@ -398,7 +422,11 @@ export default function ProjectDetail() {
                       </div>
                     ));
                   } else {
-                    return <div className="text-sm text-muted-foreground">Keine Mitglieder gefunden</div>;
+                    // Falls keine weiteren Mitglieder vorhanden sind und der Creator bereits angezeigt wird
+                    if (!project.creator) {
+                      return <div className="text-sm text-muted-foreground">Keine Mitglieder gefunden</div>;
+                    }
+                    return null; // Creator wird bereits angezeigt
                   }
                 })()}
               </div>
