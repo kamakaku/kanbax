@@ -6,6 +6,7 @@ interface CircularProgressIndicatorProps {
   label?: string;
   className?: string;
   onClick?: () => void;
+  useStripedBackground?: boolean;
 }
 
 const sizeClasses = {
@@ -26,6 +27,7 @@ export function CircularProgressIndicator({
   label,
   className,
   onClick,
+  useStripedBackground = false,
 }: CircularProgressIndicatorProps) {
   // Ensure value is between 0 and 100
   const normalizedValue = Math.min(Math.max(value || 0, 0), 100);
@@ -36,6 +38,10 @@ export function CircularProgressIndicator({
   const radius = (svgSize - strokeWidth * 2) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (normalizedValue / 100) * circumference;
+
+  // Eindeutige ID für den Pattern und Mask, um Konflikte zu vermeiden
+  const patternId = `diagonalHatchCircle-${Math.random().toString(36).substr(2, 9)}`;
+  const maskId = `progressMask-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
     <div 
@@ -48,16 +54,60 @@ export function CircularProgressIndicator({
       onClick={onClick}
     >
       <svg className="w-full h-full -rotate-90">
+        {useStripedBackground && (
+          <defs>
+            {/* Pattern für diagonale Schraffur */}
+            <pattern 
+              id={patternId} 
+              width="4" 
+              height="4" 
+              patternUnits="userSpaceOnUse" 
+              patternTransform="rotate(45)"
+            >
+              <line 
+                x1="0" 
+                y1="0" 
+                x2="0" 
+                y2="4" 
+                stroke="#888" 
+                strokeWidth="1.5" 
+                strokeOpacity="0.65"
+              />
+            </pattern>
+            
+            {/* Maske für den Progress-Bereich */}
+            <mask id={maskId}>
+              <circle
+                fill="white"
+                r={radius}
+                cx="50%"
+                cy="50%"
+              />
+            </mask>
+          </defs>
+        )}
+        
         {/* Background circle */}
-        <circle
-          className="text-muted-foreground/20"
-          strokeWidth={strokeWidth}
-          stroke="currentColor"
-          fill="transparent"
-          r={radius}
-          cx="50%"
-          cy="50%"
-        />
+        {useStripedBackground ? (
+          <circle
+            fill={`url(#${patternId})`}
+            r={radius}
+            cx="50%"
+            cy="50%"
+            mask={`url(#${maskId})`}
+          />
+        ) : (
+          <circle
+            className="text-muted-foreground/20"
+            strokeWidth={strokeWidth}
+            stroke="currentColor"
+            fill="transparent"
+            r={radius}
+            cx="50%"
+            cy="50%"
+          />
+        )}
+        
         {/* Progress circle */}
         <circle
           className={cn(
@@ -78,7 +128,8 @@ export function CircularProgressIndicator({
       {label && (
         <span 
           className={cn(
-            "absolute text-center font-medium text-muted-foreground",
+            "absolute text-center font-medium",
+            normalizedValue === 100 ? "text-green-600" : "text-muted-foreground",
             textSizeClasses[size]
           )}
         >

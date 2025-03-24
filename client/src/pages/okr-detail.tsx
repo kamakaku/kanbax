@@ -4,6 +4,7 @@ import { type Objective, type KeyResult, type User } from "@shared/schema";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Progress } from "@/components/ui/progress";
+import { CircularProgressIndicator } from "@/components/ui/circular-progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -450,49 +451,16 @@ export function OKRDetailPage() {
                 <span className="text-sm font-medium">Gesamtfortschritt</span>
                 <span className="text-sm text-muted-foreground">{progress}%</span>
               </div>
-              <div className="h-3 rounded-full overflow-hidden relative">
-                {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
-                <div className="absolute inset-0 bg-white">
-                  <svg 
-                    width="100%" 
-                    height="100%" 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className="overflow-visible"
-                  >
-                    <defs>
-                      <pattern 
-                        id="diagonalHatch" 
-                        width="4" 
-                        height="4" 
-                        patternUnits="userSpaceOnUse" 
-                        patternTransform="rotate(45)"
-                      >
-                        <line 
-                          x1="0" 
-                          y1="0" 
-                          x2="0" 
-                          y2="4" 
-                          stroke="#888" 
-                          strokeWidth="1.5" 
-                          strokeOpacity="0.65"
-                        />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#diagonalHatch)" />
-                  </svg>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <CircularProgressIndicator 
+                    value={progress} 
+                    size="lg" 
+                    label={`${progress}%`}
+                    useStripedBackground={true}
+                    className="mx-auto"
+                  />
                 </div>
-                
-                {/* Fortschrittsbalken */}
-                <div 
-                  role="progressbar" 
-                  className={cn(
-                    "h-full rounded-full transition-all relative z-10",
-                    progress === 100 ? 
-                      "bg-green-500" : 
-                      "bg-gradient-to-r from-blue-400 to-blue-600"
-                  )}
-                  style={{ width: `${progress}%` }}
-                />
               </div>
             </div>
           </GlassCard>
@@ -557,54 +525,13 @@ export function OKRDetailPage() {
                           </TableCell>
                           <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
                           <TableCell onClick={() => toggleRow(kr.id)}>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 flex-1 rounded-full overflow-hidden relative">
-                                {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
-                                <div className="absolute inset-0 bg-white">
-                                  <svg 
-                                    width="100%" 
-                                    height="100%" 
-                                    xmlns="http://www.w3.org/2000/svg" 
-                                    className="overflow-visible"
-                                  >
-                                    <defs>
-                                      <pattern 
-                                        id="diagonalHatchKR" 
-                                        width="4" 
-                                        height="4" 
-                                        patternUnits="userSpaceOnUse" 
-                                        patternTransform="rotate(45)"
-                                      >
-                                        <line 
-                                          x1="0" 
-                                          y1="0" 
-                                          x2="0" 
-                                          y2="4" 
-                                          stroke="#888" 
-                                          strokeWidth="1.5" 
-                                          strokeOpacity="0.65"
-                                        />
-                                      </pattern>
-                                    </defs>
-                                    <rect width="100%" height="100%" fill="url(#diagonalHatchKR)" />
-                                  </svg>
-                                </div>
-                                
-                                {/* Fortschrittsbalken */}
-                                <div 
-                                  role="progressbar" 
-                                  className={cn(
-                                    "h-full rounded-full transition-all relative z-10",
-                                    krProgress === 100 ? 
-                                      "bg-green-500" : 
-                                      "bg-gradient-to-r from-blue-400 to-blue-600"
-                                  )}
-                                  style={{ width: `${krProgress}%` }}
-                                />
-                              </div>
-                              <span className="text-sm text-muted-foreground w-12 text-right">
-                                {krProgress}%
-                              </span>
+                            <div className="flex items-center gap-3 justify-between">
+                              <CircularProgressIndicator 
+                                value={krProgress} 
+                                size="sm" 
+                                label={`${krProgress}%`}
+                                useStripedBackground={true}
+                              />
                             </div>
                           </TableCell>
                           <TableCell>
