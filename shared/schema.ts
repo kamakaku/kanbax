@@ -596,6 +596,12 @@ export type Project = typeof projects.$inferSelect & {
     email: string;
     avatarUrl: string | null;
   }[];
+  creator?: {
+    id: number;
+    username: string;
+    email: string;
+    avatarUrl: string | null;
+  } | null;
 };
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;

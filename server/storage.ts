@@ -165,11 +165,28 @@ export class DatabaseStorage implements IStorage {
           .where(inArray(users.id, project.memberIds));
       }
       
+      // Creator des Projekts laden
+      let creator = null;
+      if (project.creator_id) {
+        const [creatorUser] = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(eq(users.id, project.creator_id));
+          
+        creator = creatorUser;
+      }
+      
       // Personalisierter Favoriten-Status basierend auf userFavoriteProjects
       return {
         ...project,
         isFavorite: favorite ? true : false,
-        members: members
+        members: members,
+        creator: creator
       };
     } catch (error) {
       console.error("Error in getProject:", error);

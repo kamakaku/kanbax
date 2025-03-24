@@ -166,12 +166,26 @@ export default function ProjectDetail() {
   // Logge Projekt-Struktur zur Analyse
   console.log("Projekt-Struktur:", project);
 
-  // Ersteller-Information wird bei Projekten noch nicht gespeichert
-  // Diese Logik wird später implementiert
-  const isCreator = user?.isCompanyAdmin;
+  // Prüfen, ob der aktuelle Benutzer der Ersteller des Projekts ist
+  const isCreator = user?.id === project.creator_id;
 
   const getProjectCreatorName = () => {
-    return user?.username || "Unbekannt";
+    if (project.creator && project.creator.username) {
+      return project.creator.username;
+    }
+    
+    // Fallback: Wenn creator vorhanden ist, aber kein username
+    if (project.creator) {
+      return "Benutzer #" + project.creator.id;
+    }
+    
+    // Wenn kein creator-Objekt da ist, aber creator_id vorhanden
+    if (project.creator_id) {
+      const creatorUser = users.find(u => u.id === project.creator_id);
+      return creatorUser?.username || "Benutzer #" + project.creator_id;
+    }
+    
+    return "Unbekannt";
   };
 
   return (
