@@ -202,7 +202,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
-            className="space-y-4"
+            className="space-y-4 pb-4"
           >
             <FormField
               control={form.control}
