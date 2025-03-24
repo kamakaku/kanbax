@@ -181,17 +181,37 @@ export default function AllOKRs() {
         open={isObjectiveDialogOpen} 
         onOpenChange={setIsObjectiveDialogOpen}
       >
-        <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
-          <DialogHeader>
-            <DialogTitle>Neues Objective erstellen</DialogTitle>
-          </DialogHeader>
-          <ObjectiveForm 
-            onSuccess={() => {
-              console.log("Form submitted successfully, closing dialog");
-              setIsObjectiveDialogOpen(false);
-              toast({ title: "Objective erfolgreich erstellt" });
-            }} 
-          />
+        <DialogContent className="sm:max-w-[600px] p-0">
+          <div className="p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle>Neues Objective erstellen</DialogTitle>
+            </DialogHeader>
+          </div>
+          
+          <div className="overflow-y-auto px-6 pb-0 pt-2" style={{ maxHeight: "calc(85vh - 160px)" }}>
+            <ObjectiveForm 
+              onSuccess={() => {
+                console.log("Form submitted successfully, closing dialog");
+                setIsObjectiveDialogOpen(false);
+                toast({ title: "Objective erfolgreich erstellt" });
+              }} 
+            />
+          </div>
+          
+          <div className="p-6 border-t flex flex-row justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsObjectiveDialogOpen(false)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              type="submit"
+              form="objective-form"
+            >
+              Objective erstellen
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

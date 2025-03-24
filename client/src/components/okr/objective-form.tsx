@@ -195,7 +195,7 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form id="objective-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="title"
@@ -388,10 +388,6 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
             </FormItem>
           )}
         />
-
-        <DialogFooter>
-          <Button type="submit">Objective erstellen</Button>
-        </DialogFooter>
       </form>
     </Form>
   );

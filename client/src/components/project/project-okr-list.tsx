@@ -91,11 +91,31 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
       )}
 
       <Dialog open={isObjectiveDialogOpen} onOpenChange={setIsObjectiveDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Neues Objective erstellen</DialogTitle>
-          </DialogHeader>
-          <ObjectiveForm onSuccess={() => setIsObjectiveDialogOpen(false)} />
+        <DialogContent className="sm:max-w-[600px] p-0">
+          <div className="p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle>Neues Objective erstellen</DialogTitle>
+            </DialogHeader>
+          </div>
+          
+          <div className="overflow-y-auto px-6 pb-0 pt-2" style={{ maxHeight: "calc(85vh - 160px)" }}>
+            <ObjectiveForm onSuccess={() => setIsObjectiveDialogOpen(false)} />
+          </div>
+          
+          <div className="p-6 border-t flex flex-row justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsObjectiveDialogOpen(false)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              type="submit"
+              form="objective-form"
+            >
+              Objective erstellen
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
