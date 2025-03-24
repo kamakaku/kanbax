@@ -54,6 +54,9 @@ export class PermissionService {
       .where(eq(teams.id, teamId));
 
     if (!team) return false;
+    
+    // Ersteller hat immer Zugriff
+    if (team.creatorId === userId) return true;
 
     // Prüfe, ob der Benutzer Zugriff auf das Unternehmen hat
     const hasCompanyAccess = await this.canAccessCompany(userId, team.companyId);
@@ -81,6 +84,12 @@ export class PermissionService {
       .where(eq(projects.id, projectId));
 
     if (!project) return false;
+    
+    // Ersteller hat immer Zugriff
+    if (project.creatorId === userId) return true;
+    
+    // Direkt zugewiesene Mitglieder haben Zugriff
+    if (project.memberIds?.includes(userId)) return true;
 
     // Prüfe, ob der Benutzer Zugriff auf das Unternehmen hat
     if (project.companyId) {
