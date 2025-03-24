@@ -10,9 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star, Users, Building2, Calendar } from "lucide-react";
+import { Pencil, Star, Users, Building2, Calendar, Crown } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
@@ -69,14 +70,15 @@ export function Board() {
     },
   });
 
-  // Get team and user names
+  // Get team, user and creator information
   const getTeamAndUserInfo = () => {
-    if (!board) return { teams: [], users: [] };
+    if (!board) return { teams: [], users: [], creator: null };
 
     const boardTeams = teams.filter(team => board.team_ids?.includes(team.id));
     const boardUsers = users.filter(user => board.assigned_user_ids?.includes(user.id));
+    const creator = users.find(user => user.id === board.creator_id);
 
-    return { teams: boardTeams, users: boardUsers };
+    return { teams: boardTeams, users: boardUsers, creator };
   };
 
   useEffect(() => {
@@ -221,7 +223,7 @@ export function Board() {
     );
   }
 
-  const { teams: boardTeams, users: boardUsers } = getTeamAndUserInfo();
+  const { teams: boardTeams, users: boardUsers, creator } = getTeamAndUserInfo();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
@@ -246,6 +248,24 @@ export function Board() {
               )}
 
               <div className="flex gap-4 mt-4">
+                {/* Creator Section */}
+                {creator && (
+                  <div className="flex items-center gap-2">
+                    <Crown className="h-4 w-4 text-amber-500" />
+                    <div className="flex items-center gap-1">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={creator.avatarUrl || undefined} alt={creator.username} />
+                        <AvatarFallback className="text-xs bg-amber-100 text-amber-800">
+                          {creator.username.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
+                        {creator.username} <span className="ml-1 text-xs">(Ersteller)</span>
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Teams Section */}
                 {boardTeams.length > 0 && (
                   <div className="flex items-center gap-2">
@@ -265,11 +285,13 @@ export function Board() {
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <div className="flex flex-wrap gap-1">
-                      {boardUsers.map((user) => (
-                        <Badge key={user.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
-                          {user.username}
-                        </Badge>
-                      ))}
+                      {boardUsers
+                        .filter(user => user.id !== board.creator_id) // Filtere Creator aus, da er bereits angezeigt wird
+                        .map((user) => (
+                          <Badge key={user.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
+                            {user.username}
+                          </Badge>
+                        ))}
                     </div>
                   </div>
                 )}
