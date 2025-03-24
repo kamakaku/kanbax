@@ -253,7 +253,7 @@ export default function AllBoards() {
           {/* Status Progress Bar */}
           <div className="px-4 mb-3">
             <div className="flex items-center justify-between mb-1.5">
-              <div className="w-full h-2 bg-gray-100 rounded-full flex overflow-hidden mr-2">
+              <div className="w-full h-3 bg-gray-100 rounded-full flex overflow-hidden mr-2 relative bg-[repeating-linear-gradient(135deg,rgba(0,0,0,0),rgba(0,0,0,0)_2px,rgba(255,255,255,0.65)_2px,rgba(255,255,255,0.65)_4px)]">
                 {percentages.backlog > 0 && (
                   <div 
                     className={`${statusColors.backlog} h-full`} 
