@@ -346,12 +346,19 @@ export default function ProjectDetail() {
             
             <TabsContent value="members" className="space-y-4">
               <div className="bg-card rounded-lg border p-4 space-y-3">
-                {/* Sammle alle Benutzer-IDs aus den zugewiesenen Boards */}
+                {/* Zeige direkte Projektmitglieder und Board-Mitglieder an */}
                 {(() => {
-                  // Sammle alle Benutzer-IDs aus den zugewiesenen Boards
+                  // Sammle alle Benutzer-IDs
                   const userIds = new Set<number>();
                   
-                  // Füge Board-Benutzer hinzu
+                  // Füge direkte Projektmitglieder hinzu, wenn vorhanden
+                  if (project.members && project.members.length > 0) {
+                    project.members.forEach(member => userIds.add(member.id));
+                  } else if (project.memberIds && project.memberIds.length > 0) {
+                    project.memberIds.forEach(id => userIds.add(id));
+                  }
+                  
+                  // Füge zusätzlich Board-Benutzer hinzu
                   projectBoards.forEach(board => {
                     if (board.assigned_user_ids) {
                       board.assigned_user_ids.forEach(id => userIds.add(id));
@@ -359,12 +366,12 @@ export default function ProjectDetail() {
                   });
                   
                   // Finde alle Benutzer anhand der IDs
-                  const teamMembers = Array.from(userIds)
+                  const projectMembers = Array.from(userIds)
                     .map(id => users.find(user => user.id === id))
                     .filter(Boolean); // Entferne undefined-Werte
                   
-                  if (teamMembers.length > 0) {
-                    return teamMembers.map(member => (
+                  if (projectMembers.length > 0) {
+                    return projectMembers.map(member => (
                       <div key={member!.id} className="flex items-center space-x-2">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={member!.avatarUrl || ""} />
