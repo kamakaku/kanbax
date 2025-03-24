@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { type Project, type Board, type Objective } from "@shared/schema";
+import { type Project } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardDescription, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
@@ -96,11 +96,11 @@ export default function AllProjects() {
 
   // Zähle Boards und OKRs pro Projekt
   const getBoardCount = (projectId: number) => {
-    return boards.filter((board: Board) => board.project_id === projectId && !board.archived).length;
+    return boards.filter(board => board.project_id === projectId && !board.archived).length;
   };
 
   const getOkrCount = (projectId: number) => {
-    return objectives.filter((objective: Objective) => objective.projectId === projectId && objective.status !== "archived").length;
+    return objectives.filter(objective => objective.projectId === projectId && objective.status !== "archived").length;
   };
 
   // Funktion zum Archivieren eines Projekts

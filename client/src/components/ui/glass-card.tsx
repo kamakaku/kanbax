@@ -15,7 +15,6 @@ export function GlassCard({
     <Card
       className={cn(
         "relative overflow-hidden backdrop-blur-sm border-opacity-40",
-        "masked-card", // Direkt auf die Card-Komponente anwenden
         intensity === "low" && "bg-white/20 border-white/20",
         intensity === "medium" && "bg-white/30 border-white/30",
         intensity === "high" && "bg-white/40 border-white/40",
