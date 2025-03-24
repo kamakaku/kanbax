@@ -24,15 +24,18 @@ export default function AllBoards() {
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    queryFn: () => apiRequest("GET", "/api/projects"),
   });
 
   const { data: boards = [], isLoading: boardsLoading } = useQuery<Board[]>({
     queryKey: ["/api/boards"],
+    queryFn: () => apiRequest("GET", "/api/boards"),
   });
   
   // Alle Tasks für alle Boards abrufen
   const { data: allTasksData, isLoading: tasksLoading } = useQuery<Record<number, Task[]>>({
     queryKey: ['/api/all-tasks'],
+    queryFn: () => apiRequest("GET", "/api/all-tasks"),
   });
 
   const handleBoardClick = (board: Board) => {
@@ -127,18 +130,55 @@ export default function AllBoards() {
   const archivedNonFavoriteBoards = archivedBoards.filter(b => !b.is_favorite);
 
   const BoardCard = ({ board }: { board: Board }) => {
-    // Für jede Task-Kategorie einen zufälligen Wert bestimmen (Später mit echten Daten)
+    // Die tatsächlichen Task-Status-Counts für das Board berechnen
     const getTaskStatusCounts = () => {
-      // Hier würden wir später die tatsächlichen Task-Counts verwenden
-      // Aktuell werden Platzhalter-Werte basierend auf Board-ID generiert
-      const seed = board.id;
-      return {
-        backlog: seed % 7 + 1,
-        todo: seed % 5 + 2,
-        inProgress: seed % 4 + 1,
-        review: seed % 3,
-        done: seed % 6 + 2
+      if (!allTasksData || !allTasksData[board.id]) {
+        // Fallback, wenn keine Daten verfügbar sind
+        return {
+          backlog: 0,
+          todo: 0,
+          inProgress: 0,
+          review: 0,
+          done: 0
+        };
+      }
+      
+      // Tasks für dieses Board filtern und nach Status gruppieren
+      const boardTasks = allTasksData[board.id];
+      
+      // Statusverteilung zählen
+      const counts = {
+        backlog: 0,
+        todo: 0,
+        inProgress: 0,
+        review: 0,
+        done: 0
       };
+      
+      boardTasks.forEach(task => {
+        switch(task.status) {
+          case 'backlog':
+            counts.backlog++;
+            break;
+          case 'todo':
+            counts.todo++;
+            break;
+          case 'in-progress':
+            counts.inProgress++;
+            break;
+          case 'review':
+            counts.review++;
+            break;
+          case 'done':
+            counts.done++;
+            break;
+          default:
+            // Unbekannter Status - als Backlog zählen
+            counts.backlog++;
+        }
+      });
+      
+      return counts;
     };
     
     const statusCounts = getTaskStatusCounts();
@@ -170,7 +210,16 @@ export default function AllBoards() {
     const doneWidth = `${percentages.done}%`;
     
     // Formatierung des Erstellungsdatums
-    const formattedDate = "2025-03-24"; // Platzhalter (später durch board.createdAt ersetzen)
+    let formattedDate = "";
+    try {
+      if (board.created_at) {
+        formattedDate = format(new Date(board.created_at), 'dd.MM.yyyy', { locale: de });
+      } else {
+        formattedDate = format(new Date(), 'dd.MM.yyyy', { locale: de }); // Fallback auf aktuelles Datum
+      }
+    } catch (error) {
+      formattedDate = format(new Date(), 'dd.MM.yyyy', { locale: de }); // Fallback bei Fehler
+    }
     
     return (
       <div
