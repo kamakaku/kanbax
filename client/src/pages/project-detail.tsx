@@ -216,17 +216,11 @@ export default function ProjectDetail() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <GlassCard className="p-6">
-            <div className="flex justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Projekt-Details</h2>
-                <p className="text-muted-foreground mt-2">{project.description || "Keine Beschreibung vorhanden"}</p>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Erstellt von</div>
-                <div className="font-medium">{getProjectCreatorName()}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {new Date(project.createdAt).toLocaleDateString()}
-                </div>
+            <div>
+              <h2 className="text-xl font-semibold">Projekt-Details</h2>
+              <p className="text-muted-foreground mt-2">{project.description || "Keine Beschreibung vorhanden"}</p>
+              <div className="text-xs text-muted-foreground mt-1">
+                Erstellt am {new Date(project.createdAt).toLocaleDateString()}
               </div>
             </div>
             
