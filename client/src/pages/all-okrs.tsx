@@ -179,11 +179,15 @@ export default function AllOKRs() {
       
       <CardContent className="p-4 pt-2 pb-2">
         <div className="flex items-center space-x-2 mb-3">
-          <div className="h-3 flex-1 rounded-full bg-gray-100 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0wIDZoNnYtNmgtNnoiIGZpbGw9IiNkMWQxZDEiIGZpbGwtb3BhY2l0eT0iMC4yIiBzdHJva2U9Im5vbmUiLz48L3N2Zz4=')] bg-[length:6px_6px] overflow-hidden">
+          <div className="h-3 flex-1 rounded-full bg-gray-100 overflow-hidden relative">
+            {/* Schraffur-Hintergrund mit SVG-Muster */}
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHBhdGggZD0iTTAgMTBMMTAgME0tMSAxMEw5IDBNMTAgMTBMMCAwIiBzdHJva2U9IiNhYWEiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLW9wYWNpdHk9IjAuMyIgZmlsbD0ibm9uZSIvPgo8L3N2Zz4=')] bg-[length:10px_10px]"></div>
+            
+            {/* Fortschrittsbalken */}
             <div 
               role="progressbar" 
               className={cn(
-                "h-full rounded-full transition-all",
+                "h-full rounded-full transition-all relative z-10",
                 objective.progress === 100 ? 
                   "bg-green-500" : 
                   "bg-gradient-to-r from-blue-400 to-blue-600"
