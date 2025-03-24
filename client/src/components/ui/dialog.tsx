@@ -51,8 +51,12 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { 
+    showBottomBar?: boolean,
+    bottomBarClassName?: string,
+    bottomBarContent?: React.ReactNode
+  }
+>(({ className, children, showBottomBar = false, bottomBarClassName, bottomBarContent, ...props }, ref) => {
   const [popoverOpen, setPopoverOpen] = React.useState(false);
 
   // Diese Funktion verfolgt, ob ein Popover geöffnet ist
@@ -73,13 +77,36 @@ const DialogContent = React.forwardRef<
     };
   }, []);
 
+  // Wir prüfen das children-Prop, um herauszufinden, ob ein DialogFooter vorhanden ist
+  // Wenn ja, aktivieren wir automatisch die Bottom Bar
+  let containsFooter = false;
+  let footerContent = null;
+  
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child) && child.type === DialogFooter) {
+      containsFooter = true;
+      footerContent = child;
+    }
+  });
+
+  // Filtere das DialogFooter-Element aus den children heraus, wenn wir es in der BottomBar anzeigen
+  const filteredChildren = showBottomBar || containsFooter
+    ? React.Children.toArray(children).filter(
+        child => !React.isValidElement(child) || child.type !== DialogFooter
+      )
+    : children;
+
+  const shouldShowBottomBar = showBottomBar || containsFooter;
+  const bottomBarContentToShow = bottomBarContent || footerContent;
+
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[50] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+          "fixed left-[50%] top-[50%] z-[50] flex flex-col w-full max-w-lg translate-x-[-50%] translate-y-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
+          shouldShowBottomBar ? "pb-0" : "p-6",
           className
         )}
         onPointerDownOutside={(e) => {
@@ -100,7 +127,19 @@ const DialogContent = React.forwardRef<
         }}
         {...props}
       >
-        {children}
+        <div className={shouldShowBottomBar ? "flex-grow overflow-y-auto p-6" : ""}>
+          {filteredChildren}
+        </div>
+        
+        {shouldShowBottomBar && bottomBarContentToShow && (
+          <div className={cn(
+            "mt-auto border-t px-6 py-4 bg-muted/30 backdrop-blur-sm flex items-center justify-end gap-2 sticky bottom-0",
+            bottomBarClassName
+          )}>
+            {bottomBarContentToShow}
+          </div>
+        )}
+        
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
