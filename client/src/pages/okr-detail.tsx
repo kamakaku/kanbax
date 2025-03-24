@@ -1,13 +1,29 @@
-import { useParams } from "wouter";
+import { useParams, useLocation, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Objective, type KeyResult, type User } from "@shared/schema";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star, ChevronDown, ChevronRight } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { 
+  PlusCircle, 
+  UserCircle, 
+  Calendar, 
+  Target, 
+  Edit, 
+  CheckCircle2, 
+  Star, 
+  ChevronDown, 
+  ChevronRight,
+  ChevronLeft,
+  Users,
+  Clipboard
+} from "lucide-react";
 import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
@@ -26,6 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-store";
 
 interface ChecklistItem {
   title: string;
@@ -42,6 +59,8 @@ export function OKRDetailPage() {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const { user } = useAuth();
 
   const { data: objective, isLoading: isLoadingObjective, error } = useQuery<Objective>({
     queryKey: ["/api/objectives", objectiveId],
@@ -224,95 +243,73 @@ export function OKRDetailPage() {
     ? Math.round(keyResults.reduce((sum, kr) => sum + (kr.currentValue || 0), 0) / keyResults.length)
     : 0;
 
+  // Ersteller-Information wird momentan noch nicht bei OKRs gespeichert
+  const isCreator = user?.isCompanyAdmin;
+
+  const getObjectiveCreatorName = () => {
+    return user?.username || "Unbekannt";
+  };
+
   return (
-    <div className="container mx-auto py-6 space-y-8">
-      <div className="flex justify-center relative">
-        {/* Background gradient for glassmorphism effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-lg -z-10" />
+    <div className="container py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={() => navigate("/all-okrs")}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Zurück
+          </Button>
+          <h1 className="text-2xl font-bold">{objective.title}</h1>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={handleToggleFavorite}
+            className="hover:bg-yellow-100"
+          >
+            <Star 
+              className={`h-4 w-4 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
+            />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setIsEditingObjective(true)}>
+            <Edit className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-        <GlassCard className="w-2/3 relative">
-          <div className="absolute -left-3 top-1/2 w-1 h-24 bg-primary -translate-y-1/2" />
-          <div className="space-y-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-2xl font-semibold">{objective.title}</h3>
-                  {progress === 100 && (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  )}
-                </div>
-                <p className="text-muted-foreground">{objective.description}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          <GlassCard className="p-6">
+            <div className="flex justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">OKR-Details</h2>
+                <p className="text-muted-foreground mt-2">{objective.description || "Keine Beschreibung vorhanden"}</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="flex -space-x-2 mr-4">
-                  {assignedUsers.map((user) => user && (
-                    <Avatar key={user.id} className="h-10 w-10 border-2 border-background">
-                      {user.avatarUrl ? (
-                        <AvatarImage src={user.avatarUrl} alt={user.username} />
-                      ) : (
-                        <AvatarFallback>
-                          <UserCircle className="h-5 w-5" />
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditingObjective(true)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleToggleFavorite}
-                    className="hover:bg-yellow-100"
-                  >
-                    <Star 
-                      className={`h-5 w-5 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400 hover:text-yellow-400"}`}
-                    />
-                  </Button>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Erstellt von</div>
+                <div className="font-medium">{getObjectiveCreatorName()}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-4 gap-4 text-sm">
-              <div className="space-y-1">
-                <div className="text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Erstellt am
-                </div>
-                <div>{format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-muted-foreground flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Status
-                </div>
-                <div>{objective.status}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Zyklus
-                </div>
-                <div>{objective.cycleId ? (objective.cycle?.title || "Zyklus " + objective.cycleId) : "Kein Zyklus"}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-muted-foreground">Verantwortlich</div>
-                <div>
-                  {assignedUsers
-                    .filter(Boolean)
-                    .map(user => user?.username)
-                    .join(", ") || "Nicht zugewiesen"}
-                </div>
-              </div>
+            
+            <Separator className="my-4" />
+            
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary" className="flex items-center">
+                <Users className="h-3 w-3 mr-1" />
+                {assignedUsers.filter(Boolean).length} Verantwortliche
+              </Badge>
+              <Badge variant="secondary" className="flex items-center">
+                <Clipboard className="h-3 w-3 mr-1" />
+                {keyResults.length} Key Results
+              </Badge>
+              <Badge variant="secondary" className="flex items-center">
+                <Target className="h-3 w-3 mr-1" />
+                {progress}% Fortschritt
+              </Badge>
             </div>
-
-            <div className="space-y-2">
+            
+            <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Gesamtfortschritt</span>
                 <span className="text-sm text-muted-foreground">{progress}%</span>
@@ -325,163 +322,242 @@ export function OKRDetailPage() {
                 )} 
               />
             </div>
-          </div>
-        </GlassCard>
-      </div>
+          </GlassCard>
 
-      <div className="space-y-6 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-lg -z-10" />
+          <Tabs defaultValue="key-results" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="key-results">Key Results</TabsTrigger>
+              <TabsTrigger value="activities">Aktivitäten</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="key-results" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="text-lg font-semibold">Key Results ({keyResults.length})</h4>
+                <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
+                  <Button onClick={() => setIsKeyResultDialogOpen(true)}>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Key Result hinzufügen
+                  </Button>
+                  <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
+                    <DialogHeader>
+                      <DialogTitle>Neues Key Result erstellen</DialogTitle>
+                    </DialogHeader>
+                    <KeyResultForm
+                      objectiveId={objectiveId}
+                      onSuccess={() => setIsKeyResultDialogOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+              
+              {keyResults.length > 0 ? (
+                <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px]"></TableHead>
+                        <TableHead>Titel</TableHead>
+                        <TableHead>Beschreibung</TableHead>
+                        <TableHead className="w-[100px]">Fortschritt</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {keyResults.map((kr) => {
+                        const krProgress = kr.currentValue || 0;
+                        const isExpanded = expandedRows.has(kr.id);
 
-        <div className="flex justify-between items-center">
-          <h4 className="text-lg font-semibold">Key Results</h4>
-          <Dialog open={isKeyResultDialogOpen} onOpenChange={setIsKeyResultDialogOpen}>
-            <Button onClick={() => setIsKeyResultDialogOpen(true)}>
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Key Result hinzufügen
-            </Button>
-            <DialogContent className="backdrop-blur-md bg-white/80 border-white/40">
-              <DialogHeader>
-                <DialogTitle>Neues Key Result erstellen</DialogTitle>
-              </DialogHeader>
-              <KeyResultForm
-                objectiveId={objectiveId}
-                onSuccess={() => setIsKeyResultDialogOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
+                        // Wir verwenden zwei separate Array-Elemente: die Hauptzeile und (wenn erweitert) die Details-Zeile
+                        return [
+                          // Hauptzeile - immer sichtbar
+                          <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => toggleRow(kr.id)}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
+                              <div className="flex items-center gap-2">
+                                {kr.title}
+                                {krProgress === 100 && (
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
+                            <TableCell onClick={() => toggleRow(kr.id)}>
+                              <div className="flex items-center gap-2">
+                                <Progress 
+                                  value={krProgress} 
+                                  className={cn(
+                                    "flex-1",
+                                    krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                                  )} 
+                                />
+                                <span className="text-sm text-muted-foreground w-12 text-right">
+                                  {krProgress}%
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingKR(kr);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>,
+                          
+                          // Erweiterte Zeile - nur wenn erweitert
+                          isExpanded ? (
+                            <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
+                              <TableCell colSpan={5} className="p-4">
+                                <div className="space-y-4">
+                                  {kr.type === "percentage" && (
+                                    <div className="flex items-center gap-4">
+                                      <span className="text-sm font-medium">Prozent:</span>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
+                                        onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                        onBlur={() => handleProgressInputBlur(kr)}
+                                        className="w-24"
+                                      />
+                                    </div>
+                                  )}
+
+                                  {kr.type === "checkbox" && (
+                                    <div className="flex items-center gap-4">
+                                      <Checkbox
+                                        checked={kr.currentValue === 100}
+                                        onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
+                                      />
+                                      <span className="text-sm">Abgeschlossen</span>
+                                    </div>
+                                  )}
+
+                                  {kr.type === "checklist" && kr.checklistItems && (
+                                    <div className="space-y-2">
+                                      {kr.checklistItems.map((item, index) => {
+                                        const checklistItem = typeof item === 'string' 
+                                          ? JSON.parse(item) as ChecklistItem 
+                                          : item;
+
+                                        return (
+                                          <div key={index} className="flex items-center gap-4">
+                                            <Checkbox
+                                              checked={checklistItem.completed}
+                                              onCheckedChange={(checked) => 
+                                                handleChecklistItemUpdate(kr, index, checked === true)
+                                              }
+                                            />
+                                            <span className="text-sm">{checklistItem.title}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ) : null
+                        ];
+                      })}
+                    </TableBody>
+                  </Table>
+                </Card>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Keine Key Results für dieses Objective.
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="activities" className="space-y-4">
+              <div className="text-center py-8 text-muted-foreground">
+                Keine Aktivitäten für diesen OKR vorhanden.
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        <GlassCard intensity="low">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40px]"></TableHead>
-                <TableHead>Titel</TableHead>
-                <TableHead>Beschreibung</TableHead>
-                <TableHead className="w-[100px]">Fortschritt</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {keyResults.map((kr) => {
-                const krProgress = kr.currentValue || 0;
-                const isExpanded = expandedRows.has(kr.id);
+        <div className="space-y-4">
+          <Tabs defaultValue="users" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="users">Verantwortliche</TabsTrigger>
+              <TabsTrigger value="details">Details</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="users" className="space-y-4">
+              <div className="bg-card rounded-lg border p-4 space-y-3">
+                {assignedUsers.filter(Boolean).map((user) => user && (
+                  <div key={user.id} className="flex items-center space-x-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.avatarUrl || ""} />
+                      <AvatarFallback>{user.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-grow">
+                      <div className="text-sm font-medium">{user.username}</div>
+                      <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                    </div>
+                  </div>
+                ))}
+                
+                {assignedUsers.filter(Boolean).length === 0 && (
+                  <div className="text-sm text-muted-foreground">Keine Verantwortlichen zugewiesen</div>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="details" className="space-y-4">
+              <div className="bg-card rounded-lg border p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Status</div>
+                    <div className="font-medium">{objective.status || "Nicht gesetzt"}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Zyklus</div>
+                    <div className="font-medium">
+                      {objective.cycleId ? (objective.cycle?.title || "Zyklus " + objective.cycleId) : "Kein Zyklus"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Erstellungsdatum</div>
+                    <div className="font-medium">
+                      {format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Fortschritt</div>
+                    <div className="font-medium">{progress}%</div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
-                // Wir verwenden zwei separate Array-Elemente: die Hauptzeile und (wenn erweitert) die Details-Zeile
-                return [
-                  // Hauptzeile - immer sichtbar
-                  <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => toggleRow(kr.id)}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
-                      <div className="flex items-center gap-2">
-                        {kr.title}
-                        {krProgress === 100 && (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
-                    <TableCell onClick={() => toggleRow(kr.id)}>
-                      <div className="flex items-center gap-2">
-                        <Progress 
-                          value={krProgress} 
-                          className={cn(
-                            "flex-1",
-                            krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                          )} 
-                        />
-                        <span className="text-sm text-muted-foreground w-12 text-right">
-                          {krProgress}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingKR(kr);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>,
-                  
-                  // Erweiterte Zeile - nur wenn erweitert
-                  isExpanded ? (
-                    <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
-                      <TableCell colSpan={5} className="p-4">
-                        <div className="space-y-4">
-                          {kr.type === "percentage" && (
-                            <div className="flex items-center gap-4">
-                              <span className="text-sm font-medium">Prozent:</span>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
-                                onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                                onBlur={() => handleProgressInputBlur(kr)}
-                                className="w-24"
-                              />
-                            </div>
-                          )}
-
-                          {kr.type === "checkbox" && (
-                            <div className="flex items-center gap-4">
-                              <Checkbox
-                                checked={kr.currentValue === 100}
-                                onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
-                              />
-                              <span className="text-sm">Abgeschlossen</span>
-                            </div>
-                          )}
-
-                          {kr.type === "checklist" && kr.checklistItems && (
-                            <div className="space-y-2">
-                              {kr.checklistItems.map((item, index) => {
-                                const checklistItem = typeof item === 'string' 
-                                  ? JSON.parse(item) as ChecklistItem 
-                                  : item;
-
-                                return (
-                                  <div key={index} className="flex items-center gap-4">
-                                    <Checkbox
-                                      checked={checklistItem.completed}
-                                      onCheckedChange={(checked) => 
-                                        handleChecklistItemUpdate(kr, index, checked === true)
-                                      }
-                                    />
-                                    <span className="text-sm">{checklistItem.title}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : null
-                ];
-              })}
-            </TableBody>
-          </Table>
-        </GlassCard>
+          <h3 className="text-lg font-semibold mt-6">Neueste Aktivitäten</h3>
+          <div className="bg-card rounded-lg border p-4 space-y-3 text-sm text-muted-foreground">
+            Keine aktuellen Aktivitäten
+          </div>
+        </div>
       </div>
 
       <Dialog open={!!editingKR} onOpenChange={(open) => !open && setEditingKR(null)}>
