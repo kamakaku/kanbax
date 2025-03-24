@@ -253,42 +253,76 @@ export default function AllBoards() {
           {/* Status Progress Bar */}
           <div className="px-4 mb-3">
             <div className="flex items-center justify-between mb-1.5">
-              <div className="w-full h-3 bg-gray-100 rounded-full flex overflow-hidden mr-2 relative bg-[repeating-linear-gradient(135deg,rgba(0,0,0,0),rgba(0,0,0,0)_2px,rgba(255,255,255,0.65)_2px,rgba(255,255,255,0.65)_4px)]">
-                {percentages.backlog > 0 && (
-                  <div 
-                    className={`${statusColors.backlog} h-full`} 
-                    style={{ width: backlogWidth }}
-                    title={`Backlog: ${statusCounts.backlog} Aufgaben`}
-                  ></div>
-                )}
-                {percentages.todo > 0 && (
-                  <div 
-                    className={`${statusColors.todo} h-full`} 
-                    style={{ width: todoWidth }}
-                    title={`ToDo: ${statusCounts.todo} Aufgaben`}
-                  ></div>
-                )}
-                {percentages.inProgress > 0 && (
-                  <div 
-                    className={`${statusColors.inProgress} h-full`} 
-                    style={{ width: inProgressWidth }}
-                    title={`In Progress: ${statusCounts.inProgress} Aufgaben`}
-                  ></div>
-                )}
-                {percentages.review > 0 && (
-                  <div 
-                    className={`${statusColors.review} h-full`} 
-                    style={{ width: reviewWidth }}
-                    title={`Review: ${statusCounts.review} Aufgaben`}
-                  ></div>
-                )}
-                {percentages.done > 0 && (
-                  <div 
-                    className={`${statusColors.done} h-full`} 
-                    style={{ width: doneWidth }}
-                    title={`Done: ${statusCounts.done} Aufgaben`}
-                  ></div>
-                )}
+              <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden mr-2 relative">
+                {/* Schraffur-Hintergrund mit diagonalen Linien */}
+                <div className="absolute inset-0 bg-white">
+                  <svg 
+                    width="100%" 
+                    height="100%" 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="overflow-visible"
+                  >
+                    <defs>
+                      <pattern 
+                        id="boardDiagonalHatch" 
+                        width="4" 
+                        height="4" 
+                        patternUnits="userSpaceOnUse" 
+                        patternTransform="rotate(45)"
+                      >
+                        <line 
+                          x1="0" 
+                          y1="0" 
+                          x2="0" 
+                          y2="4" 
+                          stroke="#888" 
+                          strokeWidth="1.5" 
+                          strokeOpacity="0.65"
+                        />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#boardDiagonalHatch)" />
+                  </svg>
+                </div>
+                
+                {/* Fortschrittsbalken für Aufgaben */}
+                <div className="h-full flex relative z-10">
+                  {percentages.backlog > 0 && (
+                    <div 
+                      className={`${statusColors.backlog} h-full`} 
+                      style={{ width: backlogWidth }}
+                      title={`Backlog: ${statusCounts.backlog} Aufgaben`}
+                    ></div>
+                  )}
+                  {percentages.todo > 0 && (
+                    <div 
+                      className={`${statusColors.todo} h-full`} 
+                      style={{ width: todoWidth }}
+                      title={`ToDo: ${statusCounts.todo} Aufgaben`}
+                    ></div>
+                  )}
+                  {percentages.inProgress > 0 && (
+                    <div 
+                      className={`${statusColors.inProgress} h-full`} 
+                      style={{ width: inProgressWidth }}
+                      title={`In Progress: ${statusCounts.inProgress} Aufgaben`}
+                    ></div>
+                  )}
+                  {percentages.review > 0 && (
+                    <div 
+                      className={`${statusColors.review} h-full`} 
+                      style={{ width: reviewWidth }}
+                      title={`Review: ${statusCounts.review} Aufgaben`}
+                    ></div>
+                  )}
+                  {percentages.done > 0 && (
+                    <div 
+                      className={`${statusColors.done} h-full`} 
+                      style={{ width: doneWidth }}
+                      title={`Done: ${statusCounts.done} Aufgaben`}
+                    ></div>
+                  )}
+                </div>
               </div>
               <span className="text-xs text-gray-500 whitespace-nowrap">{totalTasks} Aufgaben</span>
             </div>
