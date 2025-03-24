@@ -192,18 +192,19 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="max-h-[85vh] flex flex-col p-0">
+        <div className="px-6 pt-6 pb-2">
           <DialogTitle>
             {keyResult ? "Key Result bearbeiten" : "Neues Key Result erstellen"}
           </DialogTitle>
-        </DialogHeader>
+        </div>
         
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
-            className="space-y-4 pb-4"
-          >
+        <div className="px-6 overflow-y-auto" style={{ maxHeight: "calc(85vh - 10rem)" }}>
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
+              className="space-y-4"
+            >
             <FormField
               control={form.control}
               name="title"
@@ -417,25 +418,29 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
               </div>
             )}
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Abbrechen
-              </Button>
-              <Button
-                type="submit"
-                disabled={mutation.isPending}
-              >
-                {mutation.isPending
-                  ? keyResult ? "Wird aktualisiert..." : "Wird erstellt..."
-                  : keyResult ? "Key Result aktualisieren" : "Key Result erstellen"}
-              </Button>
-            </DialogFooter>
+  
           </form>
-        </Form>
+          </Form>
+        </div>
+        
+        <div className="border-t px-6 py-4 bg-background flex items-center justify-end gap-2 w-full">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            type="submit"
+            disabled={mutation.isPending}
+            onClick={form.handleSubmit((data) => mutation.mutate(data))}
+          >
+            {mutation.isPending
+              ? keyResult ? "Wird aktualisiert..." : "Wird erstellt..."
+              : keyResult ? "Key Result aktualisieren" : "Key Result erstellen"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
