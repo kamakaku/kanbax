@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { type Objective } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,28 +38,25 @@ export default function AllOKRs() {
     setLocation(`/all-okrs/${objective.id}`);
   };
 
-  const toggleFavorite = useMutation({
-    mutationFn: async ({ objectiveId, e }: { objectiveId: number, e: React.MouseEvent }) => {
-      e.stopPropagation();
-      return await apiRequest('PATCH', `/api/objectives/${objectiveId}/favorite`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
+  const handleToggleFavorite = async (objective: Objective, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await apiRequest('PATCH', `/api/objectives/${objective.id}/favorite`);
+      await queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
       toast({
         title: "Favoriten-Status aktualisiert",
         description: "Der Favoriten-Status des Objectives wurde aktualisiert.",
         variant: "default"
       });
-    },
-    onError: (error: Error) => {
+    } catch (error) {
       console.error("Failed to toggle favorite:", error);
       toast({
         title: "Fehler",
-        description: `Fehler beim Aktualisieren des Favoriten-Status: ${error.message}`,
+        description: `Fehler beim Aktualisieren des Favoriten-Status: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,
         variant: "destructive"
       });
     }
-  });
+  };
 
   const handleNewOKRClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -121,7 +118,7 @@ export default function AllOKRs() {
                           variant="ghost"
                           size="icon"
                           className="p-1 hover:bg-yellow-100"
-                          onClick={(e) => toggleFavorite.mutate({ objectiveId: objective.id, e })}
+                          onClick={(e) => handleToggleFavorite(objective, e)}
                         >
                           <Star className={`h-5 w-5 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
                         </Button>
@@ -159,7 +156,7 @@ export default function AllOKRs() {
                           variant="ghost"
                           size="icon"
                           className="p-1 hover:bg-yellow-100"
-                          onClick={(e) => toggleFavorite.mutate({ objectiveId: objective.id, e })}
+                          onClick={(e) => handleToggleFavorite(objective, e)}
                         >
                           <Star className={`h-5 w-5 ${objective.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
                         </Button>

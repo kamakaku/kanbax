@@ -1,5 +1,5 @@
 import { useParams } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Objective, type KeyResult, type User } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -182,29 +182,27 @@ export function OKRDetailPage() {
     });
   };
 
-  const toggleFavorite = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('PATCH', `/api/objectives/${objectiveId}/favorite`);
-    },
-    onSuccess: () => {
+  const handleToggleFavorite = async () => {
+    try {
+      await apiRequest('PATCH', `/api/objectives/${objectiveId}/favorite`);
+      
       // Aktualisiere sowohl die Detailansicht als auch die Listenansicht
-      queryClient.invalidateQueries({ queryKey: ["/api/objectives", objectiveId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/objectives", objectiveId] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/objectives"] });
       
       toast({
         title: "Favoriten-Status aktualisiert",
         description: "Der Favoriten-Status des Objectives wurde aktualisiert.",
-        variant: "success"
+        variant: "default"
       });
-    },
-    onError: (error) => {
+    } catch (error) {
       toast({
         title: "Fehler",
-        description: `Fehler beim Aktualisieren des Favoriten-Status: ${error.message}`,
+        description: `Fehler beim Aktualisieren des Favoriten-Status: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,
         variant: "destructive"
       });
     }
-  });
+  };
 
   if (isLoadingObjective || isLoadingKeyResults) {
     return <div className="text-center py-8">Lade OKR Details...</div>;
@@ -272,7 +270,7 @@ export function OKRDetailPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => toggleFavorite.mutate()}
+                    onClick={handleToggleFavorite}
                     className="hover:bg-yellow-100"
                   >
                     <Star 
