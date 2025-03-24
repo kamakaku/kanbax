@@ -55,8 +55,11 @@ export class PermissionService {
 
     if (!team) return false;
     
-    // Ersteller hat immer Zugriff
-    if (team.creatorId === userId) return true;
+    // WICHTIG: Ersteller hat immer Zugriff, unabhängig von allen anderen Berechtigungen
+    if (team.creatorId === userId) {
+      console.log(`Access GRANTED: User ${userId} is creator of team ${teamId}`);
+      return true;
+    }
 
     // Prüfe, ob der Benutzer Zugriff auf das Unternehmen hat
     const hasCompanyAccess = await this.canAccessCompany(userId, team.companyId);
@@ -85,11 +88,17 @@ export class PermissionService {
 
     if (!project) return false;
     
-    // Ersteller hat immer Zugriff
-    if (project.creator_id === userId) return true;
+    // WICHTIG: Ersteller hat immer Zugriff, unabhängig von allen anderen Berechtigungen
+    if (project.creator_id === userId) {
+      console.log(`Access GRANTED: User ${userId} is creator of project ${projectId}`);
+      return true;
+    }
     
     // Direkt zugewiesene Mitglieder haben Zugriff
-    if (project.memberIds?.includes(userId)) return true;
+    if (project.memberIds?.includes(userId)) {
+      console.log(`Access GRANTED: User ${userId} is directly assigned to project ${projectId}`);
+      return true;
+    }
 
     // Prüfe, ob der Benutzer Zugriff auf das Unternehmen hat
     if (project.companyId) {
@@ -170,11 +179,17 @@ export class PermissionService {
 
     if (!objective) return false;
 
-    // Ersteller hat immer Zugriff
-    if (objective.creatorId === userId) return true;
+    // WICHTIG: Ersteller hat immer Zugriff, unabhängig von allen anderen Berechtigungen
+    if (objective.creatorId === userId) {
+      console.log(`Access GRANTED: User ${userId} is creator of objective ${objectiveId}`);
+      return true;
+    }
 
     // Prüfe direkte Benutzerzuweisung
-    if (objective.userIds?.includes(userId)) return true;
+    if (objective.userIds?.includes(userId)) {
+      console.log(`Access GRANTED: User ${userId} is directly assigned to objective ${objectiveId}`);
+      return true;
+    }
 
     // Prüfe Objective-Mitgliedsrolle
     const [objectiveMember] = await db
