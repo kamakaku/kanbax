@@ -269,47 +269,20 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mitglieder</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        const id = parseInt(value);
-                        if (!field.value?.includes(id)) {
-                          field.onChange([...(field.value || []), id]);
-                        }
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Mitglied hinzufügen" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id.toString()}>
-                            {user.username}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {field.value?.map((userId) => {
-                        const userItem = users.find((u) => u.id === userId);
-                        return (
-                          <Badge key={userId} variant="secondary">
-                            {userItem?.username}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 ml-1"
-                              onClick={() => {
-                                field.onChange(field.value?.filter((id) => id !== userId));
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
+                    <FormControl>
+                      <MultiSelect
+                        placeholder="Mitglieder auswählen..."
+                        options={users.map(user => ({
+                          value: user.id.toString(),
+                          label: user.username
+                        }))}
+                        selected={Array.isArray(field.value) ? field.value.map(id => id.toString()) : []}
+                        onChange={(values) => {
+                          const numberValues = values.map(v => parseInt(v));
+                          field.onChange(numberValues);
+                        }}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
