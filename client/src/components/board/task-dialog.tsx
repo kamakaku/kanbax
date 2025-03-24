@@ -463,7 +463,7 @@ export function TaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? (task ? "Aufgabe bearbeiten" : "Neue Aufgabe") : "Aufgabendetails"}
