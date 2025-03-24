@@ -91,7 +91,7 @@ export function OkrCycleForm({ onSuccess }: OkrCycleFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form id="okr-cycle-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="quarter"
@@ -145,10 +145,6 @@ export function OkrCycleForm({ onSuccess }: OkrCycleFormProps) {
             </FormItem>
           )}
         />
-
-        <DialogFooter>
-          <Button type="submit">OKR-Zyklus erstellen</Button>
-        </DialogFooter>
       </form>
     </Form>
   );
