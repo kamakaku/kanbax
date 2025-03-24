@@ -55,6 +55,7 @@ export const projects = pgTable("projects", {
   memberIds: integer("member_ids").array().default([]),
   isFavorite: boolean("is_favorite").default(false),
   companyId: integer("company_id").references(() => companies.id),
+  creator_id: integer("creator_id").notNull().default(1), // Default für existierende Einträge
 });
 
 // Update boards table definition

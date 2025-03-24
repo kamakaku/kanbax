@@ -86,7 +86,7 @@ export class PermissionService {
     if (!project) return false;
     
     // Ersteller hat immer Zugriff
-    if (project.creatorId === userId) return true;
+    if (project.creator_id === userId) return true;
     
     // Direkt zugewiesene Mitglieder haben Zugriff
     if (project.memberIds?.includes(userId)) return true;
