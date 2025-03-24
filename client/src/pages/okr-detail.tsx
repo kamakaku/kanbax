@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PlusCircle, UserCircle, Calendar, Target, Edit, CheckCircle2, Star, ChevronDown, ChevronRight } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { KeyResultForm } from "@/components/okr/key-result-form";
 import { ObjectiveEditForm } from "@/components/okr/objective-edit-form";
 import { format } from "date-fns";
@@ -356,116 +356,117 @@ export function OKRDetailPage() {
                 const krProgress = kr.currentValue || 0;
                 const isExpanded = expandedRows.has(kr.id);
 
-                return (
-                  <React.Fragment key={`kr-group-${kr.id}`}>
-                    <TableRow className="cursor-pointer hover:bg-muted/50">
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => toggleRow(kr.id)}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
+                // Wir verwenden zwei separate Array-Elemente: die Hauptzeile und (wenn erweitert) die Details-Zeile
+                return [
+                  // Hauptzeile - immer sichtbar
+                  <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => toggleRow(kr.id)}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableCell>
+                    <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
+                      <div className="flex items-center gap-2">
+                        {kr.title}
+                        {krProgress === 100 && (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
+                    <TableCell onClick={() => toggleRow(kr.id)}>
+                      <div className="flex items-center gap-2">
+                        <Progress 
+                          value={krProgress} 
+                          className={cn(
+                            "flex-1",
+                            krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                          )} 
+                        />
+                        <span className="text-sm text-muted-foreground w-12 text-right">
+                          {krProgress}%
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingKR(kr);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>,
+                  
+                  // Erweiterte Zeile - nur wenn erweitert
+                  isExpanded ? (
+                    <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
+                      <TableCell colSpan={5} className="p-4">
+                        <div className="space-y-4">
+                          {kr.type === "percentage" && (
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-medium">Prozent:</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
+                                onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                onBlur={() => handleProgressInputBlur(kr)}
+                                className="w-24"
+                              />
+                            </div>
                           )}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
-                        <div className="flex items-center gap-2">
-                          {kr.title}
-                          {krProgress === 100 && (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+
+                          {kr.type === "checkbox" && (
+                            <div className="flex items-center gap-4">
+                              <Checkbox
+                                checked={kr.currentValue === 100}
+                                onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
+                              />
+                              <span className="text-sm">Abgeschlossen</span>
+                            </div>
+                          )}
+
+                          {kr.type === "checklist" && kr.checklistItems && (
+                            <div className="space-y-2">
+                              {kr.checklistItems.map((item, index) => {
+                                const checklistItem = typeof item === 'string' 
+                                  ? JSON.parse(item) as ChecklistItem 
+                                  : item;
+
+                                return (
+                                  <div key={index} className="flex items-center gap-4">
+                                    <Checkbox
+                                      checked={checklistItem.completed}
+                                      onCheckedChange={(checked) => 
+                                        handleChecklistItemUpdate(kr, index, checked === true)
+                                      }
+                                    />
+                                    <span className="text-sm">{checklistItem.title}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
-                      <TableCell onClick={() => toggleRow(kr.id)}>
-                        <div className="flex items-center gap-2">
-                          <Progress 
-                            value={krProgress} 
-                            className={cn(
-                              "flex-1",
-                              krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                            )} 
-                          />
-                          <span className="text-sm text-muted-foreground w-12 text-right">
-                            {krProgress}%
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingKR(kr);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
                       </TableCell>
                     </TableRow>
-                    
-                    {isExpanded && (
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={5} className="p-4">
-                          <div className="space-y-4">
-                            {kr.type === "percentage" && (
-                              <div className="flex items-center gap-4">
-                                <span className="text-sm font-medium">Prozent:</span>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
-                                  onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                                  onBlur={() => handleProgressInputBlur(kr)}
-                                  className="w-24"
-                                />
-                              </div>
-                            )}
-
-                            {kr.type === "checkbox" && (
-                              <div className="flex items-center gap-4">
-                                <Checkbox
-                                  checked={kr.currentValue === 100}
-                                  onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
-                                />
-                                <span className="text-sm">Abgeschlossen</span>
-                              </div>
-                            )}
-
-                            {kr.type === "checklist" && kr.checklistItems && (
-                              <div className="space-y-2">
-                                {kr.checklistItems.map((item, index) => {
-                                  const checklistItem = typeof item === 'string' 
-                                    ? JSON.parse(item) as ChecklistItem 
-                                    : item;
-
-                                  return (
-                                    <div key={index} className="flex items-center gap-4">
-                                      <Checkbox
-                                        checked={checklistItem.completed}
-                                        onCheckedChange={(checked) => 
-                                          handleChecklistItemUpdate(kr, index, checked === true)
-                                        }
-                                      />
-                                      <span className="text-sm">{checklistItem.title}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                );
+                  ) : null
+                ];
               })}
             </TableBody>
           </Table>
