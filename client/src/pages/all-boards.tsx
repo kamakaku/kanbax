@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 
 export default function AllBoards() {
   const [, setLocation] = useLocation();
@@ -333,75 +334,69 @@ export default function AllBoards() {
                 
                 {/* Fortschrittsbalken für Aufgaben */}
                 <div className="h-full flex relative z-10">
+                  {/* Backlog */}
                   {percentages.backlog > 0 && (
-                    <div 
-                      className={`${statusConfig.backlog.color} h-full tooltip-wrapper group/tooltip`} 
-                      style={{ width: backlogWidth }}
-                      title={`${statusConfig.backlog.label}: ${statusCounts.backlog} Aufgaben`}
+                    <EnhancedTooltip
+                      content={<span className="font-bold">{statusConfig.backlog.label}</span>}
+                      description={`${statusConfig.backlog.description} - ${statusCounts.backlog} Aufgaben`}
                     >
-                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
-                        <p className="font-bold">{statusConfig.backlog.label}</p>
-                        <p className="text-xs opacity-80">{statusConfig.backlog.description}</p>
-                        <p className="mt-1">{statusCounts.backlog} Aufgaben</p>
-                        <div className="tooltip-arrow"></div>
-                      </div>
-                    </div>
+                      <div 
+                        className={`${statusConfig.backlog.color} h-full cursor-help`} 
+                        style={{ width: backlogWidth }}
+                      />
+                    </EnhancedTooltip>
                   )}
+                  
+                  {/* ToDo */}
                   {percentages.todo > 0 && (
-                    <div 
-                      className={`${statusConfig.todo.color} h-full tooltip-wrapper group/tooltip`} 
-                      style={{ width: todoWidth }}
-                      title={`${statusConfig.todo.label}: ${statusCounts.todo} Aufgaben`}
+                    <EnhancedTooltip
+                      content={<span className="font-bold">{statusConfig.todo.label}</span>}
+                      description={`${statusConfig.todo.description} - ${statusCounts.todo} Aufgaben`}
                     >
-                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
-                        <p className="font-bold">{statusConfig.todo.label}</p>
-                        <p className="text-xs opacity-80">{statusConfig.todo.description}</p>
-                        <p className="mt-1">{statusCounts.todo} Aufgaben</p>
-                        <div className="tooltip-arrow"></div>
-                      </div>
-                    </div>
+                      <div 
+                        className={`${statusConfig.todo.color} h-full cursor-help`} 
+                        style={{ width: todoWidth }}
+                      />
+                    </EnhancedTooltip>
                   )}
+                  
+                  {/* In Progress */}
                   {percentages.inProgress > 0 && (
-                    <div 
-                      className={`${statusConfig.inProgress.color} h-full tooltip-wrapper group/tooltip`} 
-                      style={{ width: inProgressWidth }}
-                      title={`${statusConfig.inProgress.label}: ${statusCounts.inProgress} Aufgaben`}
+                    <EnhancedTooltip
+                      content={<span className="font-bold">{statusConfig.inProgress.label}</span>}
+                      description={`${statusConfig.inProgress.description} - ${statusCounts.inProgress} Aufgaben`}
                     >
-                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
-                        <p className="font-bold">{statusConfig.inProgress.label}</p>
-                        <p className="text-xs opacity-80">{statusConfig.inProgress.description}</p>
-                        <p className="mt-1">{statusCounts.inProgress} Aufgaben</p>
-                        <div className="tooltip-arrow"></div>
-                      </div>
-                    </div>
+                      <div 
+                        className={`${statusConfig.inProgress.color} h-full cursor-help`} 
+                        style={{ width: inProgressWidth }}
+                      />
+                    </EnhancedTooltip>
                   )}
+                  
+                  {/* Review */}
                   {percentages.review > 0 && (
-                    <div 
-                      className={`${statusConfig.review.color} h-full tooltip-wrapper group/tooltip`} 
-                      style={{ width: reviewWidth }}
-                      title={`${statusConfig.review.label}: ${statusCounts.review} Aufgaben`}
+                    <EnhancedTooltip
+                      content={<span className="font-bold">{statusConfig.review.label}</span>}
+                      description={`${statusConfig.review.description} - ${statusCounts.review} Aufgaben`}
                     >
-                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
-                        <p className="font-bold">{statusConfig.review.label}</p>
-                        <p className="text-xs opacity-80">{statusConfig.review.description}</p>
-                        <p className="mt-1">{statusCounts.review} Aufgaben</p>
-                        <div className="tooltip-arrow"></div>
-                      </div>
-                    </div>
+                      <div 
+                        className={`${statusConfig.review.color} h-full cursor-help`} 
+                        style={{ width: reviewWidth }}
+                      />
+                    </EnhancedTooltip>
                   )}
+                  
+                  {/* Done */}
                   {percentages.done > 0 && (
-                    <div 
-                      className={`${statusConfig.done.color} h-full tooltip-wrapper group/tooltip`} 
-                      style={{ width: doneWidth }}
-                      title={`${statusConfig.done.label}: ${statusCounts.done} Aufgaben`}
+                    <EnhancedTooltip
+                      content={<span className="font-bold">{statusConfig.done.label}</span>}
+                      description={`${statusConfig.done.description} - ${statusCounts.done} Aufgaben`}
                     >
-                      <div className="absolute hidden group-hover/tooltip:block bg-black/80 text-white text-xs p-2 rounded bottom-full left-1/2 transform -translate-x-1/2 mb-1 min-w-[150px] z-50 pointer-events-none">
-                        <p className="font-bold">{statusConfig.done.label}</p>
-                        <p className="text-xs opacity-80">{statusConfig.done.description}</p>
-                        <p className="mt-1">{statusCounts.done} Aufgaben</p>
-                        <div className="tooltip-arrow"></div>
-                      </div>
-                    </div>
+                      <div 
+                        className={`${statusConfig.done.color} h-full cursor-help`} 
+                        style={{ width: doneWidth }}
+                      />
+                    </EnhancedTooltip>
                   )}
                 </div>
               </div>
