@@ -180,7 +180,7 @@ export default function AllOKRs() {
       <CardContent className="p-4 pt-2 pb-2">
         <div className="flex items-center space-x-2 mb-3">
           <div className="h-3 flex-1 rounded-full overflow-hidden relative">
-            {/* Schraffur-Hintergrund mit durchgehenden diagonalen Linien */}
+            {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
             <div className="absolute inset-0 bg-white">
               <svg 
                 width="100%" 
@@ -191,8 +191,8 @@ export default function AllOKRs() {
                 <defs>
                   <pattern 
                     id="diagonalHatch" 
-                    width="6" 
-                    height="6" 
+                    width="4" 
+                    height="4" 
                     patternUnits="userSpaceOnUse" 
                     patternTransform="rotate(45)"
                   >
@@ -200,10 +200,10 @@ export default function AllOKRs() {
                       x1="0" 
                       y1="0" 
                       x2="0" 
-                      y2="6" 
+                      y2="4" 
                       stroke="#888" 
                       strokeWidth="1.5" 
-                      strokeOpacity="0.6"
+                      strokeOpacity="0.65"
                     />
                   </pattern>
                 </defs>

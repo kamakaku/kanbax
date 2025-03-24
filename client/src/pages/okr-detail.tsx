@@ -450,13 +450,50 @@ export function OKRDetailPage() {
                 <span className="text-sm font-medium">Gesamtfortschritt</span>
                 <span className="text-sm text-muted-foreground">{progress}%</span>
               </div>
-              <Progress 
-                value={progress} 
-                className={cn(
-                  "h-2",
-                  progress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                )} 
-              />
+              <div className="h-3 rounded-full overflow-hidden relative">
+                {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
+                <div className="absolute inset-0 bg-white">
+                  <svg 
+                    width="100%" 
+                    height="100%" 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="overflow-visible"
+                  >
+                    <defs>
+                      <pattern 
+                        id="diagonalHatch" 
+                        width="4" 
+                        height="4" 
+                        patternUnits="userSpaceOnUse" 
+                        patternTransform="rotate(45)"
+                      >
+                        <line 
+                          x1="0" 
+                          y1="0" 
+                          x2="0" 
+                          y2="4" 
+                          stroke="#888" 
+                          strokeWidth="1.5" 
+                          strokeOpacity="0.65"
+                        />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#diagonalHatch)" />
+                  </svg>
+                </div>
+                
+                {/* Fortschrittsbalken */}
+                <div 
+                  role="progressbar" 
+                  className={cn(
+                    "h-full rounded-full transition-all relative z-10",
+                    progress === 100 ? 
+                      "bg-green-500" : 
+                      "bg-gradient-to-r from-blue-400 to-blue-600"
+                  )}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
           </GlassCard>
 
@@ -521,13 +558,50 @@ export function OKRDetailPage() {
                           <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
                           <TableCell onClick={() => toggleRow(kr.id)}>
                             <div className="flex items-center gap-2">
-                              <Progress 
-                                value={krProgress} 
-                                className={cn(
-                                  "flex-1",
-                                  krProgress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                                )} 
-                              />
+                              <div className="h-2 flex-1 rounded-full overflow-hidden relative">
+                                {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
+                                <div className="absolute inset-0 bg-white">
+                                  <svg 
+                                    width="100%" 
+                                    height="100%" 
+                                    xmlns="http://www.w3.org/2000/svg" 
+                                    className="overflow-visible"
+                                  >
+                                    <defs>
+                                      <pattern 
+                                        id="diagonalHatchKR" 
+                                        width="4" 
+                                        height="4" 
+                                        patternUnits="userSpaceOnUse" 
+                                        patternTransform="rotate(45)"
+                                      >
+                                        <line 
+                                          x1="0" 
+                                          y1="0" 
+                                          x2="0" 
+                                          y2="4" 
+                                          stroke="#888" 
+                                          strokeWidth="1.5" 
+                                          strokeOpacity="0.65"
+                                        />
+                                      </pattern>
+                                    </defs>
+                                    <rect width="100%" height="100%" fill="url(#diagonalHatchKR)" />
+                                  </svg>
+                                </div>
+                                
+                                {/* Fortschrittsbalken */}
+                                <div 
+                                  role="progressbar" 
+                                  className={cn(
+                                    "h-full rounded-full transition-all relative z-10",
+                                    krProgress === 100 ? 
+                                      "bg-green-500" : 
+                                      "bg-gradient-to-r from-blue-400 to-blue-600"
+                                  )}
+                                  style={{ width: `${krProgress}%` }}
+                                />
+                              </div>
                               <span className="text-sm text-muted-foreground w-12 text-right">
                                 {krProgress}%
                               </span>
