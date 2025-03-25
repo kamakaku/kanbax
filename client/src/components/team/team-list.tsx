@@ -57,9 +57,17 @@ export function TeamList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold tracking-tight">Teams</h2>
-        <Button onClick={() => setIsCreating(true)}>
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Teams
+          </h1>
+          <p className="text-muted-foreground mt-2">Übersicht und Verwaltung aller Teams</p>
+        </div>
+        <Button 
+          onClick={() => setIsCreating(true)}
+          className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Neues Team
         </Button>
