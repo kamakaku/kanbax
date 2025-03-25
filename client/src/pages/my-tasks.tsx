@@ -75,6 +75,9 @@ export default function MyTasks() {
   // Laden der zugewiesenen Aufgaben des aktuellen Benutzers
   const { data: tasks, isLoading, error } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/user/tasks/assigned"],
+    queryFn: async () => {
+      return apiRequest<TaskWithDetails[]>("GET", "/api/user/tasks/assigned");
+    },
     staleTime: 1000 * 60, // 1 Minute
   });
 
