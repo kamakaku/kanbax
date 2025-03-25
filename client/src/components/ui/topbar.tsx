@@ -70,9 +70,9 @@ export function Topbar() {
   });
 
   return (
-    <div className="fixed top-0 right-0 left-0 h-16 z-50 px-4 flex items-center justify-between bg-white/30 backdrop-blur-md border-b border-white/20">
+    <div className="fixed top-0 right-0 left-0 h-16 z-50 flex items-center justify-between bg-white/80 backdrop-blur-lg border-b">
       {/* Logo */}
-      <div className="flex items-center">
+      <div className="flex items-center pl-4">
         <div className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent flex items-center gap-2">
           <svg
             viewBox="0 0 24 24"

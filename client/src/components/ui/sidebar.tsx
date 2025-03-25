@@ -196,7 +196,7 @@ const Sidebar = React.forwardRef<
         className={cn(
           "flex w-[--sidebar-width] flex-col backdrop-blur-lg bg-white/80",
           "transition-all duration-300 ease-in-out will-change-[width,transform]",
-          "fixed left-0 top-0 h-screen",
+          "fixed left-0 top-0 h-screen z-40",
           state === "collapsed" && "w-[--sidebar-width-icon]",
           side === "left" ? "border-r" : "border-l",
           className

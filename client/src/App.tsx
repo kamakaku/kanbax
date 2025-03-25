@@ -126,7 +126,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               "min-h-screen w-full",
               "px-6 py-6 mr-12 mt-16", 
               "bg-white/30 backdrop-blur-[2px]",
-              "transition-[width] duration-300 ease-in-out"
+              "transition-all duration-300 ease-in-out"
             )}
           >
             {children}
