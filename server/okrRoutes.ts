@@ -294,6 +294,7 @@ export function registerOkrRoutes(app: Express) {
         keyResults: objectiveKeyResults
       };
 
+      // Erstelle einen Aktivitätslog für die Objective-Erstellung mit Benachrichtigungsflag
       const activityLog = await storage.createActivityLog({
         action: "create",
         details: "Neues OKR erstellt",
@@ -301,8 +302,57 @@ export function registerOkrRoutes(app: Express) {
         objectiveId: objective.id,
         projectId: objective.projectId || null,
         boardId: null,
-        taskId: null
+        taskId: null,
+        requiresNotification: true,
+        notificationType: "okr_create"
       });
+      
+      // Benachrichtigungen für zugewiesene Benutzer erstellen
+      if (objective.userIds && Array.isArray(objective.userIds)) {
+        for (const assignedUserId of objective.userIds) {
+          // Nicht den Ersteller selbst benachrichtigen
+          if (assignedUserId === objective.creatorId) continue;
+          
+          await storage.createActivityLog({
+            action: "assign",
+            details: `Sie wurden dem OKR "${objective.title}" zugewiesen`,
+            userId: objective.creatorId,
+            targetUserId: assignedUserId,
+            objectiveId: objective.id,
+            projectId: objective.projectId || null,
+            requiresNotification: true,
+            notificationType: "assignment"
+          });
+        }
+      }
+
+      // Wenn Benutzer dem Objective zugewiesen wurden, erstelle für jeden Benutzer eine Zuweisungsbenachrichtigung
+      if (objective.userIds && Array.isArray(objective.userIds) && objective.userIds.length > 0) {
+        try {
+          // Hole den Titel des Objectives für bessere Benachrichtigungen
+          const objectiveTitle = objective.title;
+          
+          // Erstelle für jeden zugewiesenen Benutzer eine Benachrichtigung
+          for (const assignedUserId of objective.userIds) {
+            // Überspringe den Ersteller (keine Selbst-Benachrichtigungen)
+            if (assignedUserId === objective.creatorId) continue;
+            
+            await storage.createActivityLog({
+              action: "assign",
+              details: `Sie wurden dem OKR "${objectiveTitle}" zugewiesen`,
+              userId: objective.creatorId, // Wer hat die Zuweisung vorgenommen
+              targetUserId: assignedUserId, // Wer wurde zugewiesen
+              objectiveId: objective.id,
+              projectId: objective.projectId || null,
+              requiresNotification: true,
+              notificationType: "assignment"
+            });
+          }
+        } catch (error) {
+          console.error("Fehler beim Erstellen der Zuweisungsbenachrichtigungen:", error);
+          // Wir lassen den Fehler nicht die Antwort beeinflussen, sondern loggen ihn nur
+        }
+      }
 
       res.status(201).json(response);
     } catch (error) {
@@ -329,6 +379,10 @@ export function registerOkrRoutes(app: Express) {
         return res.status(403).json({ message: "Keine Berechtigung zum Aktualisieren dieses Objectives" });
       }
 
+      // Holen Sie das vorherige Objective, um Änderungen zu vergleichen
+      const prevObjective = await db.select().from(objectives).where(eq(objectives.id, id));
+      
+      // Führe das Update durch
       const updated = await db.update(objectives)
         .set(req.body)
         .where(eq(objectives.id, id))
@@ -336,6 +390,48 @@ export function registerOkrRoutes(app: Express) {
       if (updated.length === 0) {
         return res.status(404).json({ message: "Objective nicht gefunden" });
       }
+      
+      // Aktivitätsprotokoll für die Aktualisierung erstellen
+      await storage.createActivityLog({
+        action: "update",
+        details: "OKR aktualisiert",
+        userId: userId,
+        objectiveId: id,
+        requiresNotification: true,
+        notificationType: "okr_update"
+      });
+      
+      // Überprüfe auf neue Benutzerzuweisungen
+      if (req.body.userIds && Array.isArray(req.body.userIds)) {
+        // Bestimme vorherige zugewiesene Benutzer
+        const prevUserIds = prevObjective[0]?.userIds || [];
+        
+        // Finde neu hinzugefügte Benutzer (in req.body.userIds aber nicht in prevUserIds)
+        const newUserIds: number[] = [];
+        for (const uid of req.body.userIds) {
+          if (!prevUserIds.includes(uid) && uid !== userId) {
+            newUserIds.push(uid);
+          }
+        }
+        
+        // Hole den Titel des Objectives für bessere Benachrichtigungen
+        const objectiveTitle = updated[0].title;
+        
+        // Erstelle für jeden neuen zugewiesenen Benutzer eine Benachrichtigung
+        for (const newUserId of newUserIds) {
+          await storage.createActivityLog({
+            action: "assign",
+            details: `Sie wurden dem OKR "${objectiveTitle}" zugewiesen`,
+            userId: userId, // Wer hat die Zuweisung vorgenommen
+            targetUserId: newUserId, // Wer wurde zugewiesen
+            objectiveId: id,
+            projectId: updated[0].projectId || null,
+            requiresNotification: true,
+            notificationType: "assignment"
+          });
+        }
+      }
+      
       res.json(updated[0]);
     } catch (error) {
       console.error("Fehler beim Aktualisieren des Objective:", error);
@@ -361,18 +457,47 @@ export function registerOkrRoutes(app: Express) {
         return res.status(403).json({ message: "Keine Berechtigung zum Löschen dieses Objectives" });
       }
 
-      await db.delete(objectives).where(eq(objectives.id, id));
-
-      // Aktivitätsprotokoll für das Löschen des Objectives
-      await storage.createActivityLog({
-        action: "delete",
-        details: "Objective gelöscht",
-        userId: userId,
-        objectiveId: id,
-        taskId: null,
-        boardId: null,
-        projectId: null
-      });
+      // Hole das Objective, bevor es gelöscht wird, um die zugewiesenen Benutzer zu benachrichtigen
+      const objective = await db.select().from(objectives).where(eq(objectives.id, id));
+      
+      if (objective.length > 0) {
+        const objectiveTitle = objective[0].title;
+        const userIds = objective[0].userIds || [];
+        
+        // Lösche das Objective
+        await db.delete(objectives).where(eq(objectives.id, id));
+        
+        // Aktivitätsprotokoll für das Löschen des Objectives mit Benachrichtigungsflag
+        await storage.createActivityLog({
+          action: "delete",
+          details: "Objective gelöscht",
+          userId: userId,
+          objectiveId: id,
+          taskId: null,
+          boardId: null,
+          projectId: null,
+          requiresNotification: true,
+          notificationType: "okr_delete"
+        });
+        
+        // Benachrichtige zugewiesene Benutzer über das Löschen
+        for (const assignedUserId of userIds) {
+          // Überspringe den Benutzer, der die Löschung durchführt
+          if (assignedUserId === userId) continue;
+          
+          await storage.createActivityLog({
+            action: "delete",
+            details: `Das OKR "${objectiveTitle}" wurde gelöscht`,
+            userId: userId,
+            targetUserId: assignedUserId,
+            requiresNotification: true,
+            notificationType: "okr_delete"
+          });
+        }
+      } else {
+        // Falls das Objective nicht gefunden wurde, lösche es einfach
+        await db.delete(objectives).where(eq(objectives.id, id));
+      }
 
       res.status(204).send();
     } catch (error) {
