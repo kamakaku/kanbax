@@ -1,120 +1,149 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { CircularProgressIndicator } from "@/components/ui/circular-progress";
-import { Task } from "@shared/schema";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { Task } from "@shared/schema";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskDialog } from "@/components/board/task-dialog";
-import { Clock, CircleCheck, CalendarDays, ArrowUpRight, Tag } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { ArrowUpRight, CalendarDays, CircleCheck, Tag } from "lucide-react";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 
+// Hilfsfunktion zur Formatierung des Fälligkeitsdatums
+function formatDueDate(dateString: string | Date): string {
+  const date = typeof dateString === "string" ? new Date(dateString) : dateString;
+  return format(date, "dd. MMM yyyy", { locale: de });
+}
+
+// Komponente für die Anzeige der Priorität als Badge
+function PriorityBadge({ priority }: { priority: string }) {
+  let variant: "default" | "destructive" | "outline" | "secondary" = "default";
+  
+  switch (priority) {
+    case "high":
+      variant = "destructive";
+      break;
+    case "medium":
+      variant = "secondary";
+      break;
+    case "low":
+      variant = "outline";
+      break;
+    default:
+      variant = "default";
+  }
+
+  const priorityText = {
+    high: "Hoch",
+    medium: "Mittel",
+    low: "Niedrig"
+  }[priority] || priority;
+
+  return (
+    <Badge variant={variant} className="ml-2">
+      {priorityText}
+    </Badge>
+  );
+}
+
+// Hauptkomponente für "Meine Aufgaben"
 export default function MyTasks() {
-  const { toast } = useToast();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Abfrage der zugewiesenen Aufgaben
-  const { data: assignedTasks, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/user/tasks/assigned'],
-    queryFn: () => apiRequest<Task[]>('/api/user/tasks/assigned', 'GET'),
+  // Laden der zugewiesenen Aufgaben des aktuellen Benutzers
+  const { data: tasks, isLoading, error } = useQuery({
+    queryKey: ["/api/user/tasks/assigned"],
+    staleTime: 1000 * 60, // 1 Minute
   });
 
-  // Gruppiere Aufgaben nach Status
-  const groupedTasks = assignedTasks ? 
-    assignedTasks.reduce((acc: Record<string, Task[]>, task) => {
-      if (!acc[task.status]) {
-        acc[task.status] = [];
-      }
-      acc[task.status].push(task);
-      return acc;
-    }, {}) : {};
+  // Mutation zum Aktualisieren einer Aufgabe
+  const updateTaskMutation = useMutation({
+    mutationFn: async (updatedTask: Task) => {
+      return apiRequest("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/tasks/assigned"] });
+      toast({
+        title: "Aufgabe aktualisiert",
+        description: "Die Aufgabe wurde erfolgreich aktualisiert.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: `Fehler beim Aktualisieren: ${(error as Error).message}`,
+        variant: "destructive",
+      });
+    }
+  });
 
-  // Status-Mapping für übersetzungen
-  const statusTranslations: Record<string, string> = {
-    'backlog': 'Backlog',
-    'todo': 'Zu erledigen',
-    'in-progress': 'In Bearbeitung',
-    'review': 'Review',
-    'done': 'Erledigt'
-  };
-
-  // Status-Reihenfolge
-  const statusOrder = ['in-progress', 'todo', 'review', 'backlog', 'done'];
-
-  // Status-Farben
-  const statusColors: Record<string, string> = {
-    'backlog': 'bg-slate-200 text-slate-800',
-    'todo': 'bg-blue-100 text-blue-800',
-    'in-progress': 'bg-amber-100 text-amber-800',
-    'review': 'bg-purple-100 text-purple-800',
-    'done': 'bg-green-100 text-green-800'
-  };
-
-  // Handler für das Klicken auf eine Aufgabe
+  // Handler für Aufgaben-Klick
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setIsTaskDialogOpen(true);
   };
 
-  // Handler für das Aktualisieren einer Aufgabe
+  // Handler für Aufgaben-Update
   const handleTaskUpdate = async (updatedTask: Task) => {
-    try {
-      await apiRequest(`/api/tasks/${updatedTask.id}`, 'PATCH', updatedTask);
-      toast({
-        title: 'Aufgabe aktualisiert',
-        description: 'Die Aufgabe wurde erfolgreich aktualisiert.',
-      });
-      refetch();
-    } catch (error) {
-      console.error('Fehler beim Aktualisieren der Aufgabe:', error);
-      toast({
-        title: 'Fehler',
-        description: 'Die Aufgabe konnte nicht aktualisiert werden.',
-        variant: 'destructive',
-      });
-    }
+    return updateTaskMutation.mutateAsync(updatedTask);
   };
 
-  // Formatieren des Fälligkeitsdatums
-  const formatDueDate = (dateString?: string | null) => {
-    if (!dateString) return null;
+  // Gruppiert Aufgaben nach Status
+  const groupTasksByStatus = () => {
+    if (!tasks || !Array.isArray(tasks)) return {};
     
-    const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE');
-  };
-
-  // Prioritäts-Badge
-  const PriorityBadge = ({ priority }: { priority: string }) => {
-    const colors: Record<string, string> = {
-      'high': 'bg-red-100 text-red-800',
-      'medium': 'bg-amber-100 text-amber-800',
-      'low': 'bg-green-100 text-green-800'
-    };
+    const groups: Record<string, Task[]> = {};
     
-    const labels: Record<string, string> = {
-      'high': 'Hoch',
-      'medium': 'Mittel',
-      'low': 'Niedrig'
-    };
-
-    return (
-      <Badge className={colors[priority] || ''}>
-        {labels[priority] || priority}
-      </Badge>
-    );
+    tasks.forEach((task: Task) => {
+      if (!groups[task.status]) {
+        groups[task.status] = [];
+      }
+      groups[task.status].push(task);
+    });
+    
+    return groups;
   };
+
+  // Status-Übersetzungen und Reihenfolge
+  const statusOrder = ["todo", "in-progress", "review", "done", "backlog"];
+  const statusTranslations: Record<string, string> = {
+    "todo": "Zu erledigen",
+    "in-progress": "In Bearbeitung",
+    "review": "In Überprüfung",
+    "done": "Erledigt",
+    "backlog": "Backlog"
+  };
+
+  // Status-Gruppen sortieren
+  const sortedGroups = Object.entries(groupTasksByStatus())
+    .sort(([statusA], [statusB]) => {
+      const indexA = statusOrder.indexOf(statusA);
+      const indexB = statusOrder.indexOf(statusB);
+      return indexA - indexB;
+    });
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="text-center">
-          <div className="mb-4">
-            <CircularProgressIndicator value={0} size="lg" />
-          </div>
-          <p className="text-sm text-muted-foreground">Lade zugewiesene Aufgaben...</p>
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-4 w-1/3 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4 mt-2" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -122,98 +151,94 @@ export default function MyTasks() {
 
   if (error) {
     return (
-      <div className="p-8 text-center">
-        <h2 className="text-2xl font-bold text-destructive mb-2">Fehler beim Laden</h2>
-        <p className="text-muted-foreground mb-4">
-          {error instanceof Error ? error.message : 'Unbekannter Fehler'}
-        </p>
-        <Button onClick={() => refetch()} variant="outline">
-          Erneut versuchen
-        </Button>
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Fehler beim Laden</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Es ist ein Fehler beim Laden der Aufgaben aufgetreten. Bitte versuchen Sie es später erneut.</p>
+            <p className="text-sm text-muted-foreground mt-2">{(error as Error).message}</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
-          <p className="text-muted-foreground mt-1">
-            Alle Aufgaben, die dir zugewiesen sind
-          </p>
-        </div>
-        <Button onClick={() => refetch()}>Aktualisieren</Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
       </div>
-
-      {/* Aufgaben nach Status gruppiert anzeigen */}
-      {assignedTasks && assignedTasks.length > 0 ? (
+      
+      {sortedGroups.length > 0 ? (
         <div className="space-y-6">
-          {statusOrder.map(status => (
-            groupedTasks[status] && groupedTasks[status].length > 0 && (
-              <div key={status} className="rounded-lg border bg-card shadow-sm">
-                <div className="p-4 flex items-center gap-2">
-                  <Badge className={statusColors[status]}>
-                    {statusTranslations[status] || status}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {groupedTasks[status].length} Aufgabe{groupedTasks[status].length !== 1 ? 'n' : ''}
-                  </span>
-                </div>
-                <Separator />
-                <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {groupedTasks[status].map(task => (
-                    <Card 
-                      key={task.id} 
-                      className="cursor-pointer hover:border-primary/50 transition-colors"
-                      onClick={() => handleTaskClick(task)}
-                    >
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-base">{task.title}</CardTitle>
-                          <PriorityBadge priority={task.priority} />
-                        </div>
-                        {task.board && task.board.title && (
-                          <CardDescription className="flex items-center gap-1 mt-1">
-                            <ArrowUpRight size={12} />
-                            {task.board.title}
-                          </CardDescription>
+          {sortedGroups.map(([status, statusTasks]) => (
+            <div key={status} className="space-y-3">
+              <h2 className="text-xl font-semibold">
+                {statusTranslations[status] || status}
+                <Badge variant="outline" className="ml-2">
+                  {statusTasks.length}
+                </Badge>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {statusTasks.map((task: Task) => (
+                  <Card 
+                    key={task.id} 
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleTaskClick(task)}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-base">{task.title}</CardTitle>
+                        <PriorityBadge priority={task.priority} />
+                      </div>
+                      {task.board && (
+                        <CardDescription className="flex items-center gap-1 mt-1">
+                          <ArrowUpRight size={12} />
+                          {task.board.title}
+                          {task.project && (
+                            <span className="text-xs ml-1">
+                              ({task.project.title})
+                            </span>
+                          )}
+                        </CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {task.description && (
+                        <p className="text-sm line-clamp-2">{task.description}</p>
+                      )}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {task.dueDate && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CalendarDays size={12} />
+                            <span>Fällig: {formatDueDate(task.dueDate)}</span>
+                          </div>
                         )}
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        {task.description && (
-                          <p className="text-sm line-clamp-2">{task.description}</p>
+                        {task.checklist && task.checklist.length > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CircleCheck size={12} />
+                            <span>
+                              {task.checklist.filter((item: any) => item.checked).length}/{task.checklist.length}
+                            </span>
+                          </div>
                         )}
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          {task.dueDate && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <CalendarDays size={12} />
-                              <span>Fällig: {formatDueDate(task.dueDate)}</span>
-                            </div>
-                          )}
-                          {task.checklist && task.checklist.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <CircleCheck size={12} />
-                              <span>
-                                {task.checklist.filter((item: any) => item.checked).length}/{task.checklist.length}
-                              </span>
-                            </div>
-                          )}
-                          {task.labels && task.labels.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Tag size={12} />
-                              <span>
-                                {task.labels.length} Label{task.labels.length !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        {task.labels && task.labels.length > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Tag size={12} />
+                            <span>
+                              {task.labels.length} Label{task.labels.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            )
+            </div>
           ))}
         </div>
       ) : (
@@ -227,7 +252,7 @@ export default function MyTasks() {
 
       {/* Dialog für Aufgabendetails */}
       <TaskDialog
-        task={selectedTask}
+        task={selectedTask || undefined}
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
         onUpdate={handleTaskUpdate}

@@ -14,7 +14,7 @@ import {
   SidebarMenuButton,
   SidebarTrigger 
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target, LineChart, Users } from "lucide-react";
+import { LayoutDashboard, Folder, KanbanSquare, UserCircle, Target, LineChart, Users, CheckSquare } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import AllProjects from "@/pages/all-projects";
 import Auth from "@/pages/auth";
@@ -95,6 +95,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 >
                   <KanbanSquare className="h-4 w-4" />
                   <span>Boards</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setLocation("/my-tasks")}
+                  tooltip="Meine Aufgaben"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  <span>Meine Aufgaben</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -195,6 +204,7 @@ function AuthenticatedApp() {
       }} />
       <Route path="/productivity" component={() => <ProtectedRoute component={ProductivityPage} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
+      <Route path="/my-tasks" component={() => <ProtectedRoute component={MyTasks} />} />
       <Route path="/test-dialog" component={() => <ProtectedRoute component={TestDialog} />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
 
