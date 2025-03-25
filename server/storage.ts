@@ -757,109 +757,117 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getUserAssignedTasks(userId: number): Promise<Task[]> {
-    // Alle Tasks abrufen, die dem Benutzer zugewiesen sind
-    const userTasks = await db
-      .select({
-        id: tasks.id,
-        title: tasks.title,
-        description: tasks.description,
-        richDescription: tasks.richDescription,
-        status: tasks.status,
-        priority: tasks.priority,
-        labels: tasks.labels,
-        checklist: tasks.checklist,
-        columnId: tasks.columnId,
-        boardId: tasks.boardId,
-        dueDate: tasks.dueDate,
-        order: tasks.order,
-        assignedUserIds: tasks.assignedUserIds,
-        assignedTeamId: tasks.assignedTeamId,
-        archived: tasks.archived,
-        attachments: tasks.attachments,
-      })
-      .from(tasks)
-      .where(
-        and(
-          // Stelle sicher, dass der Benutzer direkt diesem Task zugewiesen ist
-          sql`${tasks.assignedUserIds} @> ARRAY[${userId}]::int[]`,
-          // Stelle sicher, dass nur nicht-archivierte Tasks berücksichtigt werden
-          eq(tasks.archived, false)
-        )
-      )
-      .orderBy(tasks.boardId, tasks.columnId, tasks.order);
+    try {
+      console.log(`Fetching tasks assigned to user: ${userId}`);
       
-    // Für jeden Task Zusatzinformationen abrufen (Board, Spalte, Projekt)
-    const enrichedTasks = await Promise.all(userTasks.map(async (task) => {
-      // Board abrufen, zu dem der Task gehört
-      const [board] = await db
-        .select({
-          id: boards.id,
-          title: boards.title,
-          projectId: boards.project_id,
-        })
-        .from(boards)
-        .where(eq(boards.id, task.boardId));
+      // Rufe alle Tasks ab, die dem Benutzer zugewiesen sind und nicht archiviert sind
+      const result = await pool.query(`
+        SELECT * FROM tasks 
+        WHERE assigned_user_ids @> ARRAY[$1] 
+          AND archived = false
+        ORDER BY board_id, column_id, "order"
+      `, [userId]);
+      
+      const userTasks = result.rows;
+      console.log(`Found ${userTasks.length} tasks assigned to user ${userId}`);
+      
+      // Für jeden Task Zusatzinformationen abrufen (Board, Spalte, Projekt)
+      const enrichedTasks = await Promise.all(userTasks.map(async (task) => {
+        // Konvertiere Postgres-Arrays zu JavaScript-Arrays
+        const checklist = Array.isArray(task.checklist) ? task.checklist : [];
+        const assignedUserIds = Array.isArray(task.assigned_user_ids) ? task.assigned_user_ids : [];
+        const labels = Array.isArray(task.labels) ? task.labels : [];
+        const attachments = Array.isArray(task.attachments) ? task.attachments : [];
         
-      // Spalte abrufen, in der sich der Task befindet
-      const [column] = await db
-        .select({
-          id: columns.id,
-          title: columns.title,
-        })
-        .from(columns)
-        .where(eq(columns.id, task.columnId));
+        // Board abrufen, zu dem der Task gehört
+        const [board] = await db
+          .select({
+            id: boards.id,
+            title: boards.title,
+            projectId: boards.project_id,
+          })
+          .from(boards)
+          .where(eq(boards.id, task.board_id));
+          
+        // Spalte abrufen, in der sich der Task befindet
+        const [column] = await db
+          .select({
+            id: columns.id,
+            title: columns.title,
+          })
+          .from(columns)
+          .where(eq(columns.id, task.column_id));
+          
+        // Projekt abrufen, falls das Board zu einem Projekt gehört
+        let project = null;
+        if (board && board.projectId) {
+          const [projectData] = await db
+            .select({
+              id: projects.id,
+              title: projects.title,
+            })
+            .from(projects)
+            .where(eq(projects.id, board.projectId));
+            
+          project = projectData;
+        }
         
-      // Projekt abrufen, falls das Board zu einem Projekt gehört
-      let project = null;
-      if (board && board.projectId) {
-        const [projectData] = await db
-          .select({
-            id: projects.id,
-            title: projects.title,
-          })
-          .from(projects)
-          .where(eq(projects.id, board.projectId));
-          
-        project = projectData;
-      }
-      
-      // Zugewiesener Benutzer, falls vorhanden
-      let assignedUser = null;
-      if (task.assignedUserIds && task.assignedUserIds.includes(userId)) {
-        const [userData] = await db
-          .select({
-            id: users.id,
-            username: users.username,
-            email: users.email,
-            avatarUrl: users.avatarUrl,
-          })
-          .from(users)
-          .where(eq(users.id, userId));
-          
-        assignedUser = userData;
-      }
-      
-      // Task mit zusätzlichen Informationen zurückgeben
-      return {
-        ...task,
-        board: board,
-        column: column,
-        project: project,
-        assignedUser: assignedUser,
-      };
-    }));
+        // Zugewiesener Benutzer, falls vorhanden
+        let assignedUser = null;
+        if (assignedUserIds.includes(userId)) {
+          const [userData] = await db
+            .select({
+              id: users.id,
+              username: users.username,
+              email: users.email,
+              avatarUrl: users.avatarUrl,
+            })
+            .from(users)
+            .where(eq(users.id, userId));
+            
+          assignedUser = userData;
+        }
+        
+        // Task mit zusätzlichen Informationen zurückgeben
+        return {
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          richDescription: task.rich_description,
+          status: task.status,
+          priority: task.priority,
+          labels: labels,
+          checklist: checklist,
+          columnId: task.column_id,
+          boardId: task.board_id,
+          dueDate: task.due_date,
+          order: task.order,
+          assignedUserIds: assignedUserIds,
+          assignedTeamId: task.assigned_team_id,
+          archived: task.archived,
+          attachments: attachments,
+          board: board,
+          column: column,
+          project: project,
+          assignedUser: assignedUser,
+        };
+      }));
 
-    // Prüfe Zugriffsberechtigung für jeden Task
-    const accessibleTasks = await Promise.all(
-      enrichedTasks.map(async (task) => {
-        // Prüfe, ob der Benutzer Zugriff auf das Board hat
-        const hasAccess = await this.permissionService.canAccessBoard(userId, task.boardId);
-        return hasAccess ? task : null;
-      })
-    );
+      // Prüfe Zugriffsberechtigung für jeden Task
+      const accessibleTasks = await Promise.all(
+        enrichedTasks.map(async (task) => {
+          // Prüfe, ob der Benutzer Zugriff auf das Board hat
+          const hasAccess = await this.permissionService.canAccessBoard(userId, task.boardId);
+          return hasAccess ? task : null;
+        })
+      );
 
-    // Filtere Tasks ohne Zugriffsberechtigung heraus
-    return accessibleTasks.filter((task): task is Task => task !== null);
+      // Filtere Tasks ohne Zugriffsberechtigung heraus
+      return accessibleTasks.filter((task): task is Task => task !== null);
+    } catch (error) {
+      console.error("Error in getUserAssignedTasks:", error);
+      throw error;
+    }
   }
 
   async createTask(userId: number, insertTask: InsertTask): Promise<Task> {
