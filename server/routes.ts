@@ -15,7 +15,7 @@ import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
 import { Knex } from 'knex';
-import { queryClient } from './utils'; // Assuming queryClient is imported from a utils file
+import { queryClient, ensureDirectoryExists, generateSecureFilename } from './utils';
 import { requireAuth, optionalAuth } from './middleware/auth';
 import { permissionService } from './permissions';
 import { db, pool } from './db';

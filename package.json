@@ -51,6 +51,7 @@
     "@tiptap/starter-kit": "^2.11.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
+    "@types/multer": "^1.4.12",
     "@types/react-beautiful-dnd": "^13.1.8",
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.0",

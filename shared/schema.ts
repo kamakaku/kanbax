@@ -384,6 +384,7 @@ export const objectives = pgTable("objectives", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  richDescription: text("rich_description"),  // Rich text description
   status: text("status").notNull().default("active"),
   isFavorite: boolean("is_favorite").default(false),
   progress: integer("progress").default(0),
@@ -396,6 +397,7 @@ export const objectives = pgTable("objectives", {
   creatorId: integer("creator_id").notNull(), // Add creatorId field
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  attachments: text("attachments").array(), // Array of file paths/urls
 });
 
 // Key Results with task linkage
@@ -403,6 +405,7 @@ export const keyResults = pgTable("key_results", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  richDescription: text("rich_description"),  // Rich text description
   objectiveId: integer("objective_id").notNull(),
   type: text("type").notNull(), // percentage, checkbox, progress, checklist
   targetValue: integer("target_value").notNull(),
@@ -413,6 +416,7 @@ export const keyResults = pgTable("key_results", {
   checklistItems: text("checklist_items").array(), // Store JSON stringified checklist items
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  attachments: text("attachments").array(), // Array of file paths/urls
 });
 
 // Update the insertKeyResultSchema to include checklist items
@@ -446,10 +450,12 @@ export const insertKeyResultSchema = createInsertSchema(keyResults)
 export const okrComments = pgTable("okr_comments", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
+  richContent: text("rich_content"), // Rich text content
   authorId: integer("author_id").notNull(),
   objectiveId: integer("objective_id"),
   keyResultId: integer("key_result_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  attachments: text("attachments").array(), // Array of file paths/urls
 });
 
 // Update the insert schema
