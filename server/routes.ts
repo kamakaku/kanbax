@@ -1874,8 +1874,53 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  // Add activity logs endpoint
-  //This route is removed as it's a duplicate
+  // Activity logs endpoint
+  app.get("/api/activity", requireAuth, async (req, res) => {
+    try {
+      console.log("Fetching activity logs...");
+      const userId = req.userId!;
+
+      // Hole die company_id des Benutzers
+      const userResult = await pool.query(
+        'SELECT company_id FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.json([]);
+      }
+
+      const companyId = userResult.rows[0].company_id;
+
+      // Hole alle Aktivitäten für die Firma des Benutzers
+      const result = await pool.query(`
+        SELECT 
+          a.*,
+          u.username,
+          u.avatar_url,
+          b.title as board_title,
+          p.title as project_title,
+          o.title as objective_title,
+          t.title as task_title,
+          tm.name as team_title
+        FROM activity_logs a
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN boards b ON a.board_id = b.id
+        LEFT JOIN projects p ON a.project_id = p.id
+        LEFT JOIN objectives o ON a.objective_id = o.id
+        LEFT JOIN tasks t ON a.task_id = t.id
+        LEFT JOIN teams tm ON a.team_id = tm.id
+        WHERE u.company_id = $1
+        ORDER BY a.created_at DESC
+        LIMIT 50
+      `, [companyId]);
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Failed to fetch activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
 
   // Register productivity routes
   registerProductivityRoutes(app);
