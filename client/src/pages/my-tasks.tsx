@@ -152,18 +152,26 @@ export default function MyTasks() {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-2/3" />
-                <Skeleton className="h-4 w-1/3 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4 mt-2" />
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto">
+          {statusOrder.map((status) => (
+            <div key={status} className="min-w-[300px]">
+              <div className="bg-muted/50 rounded-lg p-3 mb-3">
+                <h3 className="font-medium">{statusTranslations[status]}</h3>
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Card key={i} className="min-h-[100px]">
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-5 w-2/3" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -187,77 +195,100 @@ export default function MyTasks() {
     );
   }
 
+  // Sortiere die Aufgaben nach Status in die richtige Reihenfolge
+  const tasksByStatus: Record<string, TaskWithDetails[]> = {};
+  statusOrder.forEach(status => {
+    tasksByStatus[status] = [];
+  });
+
+  if (tasks && Array.isArray(tasks)) {
+    tasks.forEach(task => {
+      if (statusOrder.includes(task.status)) {
+        tasksByStatus[task.status].push(task);
+      } else if (!tasksByStatus['backlog']) {
+        // Wenn der Status nicht bekannt ist, in Backlog einsortieren
+        tasksByStatus['backlog'].push(task);
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
       </div>
       
-      {sortedGroups.length > 0 ? (
-        <div className="space-y-6">
-          {sortedGroups.map(([status, statusTasks]) => (
-            <div key={status} className="space-y-3">
-              <h2 className="text-xl font-semibold">
-                {statusTranslations[status] || status}
-                <Badge variant="outline" className="ml-2">
-                  {statusTasks.length}
-                </Badge>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {statusTasks.map((task: TaskWithDetails) => (
-                  <Card 
-                    key={task.id} 
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => handleTaskClick(task)}
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-base">{task.title}</CardTitle>
-                        <PriorityBadge priority={task.priority} />
-                      </div>
-                      {task.board && (
-                        <CardDescription className="flex items-center gap-1 mt-1">
-                          <ArrowUpRight size={12} />
-                          {task.board.title}
-                          {task.project && (
-                            <span className="text-xs ml-1">
-                              ({task.project.title})
-                            </span>
+      {tasks && tasks.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-6">
+          {statusOrder.map((status) => (
+            <div key={status} className="min-w-[300px] h-full">
+              <div className="bg-muted/50 rounded-lg p-3 mb-3 sticky top-0">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-medium">{statusTranslations[status]}</h3>
+                  <Badge variant="outline">{tasksByStatus[status]?.length || 0}</Badge>
+                </div>
+              </div>
+              <div className="space-y-3 min-h-[200px]">
+                {tasksByStatus[status]?.length > 0 ? (
+                  tasksByStatus[status].map((task: TaskWithDetails) => (
+                    <Card 
+                      key={task.id} 
+                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => handleTaskClick(task)}
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-base">{task.title}</CardTitle>
+                          <PriorityBadge priority={task.priority} />
+                        </div>
+                        {task.board && (
+                          <CardDescription className="flex items-center gap-1 mt-1">
+                            <ArrowUpRight size={12} />
+                            {task.board.title}
+                            {task.project && (
+                              <span className="text-xs ml-1">
+                                ({task.project.title})
+                              </span>
+                            )}
+                          </CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {task.description && (
+                          <p className="text-sm line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {task.dueDate && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <CalendarDays size={12} />
+                              <span>Fällig: {formatDueDate(task.dueDate)}</span>
+                            </div>
                           )}
-                        </CardDescription>
-                      )}
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {task.description && (
-                        <p className="text-sm line-clamp-2">{task.description}</p>
-                      )}
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {task.dueDate && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <CalendarDays size={12} />
-                            <span>Fällig: {formatDueDate(task.dueDate)}</span>
-                          </div>
-                        )}
-                        {task.checklist && task.checklist.length > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <CircleCheck size={12} />
-                            <span>
-                              {task.checklist.filter((item: any) => item.checked).length}/{task.checklist.length}
-                            </span>
-                          </div>
-                        )}
-                        {task.labels && task.labels.length > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Tag size={12} />
-                            <span>
-                              {task.labels.length} Label{task.labels.length !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                          {task.checklist && task.checklist.length > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <CircleCheck size={12} />
+                              <span>
+                                {task.checklist.filter((item: any) => item.checked).length}/{task.checklist.length}
+                              </span>
+                            </div>
+                          )}
+                          {task.labels && task.labels.length > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Tag size={12} />
+                              <span>
+                                {task.labels.length} Label{task.labels.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="h-20 border border-dashed rounded-lg flex items-center justify-center text-muted-foreground text-sm">
+                    Keine Aufgaben
+                  </div>
+                )}
               </div>
             </div>
           ))}
