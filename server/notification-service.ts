@@ -137,16 +137,19 @@ export class NotificationService {
         
         // 3.1 Bei Tasks: Zugewiesene Benutzer und Board-Mitglieder benachrichtigen
         if (activity.taskId) {
-          // Task-Ersteller und zugewiesene Benutzer
+          // Zugewiesene Benutzer (in Array-Form)
           const taskUsersResult = await pool.query(`
-            SELECT creator_id, assigned_user_id FROM tasks 
-            WHERE id = $1 AND assigned_user_id IS NOT NULL
+            SELECT assigned_user_ids FROM tasks 
+            WHERE id = $1
           `, [activity.taskId]);
           
-          taskUsersResult.rows.forEach(row => {
-            if (row.creator_id) recipientUserIds.add(row.creator_id);
-            if (row.assigned_user_id) recipientUserIds.add(row.assigned_user_id);
-          });
+          // Verarbeite die Array-Spalte assigned_user_ids
+          if (taskUsersResult.rows.length > 0 && taskUsersResult.rows[0].assigned_user_ids) {
+            const assignedUserIds = taskUsersResult.rows[0].assigned_user_ids;
+            assignedUserIds.forEach(userId => {
+              if (userId) recipientUserIds.add(userId);
+            });
+          }
           
           // Wenn der Task mit einem Board verbunden ist, die Board-Mitglieder informieren
           if (activity.boardId) {
@@ -272,14 +275,18 @@ export class NotificationService {
         
         // Wenn der Aktivitätstyp ein Kommentar ist, auch den Ersteller des kommentierten Elements informieren
         if (activity.action === "comment" && activity.commentId) {
-          // Bei Task-Kommentaren
+          // Bei Task-Kommentaren - Da die Tasks-Tabelle keine creator_id hat,
+          // benachrichtigen wir hier alle zugewiesenen Benutzer
           if (activity.taskId) {
-            const taskCreatorResult = await pool.query(`
-              SELECT creator_id FROM tasks WHERE id = $1
+            const taskAssignedUsersResult = await pool.query(`
+              SELECT assigned_user_ids FROM tasks WHERE id = $1
             `, [activity.taskId]);
             
-            if (taskCreatorResult.rows.length > 0 && taskCreatorResult.rows[0].creator_id) {
-              recipientUserIds.add(taskCreatorResult.rows[0].creator_id);
+            if (taskAssignedUsersResult.rows.length > 0 && taskAssignedUsersResult.rows[0].assigned_user_ids) {
+              const assignedUserIds = taskAssignedUsersResult.rows[0].assigned_user_ids;
+              assignedUserIds.forEach(userId => {
+                if (userId) recipientUserIds.add(userId);
+              });
             }
           }
           
