@@ -100,23 +100,24 @@ export default function MyTasks() {
   });
 
   // Handler für Aufgaben-Klick
-  const handleTaskClick = (task: Task) => {
-    setSelectedTask(task);
+  const handleTaskClick = (task: TaskWithDetails) => {
+    setSelectedTask(task as Task);
     setIsTaskDialogOpen(true);
   };
 
   // Handler für Aufgaben-Update
   const handleTaskUpdate = async (updatedTask: Task): Promise<void> => {
     await updateTaskMutation.mutateAsync(updatedTask);
+    return;
   };
 
   // Gruppiert Aufgaben nach Status
   const groupTasksByStatus = () => {
     if (!tasks || !Array.isArray(tasks)) return {};
     
-    const groups: Record<string, Task[]> = {};
+    const groups: Record<string, TaskWithDetails[]> = {};
     
-    tasks.forEach((task: Task) => {
+    tasks.forEach((task: TaskWithDetails) => {
       if (!groups[task.status]) {
         groups[task.status] = [];
       }
@@ -200,7 +201,7 @@ export default function MyTasks() {
                 </Badge>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {statusTasks.map((task: Task) => (
+                {statusTasks.map((task: TaskWithDetails) => (
                   <Card 
                     key={task.id} 
                     className="cursor-pointer hover:shadow-md transition-shadow"
