@@ -1019,9 +1019,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "create",
         details: "Neue Aufgabe erstellt",
-        user_id: userId,
-        board_id: boardId,
-        task_id: task.id
+        userId: userId,
+        boardId: boardId,
+        taskId: task.id,
+        requiresNotification: false, // Keine Benachrichtigung für den Ersteller selbst
+        notificationType: "task"
       });
 
       res.status(201).json(task);
@@ -1053,9 +1055,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
-        user_id: userId,
-        task_id: id,
-        board_id: task.boardId
+        userId: userId,
+        taskId: id,
+        boardId: task.boardId,
+        requiresNotification: true,  // Benachrichtigung für Zuweisungen und Updates
+        notificationType: "task"
       });
 
       res.json(task);
@@ -1107,6 +1111,17 @@ export async function registerRoutes(app: Express, db: Knex) {
       console.log("Validated comment data:", result.data);
       const userId = req.userId!;
       const comment = await storage.createComment(userId, result.data);
+
+      // Erzeuge ein Activity Log, das eine Benachrichtigung auslöst
+      await storage.createActivityLog({
+        action: "comment",
+        details: "Neuer Kommentar hinzugefügt",
+        userId: userId,
+        taskId: result.data.taskId,
+        requiresNotification: true,
+        notificationType: "comment"
+      });
+
       console.log("Created comment:", comment);
       res.status(201).json(comment);
     } catch (error) {
