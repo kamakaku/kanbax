@@ -1,8 +1,9 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
 import { Button } from "./button";
-import { Upload, Image, Link, Bold, Italic, List, ListOrdered } from "lucide-react";
+import { Upload, Image as ImageIcon, Link, Bold, Italic, List, ListOrdered } from "lucide-react";
 import { useState, useRef } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -49,11 +50,11 @@ export function RichTextEditor({
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+    const uploadedFiles = event.target.files;
+    if (!uploadedFiles || uploadedFiles.length === 0) return;
 
     const formData = new FormData();
-    formData.append('file', files[0]);
+    formData.append('file', uploadedFiles[0]);
     formData.append('type', uploadType);
     if (entityId) {
       formData.append('entityId', entityId.toString());
@@ -67,20 +68,39 @@ export function RichTextEditor({
 
       if (response.ok) {
         const data = await response.json();
-        const filePath = data.filePath;
+        // Der Server gibt die URL in der Eigenschaft 'url' zurück
+        const fileUrl = data.url;
         
-        setFiles(prevFiles => {
-          const newFiles = [...prevFiles, filePath];
-          if (onAttachmentUpload) {
-            onAttachmentUpload(newFiles);
+        if (fileUrl) {
+          console.log('Datei erfolgreich hochgeladen:', fileUrl);
+          
+          setFiles(prevFiles => {
+            const newFiles = [...prevFiles, fileUrl];
+            if (onAttachmentUpload) {
+              onAttachmentUpload(newFiles);
+            }
+            return newFiles;
+          });
+          
+          // Datei-URL in den Editor einfügen, wenn es ein Bild ist
+          if (editor && /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl)) {
+            editor.chain().focus().setImage({ src: fileUrl }).run();
+          } else if (editor) {
+            // Für andere Dateitypen einen Link einfügen
+            const fileName = data.originalname || 'Anhang';
+            editor.chain().focus()
+              .insertContent(`<a href="${fileUrl}" target="_blank">${fileName}</a>`)
+              .run();
           }
-          return newFiles;
-        });
+        } else {
+          console.error('Fehler beim Datei-Upload: Keine URL in der Antwort');
+        }
       } else {
-        console.error('Fehler beim Datei-Upload');
+        const errorText = await response.text();
+        console.error('Fehler beim Datei-Upload:', errorText);
       }
     } catch (error) {
-      console.error('Fehler beim Datei-Upload', error);
+      console.error('Fehler beim Datei-Upload:', error);
     }
     
     // Reset the file input
@@ -92,7 +112,18 @@ export function RichTextEditor({
   const handleLinkClick = () => {
     const url = window.prompt('URL eingeben:');
     if (url && editor) {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+      // Setze den Link beim selektierten Text oder füge einen neuen Link ein
+      if (editor.isActive('link')) {
+        // Wenn bereits ein Link aktiv ist, aktualisiere ihn
+        editor.chain().focus().extendMarkRange('link').unsetLink().run();
+        editor.chain().focus().extendMarkRange('link').createLink({ href: url }).run();
+      } else if (editor.view.state.selection.empty) {
+        // Wenn kein Text ausgewählt ist, füge den Link als Text ein
+        editor.chain().focus().insertContent(`<a href="${url}" target="_blank">${url}</a>`).run();
+      } else {
+        // Wenn Text ausgewählt ist, wandle ihn in einen Link um
+        editor.chain().focus().extendMarkRange('link').createLink({ href: url }).run();
+      }
     }
   };
 
