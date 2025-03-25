@@ -43,7 +43,7 @@ export default function Dashboard() {
       const allBoards = await allBoardsRes.json();
 
       return allBoards.map((board: Board) => {
-        const project = projects?.find(p => p.id === board.projectId);
+        const project = projects?.find(p => p.id === board.project_id);
         return {
           ...board,
           projectTitle: project?.title || 'Kein Projekt'
@@ -64,7 +64,7 @@ export default function Dashboard() {
   }
 
   const allBoards = boardQueries.data || [];
-  const activeObjectives = objectives.filter(obj => !obj.archived);
+  const activeObjectives = objectives.filter(obj => obj.status === "active");
   const completedObjectives = objectives.filter(obj => obj.progress === 100);
   const averageProgress = activeObjectives.length > 0
     ? Math.round(activeObjectives.reduce((acc, obj) => acc + (obj.progress || 0), 0) / activeObjectives.length)
@@ -95,7 +95,7 @@ export default function Dashboard() {
                 <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-primary">{projects?.length || 0}</p>
+                <p className="text-2xl font-bold text-primary">{projects?.length || 0}</p>
               </CardContent>
             </Card>
 
@@ -105,7 +105,7 @@ export default function Dashboard() {
                 <CardDescription>Gesamtzahl Ihrer Boards</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-primary">{allBoards.length}</p>
+                <p className="text-2xl font-bold text-primary">{allBoards.length}</p>
               </CardContent>
             </Card>
 
@@ -115,7 +115,7 @@ export default function Dashboard() {
                 <CardDescription>Durchschnittlicher Fortschritt</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-primary">{averageProgress}%</p>
+                <p className="text-2xl font-bold text-primary">{averageProgress}%</p>
               </CardContent>
             </Card>
 
@@ -125,7 +125,7 @@ export default function Dashboard() {
                 <CardDescription>Abgeschlossene Objectives</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-primary">
+                <p className="text-2xl font-bold text-primary">
                   {completedObjectives.length}/{activeObjectives.length}
                 </p>
               </CardContent>
