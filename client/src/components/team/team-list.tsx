@@ -119,7 +119,7 @@ export function TeamList() {
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Teams
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht und Verwaltung aller Teams</p>

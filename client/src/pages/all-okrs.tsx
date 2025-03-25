@@ -281,7 +281,7 @@ export default function AllOKRs() {
     <div className="container mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Alle OKRs
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren OKRs</p>
@@ -310,7 +310,7 @@ export default function AllOKRs() {
             <>
               {favoriteOKRs.length > 0 && (
                 <div className="mb-8">
-                  <h2 className="text-2xl font-semibold mb-4">Favorisierte OKRs</h2>
+                  <h2 className="text-xl font-semibold mb-4">Favorisierte OKRs</h2>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {favoriteOKRs.map((objective) => renderObjectiveCard(objective))}
                   </div>
@@ -319,7 +319,7 @@ export default function AllOKRs() {
 
               {nonFavoriteOKRs.length > 0 && (
                 <div>
-                  <h2 className="text-2xl font-semibold mb-4">Weitere OKRs</h2>
+                  <h2 className="text-xl font-semibold mb-4">Weitere OKRs</h2>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {nonFavoriteOKRs.map((objective) => renderObjectiveCard(objective))}
                   </div>
