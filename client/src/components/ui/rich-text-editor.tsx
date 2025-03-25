@@ -37,6 +37,13 @@ export function RichTextEditor({
       Placeholder.configure({
         placeholder,
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'max-w-full rounded-md',
+        },
+      }),
     ],
     content,
     editable,
@@ -224,7 +231,7 @@ function AttachmentThumbnail({ file }: { file: string }) {
         <div className="relative w-20 h-20 border rounded overflow-hidden group">
           <img src={file} alt={fileName} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <Image className="w-5 h-5 text-white" />
+            <ImageIcon className="w-5 h-5 text-white" />
           </div>
         </div>
       </a>
