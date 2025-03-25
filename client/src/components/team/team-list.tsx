@@ -95,14 +95,16 @@ export function TeamList() {
   // Zählt die Anzahl der Projekte für ein Team
   const getTeamProjectCount = (teamId: number) => {
     return projects.filter(project => 
-      project.team_ids && Array.isArray(project.team_ids) && project.team_ids.includes(teamId)
+      project.teams && Array.isArray(project.teams) && 
+      project.teams.some(team => team.id === teamId)
     ).length;
   };
   
   // Zählt die Anzahl der Boards für ein Team
   const getTeamBoardCount = (teamId: number) => {
     return boards.filter(board => 
-      board.team_ids && Array.isArray(board.team_ids) && board.team_ids.includes(teamId)
+      board.teams && Array.isArray(board.teams) && 
+      board.teams.some(team => team.id === teamId)
     ).length;
   };
   
@@ -150,7 +152,7 @@ export function TeamList() {
                 {team.description || "Keine Beschreibung"}
               </CardDescription>
               
-              <div className="grid grid-cols-3 gap-2 mt-2 mb-4">
+              <div className="grid grid-cols-4 gap-2 mt-2 mb-4">
                 <div className="flex flex-col items-center p-2 bg-slate-50 rounded-md">
                   <Users className="h-4 w-4 mb-1 text-slate-600" />
                   <span className="text-xs font-medium text-slate-700">
@@ -159,24 +161,23 @@ export function TeamList() {
                 </div>
                 
                 <div className="flex flex-col items-center p-2 bg-blue-50 rounded-md">
-                  <svg className="h-4 w-4 mb-1 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                  </svg>
+                  <Calendar className="h-4 w-4 mb-1 text-blue-600" />
                   <span className="text-xs font-medium text-blue-700">
-                    0 Projekte
+                    {getTeamProjectCount(team.id)} Projekte
                   </span>
                 </div>
                 
                 <div className="flex flex-col items-center p-2 bg-amber-50 rounded-md">
-                  <svg className="h-4 w-4 mb-1 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-                  </svg>
+                  <Layout className="h-4 w-4 mb-1 text-amber-600" />
                   <span className="text-xs font-medium text-amber-700">
-                    0 Boards
+                    {getTeamBoardCount(team.id)} Boards
+                  </span>
+                </div>
+                
+                <div className="flex flex-col items-center p-2 bg-green-50 rounded-md">
+                  <Target className="h-4 w-4 mb-1 text-green-600" />
+                  <span className="text-xs font-medium text-green-700">
+                    {getTeamOkrCount(team.id)} OKRs
                   </span>
                 </div>
               </div>
