@@ -499,8 +499,10 @@ export class NotificationService {
       }
 
       // Link basierend auf dem betroffenen Element erstellen
-      if (activity.taskId) {
-        link = `/tasks/${activity.taskId}`;
+      // Für Tasks verwenden wir immer den Link zum übergeordneten Board, um 404-Fehler zu vermeiden
+      if (activity.taskId && activity.boardId) {
+        // Wenn sowohl taskId als auch boardId vorhanden sind, verlinken wir zum Board
+        link = `/boards/${activity.boardId}`;
         if (type === "general") type = "task";
       } else if (activity.boardId) {
         link = `/boards/${activity.boardId}`;
@@ -509,7 +511,7 @@ export class NotificationService {
         link = `/projects/${activity.projectId}`;
         if (type === "general") type = "project";
       } else if (activity.objectiveId) {
-        link = `/objectives/${activity.objectiveId}`;
+        link = `/all-okrs/${activity.objectiveId}`;
         if (type === "general") type = "okr";
       } else {
         // Kein gültiger Link vorhanden, verwenden wir die Startseite
