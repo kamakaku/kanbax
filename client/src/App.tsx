@@ -28,6 +28,7 @@ import TeamsPage from "@/pages/teams";
 import TeamDetail from "@/pages/team-detail";
 import { ProductivityPage } from "@/pages/productivity";
 import { Board } from "@/pages/board";
+import MyTasks from "@/pages/my-tasks";
 import { Topbar } from "@/components/ui/topbar";
 import { cn } from "@/lib/utils";
 import { TestDialog } from "@/components/test-dialog";

@@ -1057,6 +1057,20 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch all tasks" });
     }
   });
+  
+  // Route für die dem Benutzer zugewiesenen Tasks (persönliches Board)
+  app.get("/api/user/tasks/assigned", requireAuth, async (req, res) => {
+    try {
+      console.log("Fetching assigned tasks for user", req.userId);
+      const userId = req.userId!;
+      const tasks = await storage.getUserAssignedTasks(userId);
+      console.log(`Found ${tasks.length} tasks assigned to user ${userId}`);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching assigned tasks:", error);
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
 
   app.post("/api/boards/:boardId/tasks", requireAuth, async (req, res) => {
     const boardId = parseInt(req.params.boardId);
