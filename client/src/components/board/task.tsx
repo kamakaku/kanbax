@@ -151,6 +151,19 @@ export function Task({ task, index, onClick }: TaskProps) {
             </div>
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
+            
+            {task.board && (
+              <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                  {task.board.title}
+                </span>
+                {task.project && (
+                  <span className="text-slate-400">
+                    • {task.project.title}
+                  </span>
+                )}
+              </div>
+            )}
 
             {task.checklist && task.checklist.length > 0 && (
               <div className="flex items-center gap-2">

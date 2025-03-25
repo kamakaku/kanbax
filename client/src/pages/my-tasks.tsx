@@ -26,11 +26,11 @@ interface TaskWithDetails extends Task {
 
 // Die Standard-Spalten für das Kanban-Board
 const defaultColumns = [
-  { id: "todo", title: "Zu erledigen" },
-  { id: "in-progress", title: "In Bearbeitung" },
-  { id: "review", title: "In Überprüfung" },
-  { id: "done", title: "Erledigt" },
-  { id: "backlog", title: "Backlog" }
+  { id: "backlog", title: "Backlog" },
+  { id: "todo", title: "To Do" },
+  { id: "in-progress", title: "In Progress" },
+  { id: "review", title: "Review" },
+  { id: "done", title: "Done" }
 ];
 
 // Hauptkomponente für "Meine Aufgaben"
