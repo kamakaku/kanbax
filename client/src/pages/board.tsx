@@ -301,7 +301,7 @@ export function Board() {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-start gap-6">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-slate-900">
                 {board.title}
               </h1>
               {board.project && (
