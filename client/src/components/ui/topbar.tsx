@@ -70,7 +70,7 @@ export function Topbar() {
   });
 
   return (
-    <div className="fixed top-0 right-0 left-0 h-16 z-50 flex items-center justify-between bg-white/80 backdrop-blur-lg border-b">
+    <div className="fixed top-0 right-0 left-0 h-14 z-50 flex items-center justify-between bg-white/80 backdrop-blur-lg border-b">
       {/* Logo */}
       <div className="flex items-center pl-4">
         <div className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent flex items-center">
@@ -82,7 +82,7 @@ export function Topbar() {
       <div className="flex-1 max-w-xl mx-8">
         <Button
           variant="outline"
-          className="relative w-full justify-start text-sm text-muted-foreground bg-white/50 border-white/20 hover:bg-white/60 transition-colors"
+          className="relative w-full justify-start text-sm text-muted-foreground bg-gray-50 border-gray-100 hover:bg-gray-100 transition-colors"
           onClick={() => setSearchOpen(true)}
         >
           <Search className="mr-2 h-4 w-4" />
