@@ -433,7 +433,7 @@ export default function AllBoards() {
     <div className="container mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Alle Boards
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
@@ -481,7 +481,7 @@ export default function AllBoards() {
               <>
                 {activeFavoriteBoards.length > 0 && (
                   <div className="mb-8">
-                    <h2 className="text-2xl font-semibold mb-4">Favorisierte Boards</h2>
+                    <h2 className="text-xl font-semibold mb-4">Favorisierte Boards</h2>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {activeFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
@@ -492,7 +492,7 @@ export default function AllBoards() {
 
                 {activeNonFavoriteBoards.length > 0 && (
                   <div>
-                    <h2 className="text-2xl font-semibold mb-4">Weitere Boards</h2>
+                    <h2 className="text-xl font-semibold mb-4">Weitere Boards</h2>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {activeNonFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
@@ -513,7 +513,7 @@ export default function AllBoards() {
               <>
                 {archivedFavoriteBoards.length > 0 && (
                   <div className="mb-8">
-                    <h2 className="text-2xl font-semibold mb-4">Favorisierte archivierte Boards</h2>
+                    <h2 className="text-xl font-semibold mb-4">Favorisierte archivierte Boards</h2>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {archivedFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
@@ -524,7 +524,7 @@ export default function AllBoards() {
 
                 {archivedNonFavoriteBoards.length > 0 && (
                   <div>
-                    <h2 className="text-2xl font-semibold mb-4">Weitere archivierte Boards</h2>
+                    <h2 className="text-xl font-semibold mb-4">Weitere archivierte Boards</h2>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {archivedNonFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />

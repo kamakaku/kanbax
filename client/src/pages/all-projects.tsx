@@ -249,7 +249,7 @@ export default function AllProjects() {
     <div className="container mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Projekte
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht und Verwaltung aller Projekte</p>
@@ -291,7 +291,7 @@ export default function AllProjects() {
           <TabsContent value="active" className="space-y-8">
             {favoriteProjects.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4">Favorisierte Projekte</h2>
+                <h2 className="text-xl font-semibold mb-4">Favorisierte Projekte</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {favoriteProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} />
@@ -302,7 +302,7 @@ export default function AllProjects() {
 
             {nonFavoriteProjects.length > 0 && (
               <div>
-                <h2 className="text-2xl font-semibold mb-4">Weitere Projekte</h2>
+                <h2 className="text-xl font-semibold mb-4">Weitere Projekte</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {nonFavoriteProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} />
@@ -321,7 +321,7 @@ export default function AllProjects() {
           <TabsContent value="archived">
             {archivedProjects.length > 0 ? (
               <div>
-                <h2 className="text-2xl font-semibold mb-4">Archivierte Projekte</h2>
+                <h2 className="text-xl font-semibold mb-4">Archivierte Projekte</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {archivedProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} isArchived={true} />
