@@ -187,7 +187,10 @@ export function ActivityFeed() {
                 {/* Avatar und Name Platzhalter */}
                 <div className="flex items-center gap-2 mb-2">
                   <Skeleton className="h-8 w-8 rounded-full" />
-                  <Skeleton className="h-5 w-[140px]" />
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-[100px]" />
+                    <Skeleton className="h-6 w-[60px] rounded-full" />
+                  </div>
                   <div className="ml-auto">
                     <Skeleton className="h-3 w-[80px]" />
                   </div>
@@ -198,11 +201,8 @@ export function ActivityFeed() {
                   <div className="flex items-start">
                     <Skeleton className="h-4 w-4 mr-2 mt-0.5" />
                     <div className="flex-1">
-                      <div className="flex items-center">
-                        <Skeleton className="h-4 w-[180px] mr-2" />
-                        <Skeleton className="h-5 w-[60px] rounded-full" />
-                      </div>
-                      <Skeleton className="h-4 w-[150px] mt-2" />
+                      <Skeleton className="h-4 w-[180px] mb-2" />
+                      <Skeleton className="h-4 w-[150px]" />
                     </div>
                   </div>
                 </div>
@@ -241,9 +241,12 @@ export function ActivityFeed() {
                       {activity.username ? activity.username.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="font-medium text-slate-800">
-                    {activity.username || "Unbekannter Benutzer"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-800">
+                      {activity.username || "Unbekannter Benutzer"}
+                    </span>
+                    {getActivityBadge(activity)}
+                  </div>
                   
                   {/* Zeitstempel */}
                   <p className="text-xs text-muted-foreground ml-auto">
@@ -254,15 +257,14 @@ export function ActivityFeed() {
                   </p>
                 </div>
                 
-                {/* Aktion und Kontext mit Icon und Badge */}
+                {/* Aktion und Kontext mit Icon */}
                 <div className="text-sm text-slate-600 ml-10 flex items-start">
                   <div className="mr-2 mt-0.5 text-primary">
                     {getActivityIcon(activity)}
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center flex-wrap">
-                      <span className="mr-1">{activity.details || activity.action}</span>
-                      {getActivityBadge(activity)}
+                    <div>
+                      <span>{activity.details || activity.action}</span>
                     </div>
                     <div className="mt-1">
                       {renderContextLink(activity)}
