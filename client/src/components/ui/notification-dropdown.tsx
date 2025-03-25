@@ -176,23 +176,61 @@ export function NotificationDropdown() {
     }
   };
 
+  // Funktion zur Formatierung des Benachrichtigungstyps für die Anzeige
+  const formatNotificationType = (type: string) => {
+    // Formatiere den Typ für eine bessere Anzeige: task_update -> Task Update
+    return type.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  };
+
+  // Funktion, um die relativen Zeitangaben zu formatieren
+  const getRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInMinutes < 1) {
+      return "Gerade eben";
+    } else if (diffInMinutes < 60) {
+      return `vor ${diffInMinutes} Min.`;
+    } else if (diffInHours < 24) {
+      return `vor ${diffInHours} Std.`;
+    } else if (diffInDays < 7) {
+      return `vor ${diffInDays} Tag${diffInDays !== 1 ? 'en' : ''}`;
+    } else {
+      return date.toLocaleDateString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit"
+      });
+    }
+  };
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full text-[10px] text-white flex items-center justify-center">
-              {unreadCount}
+            <span className="absolute -top-1 -right-1 h-5 w-5 bg-primary rounded-full text-[10px] text-white flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80" align="end">
+      <DropdownMenuContent className="w-96" align="end">
         <DropdownMenuLabel className="font-normal">
           <div className="flex justify-between items-center">
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">Benachrichtigungen</p>
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                <p className="text-sm font-medium leading-none">Benachrichtigungen</p>
+                {unreadCount > 0 && (
+                  <Badge className="h-5 text-xs px-1.5">{unreadCount}</Badge>
+                )}
+              </div>
               <p className="text-xs leading-none text-muted-foreground">
                 {unreadCount
                   ? `${unreadCount} ungelesene Benachrichtigung${unreadCount !== 1 ? "en" : ""}`
@@ -212,50 +250,58 @@ export function NotificationDropdown() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <ScrollArea className="h-[300px]">
+        <ScrollArea className="h-[400px]">
           <DropdownMenuGroup>
             {notifications.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                Keine Benachrichtigungen vorhanden
+              <div className="flex flex-col items-center justify-center p-8 text-center text-sm text-muted-foreground gap-2">
+                <Bell className="h-10 w-10 text-muted-foreground/50" />
+                <p>Keine Benachrichtigungen vorhanden</p>
+                <p className="text-xs text-muted-foreground/70">Hier werden Ihre Benachrichtigungen zu Aufgaben, Projekten und Teams angezeigt.</p>
               </div>
             ) : (
               notifications.map((notification) => (
                 <DropdownMenuItem
                   key={notification.id}
                   className={`flex items-start p-3 space-x-3 cursor-pointer ${
-                    !notification.read ? "bg-primary/5" : ""
-                  } hover:bg-secondary transition-colors duration-200`}
+                    !notification.read ? "bg-primary/5 dark:bg-primary/10" : ""
+                  } hover:bg-secondary transition-colors duration-200 border-b border-border/40`}
                   onClick={() => handleNotificationClick(notification)}
                 >
-                  <div className={`flex items-center justify-center p-2 rounded-full ${getNotificationTypeClass(notification.type).split(' ')[1]} bg-opacity-10`}>
+                  <div className={`flex-shrink-0 flex items-center justify-center p-2 rounded-full ${getNotificationTypeClass(notification.type).split(' ')[1]} bg-opacity-10`}>
                     <div className={getNotificationTypeClass(notification.type).split(' ')[0]}>
                       {renderNotificationIcon(notification.type)}
                     </div>
                   </div>
-                  <div className="flex-1 space-y-1.5">
+                  <div className="flex-1 space-y-1">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium leading-none">
-                        {notification.title}
-                      </p>
-                      {!notification.read && (
-                        <div className="h-2 w-2 rounded-full bg-primary" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium leading-none">
+                          {notification.title}
+                        </p>
+                        {!notification.read && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <Badge 
+                        variant={notification.type.includes("delete") ? "destructive" : "secondary"} 
+                        className="text-[10px] h-5 px-1.5"
+                      >
+                        {formatNotificationType(notification.type)}
+                      </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
+                    <p className="text-sm text-foreground/80 line-clamp-2 mt-1">
                       {notification.message}
                     </p>
                     <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(notification.createdAt).toLocaleDateString("de-DE", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-                        {notification.type.replaceAll('_', ' ')}
-                      </Badge>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <div className="w-2 h-2 rounded-full bg-muted-foreground/50"></div>
+                        {getRelativeTime(notification.createdAt.toString())}
+                      </div>
+                      {notification.link && (
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 cursor-pointer hover:bg-secondary">
+                          Anzeigen
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </DropdownMenuItem>
@@ -263,6 +309,20 @@ export function NotificationDropdown() {
             )}
           </DropdownMenuGroup>
         </ScrollArea>
+        <DropdownMenuSeparator />
+        <div className="p-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full text-xs" 
+            onClick={() => {
+              setLocation("/profile");
+              setOpen(false);
+            }}
+          >
+            Benachrichtigungseinstellungen
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
