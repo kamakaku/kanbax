@@ -57,11 +57,8 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 
         <Topbar />
 
-        <Sidebar className="shrink-0 z-30">
-          <div className="flex items-center justify-end px-2 h-12">
-            <SidebarTrigger />
-          </div>
-          <SidebarContent>
+        <Sidebar className="shrink-0 z-30 flex flex-col">
+          <SidebarContent className="flex-grow">
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -119,6 +116,9 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
+          <div className="px-2 py-4 border-t flex justify-end">
+            <SidebarTrigger />
+          </div>
         </Sidebar>
         <div className="relative flex-1 overflow-x-auto ml-14">
           <main 
