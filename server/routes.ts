@@ -1348,6 +1348,197 @@ export async function registerRoutes(app: Express, db: Knex) {
       });
     }
   });
+
+  // Benachrichtigungseinstellungen des Benutzers abrufen
+  app.get("/api/notification-settings", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      
+      // Benachrichtigungseinstellungen des Benutzers abrufen
+      const result = await pool.query(`
+        SELECT 
+          id,
+          user_id AS "userId",
+          
+          -- Aufgaben
+          task_assigned AS "taskAssigned",
+          task_due AS "taskDue",
+          task_updates AS "taskUpdates",
+          task_comments AS "taskComments",
+          
+          -- Boards
+          board_invite AS "boardInvite",
+          board_updates AS "boardUpdates",
+          
+          -- Teams
+          team_invite AS "teamInvite",
+          team_updates AS "teamUpdates",
+          
+          -- Projekte
+          project_update AS "projectUpdate",
+          
+          -- OKRs
+          okr_progress AS "okrProgress",
+          okr_comments AS "okrComments",
+          
+          -- Allgemein
+          mentions
+        FROM notification_settings
+        WHERE user_id = $1
+        LIMIT 1
+      `, [userId]);
+      
+      // Wenn keine Einstellungen gefunden wurden, Standardeinstellungen erstellen
+      if (result.rows.length === 0) {
+        const defaultSettings = {
+          userId,
+          taskAssigned: true,
+          taskDue: true,
+          taskUpdates: true,
+          taskComments: true,
+          boardInvite: true,
+          boardUpdates: true,
+          teamInvite: true,
+          teamUpdates: true,
+          projectUpdate: true,
+          okrProgress: true,
+          okrComments: true,
+          mentions: true
+        };
+        
+        // Default-Einstellungen in Datenbank einfügen
+        const insertResult = await pool.query(`
+          INSERT INTO notification_settings (
+            user_id, 
+            task_assigned, task_due, task_updates, task_comments,
+            board_invite, board_updates,
+            team_invite, team_updates,
+            project_update,
+            okr_progress, okr_comments,
+            mentions
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+          ) RETURNING id
+        `, [
+          userId, 
+          defaultSettings.taskAssigned, defaultSettings.taskDue, defaultSettings.taskUpdates, defaultSettings.taskComments,
+          defaultSettings.boardInvite, defaultSettings.boardUpdates,
+          defaultSettings.teamInvite, defaultSettings.teamUpdates,
+          defaultSettings.projectUpdate,
+          defaultSettings.okrProgress, defaultSettings.okrComments,
+          defaultSettings.mentions
+        ]);
+        
+        // ID der neu erstellten Einstellungen hinzufügen
+        defaultSettings.id = insertResult.rows[0].id;
+        
+        // Default-Einstellungen zurückgeben
+        return res.json(defaultSettings);
+      }
+      
+      // Vorhandene Einstellungen zurückgeben
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Failed to fetch notification settings:", error);
+      res.status(500).json({
+        message: "Benachrichtigungseinstellungen konnten nicht abgerufen werden",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Benachrichtigungseinstellungen des Benutzers aktualisieren
+  app.patch("/api/notification-settings", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      const updates = req.body;
+      
+      // Prüfen, ob die Einstellungen bereits existieren
+      const checkResult = await pool.query(
+        'SELECT id FROM notification_settings WHERE user_id = $1',
+        [userId]
+      );
+      
+      // Wenn keine Einstellungen gefunden wurden, Fehler zurückgeben
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ message: "Benachrichtigungseinstellungen nicht gefunden" });
+      }
+      
+      const settingsId = checkResult.rows[0].id;
+      
+      // Liste der erlaubten Felder und deren DB-Spaltenname
+      const allowedFields = {
+        taskAssigned: "task_assigned",
+        taskDue: "task_due",
+        taskUpdates: "task_updates",
+        taskComments: "task_comments",
+        boardInvite: "board_invite",
+        boardUpdates: "board_updates",
+        teamInvite: "team_invite",
+        teamUpdates: "team_updates",
+        projectUpdate: "project_update",
+        okrProgress: "okr_progress",
+        okrComments: "okr_comments",
+        mentions: "mentions"
+      };
+      
+      // Aktualisierungsspalten und Werte zusammenstellen
+      const updatePairs = [];
+      const updateValues = [];
+      let paramCounter = 1;
+      
+      for (const [key, value] of Object.entries(updates)) {
+        if (key in allowedFields && typeof value === 'boolean') {
+          updatePairs.push(`${allowedFields[key as keyof typeof allowedFields]} = $${paramCounter}`);
+          updateValues.push(value);
+          paramCounter++;
+        }
+      }
+      
+      // Nur aktualisieren, wenn es tatsächlich etwas zu aktualisieren gibt
+      if (updatePairs.length > 0) {
+        // Benachrichtigungseinstellungen aktualisieren
+        const updateQuery = `
+          UPDATE notification_settings 
+          SET ${updatePairs.join(', ')} 
+          WHERE id = $${paramCounter}
+          RETURNING *
+        `;
+        updateValues.push(settingsId);
+        
+        const result = await pool.query(updateQuery, updateValues);
+        
+        // Aktualisierte Einstellungen in camelCase umwandeln und zurückgeben
+        const updatedSettings = {
+          id: result.rows[0].id,
+          userId: result.rows[0].user_id,
+          taskAssigned: result.rows[0].task_assigned,
+          taskDue: result.rows[0].task_due,
+          taskUpdates: result.rows[0].task_updates,
+          taskComments: result.rows[0].task_comments,
+          boardInvite: result.rows[0].board_invite,
+          boardUpdates: result.rows[0].board_updates,
+          teamInvite: result.rows[0].team_invite,
+          teamUpdates: result.rows[0].team_updates,
+          projectUpdate: result.rows[0].project_update,
+          okrProgress: result.rows[0].okr_progress,
+          okrComments: result.rows[0].okr_comments,
+          mentions: result.rows[0].mentions
+        };
+        
+        return res.json(updatedSettings);
+      }
+      
+      // Wenn keine gültigen Felder zum Aktualisieren gefunden wurden
+      res.status(400).json({ message: "Keine gültigen Felder zum Aktualisieren gefunden" });
+    } catch (error) {
+      console.error("Failed to update notification settings:", error);
+      res.status(500).json({
+        message: "Benachrichtigungseinstellungen konnten nicht aktualisiert werden",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
   
   // Der POST-Endpunkt wurde entfernt, da wir bereits einen PATCH-Endpunkt für die gleiche Funktionalität haben
 
