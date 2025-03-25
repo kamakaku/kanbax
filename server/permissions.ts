@@ -381,19 +381,15 @@ export class PermissionService {
                o.title as objective_title,
                t.title as task_title,
                tm.name as team_title,
-               c.title as comment_content,
                u.username, 
                u.avatar_url,
-               tu.username as target_username,
-               kr.title as key_result_title
+               tu.username as target_username
         FROM activity_logs a
         LEFT JOIN boards b ON a.board_id = b.id
         LEFT JOIN projects p ON a.project_id = p.id
         LEFT JOIN objectives o ON a.objective_id = o.id
         LEFT JOIN tasks t ON a.task_id = t.id
         LEFT JOIN teams tm ON a.team_id = tm.id
-        LEFT JOIN comments c ON a.comment_id = c.id
-        LEFT JOIN key_results kr ON a.key_result_id = kr.id
         LEFT JOIN users u ON a.user_id = u.id
         LEFT JOIN users tu ON a.target_user_id = tu.id
         WHERE (
