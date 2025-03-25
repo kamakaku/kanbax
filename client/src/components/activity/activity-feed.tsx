@@ -191,9 +191,6 @@ export function ActivityFeed() {
                     <Skeleton className="h-5 w-[100px]" />
                     <Skeleton className="h-6 w-[60px] rounded-full" />
                   </div>
-                  <div className="ml-auto">
-                    <Skeleton className="h-3 w-[80px]" />
-                  </div>
                 </div>
                 
                 {/* Aktivitätsdetails Platzhalter */}
@@ -202,7 +199,8 @@ export function ActivityFeed() {
                     <Skeleton className="h-4 w-4 mr-2 mt-0.5" />
                     <div className="flex-1">
                       <Skeleton className="h-4 w-[180px] mb-2" />
-                      <Skeleton className="h-4 w-[150px]" />
+                      <Skeleton className="h-4 w-[150px] mb-2" />
+                      <Skeleton className="h-3 w-[80px]" />
                     </div>
                   </div>
                 </div>
@@ -247,14 +245,6 @@ export function ActivityFeed() {
                     </span>
                     {getActivityBadge(activity)}
                   </div>
-                  
-                  {/* Zeitstempel */}
-                  <p className="text-xs text-muted-foreground ml-auto">
-                    {formatDistanceToNow(new Date(activity.created_at || activity.createdAt), {
-                      addSuffix: true,
-                      locale: de,
-                    })}
-                  </p>
                 </div>
                 
                 {/* Aktion und Kontext mit Icon */}
@@ -269,6 +259,14 @@ export function ActivityFeed() {
                     <div className="mt-1">
                       {renderContextLink(activity)}
                     </div>
+                    
+                    {/* Zeitstempel */}
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      {formatDistanceToNow(new Date(activity.created_at || activity.createdAt), {
+                        addSuffix: true,
+                        locale: de,
+                      })}
+                    </p>
                   </div>
                 </div>
               </div>
