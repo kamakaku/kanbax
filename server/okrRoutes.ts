@@ -566,7 +566,7 @@ export function registerOkrRoutes(app: Express) {
       const updateResult = await pool.query(updateQuery, params);
       const updated = updateResult.rows[0];
       
-      // Activity log erstellen
+      // Activity log erstellen mit Benachrichtigungsflag
       await storage.createActivityLog({
         action: "update",
         details: "Key Result aktualisiert",
@@ -576,7 +576,9 @@ export function registerOkrRoutes(app: Express) {
         boardId: null,
         projectId: null,
         teamId: null,
-        targetUserId: null
+        targetUserId: null,
+        requiresNotification: true,
+        notificationType: "okr_update"
       });
       
       // Konvertiere snake_case in camelCase für die Antwort
@@ -633,7 +635,9 @@ export function registerOkrRoutes(app: Express) {
           boardId: null,
           projectId: null,
           teamId: null,
-          targetUserId: null
+          targetUserId: null,
+          requiresNotification: true,
+          notificationType: "okr_delete"
         });
       }
 
@@ -706,6 +710,16 @@ export function registerOkrRoutes(app: Express) {
       if (!comment) {
         throw new Error('Kommentar konnte nicht erstellt werden');
       }
+      
+      // Erzeuge eine Aktivitätslog mit Benachrichtigungsflag für den Kommentar
+      await storage.createActivityLog({
+        action: "comment",
+        details: "Neuer OKR-Kommentar hinzugefügt",
+        userId: authorId,
+        objectiveId: objectiveId || null,
+        requiresNotification: true,
+        notificationType: "okr_comment"
+      });
       
       res.status(201).json(comment);
     } catch (error) {

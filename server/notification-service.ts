@@ -12,7 +12,10 @@ export class NotificationService {
   async createNotification(userId: number, title: string, message: string, type: string, link: string): Promise<number> {
     try {
       // Validieren, dass der Typ ein gültiger Benachrichtigungstyp ist
-      const validTypes = ["task", "board", "project", "team", "okr", "approval", "mention", "assignment", "general"];
+      const validTypes = [
+        "task", "board", "project", "team", "okr", "approval", "mention", "assignment", "general",
+        "comment", "okr_update", "okr_delete", "okr_comment", "task_update", "task_delete"
+      ];
       const validatedType = validTypes.includes(type) ? type : "general";
       
       // Benachrichtigung mit Raw-SQL erstellen
@@ -82,7 +85,7 @@ export class NotificationService {
         recipientUserIds.push(...activity.visibleToUsers);
       }
 
-      // Wenn keine Empfänger definiert sind, finden wir Benutzer, die an diesem Board/Projekt arbeiten
+      // Wenn keine Empfänger definiert sind, finden wir Benutzer, die an diesem Board/Projekt/OKR arbeiten
       if (recipientUserIds.length === 0) {
         // Wenn es ein Board betrifft, holen wir uns die zugewiesenen Benutzer
         if (activity.boardId) {
@@ -106,6 +109,39 @@ export class NotificationService {
               [teamIds]
             );
             recipientUserIds.push(...teamMembersResult.rows.map(r => r.user_id));
+          }
+        }
+        // Wenn es ein OKR (Objective) betrifft, holen wir die zugewiesenen Benutzer
+        else if (activity.objectiveId) {
+          try {
+            // Zuerst prüfen, ob die Tabelle "objective_members" existiert
+            const tableExistsResult = await pool.query(`
+              SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'objective_members'
+              )
+            `);
+            
+            if (tableExistsResult.rows[0].exists) {
+              // Benutzer mit direkter Zuweisung zum Objective holen
+              const objectiveMembersResult = await pool.query(
+                `SELECT user_id FROM objective_members WHERE objective_id = $1`,
+                [activity.objectiveId]
+              );
+              recipientUserIds.push(...objectiveMembersResult.rows.map(r => r.user_id));
+              
+              // Auch den Ersteller des Objectives hinzufügen, der immer benachrichtigt werden sollte
+              const objectiveCreatorResult = await pool.query(
+                `SELECT creator_id FROM objectives WHERE id = $1`,
+                [activity.objectiveId]
+              );
+              
+              if (objectiveCreatorResult.rows.length > 0 && objectiveCreatorResult.rows[0].creator_id) {
+                recipientUserIds.push(objectiveCreatorResult.rows[0].creator_id);
+              }
+            }
+          } catch (error) {
+            console.warn("Fehler beim Abrufen der Objective-Mitglieder:", error);
           }
         }
       }
@@ -139,35 +175,114 @@ export class NotificationService {
         }
       }
       
-      switch (activity.action) {
-        case "create":
-          title = "Neues Element erstellt";
-          message = activity.details || "Ein neues Element wurde erstellt.";
-          break;
-        case "update":
-          title = "Element aktualisiert";
-          message = activity.details || "Ein Element wurde aktualisiert.";
-          break;
-        case "delete":
-          title = "Element gelöscht";
-          message = activity.details || "Ein Element wurde gelöscht.";
-          break;
-        case "assign":
-          title = "Zuweisung";
-          message = activity.details || "Ein Element wurde Ihnen zugewiesen.";
-          break;
-        case "mention":
-          title = "Erwähnung";
-          message = activity.details || "Sie wurden in einem Kommentar erwähnt.";
-          break;
-        case "comment":
-          title = "Neuer Kommentar";
-          message = activity.details || "Es gibt einen neuen Kommentar.";
-          break;
-        case "approval":
-          title = "Freigabeanfrage";
-          message = activity.details || "Eine Freigabe wird benötigt.";
-          break;
+      // Benachrichtigungsnachrichten basierend auf dem spezifischen Benachrichtigungstyp anpassen
+      if (activity.notificationType) {
+        switch (activity.notificationType) {
+          case "task":
+            title = "Aufgabenaktualisierung";
+            message = activity.details || "Eine Aufgabe wurde aktualisiert.";
+            break;
+          case "task_update":
+            title = "Aufgabenaktualisierung";
+            message = activity.details || "Eine Aufgabe wurde aktualisiert.";
+            break;
+          case "task_delete":
+            title = "Aufgabe gelöscht";
+            message = activity.details || "Eine Aufgabe wurde gelöscht.";
+            break;
+          case "comment":
+            title = "Neuer Kommentar";
+            message = activity.details || "Es gibt einen neuen Kommentar zu einer Aufgabe.";
+            break;
+          case "okr_update":
+            title = "OKR aktualisiert";
+            message = activity.details || "Ein Key Result wurde aktualisiert.";
+            break;
+          case "okr_delete":
+            title = "OKR gelöscht";
+            message = activity.details || "Ein Key Result wurde gelöscht.";
+            break;
+          case "okr_comment":
+            title = "Neuer OKR-Kommentar";
+            message = activity.details || "Es gibt einen neuen Kommentar zu einem OKR.";
+            break;
+          case "assignment":
+            title = "Neue Zuweisung";
+            message = activity.details || "Ihnen wurde ein Element zugewiesen.";
+            break;
+          case "mention":
+            title = "Erwähnung";
+            message = activity.details || "Sie wurden in einem Kommentar erwähnt.";
+            break;
+          case "approval":
+            title = "Freigabeanfrage";
+            message = activity.details || "Eine Freigabe wird benötigt.";
+            break;
+          default:
+            // Fallback auf die action-basierte Logik, wenn kein spezifischer Typ erkannt wird
+            switch (activity.action) {
+              case "create":
+                title = "Neues Element erstellt";
+                message = activity.details || "Ein neues Element wurde erstellt.";
+                break;
+              case "update":
+                title = "Element aktualisiert";
+                message = activity.details || "Ein Element wurde aktualisiert.";
+                break;
+              case "delete":
+                title = "Element gelöscht";
+                message = activity.details || "Ein Element wurde gelöscht.";
+                break;
+              case "assign":
+                title = "Zuweisung";
+                message = activity.details || "Ein Element wurde Ihnen zugewiesen.";
+                break;
+              case "mention":
+                title = "Erwähnung";
+                message = activity.details || "Sie wurden in einem Kommentar erwähnt.";
+                break;
+              case "comment":
+                title = "Neuer Kommentar";
+                message = activity.details || "Es gibt einen neuen Kommentar.";
+                break;
+              case "approval":
+                title = "Freigabeanfrage";
+                message = activity.details || "Eine Freigabe wird benötigt.";
+                break;
+            }
+        }
+      } else {
+        // Fallback auf action-basierte Benachrichtigungen, wenn kein notificationType vorhanden ist
+        switch (activity.action) {
+          case "create":
+            title = "Neues Element erstellt";
+            message = activity.details || "Ein neues Element wurde erstellt.";
+            break;
+          case "update":
+            title = "Element aktualisiert";
+            message = activity.details || "Ein Element wurde aktualisiert.";
+            break;
+          case "delete":
+            title = "Element gelöscht";
+            message = activity.details || "Ein Element wurde gelöscht.";
+            break;
+          case "assign":
+            title = "Zuweisung";
+            message = activity.details || "Ein Element wurde Ihnen zugewiesen.";
+            break;
+          case "mention":
+            title = "Erwähnung";
+            message = activity.details || "Sie wurden in einem Kommentar erwähnt.";
+            break;
+          case "comment":
+            title = "Neuer Kommentar";
+            message = activity.details || "Es gibt einen neuen Kommentar.";
+            break;
+          case "approval":
+            title = "Freigabeanfrage";
+            message = activity.details || "Eine Freigabe wird benötigt.";
+            break;
+        }
       }
       
       // Link basierend auf dem betroffenen Element erstellen
