@@ -63,6 +63,10 @@ export function NotificationDropdown() {
     switch (type) {
       case "task":
         return "📋";
+      case "task_update":
+        return "🔄";
+      case "task_delete":
+        return "🗑️";
       case "board":
         return "📊";
       case "project":
@@ -71,12 +75,20 @@ export function NotificationDropdown() {
         return "👥";
       case "okr":
         return "🎯";
+      case "okr_update":
+        return "📈";
+      case "okr_delete":
+        return "❌";
+      case "okr_comment":
+        return "💬";
       case "approval":
         return "✅";
       case "mention":
-        return "💬";
+        return "👋";
       case "assignment":
         return "📌";
+      case "comment":
+        return "💬";
       default:
         return "📬";
     }
@@ -91,7 +103,10 @@ export function NotificationDropdown() {
       case "assignment":
         return "text-amber-500";
       case "task":
+      case "task_update":
         return "text-purple-500";
+      case "task_delete":
+        return "text-red-500";
       case "board":
         return "text-cyan-500";
       case "project":
@@ -100,6 +115,14 @@ export function NotificationDropdown() {
         return "text-pink-500";
       case "okr":
         return "text-orange-500";
+      case "okr_update":
+        return "text-orange-500";
+      case "okr_delete":
+        return "text-red-500";
+      case "okr_comment":
+        return "text-blue-500";
+      case "comment":
+        return "text-blue-500";
       default:
         return "text-gray-500";
     }
@@ -160,25 +183,31 @@ export function NotificationDropdown() {
                     {renderNotificationIcon(notification.type)}
                   </span>
                   <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {notification.title}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium leading-none">
+                        {notification.title}
+                      </p>
+                      {!notification.read && (
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {notification.message}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(notification.createdAt).toLocaleDateString("de-DE", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(notification.createdAt).toLocaleDateString("de-DE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                      <div className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        {notification.type.replaceAll('_', ' ')}
+                      </div>
+                    </div>
                   </div>
-                  {!notification.read && (
-                    <div className="h-2 w-2 rounded-full bg-primary" />
-                  )}
                 </DropdownMenuItem>
               ))
             )}

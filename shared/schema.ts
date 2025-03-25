@@ -811,12 +811,24 @@ export const notifications = pgTable("notifications", {
 export const notificationSettings = pgTable("notification_settings", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  // Aufgaben
   taskAssigned: boolean("task_assigned").default(true),
   taskDue: boolean("task_due").default(true),
+  taskUpdates: boolean("task_updates").default(true),
+  taskComments: boolean("task_comments").default(true),
+  // Boards
   boardInvite: boolean("board_invite").default(true),
+  boardUpdates: boolean("board_updates").default(true),
+  // Teams
   teamInvite: boolean("team_invite").default(true),
+  teamUpdates: boolean("team_updates").default(true),
+  // Projekte
   projectUpdate: boolean("project_update").default(true),
+  // OKRs
   okrProgress: boolean("okr_progress").default(true),
+  okrComments: boolean("okr_comments").default(true),
+  // Allgemein
+  mentions: boolean("mentions").default(true),
 });
 
 // Add schemas for the new tables
