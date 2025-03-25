@@ -64,12 +64,14 @@ export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  richDescription: text("rich_description"),  // Rich text description
   project_id: integer("project_id"),
   creator_id: integer("creator_id").notNull(),
   team_ids: integer("team_ids").array().default([]).notNull(),
   assigned_user_ids: integer("assigned_user_ids").array().default([]).notNull(),
   is_favorite: boolean("is_favorite").default(false),
   archived: boolean("archived").default(false),
+  attachments: text("attachments").array(), // Array of file paths/urls
 });
 
 export const columns = pgTable("columns", {
@@ -84,6 +86,7 @@ export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  richDescription: text("rich_description"),  // Rich text description
   status: text("status").notNull(),
   order: integer("order").notNull(),
   boardId: integer("board_id").notNull(),
@@ -96,6 +99,7 @@ export const tasks = pgTable("tasks", {
   assignedTeamId: integer("assigned_team_id"),
   assignedAt: timestamp("assigned_at"),
   checklist: text("checklist").array(), // Keep as text array, but store stringified objects
+  attachments: text("attachments").array(), // Array of file paths/urls
 });
 
 export const checklistItems = pgTable("checklist_items", {
