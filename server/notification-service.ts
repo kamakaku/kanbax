@@ -13,8 +13,18 @@ export class NotificationService {
     try {
       // Validieren, dass der Typ ein gültiger Benachrichtigungstyp ist
       const validTypes = [
-        "task", "board", "project", "team", "okr", "approval", "mention", "assignment", "general",
-        "comment", "okr_update", "okr_delete", "okr_comment", "task_update", "task_delete"
+        // Aufgaben
+        "task", "task_update", "task_delete", "task_comment",
+        // Boards
+        "board", "board_update", 
+        // Projekte
+        "project", "project_update",
+        // Teams 
+        "team", "team_update",
+        // OKRs
+        "okr", "okr_update", "okr_delete", "okr_comment",
+        // Allgemein
+        "approval", "mention", "assignment", "comment", "general"
       ];
       const validatedType = validTypes.includes(type) ? type : "general";
       
@@ -178,6 +188,7 @@ export class NotificationService {
       // Benachrichtigungsnachrichten basierend auf dem spezifischen Benachrichtigungstyp anpassen
       if (activity.notificationType) {
         switch (activity.notificationType) {
+          // Aufgaben-Benachrichtigungen
           case "task":
             title = "Aufgabenaktualisierung";
             message = activity.details || "Eine Aufgabe wurde aktualisiert.";
@@ -190,12 +201,48 @@ export class NotificationService {
             title = "Aufgabe gelöscht";
             message = activity.details || "Eine Aufgabe wurde gelöscht.";
             break;
-          case "comment":
-            title = "Neuer Kommentar";
+          case "task_comment":
+            title = "Neuer Kommentar zur Aufgabe";
             message = activity.details || "Es gibt einen neuen Kommentar zu einer Aufgabe.";
             break;
+          
+          // Board-Benachrichtigungen
+          case "board":
+            title = "Board-Aktualisierung";
+            message = activity.details || "Ein Board wurde aktualisiert.";
+            break;
+          case "board_update":
+            title = "Board-Update";
+            message = activity.details || "Ein Board wurde aktualisiert.";
+            break;
+          
+          // Projekt-Benachrichtigungen
+          case "project":
+            title = "Projekt-Aktualisierung";
+            message = activity.details || "Ein Projekt wurde aktualisiert.";
+            break;
+          case "project_update":
+            title = "Projekt-Update";
+            message = activity.details || "Ein Projekt wurde aktualisiert.";
+            break;
+          
+          // Team-Benachrichtigungen
+          case "team":
+            title = "Team-Aktualisierung";
+            message = activity.details || "Ein Team wurde aktualisiert.";
+            break;
+          case "team_update":
+            title = "Team-Update";
+            message = activity.details || "Ein Team wurde aktualisiert.";
+            break;
+          
+          // OKR-Benachrichtigungen
+          case "okr":
+            title = "OKR-Aktualisierung";
+            message = activity.details || "Ein OKR wurde aktualisiert.";
+            break;
           case "okr_update":
-            title = "OKR aktualisiert";
+            title = "OKR-Update";
             message = activity.details || "Ein Key Result wurde aktualisiert.";
             break;
           case "okr_delete":
@@ -205,6 +252,12 @@ export class NotificationService {
           case "okr_comment":
             title = "Neuer OKR-Kommentar";
             message = activity.details || "Es gibt einen neuen Kommentar zu einem OKR.";
+            break;
+          
+          // Allgemeine Benachrichtigungen
+          case "comment":
+            title = "Neuer Kommentar";
+            message = activity.details || "Es gibt einen neuen Kommentar.";
             break;
           case "assignment":
             title = "Neue Zuweisung";

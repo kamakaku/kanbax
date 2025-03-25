@@ -841,18 +841,43 @@ export const insertNotificationSchema = createInsertSchema(notifications)
     link: true,
   })
   .extend({
-    type: z.enum(["task", "board", "project", "team", "okr", "approval", "mention", "assignment"]),
+    type: z.enum([
+      // Aufgaben
+      "task", "task_update", "task_delete", "task_comment",
+      // Boards
+      "board", "board_update", 
+      // Projekte
+      "project", "project_update",
+      // Teams 
+      "team", "team_update",
+      // OKRs
+      "okr", "okr_update", "okr_delete", "okr_comment",
+      // Allgemein
+      "approval", "mention", "assignment", "comment"
+    ]),
   });
 
 export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings)
   .pick({
     userId: true,
+    // Aufgaben
     taskAssigned: true,
     taskDue: true,
+    taskUpdates: true,
+    taskComments: true,
+    // Boards
     boardInvite: true,
+    boardUpdates: true,
+    // Teams
     teamInvite: true,
+    teamUpdates: true,
+    // Projekte
     projectUpdate: true,
+    // OKRs
     okrProgress: true,
+    okrComments: true,
+    // Allgemein
+    mentions: true,
   });
 
 // Export types for the new tables

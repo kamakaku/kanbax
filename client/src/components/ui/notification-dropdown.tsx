@@ -1,6 +1,23 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
+import { 
+  Bell, 
+  CheckSquare, 
+  ClipboardList, 
+  FileText, 
+  Flag, 
+  MessageSquare, 
+  Target, 
+  Users, 
+  Trash, 
+  ChevronDown, 
+  ChevronUp, 
+  AtSign, 
+  Pin, 
+  Kanban, 
+  BarChart, 
+  Edit
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +33,7 @@ import { type Notification } from "@shared/schema";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import { Badge } from "@/components/ui/badge";
 
 export function NotificationDropdown() {
   const [, setLocation] = useLocation();
@@ -60,37 +78,59 @@ export function NotificationDropdown() {
   };
 
   const renderNotificationIcon = (type: string) => {
+    const iconProps = { className: "h-5 w-5" };
+    
     switch (type) {
+      // Aufgaben-Benachrichtigungen
       case "task":
-        return "📋";
+        return <ClipboardList {...iconProps} />;
       case "task_update":
-        return "🔄";
+        return <Edit {...iconProps} />;
       case "task_delete":
-        return "🗑️";
+        return <Trash {...iconProps} />;
+      case "task_comment":
+        return <MessageSquare {...iconProps} />;
+      
+      // Board-Benachrichtigungen
       case "board":
-        return "📊";
+        return <Kanban {...iconProps} />;
+      case "board_update":
+        return <Kanban {...iconProps} />;
+      
+      // Projekt-Benachrichtigungen
       case "project":
-        return "📁";
+        return <FileText {...iconProps} />;
+      case "project_update":
+        return <FileText {...iconProps} />;
+      
+      // Team-Benachrichtigungen
       case "team":
-        return "👥";
+        return <Users {...iconProps} />;
+      case "team_update":
+        return <Users {...iconProps} />;
+      
+      // OKR-Benachrichtigungen
       case "okr":
-        return "🎯";
+        return <Target {...iconProps} />;
       case "okr_update":
-        return "📈";
+        return <BarChart {...iconProps} />;
       case "okr_delete":
-        return "❌";
+        return <Trash {...iconProps} />;
       case "okr_comment":
-        return "💬";
+        return <MessageSquare {...iconProps} />;
+      
+      // Allgemeine Benachrichtigungen
       case "approval":
-        return "✅";
+        return <CheckSquare {...iconProps} />;
       case "mention":
-        return "👋";
+        return <AtSign {...iconProps} />;
       case "assignment":
-        return "📌";
+        return <Pin {...iconProps} />;
       case "comment":
-        return "💬";
+        return <MessageSquare {...iconProps} />;
+      
       default:
-        return "📬";
+        return <Bell {...iconProps} />;
     }
   };
   
