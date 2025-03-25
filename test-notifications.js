@@ -9,7 +9,7 @@ async function hashPassword(password) {
 
 async function main() {
   // Hash ein neues Passwort zum Vergleich
-  const password = 'test123';
+  const password = 'test123456';
   const hashedPassword = await hashPassword(password);
   console.log(`Generierter Hash für '${password}': ${hashedPassword}`);
   
@@ -19,7 +19,7 @@ async function main() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: 'ich@kamakaku.com',
-      password: 'test123' // Test mit diesem Passwort
+      password: 'test123456' // Test mit diesem Passwort
     }),
     redirect: 'manual'
   });
@@ -58,7 +58,7 @@ async function main() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: 'ich@kamakaku.com',
-            password: 'test123'
+            password: 'test123456'
           }),
           redirect: 'manual'
         });
