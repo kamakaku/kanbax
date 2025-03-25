@@ -34,7 +34,7 @@ import { TestDialog } from "@/components/test-dialog";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
-
+  
   return (
     <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full overflow-hidden bg-slate-50">
@@ -120,7 +120,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
-        <div className="relative flex-1 overflow-x-auto">
+        <div className="relative flex-1 overflow-x-auto ml-14">
           <main 
             className={cn(
               "min-h-screen w-full",
