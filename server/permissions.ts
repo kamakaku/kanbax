@@ -362,7 +362,18 @@ export class PermissionService {
   // Activity Log Filterung basierend auf Unternehmenszugehörigkeit und Relevanz
   async getVisibleActivityLogs(userId: number): Promise<ActivityLog[]> {
     try {
-      // Verwende Raw SQL Query für eine optimierte Abfrage, die alle benötigten Daten in einer einzigen Query lädt
+      // 1. Hole die Unternehmenszugehörigkeit des Benutzers
+      const userResult = await pool.query(`
+        SELECT company_id FROM users WHERE id = $1
+      `, [userId]);
+      
+      if (userResult.rows.length === 0) {
+        return [];
+      }
+      
+      const companyId = userResult.rows[0].company_id;
+      
+      // 2. Verwende Raw SQL Query für eine optimierte Abfrage, die alle relevanten Aktivitäten für den Benutzer lädt
       const result = await pool.query(`
         SELECT a.*, 
                b.title as board_title, 
@@ -370,32 +381,66 @@ export class PermissionService {
                o.title as objective_title,
                t.title as task_title,
                tm.name as team_title,
+               c.title as comment_content,
                u.username, 
                u.avatar_url,
-               tu.username as target_username
+               tu.username as target_username,
+               kr.title as key_result_title
         FROM activity_logs a
         LEFT JOIN boards b ON a.board_id = b.id
         LEFT JOIN projects p ON a.project_id = p.id
         LEFT JOIN objectives o ON a.objective_id = o.id
         LEFT JOIN tasks t ON a.task_id = t.id
         LEFT JOIN teams tm ON a.team_id = tm.id
+        LEFT JOIN comments c ON a.comment_id = c.id
+        LEFT JOIN key_results kr ON a.key_result_id = kr.id
         LEFT JOIN users u ON a.user_id = u.id
         LEFT JOIN users tu ON a.target_user_id = tu.id
-        WHERE a.user_id = $1 OR a.target_user_id = $1
+        WHERE (
+          -- Benutzer ist direkt beteiligt
+          a.user_id = $1 OR a.target_user_id = $1
+          
+          -- ODER Benutzer ist einem Board zugewiesen, das betroffen ist
+          OR (a.board_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM board_members WHERE board_id = a.board_id AND user_id = $1
+          ))
+          
+          -- ODER Benutzer ist einem Projekt zugewiesen, das betroffen ist
+          OR (a.project_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM projects p 
+            LEFT JOIN project_teams pt ON p.id = pt.project_id
+            LEFT JOIN team_members tm ON pt.team_id = tm.team_id
+            WHERE p.id = a.project_id AND (p.creator_id = $1 OR tm.user_id = $1)
+          ))
+          
+          -- ODER Benutzer ist einem Objective zugewiesen, das betroffen ist
+          OR (a.objective_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM objective_members WHERE objective_id = a.objective_id AND user_id = $1
+          ))
+          
+          -- ODER Benutzer ist einem Team zugewiesen, das betroffen ist
+          OR (a.team_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM team_members WHERE team_id = a.team_id AND user_id = $1
+          ))
+          
+          -- ODER Benutzer hat eine Aufgabe, die betroffen ist
+          OR (a.task_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM tasks WHERE id = a.task_id AND (assigned_user_id = $1 OR creator_id = $1)
+          ))
+        )
+        -- Nur Aktivitäten aus der gleichen Firma
+        AND EXISTS (
+          SELECT 1 FROM users WHERE id = a.user_id AND company_id = $2
+        )
         ORDER BY a.created_at DESC
-        LIMIT 50
-      `, [userId]);
+        LIMIT 100
+      `, [userId, companyId]);
 
       return result.rows;
     } catch (error) {
       console.error("Error getting visible activity logs:", error);
       return [];
     }
-    
-    // Alte implementierung wurde durch die SQL-Implementierung oben ersetzt
-    /*
-    // Hier befand sich die alte Implementierung
-    */
   }
 }
 

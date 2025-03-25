@@ -53,7 +53,22 @@ export class NotificationService {
     try {
       // Aktivitätslog mit Raw-SQL abfragen
       const activityLogResult = await pool.query(
-        `SELECT * FROM activity_logs WHERE id = $1`,
+        `SELECT a.*, 
+                b.title as board_title, 
+                p.title as project_title,
+                o.title as objective_title,
+                t.title as task_title,
+                tm.name as team_title,
+                u.username, 
+                u.company_id
+         FROM activity_logs a
+         LEFT JOIN boards b ON a.board_id = b.id
+         LEFT JOIN projects p ON a.project_id = p.id
+         LEFT JOIN objectives o ON a.objective_id = o.id
+         LEFT JOIN tasks t ON a.task_id = t.id
+         LEFT JOIN teams tm ON a.team_id = tm.id
+         LEFT JOIN users u ON a.user_id = u.id
+         WHERE a.id = $1`,
         [activityLogId]
       );
       
@@ -74,13 +89,22 @@ export class NotificationService {
         projectId: activityLog.project_id,
         objectiveId: activityLog.objective_id,
         taskId: activityLog.task_id,
-        // Diese Spalten existieren nicht in der Datenbank, daher setzen wir Default-Werte
-        teamId: 0,
-        targetUserId: 0,
+        teamId: activityLog.team_id,
+        targetUserId: activityLog.target_user_id,
+        commentId: activityLog.comment_id,
+        keyResultId: activityLog.key_result_id,
         requiresNotification: activityLog.requires_notification,
         notificationSent: activityLog.notification_sent,
         notificationType: activityLog.notification_type,
-        visibleToUsers: activityLog.visible_to_users || []
+        visibleToUsers: activityLog.visible_to_users || [],
+        // Zusätzliche Informationen für bessere Benachrichtigungen
+        boardTitle: activityLog.board_title,
+        projectTitle: activityLog.project_title,
+        objectiveTitle: activityLog.objective_title,
+        taskTitle: activityLog.task_title,
+        teamTitle: activityLog.team_title,
+        username: activityLog.username,
+        companyId: activityLog.company_id
       };
       
       if (!activity.requiresNotification || activity.notificationSent) {
@@ -88,80 +112,209 @@ export class NotificationService {
       }
 
       // Bestimme Empfänger basierend auf dem Typ der Aktivität
-      const recipientUserIds: number[] = [];
+      // Wir verwenden ein Set, um Duplikate zu vermeiden
+      const recipientUserIds: Set<number> = new Set();
       
-      // Explizit definierte Benutzer (falls vorhanden)
+      // 1. Ziel-Benutzer hinzufügen (falls vorhanden)
+      if (activity.targetUserId) {
+        recipientUserIds.add(activity.targetUserId);
+      }
+      
+      // 2. Explizit definierte Benutzer (falls vorhanden)
       if (activity.visibleToUsers && activity.visibleToUsers.length > 0) {
-        recipientUserIds.push(...activity.visibleToUsers);
+        activity.visibleToUsers.forEach(userId => recipientUserIds.add(userId));
       }
 
-      // Wenn keine Empfänger definiert sind, finden wir Benutzer, die an diesem Board/Projekt/OKR arbeiten
-      if (recipientUserIds.length === 0) {
-        // Wenn es ein Board betrifft, holen wir uns die zugewiesenen Benutzer
-        if (activity.boardId) {
-          const boardUsersResult = await pool.query(
-            `SELECT user_id FROM board_members WHERE board_id = $1`,
-            [activity.boardId]
-          );
-          recipientUserIds.push(...boardUsersResult.rows.map(r => r.user_id));
-        }
-        // Wenn es ein Projekt betrifft, holen wir uns Team-Mitglieder
-        else if (activity.projectId) {
-          const projectTeamsResult = await pool.query(
-            `SELECT team_id FROM project_teams WHERE project_id = $1`,
-            [activity.projectId]
-          );
-          const teamIds = projectTeamsResult.rows.map(r => r.team_id);
-          
-          if (teamIds.length > 0) {
-            const teamMembersResult = await pool.query(
-              `SELECT user_id FROM team_members WHERE team_id = ANY($1)`,
-              [teamIds]
-            );
-            recipientUserIds.push(...teamMembersResult.rows.map(r => r.user_id));
-          }
-        }
-        // Wenn es ein OKR (Objective) betrifft, holen wir die zugewiesenen Benutzer
-        else if (activity.objectiveId) {
-          try {
-            // Zuerst prüfen, ob die Tabelle "objective_members" existiert
-            const tableExistsResult = await pool.query(`
-              SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'objective_members'
-              )
-            `);
-            
-            if (tableExistsResult.rows[0].exists) {
-              // Benutzer mit direkter Zuweisung zum Objective holen
-              const objectiveMembersResult = await pool.query(
-                `SELECT user_id FROM objective_members WHERE objective_id = $1`,
-                [activity.objectiveId]
-              );
-              recipientUserIds.push(...objectiveMembersResult.rows.map(r => r.user_id));
-              
-              // Auch den Ersteller des Objectives hinzufügen, der immer benachrichtigt werden sollte
-              const objectiveCreatorResult = await pool.query(
-                `SELECT creator_id FROM objectives WHERE id = $1`,
-                [activity.objectiveId]
-              );
-              
-              if (objectiveCreatorResult.rows.length > 0 && objectiveCreatorResult.rows[0].creator_id) {
-                recipientUserIds.push(objectiveCreatorResult.rows[0].creator_id);
-              }
-            }
-          } catch (error) {
-            console.warn("Fehler beim Abrufen der Objective-Mitglieder:", error);
-          }
-        }
-      }
-
-      // Wenn immer noch keine Empfänger definiert sind, nehmen wir nur den Ersteller
-      if (recipientUserIds.length === 0) {
-        // Nur Benachrichtigung für den Ersteller, wenn er sich selbst explizit benachrichtigen will
-        if (activity.action === "create" || activity.action === "update") {
+      // 3. Relevante Benutzer basierend auf dem Aktivitätstyp hinzufügen
+      try {
+        const companyId = activity.companyId || 0;
+        if (companyId <= 0) {
+          console.warn(`Warnung: Aktivität ${activity.id} hat keine gültige Firmen-ID`);
           return;
         }
+        
+        // Spezifische Abfragen basierend auf der Art der Aktivität
+        
+        // 3.1 Bei Tasks: Zugewiesene Benutzer und Board-Mitglieder benachrichtigen
+        if (activity.taskId) {
+          // Task-Ersteller und zugewiesene Benutzer
+          const taskUsersResult = await pool.query(`
+            SELECT creator_id, assigned_user_id FROM tasks 
+            WHERE id = $1 AND assigned_user_id IS NOT NULL
+          `, [activity.taskId]);
+          
+          taskUsersResult.rows.forEach(row => {
+            if (row.creator_id) recipientUserIds.add(row.creator_id);
+            if (row.assigned_user_id) recipientUserIds.add(row.assigned_user_id);
+          });
+          
+          // Wenn der Task mit einem Board verbunden ist, die Board-Mitglieder informieren
+          if (activity.boardId) {
+            const boardMembersResult = await pool.query(`
+              SELECT user_id FROM board_members WHERE board_id = $1
+            `, [activity.boardId]);
+            
+            boardMembersResult.rows.forEach(row => {
+              recipientUserIds.add(row.user_id);
+            });
+          }
+        }
+        
+        // 3.2 Bei Boards: Board-Mitglieder und Projekt-Team-Mitglieder benachrichtigen
+        else if (activity.boardId) {
+          // Board-Mitglieder
+          const boardMembersResult = await pool.query(`
+            SELECT bm.user_id
+            FROM board_members bm
+            JOIN users u ON bm.user_id = u.id
+            WHERE bm.board_id = $1 AND u.company_id = $2
+          `, [activity.boardId, companyId]);
+          
+          boardMembersResult.rows.forEach(row => {
+            recipientUserIds.add(row.user_id);
+          });
+          
+          // Board-Ersteller
+          const boardCreatorResult = await pool.query(`
+            SELECT creator_id FROM boards WHERE id = $1
+          `, [activity.boardId]);
+          
+          if (boardCreatorResult.rows.length > 0 && boardCreatorResult.rows[0].creator_id) {
+            recipientUserIds.add(boardCreatorResult.rows[0].creator_id);
+          }
+          
+          // Wenn das Board mit einem Projekt verbunden ist, die Projekt-Team-Mitglieder informieren
+          const boardProjectResult = await pool.query(`
+            SELECT project_id FROM boards WHERE id = $1 AND project_id IS NOT NULL
+          `, [activity.boardId]);
+          
+          if (boardProjectResult.rows.length > 0 && boardProjectResult.rows[0].project_id) {
+            const projectId = boardProjectResult.rows[0].project_id;
+            
+            // Projekt-Team-Mitglieder
+            const projectTeamMembersResult = await pool.query(`
+              SELECT tm.user_id
+              FROM project_teams pt
+              JOIN team_members tm ON pt.team_id = tm.team_id
+              JOIN users u ON tm.user_id = u.id
+              WHERE pt.project_id = $1 AND u.company_id = $2
+            `, [projectId, companyId]);
+            
+            projectTeamMembersResult.rows.forEach(row => {
+              recipientUserIds.add(row.user_id);
+            });
+          }
+        }
+        
+        // 3.3 Bei Projekten: Team-Mitglieder und Projektbeteiligte benachrichtigen
+        else if (activity.projectId) {
+          // Projekt-Team-Mitglieder
+          const projectTeamMembersResult = await pool.query(`
+            SELECT tm.user_id
+            FROM project_teams pt
+            JOIN team_members tm ON pt.team_id = tm.team_id
+            JOIN users u ON tm.user_id = u.id
+            WHERE pt.project_id = $1 AND u.company_id = $2
+          `, [activity.projectId, companyId]);
+          
+          projectTeamMembersResult.rows.forEach(row => {
+            recipientUserIds.add(row.user_id);
+          });
+          
+          // Projekt-Ersteller
+          const projectCreatorResult = await pool.query(`
+            SELECT creator_id FROM projects WHERE id = $1
+          `, [activity.projectId]);
+          
+          if (projectCreatorResult.rows.length > 0 && projectCreatorResult.rows[0].creator_id) {
+            recipientUserIds.add(projectCreatorResult.rows[0].creator_id);
+          }
+        }
+        
+        // 3.4 Bei Objectives (OKRs): OKR-Mitglieder und OKR-Beteiligte benachrichtigen
+        else if (activity.objectiveId) {
+          // OKR-Mitglieder
+          const objectiveMembersResult = await pool.query(`
+            SELECT om.user_id
+            FROM objective_members om
+            JOIN users u ON om.user_id = u.id
+            WHERE om.objective_id = $1 AND u.company_id = $2
+          `, [activity.objectiveId, companyId]);
+          
+          objectiveMembersResult.rows.forEach(row => {
+            recipientUserIds.add(row.user_id);
+          });
+          
+          // OKR-Ersteller
+          const objectiveCreatorResult = await pool.query(`
+            SELECT creator_id FROM objectives WHERE id = $1
+          `, [activity.objectiveId]);
+          
+          if (objectiveCreatorResult.rows.length > 0 && objectiveCreatorResult.rows[0].creator_id) {
+            recipientUserIds.add(objectiveCreatorResult.rows[0].creator_id);
+          }
+        }
+        
+        // 3.5 Bei Teams: Team-Mitglieder benachrichtigen
+        else if (activity.teamId) {
+          // Team-Mitglieder
+          const teamMembersResult = await pool.query(`
+            SELECT tm.user_id
+            FROM team_members tm
+            JOIN users u ON tm.user_id = u.id
+            WHERE tm.team_id = $1 AND u.company_id = $2
+          `, [activity.teamId, companyId]);
+          
+          teamMembersResult.rows.forEach(row => {
+            recipientUserIds.add(row.user_id);
+          });
+        }
+        
+        // Wenn der Aktivitätstyp ein Kommentar ist, auch den Ersteller des kommentierten Elements informieren
+        if (activity.action === "comment" && activity.commentId) {
+          // Bei Task-Kommentaren
+          if (activity.taskId) {
+            const taskCreatorResult = await pool.query(`
+              SELECT creator_id FROM tasks WHERE id = $1
+            `, [activity.taskId]);
+            
+            if (taskCreatorResult.rows.length > 0 && taskCreatorResult.rows[0].creator_id) {
+              recipientUserIds.add(taskCreatorResult.rows[0].creator_id);
+            }
+          }
+          
+          // Bei OKR-Kommentaren
+          else if (activity.objectiveId) {
+            const objectiveCreatorResult = await pool.query(`
+              SELECT creator_id FROM objectives WHERE id = $1
+            `, [activity.objectiveId]);
+            
+            if (objectiveCreatorResult.rows.length > 0 && objectiveCreatorResult.rows[0].creator_id) {
+              recipientUserIds.add(objectiveCreatorResult.rows[0].creator_id);
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error("Fehler beim Ermitteln der Benachrichtigungsempfänger:", error);
+      }
+      
+      // 4. Selbst-Benachrichtigungen vermeiden (Benutzer sollten nicht über ihre eigenen Aktionen benachrichtigt werden)
+      if (activity.userId && recipientUserIds.has(activity.userId)) {
+        recipientUserIds.delete(activity.userId);
+      }
+      
+      // Wenn keine Empfänger gefunden wurden, beenden wir hier
+      if (recipientUserIds.size === 0) {
+        console.log(`Keine Empfänger für Aktivität ${activity.id} gefunden.`);
+        
+        // Markiere trotzdem als verarbeitet
+        await pool.query(
+          `UPDATE activity_logs SET notification_sent = true WHERE id = $1`,
+          [activity.id]
+        );
+        
+        return;
       }
 
       // Benachrichtigungstitel und Text basierend auf dem Aktivitätstyp erstellen
