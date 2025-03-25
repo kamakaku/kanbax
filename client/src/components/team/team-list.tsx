@@ -11,7 +11,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { TeamForm } from "./team-form";
-import { Users, Plus, Edit, Calendar, Layout, Target } from "lucide-react";
+import { Users, Plus, Edit, Target, Folder, KanbanSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
@@ -152,23 +152,16 @@ export function TeamList() {
                 {team.description || "Keine Beschreibung"}
               </CardDescription>
               
-              <div className="grid grid-cols-4 gap-2 mt-2 mb-4">
-                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-md">
-                  <Users className="h-4 w-4 mb-1 text-slate-600" />
-                  <span className="text-xs font-medium text-slate-700">
-                    {teamMembers.filter(tm => tm.teamId === team.id).length || 0} Mitglieder
-                  </span>
-                </div>
-                
+              <div className="grid grid-cols-3 gap-2 mt-2 mb-4">
                 <div className="flex flex-col items-center p-2 bg-blue-50 rounded-md">
-                  <Calendar className="h-4 w-4 mb-1 text-blue-600" />
+                  <Folder className="h-4 w-4 mb-1 text-blue-600" />
                   <span className="text-xs font-medium text-blue-700">
                     {getTeamProjectCount(team.id)} Projekte
                   </span>
                 </div>
                 
                 <div className="flex flex-col items-center p-2 bg-amber-50 rounded-md">
-                  <Layout className="h-4 w-4 mb-1 text-amber-600" />
+                  <KanbanSquare className="h-4 w-4 mb-1 text-amber-600" />
                   <span className="text-xs font-medium text-amber-700">
                     {getTeamBoardCount(team.id)} Boards
                   </span>
@@ -184,15 +177,11 @@ export function TeamList() {
             </CardContent>
             
             <CardFooter className="p-4 pt-2 flex items-center justify-between border-t">
-              <div className="text-xs text-muted-foreground">
-                {team.creatorId && (
-                  <div className="flex items-center">
-                    <span className="mr-1">Erstellt von:</span>
-                    <span className="font-medium">
-                      ID: {team.creatorId}
-                    </span>
-                  </div>
-                )}
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Users className="h-4 w-4 mr-1.5 text-slate-500" />
+                <span className="font-medium">
+                  {teamMembers.filter(tm => tm.teamId === team.id).length || 0} Mitglieder
+                </span>
               </div>
               
               <div className="flex space-x-2">
