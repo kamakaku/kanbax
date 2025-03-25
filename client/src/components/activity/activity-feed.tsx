@@ -194,7 +194,7 @@ export function ActivityFeed() {
                 </div>
                 
                 {/* Aktivitätsdetails Platzhalter */}
-                <div className="ml-10 p-3 rounded-md bg-slate-50">
+                <div className="ml-10 p-3">
                   <div className="flex items-start">
                     <Skeleton className="h-4 w-4 mr-2 mt-0.5" />
                     <div className="flex-1">
@@ -255,7 +255,7 @@ export function ActivityFeed() {
                 </div>
                 
                 {/* Aktion und Kontext mit Icon und Badge */}
-                <div className="text-sm text-slate-600 ml-10 bg-slate-50 p-3 rounded-md flex items-start">
+                <div className="text-sm text-slate-600 ml-10 flex items-start">
                   <div className="mr-2 mt-0.5 text-primary">
                     {getActivityIcon(activity)}
                   </div>
