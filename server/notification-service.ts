@@ -278,15 +278,23 @@ export class NotificationService {
           // Bei Task-Kommentaren - Da die Tasks-Tabelle keine creator_id hat,
           // benachrichtigen wir hier alle zugewiesenen Benutzer
           if (activity.taskId) {
-            const taskAssignedUsersResult = await pool.query(`
-              SELECT assigned_user_ids FROM tasks WHERE id = $1
+            const taskResult = await pool.query(`
+              SELECT assigned_user_ids, board_id FROM tasks WHERE id = $1
             `, [activity.taskId]);
 
-            if (taskAssignedUsersResult.rows.length > 0 && taskAssignedUsersResult.rows[0].assigned_user_ids) {
-              const assignedUserIds = taskAssignedUsersResult.rows[0].assigned_user_ids;
-              assignedUserIds.forEach(userId => {
-                if (userId) recipientUserIds.add(userId);
-              });
+            if (taskResult.rows.length > 0) {
+              // Die boardId speichern, damit wir später zum Board verlinken können
+              if (taskResult.rows[0].board_id) {
+                activity.boardId = taskResult.rows[0].board_id;
+              }
+
+              // Alle zugewiesenen Benutzer benachrichtigen
+              if (taskResult.rows[0].assigned_user_ids) {
+                const assignedUserIds = taskResult.rows[0].assigned_user_ids;
+                assignedUserIds.forEach(userId => {
+                  if (userId) recipientUserIds.add(userId);
+                });
+              }
             }
           }
 
@@ -500,10 +508,34 @@ export class NotificationService {
 
       // Link basierend auf dem betroffenen Element erstellen
       // Für Tasks verwenden wir immer den Link zum übergeordneten Board, um 404-Fehler zu vermeiden
-      if (activity.taskId && activity.boardId) {
-        // Wenn sowohl taskId als auch boardId vorhanden sind, verlinken wir zum Board
-        link = `/boards/${activity.boardId}`;
-        if (type === "general") type = "task";
+      if (activity.taskId) {
+        // Wenn nur taskId vorhanden ist, aber keine boardId, müssen wir die boardId erst aus der Datenbank ermitteln
+        if (!activity.boardId) {
+          try {
+            const boardResult = await pool.query(
+              'SELECT board_id FROM tasks WHERE id = $1',
+              [activity.taskId]
+            );
+            
+            if (boardResult.rows.length > 0 && boardResult.rows[0].board_id) {
+              // Setze die boardId in der Aktivität, damit sie auch in späteren Abfragen verfügbar ist
+              activity.boardId = boardResult.rows[0].board_id;
+            }
+          } catch (error) {
+            console.error(`Failed to get board_id for task ${activity.taskId}:`, error);
+          }
+        }
+        
+        // Wenn wir jetzt eine boardId haben (entweder bereits vorher oder gerade abgefragt),
+        // dann verlinken wir zum Board
+        if (activity.boardId) {
+          link = `/boards/${activity.boardId}`;
+          if (type === "general") type = "task";
+        } else {
+          // Notfall-Fallback zur Startseite, falls keine boardId gefunden wurde
+          link = "/";
+          console.warn(`Warning: No board_id found for task ${activity.taskId}, using home page as fallback link`);
+        }
       } else if (activity.boardId) {
         link = `/boards/${activity.boardId}`;
         if (type === "general") type = "board";
