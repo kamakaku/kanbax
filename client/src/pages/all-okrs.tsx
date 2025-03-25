@@ -286,7 +286,10 @@ export default function AllOKRs() {
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren OKRs</p>
         </div>
-        <Button onClick={handleNewOKRClick} className="bg-primary/10 backdrop-blur-sm hover:bg-primary/20">
+        <Button 
+          onClick={handleNewOKRClick} 
+          className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Neues OKR
         </Button>
