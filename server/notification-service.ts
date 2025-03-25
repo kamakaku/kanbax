@@ -27,7 +27,7 @@ export class NotificationService {
         "approval", "mention", "assignment", "comment", "general"
       ];
       const validatedType = validTypes.includes(type) ? type : "general";
-      
+
       // Benachrichtigung mit Raw-SQL erstellen
       const result = await pool.query(
         `INSERT INTO notifications 
@@ -36,7 +36,7 @@ export class NotificationService {
         RETURNING id`,
         [userId, title, message, validatedType, link, false, new Date()]
       );
-      
+
       const notificationId = result.rows[0].id;
       console.log(`Created notification ${notificationId} for user ${userId} of type ${validatedType}`);
       return notificationId;
@@ -71,14 +71,14 @@ export class NotificationService {
          WHERE a.id = $1`,
         [activityLogId]
       );
-      
+
       if (activityLogResult.rows.length === 0) {
         console.log(`Kein Aktivitätslog mit ID ${activityLogId} gefunden.`);
         return;
       }
-      
+
       const activityLog = activityLogResult.rows[0];
-      
+
       // Konvertiere Spalten von snake_case zu camelCase - mit korrekter Prüfung auf fehlende Spalten
       const activity = {
         id: activityLog.id,
@@ -106,20 +106,20 @@ export class NotificationService {
         username: activityLog.username,
         companyId: activityLog.company_id
       };
-      
-      if (!activity.requiresNotification || activity.notificationSent) {
-        return; // Keine Benachrichtigung erforderlich oder bereits gesendet
+
+      if (activity.notificationSent) {
+        return; // Nur prüfen ob bereits gesendet
       }
 
       // Bestimme Empfänger basierend auf dem Typ der Aktivität
       // Wir verwenden ein Set, um Duplikate zu vermeiden
       const recipientUserIds: Set<number> = new Set();
-      
+
       // 1. Ziel-Benutzer hinzufügen (falls vorhanden)
       if (activity.targetUserId) {
         recipientUserIds.add(activity.targetUserId);
       }
-      
+
       // 2. Explizit definierte Benutzer (falls vorhanden)
       if (activity.visibleToUsers && activity.visibleToUsers.length > 0) {
         activity.visibleToUsers.forEach(userId => recipientUserIds.add(userId));
@@ -132,9 +132,9 @@ export class NotificationService {
           console.warn(`Warnung: Aktivität ${activity.id} hat keine gültige Firmen-ID`);
           return;
         }
-        
+
         // Spezifische Abfragen basierend auf der Art der Aktivität
-        
+
         // 3.1 Bei Tasks: Zugewiesene Benutzer und Board-Mitglieder benachrichtigen
         if (activity.taskId) {
           // Zugewiesene Benutzer (in Array-Form)
@@ -142,7 +142,7 @@ export class NotificationService {
             SELECT assigned_user_ids FROM tasks 
             WHERE id = $1
           `, [activity.taskId]);
-          
+
           // Verarbeite die Array-Spalte assigned_user_ids
           if (taskUsersResult.rows.length > 0 && taskUsersResult.rows[0].assigned_user_ids) {
             const assignedUserIds = taskUsersResult.rows[0].assigned_user_ids;
@@ -150,19 +150,19 @@ export class NotificationService {
               if (userId) recipientUserIds.add(userId);
             });
           }
-          
+
           // Wenn der Task mit einem Board verbunden ist, die Board-Mitglieder informieren
           if (activity.boardId) {
             const boardMembersResult = await pool.query(`
               SELECT user_id FROM board_members WHERE board_id = $1
             `, [activity.boardId]);
-            
+
             boardMembersResult.rows.forEach(row => {
               recipientUserIds.add(row.user_id);
             });
           }
         }
-        
+
         // 3.2 Bei Boards: Board-Mitglieder und Projekt-Team-Mitglieder benachrichtigen
         else if (activity.boardId) {
           // Board-Mitglieder
@@ -172,28 +172,28 @@ export class NotificationService {
             JOIN users u ON bm.user_id = u.id
             WHERE bm.board_id = $1 AND u.company_id = $2
           `, [activity.boardId, companyId]);
-          
+
           boardMembersResult.rows.forEach(row => {
             recipientUserIds.add(row.user_id);
           });
-          
+
           // Board-Ersteller
           const boardCreatorResult = await pool.query(`
             SELECT creator_id FROM boards WHERE id = $1
           `, [activity.boardId]);
-          
+
           if (boardCreatorResult.rows.length > 0 && boardCreatorResult.rows[0].creator_id) {
             recipientUserIds.add(boardCreatorResult.rows[0].creator_id);
           }
-          
+
           // Wenn das Board mit einem Projekt verbunden ist, die Projekt-Team-Mitglieder informieren
           const boardProjectResult = await pool.query(`
             SELECT project_id FROM boards WHERE id = $1 AND project_id IS NOT NULL
           `, [activity.boardId]);
-          
+
           if (boardProjectResult.rows.length > 0 && boardProjectResult.rows[0].project_id) {
             const projectId = boardProjectResult.rows[0].project_id;
-            
+
             // Projekt-Team-Mitglieder
             const projectTeamMembersResult = await pool.query(`
               SELECT tm.user_id
@@ -202,13 +202,13 @@ export class NotificationService {
               JOIN users u ON tm.user_id = u.id
               WHERE pt.project_id = $1 AND u.company_id = $2
             `, [projectId, companyId]);
-            
+
             projectTeamMembersResult.rows.forEach(row => {
               recipientUserIds.add(row.user_id);
             });
           }
         }
-        
+
         // 3.3 Bei Projekten: Team-Mitglieder und Projektbeteiligte benachrichtigen
         else if (activity.projectId) {
           // Projekt-Team-Mitglieder
@@ -219,21 +219,21 @@ export class NotificationService {
             JOIN users u ON tm.user_id = u.id
             WHERE pt.project_id = $1 AND u.company_id = $2
           `, [activity.projectId, companyId]);
-          
+
           projectTeamMembersResult.rows.forEach(row => {
             recipientUserIds.add(row.user_id);
           });
-          
+
           // Projekt-Ersteller
           const projectCreatorResult = await pool.query(`
             SELECT creator_id FROM projects WHERE id = $1
           `, [activity.projectId]);
-          
+
           if (projectCreatorResult.rows.length > 0 && projectCreatorResult.rows[0].creator_id) {
             recipientUserIds.add(projectCreatorResult.rows[0].creator_id);
           }
         }
-        
+
         // 3.4 Bei Objectives (OKRs): OKR-Mitglieder und OKR-Beteiligte benachrichtigen
         else if (activity.objectiveId) {
           // OKR-Mitglieder
@@ -243,21 +243,21 @@ export class NotificationService {
             JOIN users u ON om.user_id = u.id
             WHERE om.objective_id = $1 AND u.company_id = $2
           `, [activity.objectiveId, companyId]);
-          
+
           objectiveMembersResult.rows.forEach(row => {
             recipientUserIds.add(row.user_id);
           });
-          
+
           // OKR-Ersteller
           const objectiveCreatorResult = await pool.query(`
             SELECT creator_id FROM objectives WHERE id = $1
           `, [activity.objectiveId]);
-          
+
           if (objectiveCreatorResult.rows.length > 0 && objectiveCreatorResult.rows[0].creator_id) {
             recipientUserIds.add(objectiveCreatorResult.rows[0].creator_id);
           }
         }
-        
+
         // 3.5 Bei Teams: Team-Mitglieder benachrichtigen
         else if (activity.teamId) {
           // Team-Mitglieder
@@ -267,12 +267,12 @@ export class NotificationService {
             JOIN users u ON tm.user_id = u.id
             WHERE tm.team_id = $1 AND u.company_id = $2
           `, [activity.teamId, companyId]);
-          
+
           teamMembersResult.rows.forEach(row => {
             recipientUserIds.add(row.user_id);
           });
         }
-        
+
         // Wenn der Aktivitätstyp ein Kommentar ist, auch den Ersteller des kommentierten Elements informieren
         if (activity.action === "comment" && activity.commentId) {
           // Bei Task-Kommentaren - Da die Tasks-Tabelle keine creator_id hat,
@@ -281,7 +281,7 @@ export class NotificationService {
             const taskAssignedUsersResult = await pool.query(`
               SELECT assigned_user_ids FROM tasks WHERE id = $1
             `, [activity.taskId]);
-            
+
             if (taskAssignedUsersResult.rows.length > 0 && taskAssignedUsersResult.rows[0].assigned_user_ids) {
               const assignedUserIds = taskAssignedUsersResult.rows[0].assigned_user_ids;
               assignedUserIds.forEach(userId => {
@@ -289,38 +289,38 @@ export class NotificationService {
               });
             }
           }
-          
+
           // Bei OKR-Kommentaren
           else if (activity.objectiveId) {
             const objectiveCreatorResult = await pool.query(`
               SELECT creator_id FROM objectives WHERE id = $1
             `, [activity.objectiveId]);
-            
+
             if (objectiveCreatorResult.rows.length > 0 && objectiveCreatorResult.rows[0].creator_id) {
               recipientUserIds.add(objectiveCreatorResult.rows[0].creator_id);
             }
           }
         }
-        
+
       } catch (error) {
         console.error("Fehler beim Ermitteln der Benachrichtigungsempfänger:", error);
       }
-      
+
       // 4. Selbst-Benachrichtigungen vermeiden (Benutzer sollten nicht über ihre eigenen Aktionen benachrichtigt werden)
       if (activity.userId && recipientUserIds.has(activity.userId)) {
         recipientUserIds.delete(activity.userId);
       }
-      
+
       // Wenn keine Empfänger gefunden wurden, beenden wir hier
       if (recipientUserIds.size === 0) {
         console.log(`Keine Empfänger für Aktivität ${activity.id} gefunden.`);
-        
+
         // Markiere trotzdem als verarbeitet
         await pool.query(
           `UPDATE activity_logs SET notification_sent = true WHERE id = $1`,
           [activity.id]
         );
-        
+
         return;
       }
 
@@ -329,7 +329,7 @@ export class NotificationService {
       let message = "Es gibt eine neue Aktivität für Sie.";
       let link = "/";
       let type = activity.notificationType || "general";
-      
+
       // Wenn noch kein spezifischer Benachrichtigungstyp gesetzt ist, anhand der Aktivität bestimmen
       if (!type || type === "general") {
         switch (activity.action) {
@@ -344,7 +344,7 @@ export class NotificationService {
             break;
         }
       }
-      
+
       // Benachrichtigungsnachrichten basierend auf dem spezifischen Benachrichtigungstyp anpassen
       if (activity.notificationType) {
         switch (activity.notificationType) {
@@ -365,7 +365,7 @@ export class NotificationService {
             title = "Neuer Kommentar zur Aufgabe";
             message = activity.details || "Es gibt einen neuen Kommentar zu einer Aufgabe.";
             break;
-          
+
           // Board-Benachrichtigungen
           case "board":
             title = "Board-Aktualisierung";
@@ -375,7 +375,7 @@ export class NotificationService {
             title = "Board-Update";
             message = activity.details || "Ein Board wurde aktualisiert.";
             break;
-          
+
           // Projekt-Benachrichtigungen
           case "project":
             title = "Projekt-Aktualisierung";
@@ -385,7 +385,7 @@ export class NotificationService {
             title = "Projekt-Update";
             message = activity.details || "Ein Projekt wurde aktualisiert.";
             break;
-          
+
           // Team-Benachrichtigungen
           case "team":
             title = "Team-Aktualisierung";
@@ -395,7 +395,7 @@ export class NotificationService {
             title = "Team-Update";
             message = activity.details || "Ein Team wurde aktualisiert.";
             break;
-          
+
           // OKR-Benachrichtigungen
           case "okr":
             title = "OKR-Aktualisierung";
@@ -413,7 +413,7 @@ export class NotificationService {
             title = "Neuer OKR-Kommentar";
             message = activity.details || "Es gibt einen neuen Kommentar zu einem OKR.";
             break;
-          
+
           // Allgemeine Benachrichtigungen
           case "comment":
             title = "Neuer Kommentar";
@@ -497,7 +497,7 @@ export class NotificationService {
             break;
         }
       }
-      
+
       // Link basierend auf dem betroffenen Element erstellen
       if (activity.taskId) {
         link = `/tasks/${activity.taskId}`;
@@ -515,24 +515,24 @@ export class NotificationService {
         // Kein gültiger Link vorhanden, verwenden wir die Startseite
         link = "/";
       }
-      
+
       // Benachrichtigungen für alle Empfänger erstellen
       // Array in Set umwandeln und wieder zurück, um Duplikate zu entfernen
       const uniqueRecipientIds = Array.from(new Set(recipientUserIds));
-      
+
       for (const recipientId of uniqueRecipientIds) {
         // Keine Benachrichtigung für den Ersteller der Aktivität
         if (recipientId === activity.userId) continue;
-        
+
         await this.createNotification(recipientId, title, message, type, link);
       }
-      
+
       // Aktivitätslog als verarbeitet markieren
       await pool.query(
         `UPDATE activity_logs SET notification_sent = true WHERE id = $1`,
         [activityLogId]
       );
-        
+
     } catch (error) {
       console.error("Failed to process activity log for notifications:", error);
     }
@@ -557,14 +557,14 @@ export class NotificationService {
           return false;
         }
       };
-      
+
       // Nur fortfahren, wenn die Spalten existieren
       if (await checkColumnsExist()) {
         const pendingLogsResult = await pool.query(`
           SELECT id FROM activity_logs 
           WHERE requires_notification = true AND notification_sent = false
         `);
-        
+
         for (const log of pendingLogsResult.rows) {
           await this.processActivityLog(log.id);
         }

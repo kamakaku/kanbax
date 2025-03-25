@@ -21,6 +21,8 @@ import { permissionService } from './permissions';
 import { db, pool } from './db';
 import * as schema from '@shared/schema';
 import { eq, and, or, desc } from 'drizzle-orm';
+import { notificationService } from './notifications'; // Assuming notificationService is imported
+
 
 // Configure multer for avatar uploads
 const upload = multer({
@@ -54,7 +56,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });
-  
+
   // Current user endpoint
   app.get("/api/auth/current-user", optionalAuth, async (req, res) => {
     try {
@@ -96,7 +98,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         'SELECT * FROM companies WHERE invite_code = $1',
         [inviteCode]
       );
-      
+
       console.log("Company database query result:", {
         rowCount: companyQuery.rowCount,
         rows: companyQuery.rows.map(r => ({ id: r.id, name: r.name }))
@@ -128,13 +130,13 @@ export async function registerRoutes(app: Express, db: Knex) {
           false  // is_company_admin
         ]
       );
-      
+
       if (userResult.rowCount === 0) {
         throw new Error("Fehler beim Erstellen des Benutzers - keine Daten zurückgegeben");
       }
-      
+
       const user = userResult.rows[0];
-      
+
       // Convert snake_case to camelCase for response
       const userResponse = {
         id: user.id,
@@ -174,16 +176,16 @@ export async function registerRoutes(app: Express, db: Knex) {
         `SELECT * FROM users WHERE email = $1 LIMIT 1`,
         [email]
       );
-      
+
       console.log("User lookup SQL result:", { 
         rowCount: userQuery.rowCount,
         userFound: userQuery.rowCount > 0
       });
-      
+
       if (userQuery.rowCount === 0) {
         return res.status(400).json({ message: "Ungültige Anmeldedaten" });
       }
-      
+
       const user = userQuery.rows[0];
       console.log("Found user:", {
         id: user.id,
@@ -201,7 +203,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         hashType: typeof passwordHash,
         hashLength: passwordHash?.length 
       });
-      
+
       // Führe Vergleich durch und protokolliere Ergebnis
       const isValid = await bcrypt.compare(password, passwordHash);
       console.log("Password verification result:", { isValid });
@@ -222,7 +224,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       // Set user session
       if (req.session) {
         req.session.userId = user.id;
-        
+
         // Update last login timestamp
         try {
           await pool.query(
@@ -234,7 +236,7 @@ export async function registerRoutes(app: Express, db: Knex) {
           console.error("Failed to update last login timestamp:", updateError);
           // Continue with login even if update fails
         }
-          
+
         console.log("Session set for user:", user.id);
       } else {
         console.log("No session object available");
@@ -254,7 +256,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         subscriptionExpiresAt: user.subscription_expires_at,
         createdAt: user.created_at
       };
-      
+
       res.json(userResponse);
     } catch (error) {
       console.error("Login error:", error);
@@ -285,7 +287,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       const admin = adminQuery.rows[0];
-      
+
       if (!admin.company_id || !admin.is_company_admin || admin.company_id !== companyId) {
         return res.status(403).json({ 
           message: "Sie haben keine Berechtigung, Benutzer zu aktivieren oder zu deaktivieren" 
@@ -303,7 +305,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       const targetUser = targetUserQuery.rows[0];
-      
+
       if (targetUser.company_id !== companyId) {
         return res.status(404).json({ 
           message: "Benutzer nicht gefunden oder nicht in Ihrem Unternehmen" 
@@ -317,18 +319,18 @@ export async function registerRoutes(app: Express, db: Knex) {
         WHERE id = $2
         RETURNING *
       `, [activate, targetUserId]);
-      
+
       if (result.rowCount === 0) {
         return res.status(500).json({ message: "Fehler beim Aktualisieren des Benutzerstatus" });
       }
-      
+
       const updatedUser = result.rows[0];
 
       // Aktivitätslog erstellen
       const actionDetails = activate 
         ? `Benutzer ${targetUser.username} aktiviert` 
         : `Benutzer ${targetUser.username} deaktiviert`;
-        
+
       try {
         await pool.query(`
           INSERT INTO activity_logs (action, details, user_id)
@@ -350,7 +352,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         isActive: updatedUser.is_active,
         createdAt: updatedUser.created_at
       };
-      
+
       res.json(userResponse);
     } catch (error) {
       console.error("Fehler beim Ändern des Benutzerstatus:", error);
@@ -379,7 +381,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       }
 
       const admin = adminQuery.rows[0];
-      
+
       if (!admin.company_id || !admin.is_company_admin || admin.company_id !== companyId) {
         return res.status(403).json({ 
           message: "Sie haben keine Berechtigung, ausstehende Benutzer zu sehen" 
@@ -414,7 +416,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
       const userId = req.userId as number;
-      
+
       // Get current user's company using direct SQL query
       const userResult = await pool.query(
         'SELECT company_id FROM users WHERE id = $1',
@@ -619,27 +621,27 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to update project" });
     }
   });
-  
+
   // Route zum Hinzufügen/Entfernen von Mitgliedern zu einem Projekt
   app.patch("/api/projects/:id/members", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Ungültige Projekt-ID" });
     }
-    
+
     const { memberIds } = req.body;
     if (!Array.isArray(memberIds)) {
       return res.status(400).json({ message: "memberIds muss ein Array sein" });
     }
-    
+
     try {
       const userId = req.userId!;
-      
+
       // Projekt aktualisieren
       const updatedProject = await storage.updateProject(userId, id, {
         memberIds: memberIds
       });
-      
+
       // Aktivitätslog erstellen
       await storage.createActivityLog({
         action: "update",
@@ -649,7 +651,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         requiresNotification: true,
         notificationType: "project"
       });
-      
+
       res.json(updatedProject);
     } catch (error) {
       console.error("Fehler beim Aktualisieren der Projektmitglieder:", error);
@@ -812,7 +814,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
       const userId = req.userId!;
       console.log(`[GET /api/boards/${id}] Fetching board for user ${userId}...`);
-      
+
       const board = await storage.getBoard(userId, id);
 
       if (!board) {
@@ -859,7 +861,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
       const userId = req.userId!;
-      
+
       const updatedBoard = await storage.updateBoard(userId, id, result.data);
 
       // Log the activity
@@ -949,7 +951,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
       const userId = req.userId!;
-      
+
       console.log(`Fetching tasks for board ${boardId} for user ${userId}`);
       const tasks = await storage.getTasks(userId, boardId);
       console.log(`Found ${tasks.length} tasks:`, tasks);
@@ -959,18 +961,18 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch tasks" });
     }
   });
-  
+
   // Endpunkt zum Abrufen aller Tasks für alle Boards
   app.get("/api/all-tasks", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;
-      
+
       // Alle Boards des Benutzers abrufen
       const boards = await storage.getBoards(userId);
-      
+
       // Tasks für jedes Board sammeln
       const allTasks: Record<number, Task[]> = {};
-      
+
       for (const board of boards) {
         try {
           const tasks = await storage.getTasks(userId, board.id);
@@ -981,7 +983,7 @@ export async function registerRoutes(app: Express, db: Knex) {
           allTasks[board.id] = [];
         }
       }
-      
+
       res.json(allTasks);
     } catch (error) {
       console.error("Failed to fetch all tasks:", error);
@@ -1004,7 +1006,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       boardId,
       creatorId: userId
     });
-    
+
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid task data",
@@ -1052,7 +1054,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       const task = await storage.updateTask(userId, id, result.data);
 
       // Log the activity
-      await storage.createActivityLog({
+      const activityLog = await storage.createActivityLog({
         action: "update",
         details: "Aufgabe aktualisiert",
         userId: userId,
@@ -1062,14 +1064,15 @@ export async function registerRoutes(app: Express, db: Knex) {
         notificationType: "task"
       });
 
+      // Sofort Benachrichtigung verarbeiten
+      await notificationService.processActivityLog(activityLog.id);
+
       res.json(task);
     } catch (error) {
       console.error("Failed to update task:", error);
       res.status(404).json({ message: (error as Error).message });
     }
   });
-
-  // Erster Task-Lösch-Endpunkt wird entfernt, da wir einen besseren am Ende der Datei haben
 
   // Comment routes
   app.get("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
@@ -1113,7 +1116,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       const comment = await storage.createComment(userId, result.data);
 
       // Erzeuge ein Activity Log, das eine Benachrichtigung auslöst
-      await storage.createActivityLog({
+      const activityLog = await storage.createActivityLog({
         action: "comment",
         details: "Neuer Kommentar hinzugefügt",
         userId: userId,
@@ -1121,6 +1124,8 @@ export async function registerRoutes(app: Express, db: Knex) {
         requiresNotification: true,
         notificationType: "comment"
       });
+
+      await notificationService.processActivityLog(activityLog.id);
 
       console.log("Created comment:", comment);
       res.status(201).json(comment);
@@ -1212,13 +1217,13 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/activity", requireAuth, async (req, res) => {
     try {
       console.log("Fetching activity logs...");
-      
+
       // Benutzerdaten für Filterung laden
       const userId = req.userId!;
-      
+
       // Verwende die verbesserte Berechtigungslogik
       const logs = await permissionService.getVisibleActivityLogs(userId);
-      
+
       console.log("Activity logs query:", logs.length, "results");
       if (logs.length > 0) {
         console.log("Sample activity log:", logs[0]);
@@ -1233,12 +1238,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       });
     }
   });
-  
+
   // Endpunkt zum Abrufen von Benachrichtigungen
   app.get("/api/notifications", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;
-      
+
       // Benachrichtigungen des Benutzers abrufen mit Raw-SQL
       const result = await pool.query(`
         SELECT 
@@ -1255,7 +1260,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         ORDER BY created_at DESC
         LIMIT 30
       `, [userId]);
-      
+
       res.json(result.rows);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
@@ -1265,29 +1270,29 @@ export async function registerRoutes(app: Express, db: Knex) {
       });
     }
   });
-  
+
   // Benachrichtigung als gelesen markieren
   app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;
       const notificationId = parseInt(req.params.id);
-      
+
       // Prüfen, ob die Benachrichtigung dem Benutzer gehört
       const checkResult = await pool.query(
         'SELECT id FROM notifications WHERE id = $1 AND user_id = $2',
         [notificationId, userId]
       );
-      
+
       if (checkResult.rows.length === 0) {
         return res.status(404).json({ message: "Benachrichtigung nicht gefunden" });
       }
-      
+
       // Benachrichtigung als gelesen markieren
       await pool.query(
         'UPDATE notifications SET read = true WHERE id = $1',
         [notificationId]
       );
-      
+
       res.json({ message: "Benachrichtigung als gelesen markiert" });
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
@@ -1297,22 +1302,22 @@ export async function registerRoutes(app: Express, db: Knex) {
       });
     }
   });
-  
 
-  
 
-  
+
+
+
   // Alle Benachrichtigungen als gelesen markieren
   app.patch("/api/notifications/read-all", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;
-      
+
       // Alle ungelesenen Benachrichtigungen des Benutzers als gelesen markieren
       await pool.query(
         'UPDATE notifications SET read = true WHERE user_id = $1 AND read = false',
         [userId]
       );
-      
+
       res.json({ message: "Alle Benachrichtigungen als gelesen markiert" });
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
@@ -1327,41 +1332,41 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/notification-settings", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;
-      
+
       // Benachrichtigungseinstellungen des Benutzers abrufen
       const result = await pool.query(`
         SELECT 
           id,
           user_id AS "userId",
-          
+
           -- Aufgaben
           task_assigned AS "taskAssigned",
           task_due AS "taskDue",
           task_updates AS "taskUpdates",
           task_comments AS "taskComments",
-          
+
           -- Boards
           board_invite AS "boardInvite",
           board_updates AS "boardUpdates",
-          
+
           -- Teams
           team_invite AS "teamInvite",
           team_updates AS "teamUpdates",
-          
+
           -- Projekte
           project_update AS "projectUpdate",
-          
+
           -- OKRs
           okr_progress AS "okrProgress",
           okr_comments AS "okrComments",
-          
+
           -- Allgemein
           mentions
         FROM notification_settings
         WHERE user_id = $1
         LIMIT 1
       `, [userId]);
-      
+
       // Wenn keine Einstellungen gefunden wurden, Standardeinstellungen erstellen
       if (result.rows.length === 0) {
         const defaultSettings = {
@@ -1379,7 +1384,7 @@ export async function registerRoutes(app: Express, db: Knex) {
           okrComments: true,
           mentions: true
         };
-        
+
         // Default-Einstellungen in Datenbank einfügen
         const insertResult = await pool.query(`
           INSERT INTO notification_settings (
@@ -1402,14 +1407,14 @@ export async function registerRoutes(app: Express, db: Knex) {
           defaultSettings.okrProgress, defaultSettings.okrComments,
           defaultSettings.mentions
         ]);
-        
+
         // ID der neu erstellten Einstellungen hinzufügen
         defaultSettings.id = insertResult.rows[0].id;
-        
+
         // Default-Einstellungen zurückgeben
         return res.json(defaultSettings);
       }
-      
+
       // Vorhandene Einstellungen zurückgeben
       res.json(result.rows[0]);
     } catch (error) {
@@ -1420,26 +1425,26 @@ export async function registerRoutes(app: Express, db: Knex) {
       });
     }
   });
-  
+
   // Benachrichtigungseinstellungen des Benutzers aktualisieren
   app.patch("/api/notification-settings", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;
       const updates = req.body;
-      
+
       // Prüfen, ob die Einstellungen bereits existieren
       const checkResult = await pool.query(
         'SELECT id FROM notification_settings WHERE user_id = $1',
         [userId]
       );
-      
+
       // Wenn keine Einstellungen gefunden wurden, Fehler zurückgeben
       if (checkResult.rows.length === 0) {
         return res.status(404).json({ message: "Benachrichtigungseinstellungen nicht gefunden" });
       }
-      
+
       const settingsId = checkResult.rows[0].id;
-      
+
       // Liste der erlaubten Felder und deren DB-Spaltenname
       const allowedFields = {
         taskAssigned: "task_assigned",
@@ -1455,12 +1460,12 @@ export async function registerRoutes(app: Express, db: Knex) {
         okrComments: "okr_comments",
         mentions: "mentions"
       };
-      
+
       // Aktualisierungsspalten und Werte zusammenstellen
       const updatePairs = [];
       const updateValues = [];
       let paramCounter = 1;
-      
+
       for (const [key, value] of Object.entries(updates)) {
         if (key in allowedFields && typeof value === 'boolean') {
           updatePairs.push(`${allowedFields[key as keyof typeof allowedFields]} = $${paramCounter}`);
@@ -1468,7 +1473,7 @@ export async function registerRoutes(app: Express, db: Knex) {
           paramCounter++;
         }
       }
-      
+
       // Nur aktualisieren, wenn es tatsächlich etwas zu aktualisieren gibt
       if (updatePairs.length > 0) {
         // Benachrichtigungseinstellungen aktualisieren
@@ -1479,9 +1484,9 @@ export async function registerRoutes(app: Express, db: Knex) {
           RETURNING *
         `;
         updateValues.push(settingsId);
-        
+
         const result = await pool.query(updateQuery, updateValues);
-        
+
         // Aktualisierte Einstellungen in camelCase umwandeln und zurückgeben
         const updatedSettings = {
           id: result.rows[0].id,
@@ -1499,10 +1504,10 @@ export async function registerRoutes(app: Express, db: Knex) {
           okrComments: result.rows[0].okr_comments,
           mentions: result.rows[0].mentions
         };
-        
+
         return res.json(updatedSettings);
       }
-      
+
       // Wenn keine gültigen Felder zum Aktualisieren gefunden wurden
       res.status(400).json({ message: "Keine gültigen Felder zum Aktualisieren gefunden" });
     } catch (error) {
@@ -1513,8 +1518,6 @@ export async function registerRoutes(app: Express, db: Knex) {
       });
     }
   });
-  
-  // Der POST-Endpunkt wurde entfernt, da wir bereits einen PATCH-Endpunkt für die gleiche Funktionalität haben
 
   // GET /api/companies/:id
   app.get("/api/companies/:id", requireAuth, async (req, res) => {
@@ -1551,24 +1554,24 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.get("/api/companies/current", requireAuth, async (req, res) => {
     try {
       console.log(`[COMPANY_DEBUG] Fetching current company for user ID: ${req.userId}`);
-      
+
       // Prüfen ob der Benutzer authentifiziert ist
       if (!req.userId) {
         console.log("[COMPANY_DEBUG] User not authenticated");
         return res.status(401).json({ message: "Nicht authentifiziert" });
       }
-      
+
       // Hole die aktuellen Unternehmensdaten direkt mit getCurrentUserCompany
       // Diese Methode prüft bereits ob der User existiert und zu einem Unternehmen gehört
       const company = await storage.getCurrentUserCompany(req.userId);
       console.log("[COMPANY_DEBUG] Company data:", JSON.stringify(company, null, 2));
-      
+
       // company kann null sein, wenn der User kein Unternehmen hat
       return res.json(company);
-      
+
     } catch (error) {
       console.error("[COMPANY_DEBUG] Unexpected error:", error);
-      
+
       // Spezifische Fehlermeldungen für verschiedene Fehlertypen
       if (error instanceof Error) {
         if (error.message.includes("not found")) {
@@ -1577,7 +1580,7 @@ export async function registerRoutes(app: Express, db: Knex) {
           return res.status(400).json({ message: error.message });
         }
       }
-      
+
       // Allgemeiner Serverfehler für alle anderen Fehler
       return res.status(500).json({
         message: "Fehler beim Abrufen der Unternehmensdaten",
@@ -1771,8 +1774,8 @@ export async function registerRoutes(app: Express, db: Knex) {
 
     try {
       // Log für Debugging
-      console.log("Team update request body:", req.body);
-      
+      consolelog("Team update request body:", req.body);
+
       // Konvertiere member_ids zu Strings, falls sie als Zahlen übergeben werden
       const teamData = {
         ...req.body,
@@ -1782,7 +1785,7 @@ export async function registerRoutes(app: Express, db: Knex) {
               : [req.body.member_ids.toString()]
           : undefined
       };
-      
+
       // Validiere Daten
       const result = insertTeamSchema.partial().safeParse(teamData);
       if (!result.success) {
@@ -1889,7 +1892,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       if (isNaN(companyId)) {
         return res.status(400).json({ error: "Ungültige Unternehmens-ID" });
       }
-      
+
       const members = await storage.getCompanyMembers(req.userId as number, companyId);
       res.json(members);
     } catch (error) {
@@ -1909,7 +1912,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       if (typeof isAdmin !== 'boolean') {
         return res.status(400).json({ error: "isAdmin muss ein boolescher Wert sein" });
       }
-      
+
       const user = await storage.updateUserCompanyRole(req.userId as number, targetUserId, isAdmin);
       res.json(user);
     } catch (error) {
@@ -1924,7 +1927,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       if (isNaN(companyId)) {
         return res.status(400).json({ error: "Ungültige Unternehmens-ID" });
       }
-      
+
       const inviteCode = await storage.generateCompanyInviteCode(req.userId as number, companyId);
       res.json({ inviteCode });
     } catch (error) {
@@ -1939,7 +1942,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       if (!inviteCode || typeof inviteCode !== 'string') {
         return res.status(400).json({ error: "Gültiger Einladungscode erforderlich" });
       }
-      
+
       const company = await storage.joinCompanyWithInviteCode(req.userId as number, inviteCode);
       res.json(company);
     } catch (error) {
@@ -1951,21 +1954,21 @@ export async function registerRoutes(app: Express, db: Knex) {
   app.post("/api/companies", requireAuth, async (req, res) => {
     try {
       const { name, description } = req.body;
-      
+
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ error: "Unternehmensname ist erforderlich" });
       }
-      
+
       const companyData = {
         name,
         description: description || null
       };
-      
+
       const company = await storage.createCompany(req.userId as number, companyData);
       res.status(201).json(company);
     } catch (error: any) {
       console.error("Error in POST /api/companies:", error);
-      
+
       // Spezifische Fehlermeldungen für bekannte Fehler
       if (error.message && (
         error.message.includes("Die Erstellung eines Unternehmens erfordert mindestens ein Basic-Abonnement") ||
@@ -1973,7 +1976,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       )) {
         return res.status(400).json({ error: error.message });
       }
-      
+
       res.status(500).json({ error: "Fehler beim Erstellen des Unternehmens" });
     }
   });
@@ -2033,6 +2036,9 @@ export async function registerRoutes(app: Express, db: Knex) {
         task_id: null
       });
 
+      await notificationService.processActivityLog(activityLog.id);
+
+
       console.log("Activity log created:", activityLog);
 
       res.status(201).json(objective);
@@ -2054,30 +2060,32 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
       const userId = req.userId!;
-      
+
       // Holen Sie zuerst die Task, um die boardId zu bekommen
       const task = await storage.getTasks(userId, null).then(tasks => 
         tasks.find(t => t.id === id)
       );
-      
+
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
-      
-      await storage.createActivityLog({
+
+      const activityLog = await storage.createActivityLog({
         action: "delete",
         details: "Aufgabe gelöscht",
         user_id: userId,
         task_id: id,
         board_id: task.boardId
       });
-      
+
+      await notificationService.processActivityLog(activityLog.id);
+
       await storage.deleteTask(userId, id);
       res.status(204).send();
     } catch (error) {
       res.status(404).json({ message: (error as Error).message });
     }
   });
-  
+
   // No need to return createServer(app) anymore since we're creating the server in index.ts
 }
