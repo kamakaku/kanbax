@@ -421,7 +421,7 @@ export class PermissionService {
           
           -- ODER Benutzer hat eine Aufgabe, die betroffen ist
           OR (a.task_id IS NOT NULL AND EXISTS (
-            SELECT 1 FROM tasks WHERE id = a.task_id AND (assigned_user_id = $1 OR creator_id = $1)
+            SELECT 1 FROM tasks WHERE id = a.task_id AND creator_id = $1
           ))
         )
         -- Nur Aktivitäten aus der gleichen Firma
