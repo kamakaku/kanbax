@@ -39,6 +39,7 @@ export interface IStorage {
 
   // Task operations
   getTasks(userId: number, boardId: number): Promise<Task[]>;
+  getUserAssignedTasks(userId: number): Promise<Task[]>;
   createTask(userId: number, task: InsertTask): Promise<Task>;
   updateTask(userId: number, id: number, task: UpdateTask): Promise<Task>;
   deleteTask(userId: number, id: number): Promise<void>;
@@ -747,12 +748,118 @@ export class DatabaseStorage implements IStorage {
       .from(tasks)
       .where(eq(tasks.boardId, boardId))
       .orderBy(tasks.order);
-
+  
     return result.map(task => ({
       ...task,
       checklist: Array.isArray(task.checklist) ? task.checklist : [],
       assignedUserIds: Array.isArray(task.assignedUserIds) ? task.assignedUserIds : [],
     }));
+  }
+  
+  async getUserAssignedTasks(userId: number): Promise<Task[]> {
+    // Alle Tasks abrufen, die dem Benutzer zugewiesen sind
+    const userTasks = await db
+      .select({
+        id: tasks.id,
+        title: tasks.title,
+        description: tasks.description,
+        richDescription: tasks.richDescription,
+        status: tasks.status,
+        priority: tasks.priority,
+        labels: tasks.labels,
+        checklist: tasks.checklist,
+        columnId: tasks.columnId,
+        boardId: tasks.boardId,
+        dueDate: tasks.dueDate,
+        order: tasks.order,
+        assignedUserIds: tasks.assignedUserIds,
+        assignedTeamId: tasks.assignedTeamId,
+        archived: tasks.archived,
+        attachments: tasks.attachments,
+      })
+      .from(tasks)
+      .where(
+        and(
+          // Stelle sicher, dass der Benutzer direkt diesem Task zugewiesen ist
+          sql`${tasks.assignedUserIds} @> ARRAY[${userId}]::int[]`,
+          // Stelle sicher, dass nur nicht-archivierte Tasks berücksichtigt werden
+          eq(tasks.archived, false)
+        )
+      )
+      .orderBy(tasks.boardId, tasks.columnId, tasks.order);
+      
+    // Für jeden Task Zusatzinformationen abrufen (Board, Spalte, Projekt)
+    const enrichedTasks = await Promise.all(userTasks.map(async (task) => {
+      // Board abrufen, zu dem der Task gehört
+      const [board] = await db
+        .select({
+          id: boards.id,
+          title: boards.title,
+          projectId: boards.project_id,
+        })
+        .from(boards)
+        .where(eq(boards.id, task.boardId));
+        
+      // Spalte abrufen, in der sich der Task befindet
+      const [column] = await db
+        .select({
+          id: columns.id,
+          title: columns.title,
+        })
+        .from(columns)
+        .where(eq(columns.id, task.columnId));
+        
+      // Projekt abrufen, falls das Board zu einem Projekt gehört
+      let project = null;
+      if (board && board.projectId) {
+        const [projectData] = await db
+          .select({
+            id: projects.id,
+            title: projects.title,
+          })
+          .from(projects)
+          .where(eq(projects.id, board.projectId));
+          
+        project = projectData;
+      }
+      
+      // Zugewiesener Benutzer, falls vorhanden
+      let assignedUser = null;
+      if (task.assignedUserIds && task.assignedUserIds.includes(userId)) {
+        const [userData] = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl,
+          })
+          .from(users)
+          .where(eq(users.id, userId));
+          
+        assignedUser = userData;
+      }
+      
+      // Task mit zusätzlichen Informationen zurückgeben
+      return {
+        ...task,
+        board: board,
+        column: column,
+        project: project,
+        assignedUser: assignedUser,
+      };
+    }));
+
+    // Prüfe Zugriffsberechtigung für jeden Task
+    const accessibleTasks = await Promise.all(
+      enrichedTasks.map(async (task) => {
+        // Prüfe, ob der Benutzer Zugriff auf das Board hat
+        const hasAccess = await this.permissionService.canAccessBoard(userId, task.boardId);
+        return hasAccess ? task : null;
+      })
+    );
+
+    // Filtere Tasks ohne Zugriffsberechtigung heraus
+    return accessibleTasks.filter((task): task is Task => task !== null);
   }
 
   async createTask(userId: number, insertTask: InsertTask): Promise<Task> {
