@@ -270,7 +270,7 @@ export default function AllBoards() {
     
     return (
       <div
-        className="group cursor-pointer transition-all duration-300 relative h-full pt-3"
+        className="group cursor-pointer transition-all duration-300 relative h-full"
         onClick={() => handleBoardClick(board)}
       >
         <Card
