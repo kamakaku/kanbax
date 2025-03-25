@@ -11,6 +11,23 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 
+// Erweiterte Task-Schnittstelle für die Frontend-Anzeige
+interface TaskWithDetails extends Task {
+  board?: {
+    id: number;
+    title: string;
+    projectId?: number | null;
+  } | null;
+  column?: {
+    id: number;
+    title: string;
+  } | null;
+  project?: {
+    id: number;
+    title: string;
+  } | null;
+}
+
 // Hilfsfunktion zur Formatierung des Fälligkeitsdatums
 function formatDueDate(dateString: string | Date): string {
   const date = typeof dateString === "string" ? new Date(dateString) : dateString;
@@ -89,8 +106,8 @@ export default function MyTasks() {
   };
 
   // Handler für Aufgaben-Update
-  const handleTaskUpdate = async (updatedTask: Task) => {
-    return updateTaskMutation.mutateAsync(updatedTask);
+  const handleTaskUpdate = async (updatedTask: Task): Promise<void> => {
+    await updateTaskMutation.mutateAsync(updatedTask);
   };
 
   // Gruppiert Aufgaben nach Status

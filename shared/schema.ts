@@ -554,6 +554,19 @@ export type Task = typeof tasks.$inferSelect & {
     description: string | null;
   } | null;
   columnId?: number; // Optional Spalten-ID
+  board?: {
+    id: number;
+    title: string;
+    projectId?: number | null;
+  } | null;
+  column?: {
+    id: number;
+    title: string;
+  } | null;
+  project?: {
+    id: number;
+    title: string;
+  } | null;
 };
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;
