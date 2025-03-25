@@ -38,8 +38,25 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { User } from "@shared/schema";
 import { DialogMultiSelect } from "@/components/ui/dialog-multi-select";
 
+// Erweiterte Task-Schnittstelle für die Frontend-Anzeige (analog zu my-tasks.tsx)
+interface TaskWithDetails extends Task {
+  board?: {
+    id: number;
+    title: string;
+    projectId?: number | null;
+  } | null;
+  column?: {
+    id: number;
+    title: string;
+  } | null;
+  project?: {
+    id: number;
+    title: string;
+  } | null;
+}
+
 interface TaskDialogProps {
-  task?: Task;
+  task?: Task | TaskWithDetails;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;

@@ -67,13 +67,13 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 // Hauptkomponente für "Meine Aufgaben"
 export default function MyTasks() {
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Laden der zugewiesenen Aufgaben des aktuellen Benutzers
-  const { data: tasks, isLoading, error } = useQuery({
+  const { data: tasks, isLoading, error } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/user/tasks/assigned"],
     staleTime: 1000 * 60, // 1 Minute
   });
@@ -101,7 +101,7 @@ export default function MyTasks() {
 
   // Handler für Aufgaben-Klick
   const handleTaskClick = (task: TaskWithDetails) => {
-    setSelectedTask(task as Task);
+    setSelectedTask(task);
     setIsTaskDialogOpen(true);
   };
 
