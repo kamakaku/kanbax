@@ -135,36 +135,44 @@ export function NotificationDropdown() {
   };
   
   const getNotificationTypeClass = (type: string) => {
+    // Gruppierung nach Kategorien für konsistente Farbgebung
+    if (type.startsWith("task")) {
+      // Aufgaben-Benachrichtigungen in Lila
+      return type === "task_delete" ? "text-red-500 bg-red-500" : "text-purple-500 bg-purple-500";
+    }
+    
+    if (type.startsWith("board")) {
+      // Board-Benachrichtigungen in Cyan
+      return "text-cyan-500 bg-cyan-500";
+    }
+    
+    if (type.startsWith("project")) {
+      // Projekt-Benachrichtigungen in Indigo
+      return "text-indigo-500 bg-indigo-500";
+    }
+    
+    if (type.startsWith("team")) {
+      // Team-Benachrichtigungen in Pink
+      return "text-pink-500 bg-pink-500";
+    }
+    
+    if (type.startsWith("okr")) {
+      // OKR-Benachrichtigungen in Orange, Löschungen in Rot
+      return type === "okr_delete" ? "text-red-500 bg-red-500" : "text-orange-500 bg-orange-500";
+    }
+    
+    // Spezifische Typen
     switch (type) {
       case "approval":
-        return "text-green-500";
+        return "text-green-500 bg-green-500";
       case "mention":
-        return "text-blue-500";
+        return "text-blue-500 bg-blue-500";
       case "assignment":
-        return "text-amber-500";
-      case "task":
-      case "task_update":
-        return "text-purple-500";
-      case "task_delete":
-        return "text-red-500";
-      case "board":
-        return "text-cyan-500";
-      case "project":
-        return "text-indigo-500";
-      case "team":
-        return "text-pink-500";
-      case "okr":
-        return "text-orange-500";
-      case "okr_update":
-        return "text-orange-500";
-      case "okr_delete":
-        return "text-red-500";
-      case "okr_comment":
-        return "text-blue-500";
+        return "text-amber-500 bg-amber-500";
       case "comment":
-        return "text-blue-500";
+        return "text-blue-500 bg-blue-500";
       default:
-        return "text-gray-500";
+        return "text-gray-500 bg-gray-500";
     }
   };
 
@@ -216,13 +224,15 @@ export function NotificationDropdown() {
                   key={notification.id}
                   className={`flex items-start p-3 space-x-3 cursor-pointer ${
                     !notification.read ? "bg-primary/5" : ""
-                  }`}
+                  } hover:bg-secondary transition-colors duration-200`}
                   onClick={() => handleNotificationClick(notification)}
                 >
-                  <span className={`text-xl ${getNotificationTypeClass(notification.type)}`}>
-                    {renderNotificationIcon(notification.type)}
-                  </span>
-                  <div className="flex-1 space-y-1">
+                  <div className={`flex items-center justify-center p-2 rounded-full ${getNotificationTypeClass(notification.type).split(' ')[1]} bg-opacity-10`}>
+                    <div className={getNotificationTypeClass(notification.type).split(' ')[0]}>
+                      {renderNotificationIcon(notification.type)}
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium leading-none">
                         {notification.title}
@@ -243,9 +253,9 @@ export function NotificationDropdown() {
                           minute: "2-digit",
                         })}
                       </p>
-                      <div className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      <Badge variant="outline" className="text-[10px] h-5 px-1.5">
                         {notification.type.replaceAll('_', ' ')}
-                      </div>
+                      </Badge>
                     </div>
                   </div>
                 </DropdownMenuItem>

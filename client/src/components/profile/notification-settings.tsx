@@ -2,10 +2,26 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { type NotificationSettings } from "@shared/schema";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import { 
+  Bell,
+  CheckSquare, 
+  ClipboardList, 
+  FileText, 
+  MessageSquare, 
+  Target, 
+  Users, 
+  AtSign, 
+  Pin, 
+  Kanban,
+  Calendar,
+  Info
+} from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 export function NotificationSettingsForm() {
   const { toast } = useToast();
