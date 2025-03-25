@@ -1116,18 +1116,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
-  // Endpunkt für zugewiesene Aufgaben eines Benutzers
-  app.get("/api/user/tasks/assigned", requireAuth, async (req, res) => {
-    try {
-      const userId = req.userId!;
-      console.log(`Fetching assigned tasks for user: ${userId}`);
-      const tasks = await storage.getUserAssignedTasks(userId);
-      res.json(tasks);
-    } catch (error) {
-      console.error("Failed to get assigned tasks:", error);
-      res.status(500).json({ message: "Failed to get assigned tasks", error: (error as Error).message });
-    }
-  });
+  // Dieser Endpunkt wurde entfernt, da er dupliziert war.
+  // Die Route "/api/user/tasks/assigned" ist bereits oben definiert.
 
   app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
