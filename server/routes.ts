@@ -21,7 +21,7 @@ import { permissionService } from './permissions';
 import { db, pool } from './db';
 import * as schema from '@shared/schema';
 import { eq, and, or, desc } from 'drizzle-orm';
-import { notificationService } from './notifications'; // Assuming notificationService is imported
+import { notificationService } from './notification-service'; // Assuming notificationService is imported
 
 
 // Configure multer for avatar uploads
