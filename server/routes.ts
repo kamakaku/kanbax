@@ -25,7 +25,7 @@ import { notificationService } from './notification-service'; // Assuming notifi
 
 
 // Configure multer for avatar uploads
-const upload = multer({
+const avatarUpload = multer({
   storage: multer.diskStorage({
     destination: './uploads/avatars',
     filename: (req, file, cb) => {
@@ -46,10 +46,77 @@ const upload = multer({
   }
 });
 
-// Ensure upload directory exists
-if (!fs.existsSync('./uploads/avatars')) {
-  fs.mkdirSync('./uploads/avatars', { recursive: true });
-}
+// Configure multer for general file uploads
+const fileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      // Dynamische Zielverzeichnisse basierend auf dem Upload-Typ
+      const type = req.body.type || 'general';
+      let uploadDir = './uploads/attachments';
+      
+      switch(type) {
+        case 'task':
+          uploadDir = './uploads/attachments/tasks';
+          break;
+        case 'objective':
+          uploadDir = './uploads/attachments/objectives';
+          break;
+        case 'keyResult':
+          uploadDir = './uploads/attachments/key-results';
+          break;
+        case 'comment':
+          uploadDir = './uploads/attachments/comments';
+          break;
+        default:
+          uploadDir = './uploads/attachments';
+      }
+      
+      // Stellen Sie sicher, dass das Verzeichnis existiert
+      ensureDirectoryExists(uploadDir);
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      // Generieren Sie einen sicheren Dateinamen
+      const secureFilename = generateSecureFilename(file.originalname);
+      cb(null, secureFilename);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    // Erlaubte Dateitypen
+    const allowedTypes = [
+      // Bilder
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+      // Dokumente
+      'application/pdf', 'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Text
+      'text/plain', 'text/csv', 'text/html',
+      // Archiv
+      'application/zip', 'application/x-rar-compressed'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Dateityp nicht erlaubt. Erlaubte Typen sind Bilder, Dokumente, und Archivdateien.'));
+    }
+  },
+  limits: {
+    fileSize: 25 * 1024 * 1024 // 25MB
+  }
+});
+
+// Stellen Sie sicher, dass die Upload-Verzeichnisse existieren
+ensureDirectoryExists('./uploads/avatars');
+ensureDirectoryExists('./uploads/attachments');
+ensureDirectoryExists('./uploads/attachments/tasks');
+ensureDirectoryExists('./uploads/attachments/objectives');
+ensureDirectoryExists('./uploads/attachments/key-results');
+ensureDirectoryExists('./uploads/attachments/comments');
 
 export async function registerRoutes(app: Express, db: Knex) {
   // Add this health check endpoint at the beginning of route registration
@@ -1695,7 +1762,7 @@ export async function registerRoutes(app: Express, db: Knex) {
   });
 
   // Avatar upload route
-  app.post("/api/profile/avatar", requireAuth, upload.single('avatar'), async (req, res) => {
+  app.post("/api/profile/avatar", requireAuth, avatarUpload.single('avatar'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -1990,6 +2057,110 @@ export async function registerRoutes(app: Express, db: Knex) {
     } catch (error) {
       console.error("Failed to fetch team members:", error);
       res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+  
+  // Datei-Upload-Endpunkt für allgemeine Uploads (Tasks, Objectives, KeyResults, etc.)
+  app.post("/api/upload", requireAuth, fileUpload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Keine Datei hochgeladen" });
+      }
+
+      const userId = req.userId as number;
+      const { type = 'general', entityId } = req.body;
+      
+      // Pfad relativ zum Server-Root
+      const filePath = req.file.path.replace(/^\.\//, '/');
+      
+      // Protokolliert den Upload für Debugging
+      console.log("Datei hochgeladen:", {
+        userId,
+        type,
+        entityId,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: filePath
+      });
+      
+      // Erstellt einen Aktivitätslog für den Upload, falls ein entityId vorhanden ist
+      if (entityId) {
+        try {
+          const entityIdNum = parseInt(entityId);
+          if (!isNaN(entityIdNum)) {
+            // Je nach Uploadtyp den entsprechenden Aktivitätslog erstellen
+            const logData: any = {
+              action: "upload",
+              details: `Datei "${req.file.originalname}" hochgeladen`,
+              user_id: userId
+            };
+            
+            // Setze die entsprechenden IDs basierend auf dem Upload-Typ
+            switch(type) {
+              case 'task':
+                logData.task_id = entityIdNum;
+                // Hole board_id für die Task
+                try {
+                  const taskResult = await pool.query(
+                    'SELECT board_id FROM tasks WHERE id = $1',
+                    [entityIdNum]
+                  );
+                  if (taskResult.rows.length > 0) {
+                    logData.board_id = taskResult.rows[0].board_id;
+                  }
+                } catch (err) {
+                  console.error("Fehler beim Abrufen der Board-ID für die Task:", err);
+                }
+                break;
+              case 'objective':
+                logData.objective_id = entityIdNum;
+                break;
+              case 'keyResult':
+                logData.key_result_id = entityIdNum;
+                // Hole objective_id für das Key Result
+                try {
+                  const krResult = await pool.query(
+                    'SELECT objective_id FROM key_results WHERE id = $1',
+                    [entityIdNum]
+                  );
+                  if (krResult.rows.length > 0) {
+                    logData.objective_id = krResult.rows[0].objective_id;
+                  }
+                } catch (err) {
+                  console.error("Fehler beim Abrufen der Objective-ID für das Key Result:", err);
+                }
+                break;
+              case 'comment':
+                // Hier könnten wir die Task-ID oder Objective-ID aus dem Kommentar abrufen,
+                // aber das ist komplexer und würde mehr Logik erfordern
+                logData.comment_id = entityIdNum;
+                break;
+            }
+            
+            // Aktivitätslog erstellen
+            const activityLog = await storage.createActivityLog(logData);
+            
+            // Benachrichtigungen für den Upload verarbeiten
+            await notificationService.processActivityLog(activityLog.id);
+          }
+        } catch (logError) {
+          console.error("Fehler beim Erstellen des Aktivitätslogs für den Upload:", logError);
+          // Wir brechen hier nicht ab, da der Upload selbst erfolgreich war
+        }
+      }
+      
+      // Erfolgreiche Antwort senden
+      res.json({
+        url: filePath,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error("Fehler beim Hochladen der Datei:", error);
+      res.status(500).json({ message: "Fehler beim Hochladen der Datei" });
     }
   });
 

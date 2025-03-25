@@ -1,4 +1,7 @@
 import fetch from 'node-fetch';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 
 // Simple query client for server-side fetching
 export const queryClient = {
@@ -15,7 +18,6 @@ export const queryClient = {
 export function ensureDirectoryExists(directory: string): void {
   if (!directory) return;
   
-  const fs = require('fs');
   if (!fs.existsSync(directory)) {
     fs.mkdirSync(directory, { recursive: true });
   }
@@ -23,9 +25,6 @@ export function ensureDirectoryExists(directory: string): void {
 
 // Generate a secure file name
 export function generateSecureFilename(originalname: string): string {
-  const path = require('path');
-  const crypto = require('crypto');
-  
   // Get the file extension
   const ext = path.extname(originalname).toLowerCase();
   
