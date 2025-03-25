@@ -4,7 +4,13 @@ export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
+    fontFamily: {
+      sans: ['Urbanist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+    },
     extend: {
+      letterSpacing: {
+        wider: '0.05em',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

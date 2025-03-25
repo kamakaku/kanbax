@@ -1,3 +1,10 @@
+@import "@fontsource/urbanist/300.css";
+@import "@fontsource/urbanist/400.css";
+@import "@fontsource/urbanist/500.css";
+@import "@fontsource/urbanist/600.css";
+@import "@fontsource/urbanist/700.css";
+@import "@fontsource/urbanist/800.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,7 +42,7 @@
   }
 
   body {
-    @apply bg-gradient-to-br from-background to-background/90 text-foreground min-h-screen;
+    @apply bg-gradient-to-br from-background to-background/90 text-foreground min-h-screen tracking-wider;
     font-feature-settings: "rlig" 1, "calt" 1;
     background-image: radial-gradient(at 80% 0%, rgb(248, 250, 252) 0px, transparent 50%),
                       radial-gradient(at 0% 50%, rgb(241, 245, 249) 0px, transparent 50%);
