@@ -73,24 +73,7 @@ export function Topbar() {
     <div className="fixed top-0 right-0 left-0 h-16 z-50 flex items-center justify-between bg-white/80 backdrop-blur-lg border-b">
       {/* Logo */}
       <div className="flex items-center pl-4">
-        <div className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent flex items-center gap-2">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-6 w-6"
-          >
-            {/* Kanban Board Logo */}
-            <path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-            <path d="M7 3v18" />
-            <path d="M14 3v18" />
-            <rect x="3" y="7" width="4" height="4" />
-            <rect x="8" y="7" width="6" height="7" />
-            <rect x="15" y="7" width="6" height="10" />
-          </svg>
+        <div className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent flex items-center">
           Kanbax
         </div>
       </div>
