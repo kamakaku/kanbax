@@ -1328,6 +1328,67 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
   
+  // Benachrichtigungen des Benutzers abrufen
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      
+      // Benachrichtigungen des Benutzers abrufen, neueste zuerst
+      const result = await pool.query(
+        'SELECT id, user_id as "userId", title, message, type, read, link, created_at as "createdAt" ' +
+        'FROM notifications ' +
+        'WHERE user_id = $1 ' +
+        'ORDER BY created_at DESC ' +
+        'LIMIT 50',
+        [userId]
+      );
+      
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+      res.status(500).json({
+        message: "Benachrichtigungen konnten nicht abgerufen werden",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Einzelne Benachrichtigung als gelesen markieren
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      const notificationId = parseInt(req.params.id);
+      
+      if (isNaN(notificationId)) {
+        return res.status(400).json({ message: "Ungültige Benachrichtigungs-ID" });
+      }
+      
+      // Prüfen, ob die Benachrichtigung dem Benutzer gehört
+      const checkResult = await pool.query(
+        'SELECT id FROM notifications WHERE id = $1 AND user_id = $2',
+        [notificationId, userId]
+      );
+      
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ message: "Benachrichtigung nicht gefunden" });
+      }
+      
+      // Benachrichtigung als gelesen markieren
+      await pool.query(
+        'UPDATE notifications SET read = true WHERE id = $1',
+        [notificationId]
+      );
+      
+      res.json({ message: "Benachrichtigung als gelesen markiert" });
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+      res.status(500).json({
+        message: "Benachrichtigung konnte nicht als gelesen markiert werden",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // Alle Benachrichtigungen als gelesen markieren
   app.patch("/api/notifications/read-all", requireAuth, async (req, res) => {
     try {
