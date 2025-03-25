@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type Team, type TeamMember, type InsertTeam } from "@shared/schema";
+import { type Team, type TeamMember, type InsertTeam, type Board, type Project, type Objective } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,9 +8,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { TeamForm } from "./team-form";
-import { Users, Plus, Edit } from "lucide-react";
+import { Users, Plus, Edit, Calendar, Layout, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
@@ -40,6 +41,42 @@ export function TeamList() {
       return response.json();
     },
   });
+  
+  // Abfrage für Projekte
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
+      return response.json();
+    },
+  });
+  
+  // Abfrage für Boards
+  const { data: boards = [] } = useQuery<Board[]>({
+    queryKey: ["/api/boards"],
+    queryFn: async () => {
+      const response = await fetch("/api/boards");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Boards");
+      }
+      return response.json();
+    },
+  });
+  
+  // Abfrage für Objectives (OKRs)
+  const { data: objectives = [] } = useQuery<Objective[]>({
+    queryKey: ["/api/objectives"],
+    queryFn: async () => {
+      const response = await fetch("/api/objectives");
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Objectives");
+      }
+      return response.json();
+    },
+  });
 
   if (isLoading) {
     return <div>Lade Teams...</div>;
@@ -53,6 +90,27 @@ export function TeamList() {
     return teamMembers
       .filter(tm => tm.teamId === teamId)
       .map(tm => tm.userId.toString());
+  };
+  
+  // Zählt die Anzahl der Projekte für ein Team
+  const getTeamProjectCount = (teamId: number) => {
+    return projects.filter(project => 
+      project.team_ids && Array.isArray(project.team_ids) && project.team_ids.includes(teamId)
+    ).length;
+  };
+  
+  // Zählt die Anzahl der Boards für ein Team
+  const getTeamBoardCount = (teamId: number) => {
+    return boards.filter(board => 
+      board.team_ids && Array.isArray(board.team_ids) && board.team_ids.includes(teamId)
+    ).length;
+  };
+  
+  // Zählt die Anzahl der OKRs (Objectives) für ein Team
+  const getTeamOkrCount = (teamId: number) => {
+    return objectives.filter(objective => 
+      objective.teamId === teamId
+    ).length;
   };
 
   return (
@@ -73,50 +131,85 @@ export function TeamList() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {teams.map((team) => (
-          <Card key={team.id} className="relative overflow-hidden">
+          <Card key={team.id} className="group relative overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer">
             <Link href={`/teams/${team.id}`} className="absolute inset-0 z-10">
               <span className="sr-only">Team Details anzeigen</span>
             </Link>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {team.name}
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  setEditingTeam(team);
-                }}
-                className="z-20 relative"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
+            <CardHeader className="p-4 pb-2">
+              <div className="flex items-start justify-between">
+                <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
+                  {team.name}
+                </CardTitle>
+              </div>
             </CardHeader>
-            <CardContent>
-              <CardDescription className="text-sm text-muted-foreground">
-                {team.description}
+            
+            <CardContent className="p-4 pt-2 pb-2">
+              <CardDescription className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[40px]">
+                {team.description || "Keine Beschreibung"}
               </CardDescription>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {teamMembers.filter(tm => tm.teamId === team.id).length} Mitglieder
+              
+              <div className="grid grid-cols-3 gap-2 mt-2 mb-4">
+                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-md">
+                  <Users className="h-4 w-4 mb-1 text-slate-600" />
+                  <span className="text-xs font-medium text-slate-700">
+                    {teamMembers.filter(tm => tm.teamId === team.id).length || 0} Mitglieder
                   </span>
                 </div>
+                
+                <div className="flex flex-col items-center p-2 bg-blue-50 rounded-md">
+                  <svg className="h-4 w-4 mb-1 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <span className="text-xs font-medium text-blue-700">
+                    0 Projekte
+                  </span>
+                </div>
+                
+                <div className="flex flex-col items-center p-2 bg-amber-50 rounded-md">
+                  <svg className="h-4 w-4 mb-1 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                  </svg>
+                  <span className="text-xs font-medium text-amber-700">
+                    0 Boards
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+            
+            <CardFooter className="p-4 pt-2 flex items-center justify-between border-t">
+              <div className="text-xs text-muted-foreground">
                 {team.creatorId && (
-                  <div className="text-xs text-muted-foreground flex items-center">
-                    <span className="mr-1">Creator:</span>
+                  <div className="flex items-center">
+                    <span className="mr-1">Erstellt von:</span>
                     <span className="font-medium">
-                      {team.creatorId}
+                      ID: {team.creatorId}
                     </span>
                   </div>
                 )}
               </div>
-            </CardContent>
+              
+              <div className="flex space-x-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-1 hover:bg-blue-50 rounded-full z-20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setEditingTeam(team);
+                  }}
+                  title="Bearbeiten"
+                >
+                  <Edit className="h-4 w-4 text-blue-500" />
+                </Button>
+              </div>
+            </CardFooter>
           </Card>
         ))}
       </div>
