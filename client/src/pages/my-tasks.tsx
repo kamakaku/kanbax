@@ -2,13 +2,9 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Task } from "@shared/schema";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DragDropContext, DropResult } from "react-beautiful-dnd";
+import { Column as ColumnComponent } from "@/components/board/column";
 import { TaskDialog } from "@/components/board/task-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, CalendarDays, CircleCheck, Tag } from "lucide-react";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 
 // Erweiterte Task-Schnittstelle für die Frontend-Anzeige
@@ -28,42 +24,14 @@ interface TaskWithDetails extends Task {
   } | null;
 }
 
-// Hilfsfunktion zur Formatierung des Fälligkeitsdatums
-function formatDueDate(dateString: string | Date): string {
-  const date = typeof dateString === "string" ? new Date(dateString) : dateString;
-  return format(date, "dd. MMM yyyy", { locale: de });
-}
-
-// Komponente für die Anzeige der Priorität als Badge
-function PriorityBadge({ priority }: { priority: string }) {
-  let variant: "default" | "destructive" | "outline" | "secondary" = "default";
-  
-  switch (priority) {
-    case "high":
-      variant = "destructive";
-      break;
-    case "medium":
-      variant = "secondary";
-      break;
-    case "low":
-      variant = "outline";
-      break;
-    default:
-      variant = "default";
-  }
-
-  const priorityText = {
-    high: "Hoch",
-    medium: "Mittel",
-    low: "Niedrig"
-  }[priority] || priority;
-
-  return (
-    <Badge variant={variant} className="ml-2">
-      {priorityText}
-    </Badge>
-  );
-}
+// Die Standard-Spalten für das Kanban-Board
+const defaultColumns = [
+  { id: "todo", title: "Zu erledigen" },
+  { id: "in-progress", title: "In Bearbeitung" },
+  { id: "review", title: "In Überprüfung" },
+  { id: "done", title: "Erledigt" },
+  { id: "backlog", title: "Backlog" }
+];
 
 // Hauptkomponente für "Meine Aufgaben"
 export default function MyTasks() {
@@ -73,7 +41,7 @@ export default function MyTasks() {
   const queryClient = useQueryClient();
 
   // Laden der zugewiesenen Aufgaben des aktuellen Benutzers
-  const { data: tasks, isLoading, error } = useQuery<TaskWithDetails[]>({
+  const { data: tasks = [], isLoading, error } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/user/tasks/assigned"],
     queryFn: async () => {
       return apiRequest<TaskWithDetails[]>("GET", "/api/user/tasks/assigned");
@@ -102,214 +70,133 @@ export default function MyTasks() {
     }
   });
 
-  // Handler für Aufgaben-Klick
-  const handleTaskClick = (task: TaskWithDetails) => {
-    setSelectedTask(task);
-    setIsTaskDialogOpen(true);
-  };
-
-  // Handler für Aufgaben-Update
+  // Handler für Aufgaben-Klick und Update
   const handleTaskUpdate = async (updatedTask: Task): Promise<void> => {
     await updateTaskMutation.mutateAsync(updatedTask);
     return;
   };
 
-  // Gruppiert Aufgaben nach Status
-  const groupTasksByStatus = () => {
-    if (!tasks || !Array.isArray(tasks)) return {};
-    
-    const groups: Record<string, TaskWithDetails[]> = {};
-    
-    tasks.forEach((task: TaskWithDetails) => {
-      if (!groups[task.status]) {
-        groups[task.status] = [];
-      }
-      groups[task.status].push(task);
-    });
-    
-    return groups;
-  };
+  // Drag-and-Drop-Logik
+  const handleDragEnd = async (result: DropResult) => {
+    const { source, destination, draggableId } = result;
 
-  // Status-Übersetzungen und Reihenfolge
-  const statusOrder = ["todo", "in-progress", "review", "done", "backlog"];
-  const statusTranslations: Record<string, string> = {
-    "todo": "Zu erledigen",
-    "in-progress": "In Bearbeitung",
-    "review": "In Überprüfung",
-    "done": "Erledigt",
-    "backlog": "Backlog"
-  };
+    if (!destination) return;
 
-  // Status-Gruppen sortieren
-  const sortedGroups = Object.entries(groupTasksByStatus())
-    .sort(([statusA], [statusB]) => {
-      const indexA = statusOrder.indexOf(statusA);
-      const indexB = statusOrder.indexOf(statusB);
-      return indexA - indexB;
-    });
+    const taskId = parseInt(draggableId);
+    const draggedTask = tasks.find(t => t.id === taskId);
+
+    if (!draggedTask) {
+      console.error("Task nicht gefunden:", taskId);
+      return;
+    }
+
+    try {
+      const updatedTasks = [...tasks];
+      const sourceIndex = updatedTasks.findIndex(t => t.id === taskId);
+      const [movedTask] = updatedTasks.splice(sourceIndex, 1);
+
+      const insertIndex = destination.index;
+      updatedTasks.splice(insertIndex, 0, {
+        ...movedTask,
+        status: destination.droppableId,
+        order: destination.index,
+      });
+
+      const columnTasks = updatedTasks.filter(t => t.status === destination.droppableId);
+      columnTasks.forEach((task, index) => {
+        task.order = index;
+      });
+
+      queryClient.setQueryData(["/api/user/tasks/assigned"], updatedTasks);
+
+      await updateTaskMutation.mutateAsync({
+        ...draggedTask,
+        status: destination.droppableId,
+        order: destination.index,
+      });
+    } catch (error) {
+      console.error("Fehler beim Aktualisieren:", error);
+      queryClient.invalidateQueries({
+        queryKey: ["/api/user/tasks/assigned"],
+      });
+      toast({
+        title: "Fehler beim Verschieben",
+        description: "Bitte versuchen Sie es erneut",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto">
-          {statusOrder.map((status) => (
-            <div key={status} className="min-w-[300px]">
-              <div className="bg-muted/50 rounded-lg p-3 mb-3">
-                <h3 className="font-medium">{statusTranslations[status]}</h3>
-              </div>
-              <div className="space-y-3">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <Card key={i} className="min-h-[100px]">
-                    <CardHeader className="pb-2">
-                      <Skeleton className="h-5 w-2/3" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-4 w-full mb-2" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg text-muted-foreground">Laden...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive">Fehler beim Laden</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Es ist ein Fehler beim Laden der Aufgaben aufgetreten. Bitte versuchen Sie es später erneut.</p>
-            <p className="text-sm text-muted-foreground mt-2">{(error as Error).message}</p>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-lg text-muted-foreground mb-4">
+          {(error as Error).message || "Aufgaben konnten nicht geladen werden"}
+        </p>
       </div>
     );
   }
 
-  // Sortiere die Aufgaben nach Status in die richtige Reihenfolge
-  const tasksByStatus: Record<string, TaskWithDetails[]> = {};
-  statusOrder.forEach(status => {
-    tasksByStatus[status] = [];
-  });
-
-  if (tasks && Array.isArray(tasks)) {
-    tasks.forEach(task => {
-      if (statusOrder.includes(task.status)) {
-        tasksByStatus[task.status].push(task);
-      } else if (!tasksByStatus['backlog']) {
-        // Wenn der Status nicht bekannt ist, in Backlog einsortieren
-        tasksByStatus['backlog'].push(task);
-      }
-    });
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Meine Aufgaben</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
+      {/* Background gradients */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(at_80%_0%,rgb(248,250,252)_0px,transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(at_0%_50%,rgb(241,245,249)_0px,transparent_50%)]" />
       </div>
-      
-      {tasks && tasks.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-6">
-          {statusOrder.map((status) => (
-            <div key={status} className="min-w-[300px] h-full">
-              <div className="bg-muted/50 rounded-lg p-3 mb-3 sticky top-0">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium">{statusTranslations[status]}</h3>
-                  <Badge variant="outline">{tasksByStatus[status]?.length || 0}</Badge>
-                </div>
-              </div>
-              <div className="space-y-3 min-h-[200px]">
-                {tasksByStatus[status]?.length > 0 ? (
-                  tasksByStatus[status].map((task: TaskWithDetails) => (
-                    <Card 
-                      key={task.id} 
-                      className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => handleTaskClick(task)}
-                    >
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-base">{task.title}</CardTitle>
-                          <PriorityBadge priority={task.priority} />
-                        </div>
-                        {task.board && (
-                          <CardDescription className="flex items-center gap-1 mt-1">
-                            <ArrowUpRight size={12} />
-                            {task.board.title}
-                            {task.project && (
-                              <span className="text-xs ml-1">
-                                ({task.project.title})
-                              </span>
-                            )}
-                          </CardDescription>
-                        )}
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        {task.description && (
-                          <p className="text-sm line-clamp-2">{task.description}</p>
-                        )}
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          {task.dueDate && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <CalendarDays size={12} />
-                              <span>Fällig: {formatDueDate(task.dueDate)}</span>
-                            </div>
-                          )}
-                          {task.checklist && task.checklist.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <CircleCheck size={12} />
-                              <span>
-                                {task.checklist.filter((item: any) => item.checked).length}/{task.checklist.length}
-                              </span>
-                            </div>
-                          )}
-                          {task.labels && task.labels.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Tag size={12} />
-                              <span>
-                                {task.labels.length} Label{task.labels.length !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : (
-                  <div className="h-20 border border-dashed rounded-lg flex items-center justify-center text-muted-foreground text-sm">
-                    Keine Aufgaben
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center p-8 border rounded-lg bg-card">
-          <h3 className="text-xl font-semibold mb-2">Keine zugewiesenen Aufgaben</h3>
-          <p className="text-muted-foreground mb-4">
-            Dir sind derzeit keine Aufgaben zugewiesen.
-          </p>
-        </div>
-      )}
 
-      {/* Dialog für Aufgabendetails */}
-      <TaskDialog
-        task={selectedTask || undefined}
-        open={isTaskDialogOpen}
-        onOpenChange={setIsTaskDialogOpen}
-        onUpdate={handleTaskUpdate}
-        mode="details"
-      />
+      <div className="relative p-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-start gap-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Meine Aufgaben
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Alle Ihnen zugewiesenen Aufgaben an einem Ort
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-x-auto">
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="flex gap-6 pb-4">
+              {defaultColumns.map((column) => {
+                const columnTasks = tasks
+                  .filter(task => task.status === column.id)
+                  .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                return (
+                  <ColumnComponent
+                    key={column.id}
+                    column={column}
+                    tasks={columnTasks}
+                    onUpdate={handleTaskUpdate}
+                  />
+                );
+              })}
+            </div>
+          </DragDropContext>
+        </div>
+
+        {/* Dialog für Aufgabendetails */}
+        <TaskDialog
+          task={selectedTask || undefined}
+          open={isTaskDialogOpen}
+          onOpenChange={setIsTaskDialogOpen}
+          onUpdate={handleTaskUpdate}
+          mode="details"
+        />
+      </div>
     </div>
   );
 }
