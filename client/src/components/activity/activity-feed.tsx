@@ -1,12 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { User } from "lucide-react";
+import { 
+  User, MessageSquare, GitCommit, Delete, Plus, 
+  Edit3, AlertCircle, Users, CheckCircle2 
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 // Die API-Antworten haben möglicherweise einen anderen Feldnamen (created_at statt createdAt)
 interface ExtendedActivityLog {
@@ -41,6 +45,83 @@ interface ExtendedActivityLog {
   createdAt: Date | string;
   created_at?: string; // Abwärtskompatibilität für ältere API-Antworten
 }
+
+const getActivityIcon = (activity: ExtendedActivityLog) => {
+  const action = activity.action;
+  const notificationType = activity.notificationType;
+  
+  // Verwende das Benachrichtigungstyp-Feld für spezifischere Icons
+  if (notificationType) {
+    switch (notificationType) {
+      case "task_comment":
+      case "okr_comment":
+      case "comment":
+        return <MessageSquare className="h-4 w-4" />;
+      case "task_update":
+      case "okr_update":
+      case "board_update":
+      case "update":
+        return <Edit3 className="h-4 w-4" />;
+      case "task_delete":
+      case "okr_delete":
+      case "delete":
+        return <Delete className="h-4 w-4" />;
+      case "assignment":
+        return <Users className="h-4 w-4" />;
+      case "approval":
+        return <CheckCircle2 className="h-4 w-4" />;
+      default:
+        break;
+    }
+  }
+  
+  // Fallback basierend auf action
+  switch (action) {
+    case "comment":
+      return <MessageSquare className="h-4 w-4" />;
+    case "update":
+      return <Edit3 className="h-4 w-4" />;
+    case "create":
+      return <Plus className="h-4 w-4" />;
+    case "delete":
+      return <Delete className="h-4 w-4" />;
+    case "assign":
+      return <Users className="h-4 w-4" />;
+    case "warning":
+    case "error":
+      return <AlertCircle className="h-4 w-4" />;
+    default:
+      return <GitCommit className="h-4 w-4" />;
+  }
+};
+
+const getActivityBadge = (activity: ExtendedActivityLog) => {
+  const action = activity.action;
+  const notificationType = activity.notificationType;
+  
+  let variant: "default" | "destructive" | "outline" | "secondary" | undefined = "default";
+  let label = action.charAt(0).toUpperCase() + action.slice(1);
+  
+  // Passe Badge-Stil an Aktionstyp an
+  if (action === "delete" || notificationType?.includes("delete")) {
+    variant = "destructive";
+    label = "Gelöscht";
+  } else if (action === "update" || notificationType?.includes("update")) {
+    variant = "secondary";
+    label = "Aktualisiert";
+  } else if (action === "create") {
+    variant = "outline";
+    label = "Neu";
+  } else if (action === "assign" || notificationType === "assignment") {
+    variant = "outline";
+    label = "Zugewiesen";
+  } else if (action === "comment" || notificationType?.includes("comment")) {
+    variant = "secondary";
+    label = "Kommentar";
+  }
+  
+  return <Badge variant={variant} className="ml-2 text-xs">{label}</Badge>;
+};
 
 const renderContextLink = (activity: ExtendedActivityLog) => {
   let contextInfo = null;
@@ -99,17 +180,36 @@ export function ActivityFeed() {
     return (
       <Card className="p-4">
         <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
-        <div className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-[200px]" />
-                <Skeleton className="h-3 w-[140px]" />
+        <ScrollArea className="h-[400px] pr-4">
+          <div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className={`p-4 border-b border-slate-200 ${i === 0 ? 'border-t rounded-t-md' : ''}`}>
+                {/* Avatar und Name Platzhalter */}
+                <div className="flex items-center gap-2 mb-2">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <Skeleton className="h-5 w-[140px]" />
+                  <div className="ml-auto">
+                    <Skeleton className="h-3 w-[80px]" />
+                  </div>
+                </div>
+                
+                {/* Aktivitätsdetails Platzhalter */}
+                <div className="ml-10 p-3 rounded-md bg-slate-50">
+                  <div className="flex items-start">
+                    <Skeleton className="h-4 w-4 mr-2 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <Skeleton className="h-4 w-[180px] mr-2" />
+                        <Skeleton className="h-5 w-[60px] rounded-full" />
+                      </div>
+                      <Skeleton className="h-4 w-[150px] mt-2" />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScrollArea>
       </Card>
     );
   }
@@ -118,37 +218,60 @@ export function ActivityFeed() {
     <Card className="p-4">
       <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
       <ScrollArea className="h-[400px] pr-4">
-        <div className="space-y-6">
-          {activities.map((activity) => (
-            <div key={activity.id} className="space-y-2">
-              {/* Avatar und Name */}
-              <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={activity.avatar_url} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {activity.username ? activity.username.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="font-medium text-slate-800">
-                  {activity.username || "Unbekannter Benutzer"}
-                </span>
-              </div>
-
-              {/* Aktion und Kontext */}
-              <div className="text-sm text-slate-600">
-                {activity.details || activity.action}
-                {renderContextLink(activity)}
-              </div>
-
-              {/* Zeitstempel */}
-              <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(activity.created_at || activity.createdAt), {
-                  addSuffix: true,
-                  locale: de,
-                })}
-              </p>
+        <div>
+          {activities.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Keine Aktivitäten gefunden
             </div>
-          ))}
+          ) : (
+            activities.map((activity, index) => (
+              <div 
+                key={activity.id} 
+                className={`p-4 border-b border-slate-200 hover:bg-slate-50/80 transition-colors ${
+                  index === 0 ? 'rounded-t-md border-t' : ''
+                } ${
+                  index === activities.length - 1 ? 'rounded-b-md border-b-0' : ''
+                }`}
+              >
+                {/* Avatar und Name */}
+                <div className="flex items-center gap-2 mb-2">
+                  <Avatar className="h-8 w-8 border border-slate-200 shadow-sm">
+                    <AvatarImage src={activity.avatar_url} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {activity.username ? activity.username.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="font-medium text-slate-800">
+                    {activity.username || "Unbekannter Benutzer"}
+                  </span>
+                  
+                  {/* Zeitstempel */}
+                  <p className="text-xs text-muted-foreground ml-auto">
+                    {formatDistanceToNow(new Date(activity.created_at || activity.createdAt), {
+                      addSuffix: true,
+                      locale: de,
+                    })}
+                  </p>
+                </div>
+                
+                {/* Aktion und Kontext mit Icon und Badge */}
+                <div className="text-sm text-slate-600 ml-10 bg-slate-50 p-3 rounded-md flex items-start">
+                  <div className="mr-2 mt-0.5 text-primary">
+                    {getActivityIcon(activity)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center flex-wrap">
+                      <span className="mr-1">{activity.details || activity.action}</span>
+                      {getActivityBadge(activity)}
+                    </div>
+                    <div className="mt-1">
+                      {renderContextLink(activity)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </ScrollArea>
     </Card>
