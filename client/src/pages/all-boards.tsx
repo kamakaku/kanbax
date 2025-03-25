@@ -270,7 +270,7 @@ export default function AllBoards() {
     
     return (
       <div
-        className="group cursor-pointer transition-all duration-300 relative h-full pt-5 mt-5"
+        className="group cursor-pointer transition-all duration-300 relative h-full pt-3"
         onClick={() => handleBoardClick(board)}
       >
         <Card
@@ -433,12 +433,12 @@ export default function AllBoards() {
     <div className="container mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold text-slate-900">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Alle Boards
           </h1>
           <p className="text-muted-foreground mt-2">Übersicht aller verfügbaren Boards</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200">
+        <Button onClick={() => setShowForm(true)} className="bg-primary/10 hover:bg-primary/20">
           <Plus className="mr-2 h-4 w-4" />
           Neues Board
         </Button>
@@ -450,26 +450,26 @@ export default function AllBoards() {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-8">
-            <TabsTrigger value="active" className="flex gap-2 items-center">
+          <TabsList className="mb-6">
+            <TabsTrigger value="active" className="relative">
               Aktive Boards
               {activeBoards.length > 0 && (
-                <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                <Badge variant="secondary" className="ml-2 text-xs">
                   {activeBoards.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="archived" className="flex gap-2 items-center">
+            <TabsTrigger value="archived" className="relative">
               Archivierte Boards
               {archivedBoards.length > 0 && (
-                <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                <Badge variant="secondary" className="ml-2 text-xs">
                   {archivedBoards.length}
                 </Badge>
               )}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="active" className="pt-2">
+          <TabsContent value="active" className="space-y-8">
             {activeBoards.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">Keine aktiven Boards vorhanden</p>
@@ -478,8 +478,8 @@ export default function AllBoards() {
               <>
                 {activeFavoriteBoards.length > 0 && (
                   <div className="mb-8">
-                    <h2 className="text-2xl font-semibold mb-4 text-slate-900">Favorisierte Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <h2 className="text-2xl font-semibold mb-4">Favorisierte Boards</h2>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {activeFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
@@ -489,8 +489,8 @@ export default function AllBoards() {
 
                 {activeNonFavoriteBoards.length > 0 && (
                   <div>
-                    <h2 className="text-2xl font-semibold mb-4 text-slate-900">Weitere Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <h2 className="text-2xl font-semibold mb-4">Weitere Boards</h2>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {activeNonFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
@@ -501,7 +501,7 @@ export default function AllBoards() {
             )}
           </TabsContent>
 
-          <TabsContent value="archived" className="pt-2">
+          <TabsContent value="archived" className="space-y-8">
             {archivedBoards.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">Keine archivierten Boards vorhanden</p>
@@ -510,8 +510,8 @@ export default function AllBoards() {
               <>
                 {archivedFavoriteBoards.length > 0 && (
                   <div className="mb-8">
-                    <h2 className="text-2xl font-semibold mb-4 text-slate-900">Favorisierte archivierte Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <h2 className="text-2xl font-semibold mb-4">Favorisierte archivierte Boards</h2>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {archivedFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
@@ -521,8 +521,8 @@ export default function AllBoards() {
 
                 {archivedNonFavoriteBoards.length > 0 && (
                   <div>
-                    <h2 className="text-2xl font-semibold mb-4 text-slate-900">Weitere archivierte Boards</h2>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <h2 className="text-2xl font-semibold mb-4">Weitere archivierte Boards</h2>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {archivedNonFavoriteBoards.map((board) => (
                         <BoardCard key={board.id} board={board} />
                       ))}
