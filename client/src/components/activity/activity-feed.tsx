@@ -142,7 +142,7 @@ export function ActivityFeed() {
 
               {/* Zeitstempel */}
               <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(activity.createdAt), {
+                {formatDistanceToNow(new Date(activity.created_at || activity.createdAt), {
                   addSuffix: true,
                   locale: de,
                 })}
