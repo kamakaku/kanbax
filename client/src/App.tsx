@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect } from "react";
+import * as React from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -157,15 +157,18 @@ function AuthenticatedApp() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  if (user && window.location.pathname === "/") {
-    setLocation("/dashboard");
-    return null;
-  }
+  // Verwenden Sie useEffect für Navigationsänderungen, um React-Rendering-Regeln einzuhalten
+  React.useEffect(() => {
+    if (user && window.location.pathname === "/") {
+      setLocation("/dashboard");
+    }
+  }, [user, setLocation]);
 
-  if (!user && window.location.pathname !== "/auth") {
-    setLocation("/auth");
-    return null;
-  }
+  React.useEffect(() => {
+    if (!user && window.location.pathname !== "/auth") {
+      setLocation("/auth");
+    }
+  }, [user, setLocation]);
 
   return (
     <Switch>
