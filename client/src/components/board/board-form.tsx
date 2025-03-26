@@ -328,6 +328,7 @@ export function BoardForm({ open, onClose, defaultValues, onSubmit }: BoardFormP
           <Button
             type="submit"
             form="board-form"
+            className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
           >
             {defaultValues ? "Board aktualisieren" : "Board erstellen"}
           </Button>
