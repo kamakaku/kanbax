@@ -908,13 +908,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTask(userId: number, id: number, updateTask: UpdateTask): Promise<Task> {
+    console.log("Aktualisiere Task mit ID:", id, "Anhänge:", updateTask.attachments);
+    
+    // Sicherstellen, dass alle Arrays korrekt initialisiert werden
+    const updatedData = {
+      ...updateTask,
+      checklist: updateTask.checklist || [],
+      assignedUserIds: updateTask.assignedUserIds || [],
+      attachments: updateTask.attachments || [],
+    };
+    
     const [task] = await db
       .update(tasks)
-      .set({
-        ...updateTask,
-        checklist: updateTask.checklist || [],
-        assignedUserIds: updateTask.assignedUserIds || [],
-      })
+      .set(updatedData)
       .where(eq(tasks.id, id))
       .returning();
 
@@ -926,6 +932,7 @@ export class DatabaseStorage implements IStorage {
       ...task,
       checklist: Array.isArray(task.checklist) ? task.checklist : [],
       assignedUserIds: Array.isArray(task.assignedUserIds) ? task.assignedUserIds : [],
+      attachments: Array.isArray(task.attachments) ? task.attachments : [],
     };
   }
 
