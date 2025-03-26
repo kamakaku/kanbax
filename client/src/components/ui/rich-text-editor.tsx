@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
 import { Button } from "./button";
 import { Upload, Image as ImageIcon, Link, Bold, Italic, List, ListOrdered, X } from "lucide-react";
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 import { Dialog, DialogContent } from "./dialog";
 
