@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Task } from "@shared/schema";
@@ -7,8 +7,15 @@ import { Column as ColumnComponent } from "@/components/board/column";
 import { TaskDialog } from "@/components/board/task-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Archive } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PlusCircle, Archive, Search, Tag, Filter, Clock, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 // Erweiterte Task-Schnittstelle für die Frontend-Anzeige
 interface TaskWithDetails extends Task {
@@ -43,9 +50,13 @@ export default function MyTasks() {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
+  
   // Laden der zugewiesenen Aufgaben des aktuellen Benutzers
   const { data: tasks = [], isLoading, error } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/user/tasks/assigned"],
@@ -75,6 +86,20 @@ export default function MyTasks() {
     },
     staleTime: 1000 * 60, // 1 Minute
   });
+
+  // Extrahiere alle eindeutigen Labels aus den Aufgaben
+  const allLabels = useMemo(() => {
+    if (!tasks || !tasks.length) return [];
+    const labelSet = new Set<string>();
+    tasks.forEach(task => {
+      if (task.labels && Array.isArray(task.labels)) {
+        task.labels.forEach(label => {
+          if (label) labelSet.add(label);
+        });
+      }
+    });
+    return Array.from(labelSet).sort();
+  }, [tasks]);
 
   // Mutation zum Aktualisieren einer Aufgabe
   const updateTaskMutation = useMutation({
@@ -154,6 +179,43 @@ export default function MyTasks() {
     }
   };
 
+  // Filter und Suchfunktionalität
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      // Suche im Titel oder in der Beschreibung
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const titleMatch = task.title?.toLowerCase().includes(query);
+        const descMatch = task.description?.toLowerCase().includes(query);
+        if (!titleMatch && !descMatch) return false;
+      }
+
+      // Filter nach Labels
+      if (selectedLabels.length > 0) {
+        if (!task.labels || !Array.isArray(task.labels)) return false;
+        const hasSelectedLabel = selectedLabels.some(label => 
+          task.labels && task.labels.includes(label)
+        );
+        if (!hasSelectedLabel) return false;
+      }
+
+      // Filter nach Prioritäten
+      if (selectedPriorities.length > 0) {
+        if (!selectedPriorities.includes(task.priority || '')) return false;
+      }
+
+      // Filter nach Fälligkeitsdatum
+      if (selectedDate && task.dueDate) {
+        const taskDate = new Date(task.dueDate);
+        const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
+        const taskDateString = format(taskDate, 'yyyy-MM-dd');
+        if (taskDateString !== selectedDateString) return false;
+      }
+
+      return true;
+    });
+  }, [tasks, searchQuery, selectedLabels, selectedPriorities, selectedDate]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -171,6 +233,14 @@ export default function MyTasks() {
       </div>
     );
   }
+
+  // Handler für das Zurücksetzen aller Filter
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedLabels([]);
+    setSelectedPriorities([]);
+    setSelectedDate(undefined);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
@@ -205,9 +275,176 @@ export default function MyTasks() {
           
           {/* Filter- und Archiv-Zeile - alles in EINER Zeile */}
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
-            {/* LINKE SEITE: Platzhalter für zukünftige Filter */}
-            <div className="flex-1">
-              {/* Hier können später weitere Filter hinzugefügt werden */}
+            {/* LINKE SEITE: Suchfeld und Filter */}
+            <div className="flex flex-1 items-center gap-2">
+              {/* Suchfeld - ausklappbar */}
+              <div className="flex items-center relative">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-9 w-9">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" side="bottom" align="start">
+                    <div className="flex items-center px-3 py-2">
+                      <Search className="h-4 w-4 mr-2 text-slate-400" />
+                      <Input 
+                        placeholder="Tasks durchsuchen..." 
+                        className="border-none shadow-none focus-visible:ring-0 h-9"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                      />
+                      {searchQuery && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setSearchQuery("")}
+                          className="ml-2 h-8 px-2"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {searchQuery && (
+                  <Badge variant="secondary" className="ml-2">
+                    Suche: {searchQuery}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setSearchQuery("")}
+                      className="h-4 w-4 ml-1 p-0"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
+              </div>
+              
+              {/* Label Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Tag className="h-4 w-4" />
+                    <span>Labels</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-60 p-2">
+                  <div className="space-y-1 max-h-60 overflow-auto">
+                    {allLabels.length > 0 ? (
+                      allLabels.map(label => (
+                        <div key={label} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`label-${label}`}
+                            checked={selectedLabels.includes(label)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedLabels(prev => [...prev, label]);
+                              } else {
+                                setSelectedLabels(prev => prev.filter(l => l !== label));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`label-${label}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {label}
+                          </label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-500 p-2">Keine Labels verfügbar</p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Prioritäten Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Filter className="h-4 w-4" />
+                    <span>Priorität</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-60 p-2">
+                  <div className="space-y-1">
+                    {["high", "medium", "low"].map((priority) => (
+                      <div key={priority} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`priority-${priority}`}
+                          checked={selectedPriorities.includes(priority)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPriorities(prev => [...prev, priority]);
+                            } else {
+                              setSelectedPriorities(prev => prev.filter(p => p !== priority));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`priority-${priority}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {priority === "high" && "Hoch"}
+                          {priority === "medium" && "Mittel"}
+                          {priority === "low" && "Niedrig"}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Fälligkeitsdatum Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Clock className="h-4 w-4" />
+                    <span>Fällig</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    locale={de}
+                    className="rounded-md border shadow"
+                  />
+                  {selectedDate && (
+                    <div className="p-3 border-t flex justify-between items-center">
+                      <span className="text-sm">
+                        {format(selectedDate, "PPP", { locale: de })}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedDate(undefined)}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Zurücksetzen
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              
+              {/* Reset Filter Button - nur anzeigen, wenn mindestens ein Filter aktiv ist */}
+              {(searchQuery || selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetFilters}
+                  className="text-blue-500 hover:text-blue-700"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Filter zurücksetzen
+                </Button>
+              )}
             </div>
             
             {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
@@ -239,7 +476,7 @@ export default function MyTasks() {
             <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
                 // Alle Aufgaben für diese Spalte finden - sowohl persönliche als auch Board-gebundene Aufgaben
-                const columnTasks = tasks
+                const columnTasks = filteredTasks
                   .filter(task => {
                     // Aufgaben müssen den richtigen Status haben
                     if (task.status !== column.id) return false;
