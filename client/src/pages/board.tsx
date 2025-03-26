@@ -476,56 +476,57 @@ export function Board() {
             )}
           </div>
 
-          {/* Vierte Zeile: Filter und Suche */}
-          <div className="flex flex-col gap-2 mt-1">
-            <div className="flex items-center p-3 bg-slate-50 rounded-md">
-              {/* Suchfeld - ausklappbar */}
-              <div className="flex-1 flex items-center relative pr-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-9 w-9">
-                      <Search className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0" side="bottom" align="start">
-                    <div className="flex items-center px-3 py-2">
-                      <Search className="h-4 w-4 mr-2 text-slate-400" />
-                      <Input 
-                        placeholder="Tasks durchsuchen..." 
-                        className="border-none shadow-none focus-visible:ring-0 h-9"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        autoFocus
-                      />
-                      {searchQuery && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setSearchQuery("")}
-                          className="ml-2 h-8 px-2"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                {searchQuery && (
-                  <Badge variant="secondary" className="ml-2">
-                    Suche: {searchQuery}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => setSearchQuery("")}
-                      className="h-4 w-4 ml-1 p-0"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="flex gap-2 items-center">
+          {/* Vierte Zeile: Filter und Suche - alles in einer Zeile */}
+          <div className="flex flex-col mt-1">
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
+              {/* LINKE SEITE: Suchfeld und Filter */}
+              <div className="flex flex-1 items-center gap-2">
+                {/* Suchfeld - ausklappbar */}
+                <div className="flex items-center relative">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-9 w-9">
+                        <Search className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0" side="bottom" align="start">
+                      <div className="flex items-center px-3 py-2">
+                        <Search className="h-4 w-4 mr-2 text-slate-400" />
+                        <Input 
+                          placeholder="Tasks durchsuchen..." 
+                          className="border-none shadow-none focus-visible:ring-0 h-9"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          autoFocus
+                        />
+                        {searchQuery && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setSearchQuery("")}
+                            className="ml-2 h-8 px-2"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {searchQuery && (
+                    <Badge variant="secondary" className="ml-2">
+                      Suche: {searchQuery}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setSearchQuery("")}
+                        className="h-4 w-4 ml-1 p-0"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  )}
+                </div>
+                
                 {/* Label Filter */}
                 <Popover>
                   <PopoverTrigger asChild>
@@ -630,12 +631,8 @@ export function Board() {
                     </div>
                   </PopoverContent>
                 </Popover>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
-              <div className="flex items-center space-x-4">
-                {/* Reset-Filter Button wird jetzt mit links gezeigt */}
+                
+                {/* Reset-Filter Button */}
                 {(selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate || searchQuery) && (
                   <Button
                     variant="ghost"
@@ -653,28 +650,26 @@ export function Board() {
                 )}
               </div>
               
-              {/* Archiv-Toggle wird jetzt rechts angeordnet ohne Text */}
+              {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
               <div className="flex items-center">
-                <div className="flex items-center">
-                  <Switch
-                    id="show-archived"
-                    checked={showArchivedTasks}
-                    onCheckedChange={setShowArchivedTasks}
-                  />
-                  <label
-                    htmlFor="show-archived"
-                    className="flex items-center ml-2 cursor-pointer"
-                  >
-                    <div className="relative">
-                      <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
-                      {!showArchivedTasks && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-5 h-px bg-slate-400 rotate-45"></div>
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                </div>
+                <Switch
+                  id="show-archived"
+                  checked={showArchivedTasks}
+                  onCheckedChange={setShowArchivedTasks}
+                />
+                <label
+                  htmlFor="show-archived"
+                  className="flex items-center ml-2 cursor-pointer"
+                >
+                  <div className="relative">
+                    <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
+                    {!showArchivedTasks && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-5 h-px bg-slate-400 rotate-45"></div>
+                      </div>
+                    )}
+                  </div>
+                </label>
               </div>
             </div>
           </div>

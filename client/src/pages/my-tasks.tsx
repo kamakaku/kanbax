@@ -181,8 +181,9 @@ export default function MyTasks() {
       </div>
 
       <div className="relative p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-start gap-6">
+        {/* Header mit Titel und Button */}
+        <div className="flex flex-col gap-3 mb-6">
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
                 Meine Aufgaben
@@ -192,11 +193,24 @@ export default function MyTasks() {
               </p>
             </div>
             
-            {/* Filter-Zeile wird später hinzugefügt, wenn detailliertes Filtern benötigt wird */}
+            {/* Neue Aufgabe Button */}
+            <Button 
+              onClick={() => setIsNewTaskDialogOpen(true)}
+              className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Neue Aufgabe
+            </Button>
           </div>
           
-          <div className="flex items-center gap-4">
-            {/* Archiv-Toggle ganz rechts */}
+          {/* Filter- und Archiv-Zeile - alles in EINER Zeile */}
+          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
+            {/* LINKE SEITE: Platzhalter für zukünftige Filter */}
+            <div className="flex-1">
+              {/* Hier können später weitere Filter hinzugefügt werden */}
+            </div>
+            
+            {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
             <div className="flex items-center">
               <Switch
                 id="show-archived"
@@ -217,15 +231,6 @@ export default function MyTasks() {
                 </div>
               </label>
             </div>
-            
-            {/* Neue Aufgabe Button */}
-            <Button 
-              onClick={() => setIsNewTaskDialogOpen(true)}
-              className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
-            >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Neue Aufgabe
-            </Button>
           </div>
         </div>
 
