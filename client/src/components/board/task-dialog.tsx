@@ -451,10 +451,7 @@ export function TaskDialog({
                   <tr>
                     <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Deadline:</td>
                     <td className="py-0.5">
-                      <div className="flex items-center gap-1">
-                        <CalendarIcon className="h-3.5 w-3.5" />
-                        {format(new Date(task.dueDate), "PPP", { locale: de })}
-                      </div>
+                      {format(new Date(task.dueDate), "PPP", { locale: de })}
                     </td>
                   </tr>
                 )}
@@ -665,7 +662,7 @@ export function TaskDialog({
       <DialogContent className="max-w-2xl p-0">
         <div className="px-6 pt-6 pb-2">
           <DialogTitle>
-            {isEditMode ? (task ? "Aufgabe bearbeiten" : "Neue Aufgabe") : "Aufgabendetails"}
+            {isEditMode ? (task ? "Aufgabe bearbeiten" : "Neue Aufgabe") : ""}
           </DialogTitle>
         </div>
 
