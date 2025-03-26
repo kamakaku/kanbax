@@ -49,11 +49,27 @@ export default function MyTasks() {
     queryKey: ["/api/user/tasks/assigned"],
     queryFn: async () => {
       const result = await apiRequest<TaskWithDetails[]>("GET", "/api/user/tasks/assigned");
+      
       // Debug-Logging für die geladenen Aufgaben
       console.log("Geladene Aufgaben:", result);
-      // Überprüfen auf persönliche Aufgaben
-      console.log("Persönliche Aufgaben:", result.filter(task => task.boardId === null || task.isPersonal));
-      return result;
+      
+      // Persönliche Aufgaben identifizieren und markieren
+      const transformedTasks = result.map(task => {
+        // Wenn boardId null ist, handelt es sich um eine persönliche Aufgabe
+        if (task.boardId === null) {
+          return {
+            ...task,
+            isPersonal: true
+          };
+        }
+        return task;
+      });
+      
+      // Debug-Logging für persönliche Aufgaben
+      const personalTasks = transformedTasks.filter(task => task.boardId === null || task.isPersonal);
+      console.log("Persönliche Aufgaben:", personalTasks);
+      
+      return transformedTasks;
     },
     staleTime: 1000 * 60, // 1 Minute
   });
@@ -224,14 +240,14 @@ export default function MyTasks() {
           mode="details"
         />
         
-        {/* Dialog für neue Aufgaben - mit personalTask=true für persönliche Aufgabenerstellung */}
+        {/* Dialog für neue Aufgaben - mit isPersonalTask=true für persönliche Aufgabenerstellung */}
         <TaskDialog
           open={isNewTaskDialogOpen}
           onOpenChange={setIsNewTaskDialogOpen}
           onUpdate={handleTaskUpdate}
           mode="edit"
           initialColumnId={0}
-          personalTask={true}
+          isPersonalTask={true}
         />
       </div>
     </div>

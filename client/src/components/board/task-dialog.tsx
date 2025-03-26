@@ -62,7 +62,8 @@ interface TaskDialogProps {
   onUpdate?: (task: Task) => Promise<void>;
   mode?: "edit" | "details";
   initialColumnId?: number;
-  personalTask?: boolean; // Neuer Prop für persönliche Aufgaben
+  personalTask?: boolean; // Prop für persönliche Aufgaben
+  isPersonalTask?: boolean; // Alternative Benennung (für Konsistenz)
 }
 
 const taskFormSchema = z.object({
@@ -86,7 +87,8 @@ export function TaskDialog({
   onUpdate,
   mode = task ? "details" : "edit",
   initialColumnId,
-  personalTask: isPersonalTask = false,
+  personalTask = false,
+  isPersonalTask = personalTask, // Unterstützung für beide Props (isPersonalTask hat Vorrang)
 }: TaskDialogProps) {
   console.log("TaskDialog geöffnet", { isPersonalTask, mode, initialColumnId });
   const [newLabel, setNewLabel] = useState("");
@@ -275,8 +277,8 @@ export function TaskDialog({
             richDescription: null,
             status: data.status,
             order: data.order,
-            boardId: null, // Für persönliche Aufgaben ist boardId null
-            columnId: null, // Für persönliche Aufgaben ist columnId null
+            boardId: null as unknown as number, // Für persönliche Aufgaben ist boardId null
+            columnId: null as unknown as number, // Für persönliche Aufgaben ist columnId null
             priority: data.priority,
             labels: data.labels,
             dueDate: adjustedDueDate,
