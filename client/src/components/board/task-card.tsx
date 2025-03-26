@@ -72,16 +72,25 @@ export function TaskCard({ task, index }: TaskCardProps) {
       task.assignedUserIds!.includes(user.id)
     );
 
+    // Finde heraus, wer der Ersteller ist (für blauen Rand)
+    const creatorId = currentBoard?.creator_id;
+    
     return (
       <div className="flex -space-x-2">
-        {assignedUsers.map((user) => (
-          <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
-            <AvatarImage src={user.avatarUrl || ""} />
-            <AvatarFallback>
-              {user.username.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-        ))}
+        {assignedUsers.map((user) => {
+          const isCreator = user.id === creatorId;
+          return (
+            <Avatar 
+              key={user.id} 
+              className={`h-7 w-7 border-2 ${isCreator ? 'border-blue-500' : 'border-background'}`}
+            >
+              <AvatarImage src={user.avatarUrl || ""} />
+              <AvatarFallback className={`${isCreator ? 'bg-blue-100 text-blue-800' : 'bg-slate-100'}`}>
+                {user.username.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          );
+        })}
       </div>
     );
   };

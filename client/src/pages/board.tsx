@@ -425,19 +425,16 @@ export function Board() {
 
           {/* Dritte Zeile: Ersteller + Benutzer */}
           <div className="flex gap-6 mt-0.5">
-            {/* Creator Section */}
+            {/* Creator Section - Jetzt mit blauem Rand ohne Text */}
             {creator && (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Avatar className="h-5 w-5">
+                <div className="flex items-center">
+                  <Avatar className="h-7 w-7 border-2 border-blue-500 shadow-sm">
                     <AvatarImage src={creator.avatarUrl || undefined} alt={creator.username} />
-                    <AvatarFallback className="text-xs bg-amber-100 text-amber-800">
+                    <AvatarFallback className="text-xs bg-blue-100 text-blue-800">
                       {creator.username.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
-                    {creator.username} <span className="ml-1 text-xs">(Ersteller)</span>
-                  </Badge>
                 </div>
               </div>
             )}
@@ -464,7 +461,7 @@ export function Board() {
                   {boardUsers
                     .filter(user => user.id !== board.creator_id) // Filtere Creator aus, da er bereits angezeigt wird
                     .map((user) => (
-                      <Avatar key={user.id} className="h-7 w-7 border-2 border-white rounded-full">
+                      <Avatar key={user.id} className="h-9 w-9 border-2 border-white rounded-full">
                         <AvatarImage src={user.avatarUrl || undefined} alt={user.username} />
                         <AvatarFallback className="text-xs bg-blue-100 text-blue-800">
                           {user.username.substring(0, 2).toUpperCase()}
