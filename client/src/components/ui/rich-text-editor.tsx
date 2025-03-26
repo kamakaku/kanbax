@@ -309,39 +309,72 @@ function AttachmentThumbnail({ file }: { file: string }) {
   );
 }
 
+// Hilfsfunktion zur Bereinigung von HTML-Tags in Links und Bild-Pfad-Korrektur
+function cleanHtml(htmlContent: string): string {
+  if (!htmlContent) return '';
+  
+  let cleanedHtml = htmlContent;
+  
+  // Fix Code-Block Styling
+  cleanedHtml = cleanedHtml.replace(/<pre>/g, '<pre style="margin: 0 !important; padding: 0 !important; background: transparent !important;">');
+  cleanedHtml = cleanedHtml.replace(/<code>/g, '<code style="margin: 0 !important; padding: 0 !important; background: transparent !important;">');
+  
+  // HTML-Tags in Links bereinigen - Link-Inhalte extrahieren und saubere Links erstellen
+  cleanedHtml = cleanedHtml.replace(
+    /<a\s+href="([^"]+)"[^>]*>(&lt;a href="[^"]+"[^>]*&gt;|<[^>]+>)?([^<]*)(<\/a>|&lt;\/a&gt;)?<\/a>/g, 
+    (match, url) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" 
+                style="color: #3b82f6 !important; text-decoration: underline !important; 
+                background: transparent !important; font-family: inherit !important; 
+                font-size: inherit !important;">${url}</a>`;
+    }
+  );
+  
+  // Standard-Link-Fix für einfache Links
+  cleanedHtml = cleanedHtml.replace(
+    /<a\s+href="([^"]+)"[^>]*>([^<]+)<\/a>/g, 
+    (match, url, text) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" 
+                style="color: #3b82f6 !important; text-decoration: underline !important; 
+                background: transparent !important; font-family: inherit !important; 
+                font-size: inherit !important;">${text}</a>`;
+    }
+  );
+  
+  // HTML-kodierte Tags in normalen Text umwandeln
+  cleanedHtml = cleanedHtml.replace(/&lt;a href="([^"]+)"[^&]*&gt;([^&]*)&lt;\/a&gt;/g, 
+    (match, url, text) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" 
+                style="color: #3b82f6 !important; text-decoration: underline !important; 
+                background: transparent !important;">${text || url}</a>`;
+    }
+  );
+  
+  // Bilder mit relativen Pfaden korrigieren und klickbar machen
+  cleanedHtml = cleanedHtml.replace(
+    /<img\s+([^>]*)src="(uploads\/[^"]+)"([^>]*)>/g, 
+    '<img $1src="/$2"$3 style="max-width: 250px; cursor: pointer; border-radius: 4px;" onclick="window.open(\'/$2\', \'_blank\')">'
+  );
+  
+  cleanedHtml = cleanedHtml.replace(
+    /<img\s+([^>]*)src="(\/uploads\/[^"]+)"([^>]*)>/g, 
+    '<img $1src="$2"$3 style="max-width: 250px; cursor: pointer; border-radius: 4px;" onclick="window.open(\'$2\', \'_blank\')">'
+  );
+  
+  // Selbständige href-Pfade korrigieren
+  cleanedHtml = cleanedHtml.replace(/href="uploads\//g, 'href="/uploads/');
+  cleanedHtml = cleanedHtml.replace(/href="\/uploads\//g, 'href="/uploads/');
+  
+  return cleanedHtml;
+}
+
 export function RichTextContent({ content }: { content: string }) {
-  // Direktes Style-Injection für Code-Blöcke vor der Anzeige und Korrektur relativer Pfade für Bilder und Links
-  const processedContent = content
-    ? content
-        // Fix Code-Block Styling
-        .replace(/<pre>/g, '<pre style="margin: 0 !important; padding: 0 !important; background: transparent !important;">')
-        .replace(/<code>/g, '<code style="margin: 0 !important; padding: 0 !important; background: transparent !important;">')
-        
-        // Fix Links für korrektes Styling und Entfernung der umgebenden HTML-Tags
-        .replace(/<a\s+href="([^"]+)"[^>]*>([^<]+)<\/a>/g, (match, url, text) => {
-          // URL und Text gleich? Dann nur den Link anzeigen
-          return `<a href="${url}" target="_blank" rel="noopener noreferrer" 
-                    style="color: #3b82f6 !important; text-decoration: underline !important; 
-                    background: transparent !important; font-family: inherit !important; 
-                    font-size: inherit !important;">
-                    ${text}
-                  </a>`;
-        })
-        
-        // Fix Bild-Pfade - konvertiere relative Pfade in absolute Pfade und mache Bilder klickbar
-        .replace(/<img\s+([^>]*)src="(uploads\/[^"]+)"([^>]*)>/g, 
-          '<img $1src="/$2"$3 style="max-width: 250px; cursor: pointer; border-radius: 4px;" onclick="window.open(\'/$2\', \'_blank\')">')
-        .replace(/<img\s+([^>]*)src="(\/uploads\/[^"]+)"([^>]*)>/g, 
-          '<img $1src="$2"$3 style="max-width: 250px; cursor: pointer; border-radius: 4px;" onclick="window.open(\'$2\', \'_blank\')">')
-        
-        // Selbständige href-Pfade korrigieren
-        .replace(/href="uploads\//g, 'href="/uploads/')
-        .replace(/href="\/uploads\//g, 'href="/uploads/')
-    : content;
+  // Verarbeite den Inhalt mit der Hilfsfunktion
+  const processedContent = cleanHtml(content);
 
   return (
     <div 
-      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0 [&_code]:m-0 [&_code]:p-0 [&_code]:bg-transparent [&_a]:text-blue-500 [&_a]:underline" 
+      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0 [&_code]:m-0 [&_code]:p-0 [&_code]:bg-transparent [&_a]:text-blue-500 [&_a]:underline [&_img]:max-w-[250px] [&_img]:cursor-pointer [&_img]:rounded-md hover:[&_img]:opacity-90" 
       dangerouslySetInnerHTML={{ __html: processedContent }} 
     />
   );
