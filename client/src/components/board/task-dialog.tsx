@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, PlusCircle, X, Tag, Pencil } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon } from "lucide-react";
 import { CommentList, CommentEditor } from "@/components/comments/comment-list";
 import classnames from 'classnames';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -693,40 +693,48 @@ export function TaskDialog({
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="assignedUserIds"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Zugewiesene Benutzer</FormLabel>
-                        <FormControl>
-                          {isLoadingUsers ? (
-                            <div className="text-sm text-muted-foreground">
-                              Lade Benutzer...
-                            </div>
-                          ) : users.length === 0 ? (
-                            <div className="text-sm text-muted-foreground">
-                              Keine Benutzer verfügbar
-                            </div>
-                          ) : (
-                            <DialogMultiSelect
-                              placeholder="Benutzer auswählen..."
-                              options={users.map(user => ({
-                                value: user.id.toString(),
-                                label: user.username
-                              }))}
-                              selected={Array.isArray(field.value) ? field.value.map((id: number) => id.toString()) : []}
-                              onChange={(values: string[]) => {
-                                const numberValues = values.map((v: string) => parseInt(v));
-                                field.onChange(numberValues);
-                              }}
-                            />
-                          )}
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Zeige Benutzerauswahl nur für normale Aufgaben (nicht für persönliche) */}
+                  {!isPersonalTask ? (
+                    <FormField
+                      control={form.control}
+                      name="assignedUserIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Zugewiesene Benutzer</FormLabel>
+                          <FormControl>
+                            {isLoadingUsers ? (
+                              <div className="text-sm text-muted-foreground">
+                                Lade Benutzer...
+                              </div>
+                            ) : users.length === 0 ? (
+                              <div className="text-sm text-muted-foreground">
+                                Keine Benutzer verfügbar
+                              </div>
+                            ) : (
+                              <DialogMultiSelect
+                                placeholder="Benutzer auswählen..."
+                                options={users.map(user => ({
+                                  value: user.id.toString(),
+                                  label: user.username
+                                }))}
+                                selected={Array.isArray(field.value) ? field.value.map((id: number) => id.toString()) : []}
+                                onChange={(values: string[]) => {
+                                  const numberValues = values.map((v: string) => parseInt(v));
+                                  field.onChange(numberValues);
+                                }}
+                              />
+                            )}
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <div className="flex items-center p-2 bg-amber-50 text-amber-700 rounded-md border border-amber-200 mt-2 mb-4">
+                      <UserIcon className="h-4 w-4 mr-2" />
+                      <span className="text-sm">Persönliche Aufgabe - wird automatisch nur Ihnen zugewiesen</span>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <FormLabel>Checkliste</FormLabel>
