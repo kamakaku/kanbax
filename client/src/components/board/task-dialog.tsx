@@ -2,11 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { type Task } from "@shared/schema";
+import { type Task, type UpdateTask } from "@shared/schema";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
+import { getErrorMessage } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -1127,15 +1128,19 @@ export function TaskDialog({
                     onClick={async () => {
                       if (!task) return;
                       try {
-                        const updatedTask: Task = {
-                          ...task,
+                        // Wir bereiten ein Objekt vor, das nur die notwendigen Felder enthält,
+                        // die für die API-Validierung erforderlich sind
+                        const updatedTask: UpdateTask = {
                           id: task.id,
                           title: task.title,
                           status: task.status,
-                          priority: task.priority,
-                          order: task.order,
+                          priority: task.priority || "medium",
+                          order: task.order, 
                           boardId: task.boardId,
-                          archived: !task.archived
+                          archived: !task.archived,
+                          // Weitere erforderliche Felder
+                          assignedUserIds: task.assignedUserIds || [],
+                          labels: task.labels || []
                         };
                         
                         if (onUpdate) {
@@ -1148,9 +1153,10 @@ export function TaskDialog({
                           });
                         }
                       } catch (error) {
+                        console.error("Fehler beim Archivieren:", error);
                         toast({
                           title: "Fehler",
-                          description: "Die Aufgabe konnte nicht archiviert werden",
+                          description: getErrorMessage(error) || "Die Aufgabe konnte nicht archiviert werden",
                           variant: "destructive",
                         });
                       }
