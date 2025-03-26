@@ -147,8 +147,22 @@ export function RichTextEditor({
     }
   };
 
+  // Füge einen Stil-Tag hinzu, um sicherzustellen, dass Code-Blöcke korrekt dargestellt werden
+  const customStyles = `
+    .ProseMirror pre, .ProseMirror code,
+    .prose pre, .prose code,
+    .prose-sm pre, .prose-sm code,
+    div[contenteditable="true"] pre, div[contenteditable="true"] code {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      white-space: pre-wrap !important;
+    }
+  `;
+
   return (
     <div className="border rounded-md overflow-hidden flex flex-col">
+      <style>{customStyles}</style>
       {editable && (
         <div className="flex items-center border-b p-2 gap-1 bg-muted/50">
           <Button 
@@ -218,7 +232,7 @@ export function RichTextEditor({
       )}
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none p-4 min-h-[100px] focus:outline-none w-full [&_.ProseMirror_pre]:m-0 [&_.ProseMirror_pre]:p-0"
+        className="prose prose-sm max-w-none p-4 min-h-[100px] focus:outline-none w-full [&_.ProseMirror_pre]:m-0 [&_.ProseMirror_pre]:p-0 [&_.ProseMirror_code]:m-0 [&_.ProseMirror_code]:p-0 [&_.ProseMirror_code]:bg-transparent"
         style={{ width: '100%' }}
       />
       {files.length > 0 && (
@@ -268,10 +282,17 @@ function AttachmentThumbnail({ file }: { file: string }) {
 }
 
 export function RichTextContent({ content }: { content: string }) {
+  // Direktes Style-Injection für Code-Blöcke vor der Anzeige
+  const processedContent = content
+    ? content
+        .replace(/<pre>/g, '<pre style="margin: 0 !important; padding: 0 !important; background: transparent !important;">')
+        .replace(/<code>/g, '<code style="margin: 0 !important; padding: 0 !important; background: transparent !important;">')
+    : content;
+
   return (
     <div 
-      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0" 
-      dangerouslySetInnerHTML={{ __html: content }} 
+      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0 [&_code]:m-0 [&_code]:p-0 [&_code]:bg-transparent" 
+      dangerouslySetInnerHTML={{ __html: processedContent }} 
     />
   );
 }
