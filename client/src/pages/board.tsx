@@ -57,6 +57,13 @@ const defaultColumns = [
   { id: "done", title: "Done" }
 ];
 
+// Standard-Labels für neue Boards
+const defaultLabels = [
+  "Wichtig", "Dringend", "Dokumentation", "Design", "Entwicklung", 
+  "Feedback", "Bug", "Feature", "Verbesserung", "Recherche", "Meeting", 
+  "Planung", "Review", "Test", "UX", "Vorarbeit", "Zuarbeit"
+];
+
 export function Board() {
   const { id } = useParams<{ id: string }>();
   const boardId = parseInt(id);
@@ -148,7 +155,18 @@ export function Board() {
           task.labels.forEach(label => labelSet.add(label));
         }
       });
-      setAllLabels(Array.from(labelSet).sort());
+      
+      // Wenn keine Labels in den Tasks gefunden wurden, 
+      // verwenden wir die Standard-Labels
+      const extractedLabels = Array.from(labelSet);
+      
+      if (extractedLabels.length === 0) {
+        // Bei leeren Boards die Standard-Labels verwenden
+        setAllLabels(defaultLabels);
+      } else {
+        // Ansonsten die extrahierten Labels verwenden
+        setAllLabels(extractedLabels.sort());
+      }
     }
   });
 
