@@ -1,0 +1,46 @@
+POST https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/api/user/tasks 500 (Internal Server Error)
+window.fetch @ Network.js:219
+apiRequest @ queryClient.ts:15
+onSubmit @ task-dialog.tsx:289
+(anonymous) @ chunk-YABUFNLM.js?v=d7fab0d2:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=d7fab0d2:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=d7fab0d2:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=d7fab0d2:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=d7fab0d2:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=d7fab0d2:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=d7fab0d2:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=d7fab0d2:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=d7fab0d2:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=d7fab0d2:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=d7fab0d2:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=d7fab0d2:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=d7fab0d2:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=d7fab0d2:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=d7fab0d2:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=d7fab0d2:5449Understand this errorAI
+Console.js:61 Form submission error: Error: 500: {"message":"Fehler beim Erstellen der persönlichen Aufgabe"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async onSubmit (task-dialog.tsx:289:36)
+    at async chunk-YABUFNLM.js?v=d7fab0d2:1675:9
+Mt.forEach.n.<computed> @ Console.js:61
+onSubmit @ task-dialog.tsx:348
+await in onSubmit
+(anonymous) @ chunk-YABUFNLM.js?v=d7fab0d2:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=d7fab0d2:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=d7fab0d2:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=d7fab0d2:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=d7fab0d2:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=d7fab0d2:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=d7fab0d2:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=d7fab0d2:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=d7fab0d2:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=d7fab0d2:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=d7fab0d2:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=d7fab0d2:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=d7fab0d2:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=d7fab0d2:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=d7fab0d2:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=d7fab0d2:5449Understand this errorAI
