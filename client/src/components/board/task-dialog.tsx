@@ -884,16 +884,18 @@ export function TaskDialog({
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value ? new Date(field.value) : undefined}
-                              onSelect={(date) =>
-                                field.onChange(date ? date.toISOString() : null)
-                              }
-                              disabled={(date) =>
-                                date < new Date(new Date().setHours(0, 0, 0, 0))
-                              }
-                            />
+                            <div className="p-3">
+                              <Calendar
+                                mode="single"
+                                selected={field.value ? new Date(field.value) : undefined}
+                                onSelect={(date) => {
+                                  field.onChange(date ? date.toISOString() : null);
+                                }}
+                                disabled={(date) =>
+                                  date < new Date(new Date().setHours(0, 0, 0, 0))
+                                }
+                              />
+                            </div>
                           </PopoverContent>
                         </Popover>
                         <FormMessage />
