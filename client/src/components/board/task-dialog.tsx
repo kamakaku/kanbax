@@ -758,17 +758,55 @@ export function TaskDialog({
                               }
                               return res.json();
                             })
-                            .then(data => {
+                            .then((data) => {
                               if (data.url) {
                                 // Einzelne Datei-URL vom Server
-                                setUploadedAttachments(prev => [...prev, data.url]);
+                                const newAttachments = [...uploadedAttachments, data.url];
+                                setUploadedAttachments(newAttachments);
+                                
+                                // Aktualisiere die Aufgabe sofort, falls eine existiert
+                                if (task?.id && onUpdate) {
+                                  const updatedTask = {
+                                    ...task,
+                                    attachments: newAttachments
+                                  };
+                                  
+                                  // Verwende Promise-Kette statt await
+                                  onUpdate(updatedTask)
+                                    .then(() => {
+                                      console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
+                                    })
+                                    .catch(updateError => {
+                                      console.error("Fehler beim Aktualisieren der Aufgabe mit Anhang:", updateError);
+                                    });
+                                }
+                                
                                 toast({
                                   title: "Datei erfolgreich hochgeladen",
                                   description: `${data.originalname || 'Datei'} wurde hochgeladen.`
                                 });
                               } else if (data.urls && Array.isArray(data.urls)) {
                                 // Mehrere Datei-URLs
-                                setUploadedAttachments(prev => [...prev, ...data.urls]);
+                                const newAttachments = [...uploadedAttachments, ...data.urls];
+                                setUploadedAttachments(newAttachments);
+                                
+                                // Aktualisiere die Aufgabe sofort, falls eine existiert
+                                if (task?.id && onUpdate) {
+                                  const updatedTask = {
+                                    ...task,
+                                    attachments: newAttachments
+                                  };
+                                  
+                                  // Verwende Promise-Kette statt await
+                                  onUpdate(updatedTask)
+                                    .then(() => {
+                                      console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
+                                    })
+                                    .catch(updateError => {
+                                      console.error("Fehler beim Aktualisieren der Aufgabe mit Anhängen:", updateError);
+                                    });
+                                }
+                                
                                 toast({
                                   title: "Dateien erfolgreich hochgeladen",
                                   description: `${data.urls.length} Datei(en) wurden erfolgreich hochgeladen.`
@@ -821,9 +859,21 @@ export function TaskDialog({
                                   size="icon" 
                                   className="h-5 w-5"
                                   onClick={() => {
-                                    setUploadedAttachments(prev => 
-                                      prev.filter((_, i) => i !== index)
-                                    );
+                                    // Entferne den Anhang aus dem lokalen State
+                                    const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
+                                    setUploadedAttachments(newAttachments);
+                                    
+                                    // Aktualisiere auch die Aufgabe, falls nötig
+                                    if (task?.id && onUpdate) {
+                                      onUpdate({
+                                        ...task,
+                                        attachments: newAttachments
+                                      }).then(() => {
+                                        console.log("Anhang erfolgreich entfernt");
+                                      }).catch(err => {
+                                        console.error("Fehler beim Entfernen des Anhangs:", err);
+                                      });
+                                    }
                                   }}
                                 >
                                   <X className="h-3 w-3" />
