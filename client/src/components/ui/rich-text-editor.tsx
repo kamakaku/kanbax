@@ -148,7 +148,9 @@ export function RichTextEditor({
   };
 
   // Füge einen Stil-Tag hinzu, um sicherzustellen, dass Code-Blöcke korrekt dargestellt werden
+  // und der Editor keine ungewollte Fokus-Umrandung hat
   const customStyles = `
+    /* Code-Block Styling */
     .ProseMirror pre, .ProseMirror code,
     .prose pre, .prose code,
     .prose-sm pre, .prose-sm code,
@@ -157,6 +159,32 @@ export function RichTextEditor({
       padding: 0 !important;
       background: transparent !important;
       white-space: pre-wrap !important;
+    }
+    
+    /* Fokus-Umrandung entfernen */
+    .ProseMirror:focus, .ProseMirror:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+      border-color: transparent !important;
+    }
+    
+    /* Links richtig darstellen */
+    .ProseMirror a, .prose a, .prose-sm a {
+      color: #3b82f6 !important;
+      text-decoration: underline !important;
+      font-family: inherit !important;
+      font-size: inherit !important;
+      background: transparent !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    /* Korrekte Bildanzeige */
+    .ProseMirror img, .prose img, .prose-sm img {
+      display: block !important;
+      max-width: 100% !important;
+      height: auto !important;
+      margin: 0.5rem 0 !important;
     }
   `;
 
@@ -282,16 +310,26 @@ function AttachmentThumbnail({ file }: { file: string }) {
 }
 
 export function RichTextContent({ content }: { content: string }) {
-  // Direktes Style-Injection für Code-Blöcke vor der Anzeige
+  // Direktes Style-Injection für Code-Blöcke vor der Anzeige und Korrektur relativer Pfade für Bilder und Links
   const processedContent = content
     ? content
+        // Fix Code-Block Styling
         .replace(/<pre>/g, '<pre style="margin: 0 !important; padding: 0 !important; background: transparent !important;">')
         .replace(/<code>/g, '<code style="margin: 0 !important; padding: 0 !important; background: transparent !important;">')
+        
+        // Fix Links für korrektes Styling
+        .replace(/<a /g, '<a style="color: #3b82f6 !important; text-decoration: underline !important; background: transparent !important;" ')
+        
+        // Fix Bild-Pfade - konvertiere relative Pfade in absolute Pfade
+        .replace(/src="uploads\//g, 'src="/uploads/')
+        .replace(/src="\/uploads\//g, 'src="/uploads/')
+        .replace(/href="uploads\//g, 'href="/uploads/')
+        .replace(/href="\/uploads\//g, 'href="/uploads/')
     : content;
 
   return (
     <div 
-      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0 [&_code]:m-0 [&_code]:p-0 [&_code]:bg-transparent" 
+      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0 [&_code]:m-0 [&_code]:p-0 [&_code]:bg-transparent [&_img]:my-2 [&_img]:block [&_img]:max-w-full" 
       dangerouslySetInnerHTML={{ __html: processedContent }} 
     />
   );
