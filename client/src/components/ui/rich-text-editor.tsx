@@ -297,11 +297,28 @@ function AttachmentThumbnail({ file }: { file: string }) {
   }
   
   if (isPdf) {
+    // Stelle sicher, dass die URL absolut ist
+    let pdfUrl = file;
+    
+    // Überprüfe ob die URL relativ oder absolut ist
+    if (pdfUrl.startsWith('/')) {
+      // Absolute URL mit Origin
+      pdfUrl = window.location.origin + pdfUrl;
+    } else if (!pdfUrl.startsWith('http')) {
+      // Relative URL ohne führenden Slash
+      pdfUrl = window.location.origin + '/' + pdfUrl;
+    }
+    
     return (
       <a 
-        href={file} 
+        href={pdfUrl} 
         target="_blank" 
         rel="noopener noreferrer" 
+        onClick={(e) => {
+          e.preventDefault();
+          // Öffne das PDF in einem neuen Fenster mit spezifischen Optionen
+          window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+        }}
         className="block border rounded overflow-hidden w-20 h-20 flex flex-col items-center justify-center hover:bg-muted/20 transition-colors"
       >
         <div className="h-12 w-full bg-red-50 flex items-center justify-center border-b">
@@ -401,6 +418,22 @@ function cleanHtml(htmlContent: string): string {
   // Selbständige href-Pfade korrigieren
   cleanedHtml = cleanedHtml.replace(/href="uploads\//g, 'href="/uploads/');
   cleanedHtml = cleanedHtml.replace(/href="\/uploads\//g, 'href="/uploads/');
+  
+  // Direkte Öffnung für PDF-Links hinzufügen
+  cleanedHtml = cleanedHtml.replace(
+    /<a([^>]*)href="([^"]*\.pdf)"([^>]*)>/g,
+    (match, before, pdfUrl, after) => {
+      // Stelle sicher, dass die URL absolut ist
+      let fullPdfUrl = pdfUrl;
+      if (fullPdfUrl.startsWith('/')) {
+        fullPdfUrl = window.location.origin + fullPdfUrl;
+      } else if (!fullPdfUrl.startsWith('http')) {
+        fullPdfUrl = window.location.origin + '/' + fullPdfUrl;
+      }
+      
+      return `<a${before}href="${pdfUrl}"${after} onclick="event.preventDefault(); window.open('${fullPdfUrl}', '_blank', 'noopener,noreferrer');">`;
+    }
+  );
   
   return cleanedHtml;
 }

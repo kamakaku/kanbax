@@ -96,8 +96,20 @@ export function CommentList({ taskId }: CommentListProps) {
                   {(() => {
                     const pdfMatch = comment.content.match(/href="([^"]+\.pdf)"/);
                     if (pdfMatch && pdfMatch[1]) {
-                      const pdfUrl = pdfMatch[1];
+                      // Stelle sicher, dass die URL absolut ist
+                      let pdfUrl = pdfMatch[1];
+                      
+                      // Überprüfe ob die URL relativ oder absolut ist
+                      if (pdfUrl.startsWith('/')) {
+                        // Absolute URL mit Origin
+                        pdfUrl = window.location.origin + pdfUrl;
+                      } else if (!pdfUrl.startsWith('http')) {
+                        // Relative URL ohne führenden Slash
+                        pdfUrl = window.location.origin + '/' + pdfUrl;
+                      }
+                      
                       const pdfName = pdfUrl.split('/').pop() || 'Dokument.pdf';
+                      
                       return (
                         <div className="mt-2 border rounded-md overflow-hidden">
                           <div className="flex items-center p-2 bg-red-50">
@@ -109,6 +121,11 @@ export function CommentList({ taskId }: CommentListProps) {
                               href={pdfUrl} 
                               target="_blank" 
                               rel="noopener noreferrer"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                // Öffne das PDF in einem neuen Fenster mit spezifischen Optionen
+                                window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+                              }}
                               className="flex items-center justify-center p-4 border border-dashed rounded bg-white"
                             >
                               <div className="flex flex-col items-center">
