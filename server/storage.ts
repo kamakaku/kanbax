@@ -761,12 +761,12 @@ export class DatabaseStorage implements IStorage {
       console.log(`Fetching tasks assigned to user: ${userId}`);
       
       // Rufe alle Tasks ab, die dem Benutzer zugewiesen sind und nicht archiviert sind
-      // Verwende den #= Operator, um einen Integer in einem Integer-Array zu finden
+      // Verwende den ANY Operator, um einen Integer in einem Integer-Array zu finden
       const result = await pool.query(`
         SELECT * FROM tasks 
         WHERE $1 = ANY(assigned_user_ids) 
           AND archived = false
-        ORDER BY board_id, column_id, "order"
+        ORDER BY board_id NULLS FIRST, column_id NULLS FIRST, "order"
       `, [userId]);
       
       const userTasks = result.rows;
@@ -780,37 +780,49 @@ export class DatabaseStorage implements IStorage {
         const labels = Array.isArray(task.labels) ? task.labels : [];
         const attachments = Array.isArray(task.attachments) ? task.attachments : [];
         
-        // Board abrufen, zu dem der Task gehört
-        const [board] = await db
-          .select({
-            id: boards.id,
-            title: boards.title,
-            projectId: boards.project_id,
-          })
-          .from(boards)
-          .where(eq(boards.id, task.board_id));
-          
-        // Spalte abrufen, in der sich der Task befindet
-        const [column] = await db
-          .select({
-            id: columns.id,
-            title: columns.title,
-          })
-          .from(columns)
-          .where(eq(columns.id, task.column_id));
-          
-        // Projekt abrufen, falls das Board zu einem Projekt gehört
+        let board = null;
+        let column = null;
         let project = null;
-        if (board && board.projectId) {
-          const [projectData] = await db
+        
+        // Board und Spalte nur abrufen, wenn es sich nicht um eine persönliche Aufgabe handelt
+        if (task.board_id !== null) {
+          // Board abrufen, zu dem der Task gehört
+          const [boardData] = await db
             .select({
-              id: projects.id,
-              title: projects.title,
+              id: boards.id,
+              title: boards.title,
+              projectId: boards.project_id,
             })
-            .from(projects)
-            .where(eq(projects.id, board.projectId));
-            
-          project = projectData;
+            .from(boards)
+            .where(eq(boards.id, task.board_id));
+          
+          board = boardData;
+          
+          // Spalte abrufen, wenn eine vorhanden ist
+          if (task.column_id !== null) {
+            const [columnData] = await db
+              .select({
+                id: columns.id,
+                title: columns.title,
+              })
+              .from(columns)
+              .where(eq(columns.id, task.column_id));
+              
+            column = columnData;
+          }
+          
+          // Projekt abrufen, falls das Board zu einem Projekt gehört
+          if (board && board.projectId) {
+            const [projectData] = await db
+              .select({
+                id: projects.id,
+                title: projects.title,
+              })
+              .from(projects)
+              .where(eq(projects.id, board.projectId));
+              
+            project = projectData;
+          }
         }
         
         // Zugewiesener Benutzer, falls vorhanden
@@ -851,12 +863,19 @@ export class DatabaseStorage implements IStorage {
           column: column,
           project: project,
           assignedUser: assignedUser,
+          // Markiere persönliche Aufgaben
+          isPersonal: task.board_id === null
         };
       }));
 
       // Prüfe Zugriffsberechtigung für jeden Task
       const accessibleTasks = await Promise.all(
         enrichedTasks.map(async (task) => {
+          // Persönliche Aufgaben sind immer für den Benutzer zugänglich
+          if (task.boardId === null) {
+            return task;
+          }
+          
           // Prüfe, ob der Benutzer Zugriff auf das Board hat
           const hasAccess = await this.permissionService.canAccessBoard(userId, task.boardId);
           return hasAccess ? task : null;

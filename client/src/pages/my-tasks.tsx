@@ -24,6 +24,7 @@ interface TaskWithDetails extends Task {
     id: number;
     title: string;
   } | null;
+  isPersonal?: boolean; // Flag für persönliche Aufgaben ohne Board-ID
 }
 
 // Die Standard-Spalten für das Kanban-Board
@@ -185,6 +186,7 @@ export default function MyTasks() {
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
+                // Persönliche Aufgaben werden anhand ihres Status und boardId=null identifiziert
                 const columnTasks = tasks
                   .filter(task => task.status === column.id)
                   .sort((a, b) => (a.order || 0) - (b.order || 0));
