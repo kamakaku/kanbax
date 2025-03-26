@@ -172,17 +172,17 @@ export function RichTextEditor({
     const url = window.prompt('URL eingeben:');
     if (url && editor) {
       // Setze den Link beim selektierten Text oder füge einen neuen Link ein
-      if (editor.isActive('link')) {
-        // Wenn bereits ein Link aktiv ist, entferne ihn
-        editor.chain().focus().extendMarkRange('link').unsetMark('link').run();
-        // Füge den neuen Link hinzu
-        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-      } else if (editor.view.state.selection.empty) {
+      if (editor.view.state.selection.empty) {
         // Wenn kein Text ausgewählt ist, füge den Link als Text ein
         editor.chain().focus().insertContent(`<a href="${url}" target="_blank">${url}</a>`).run();
       } else {
-        // Wenn Text ausgewählt ist, wandle ihn in einen Link um
-        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+        // Wenn Text ausgewählt ist
+        if (editor.isActive('link')) {
+          // Wenn bereits ein Link aktiv ist, entferne ihn
+          editor.chain().focus().unsetLink().run();
+        }
+        // Füge den Link hinzu (mit dem TipTap Editor API)
+        editor.chain().focus().setLink({ href: url }).run();
       }
     }
   };
