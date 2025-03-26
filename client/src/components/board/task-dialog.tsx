@@ -602,9 +602,11 @@ export function TaskDialog({
         {/* Angehängte Dateien */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">Dateien</div>
-          {task?.attachments && task.attachments.length > 0 ? (
+          {/* Verwende sowohl task.attachments als auch den uploadedAttachments State */}
+          {((task?.attachments && task.attachments.length > 0) || uploadedAttachments.length > 0) ? (
             <div className="flex flex-wrap gap-2">
-              {task.attachments.map((url, index) => {
+              {/* Verwende entweder die Anhänge aus dem Task-Objekt oder aus dem State */}
+              {(uploadedAttachments.length > 0 ? uploadedAttachments : task?.attachments || []).map((url, index) => {
                 const fileName = url.split('/').pop() || `Datei ${index + 1}`;
                 const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
                 
