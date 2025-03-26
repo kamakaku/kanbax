@@ -946,12 +946,19 @@ export function TaskDialog({
                     {/* Anzeige der hochgeladenen Dateien mit verbesserten Thumbnails */}
                     {uploadedAttachments.length > 0 && (
                       <div className="space-y-2 mt-2">
-                        <div className="text-sm font-medium">Angehängte Dateien</div>
+                        <div className="text-sm font-medium">Angehängte Dateien ({uploadedAttachments.length})</div>
                         <div className="flex flex-wrap gap-3">
                           {uploadedAttachments.map((url, index) => {
+                            console.log("Rendering attachment:", url);
                             return (
-                              <div key={index} className="relative">
-                                <AttachmentThumbnail file={url} />
+                              <div key={index} className="relative border rounded w-20 h-20 flex items-center justify-center">
+                                {/* Direkte Fallback-Anzeige statt Komponente */}
+                                <div className="text-xs text-center p-1">
+                                  <FileIcon className="h-6 w-6 mx-auto mb-1" />
+                                  <span className="block truncate w-full">
+                                    {url.split('/').pop() || 'Datei'}
+                                  </span>
+                                </div>
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
