@@ -428,7 +428,6 @@ export function Board() {
             {/* Creator Section */}
             {creator && (
               <div className="flex items-center gap-2">
-                <Crown className="h-4 w-4 text-amber-500" />
                 <div className="flex items-center gap-1">
                   <Avatar className="h-5 w-5">
                     <AvatarImage src={creator.avatarUrl || undefined} alt={creator.username} />
@@ -480,14 +479,50 @@ export function Board() {
           {/* Vierte Zeile: Filter und Suche */}
           <div className="flex flex-col gap-2 mt-1">
             <div className="flex items-center p-3 bg-slate-50 rounded-md">
+              {/* Suchfeld - ausklappbar */}
               <div className="flex-1 flex items-center relative pr-2">
-                <Search className="h-4 w-4 absolute left-3 text-slate-400" />
-                <Input 
-                  placeholder="Tasks durchsuchen..." 
-                  className="pl-9 h-9 border-slate-200 focus:border-blue-400"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-9 w-9">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" side="bottom" align="start">
+                    <div className="flex items-center px-3 py-2">
+                      <Search className="h-4 w-4 mr-2 text-slate-400" />
+                      <Input 
+                        placeholder="Tasks durchsuchen..." 
+                        className="border-none shadow-none focus-visible:ring-0 h-9"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                      />
+                      {searchQuery && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setSearchQuery("")}
+                          className="ml-2 h-8 px-2"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {searchQuery && (
+                  <Badge variant="secondary" className="ml-2">
+                    Suche: {searchQuery}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setSearchQuery("")}
+                      className="h-4 w-4 ml-1 p-0"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
               </div>
               
               <div className="flex gap-2 items-center">
@@ -501,24 +536,30 @@ export function Board() {
                   </PopoverTrigger>
                   <PopoverContent className="w-60 p-2">
                     <div className="space-y-1 max-h-60 overflow-auto">
-                      {allLabels.map(label => (
-                        <div key={label} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`label-${label}`}
-                            checked={selectedLabels.includes(label)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedLabels(prev => [...prev, label]);
-                              } else {
-                                setSelectedLabels(prev => prev.filter(l => l !== label));
-                              }
-                            }}
-                          />
-                          <label htmlFor={`label-${label}`} className="flex items-center text-sm">
-                            <Badge className="px-2 py-0.5 text-xs" variant="outline">{label}</Badge>
-                          </label>
+                      {allLabels.length > 0 ? (
+                        allLabels.map(label => (
+                          <div key={label} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`label-${label}`}
+                              checked={selectedLabels.includes(label)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedLabels(prev => [...prev, label]);
+                                } else {
+                                  setSelectedLabels(prev => prev.filter(l => l !== label));
+                                }
+                              }}
+                            />
+                            <label htmlFor={`label-${label}`} className="flex items-center text-sm">
+                              <Badge className="px-2 py-0.5 text-xs" variant="outline">{label}</Badge>
+                            </label>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="py-2 text-center text-sm text-muted-foreground">
+                          Keine Labels vorhanden
                         </div>
-                      ))}
+                      )}
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -598,18 +639,12 @@ export function Board() {
                 />
                 <label
                   htmlFor="show-archived"
-                  className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+                  className="text-sm font-medium cursor-pointer"
                 >
                   {showArchivedTasks ? (
-                    <>
-                      <Eye className="h-4 w-4" />
-                      Archivierte Tasks anzeigen
-                    </>
+                    <Eye className="h-4 w-4" />
                   ) : (
-                    <>
-                      <EyeOff className="h-4 w-4" />
-                      Archivierte Tasks ausblenden
-                    </>
+                    <EyeOff className="h-4 w-4" />
                   )}
                 </label>
               </div>
