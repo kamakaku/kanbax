@@ -1071,6 +1071,56 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: (error as Error).message });
     }
   });
+  
+  // Route für die Erstellung persönlicher Tasks (ohne Board)
+  app.post("/api/user/tasks", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId!;
+      
+      // Füge den aktuellen Benutzer als Zugewiesenen hinzu, 
+      // wenn keine Zuweisung angegeben wurde
+      const taskData = {
+        ...req.body,
+        assignedUserIds: req.body.assignedUserIds?.length > 0 
+          ? req.body.assignedUserIds 
+          : [userId],
+        creatorId: userId,
+        // Standardwerte für persönliche Tasks
+        status: req.body.status || "todo",
+        order: req.body.order || 0
+      };
+
+      // Validiere mit angepasstem Schema (ohne boardId Pflichtfeld)
+      const result = insertTaskSchema.safeParse(taskData);
+
+      if (!result.success) {
+        return res.status(400).json({
+          message: "Ungültige Task-Daten",
+          errors: result.error.errors
+        });
+      }
+
+      console.log("Creating personal task:", result.data);
+      const task = await storage.createTask(userId, result.data);
+      
+      // Aktivitätslog erstellen
+      const activityLog = await storage.createActivityLog({
+        action: "create",
+        details: "Persönliche Aufgabe erstellt",
+        userId: userId,
+        taskId: task.id,
+        requiresNotification: true,
+        notificationType: "task"
+      });
+
+      await notificationService.processActivityLog(activityLog.id);
+      
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Fehler beim Erstellen der persönlichen Aufgabe:", error);
+      res.status(500).json({ message: "Fehler beim Erstellen der persönlichen Aufgabe" });
+    }
+  });
 
   app.post("/api/boards/:boardId/tasks", requireAuth, async (req, res) => {
     const boardId = parseInt(req.params.boardId);
@@ -1138,15 +1188,21 @@ export async function registerRoutes(app: Express, db: Knex) {
       const task = await storage.updateTask(userId, id, result.data);
 
       // Log the activity
-      const activityLog = await storage.createActivityLog({
+      const activityLogData: any = {
         action: "update",
         details: "Aufgabe aktualisiert",
         userId: userId,
         taskId: id,
-        boardId: task.boardId,
         requiresNotification: true,  // Benachrichtigung für Zuweisungen und Updates
         notificationType: "task"
-      });
+      };
+      
+      // Board-ID nur hinzufügen, wenn vorhanden (für persönliche Tasks ohne Board)
+      if (task.boardId) {
+        activityLogData.boardId = task.boardId;
+      }
+      
+      const activityLog = await storage.createActivityLog(activityLogData);
 
       // Sofort Benachrichtigung verarbeiten
       await notificationService.processActivityLog(activityLog.id);
