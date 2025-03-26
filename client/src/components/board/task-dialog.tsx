@@ -325,7 +325,7 @@ export function TaskDialog({
             status: data.status,
             order: data.order,
             boardId: currentBoard.id,
-            columnId: data.columnId || 0, // Fallback zu 0 wenn undefined
+            columnId: data.columnId && data.columnId > 0 ? data.columnId : 1, // Fallback zu 1 (erste Spalte) wenn undefined oder 0
             priority: data.priority,
             labels: data.labels,
             dueDate: adjustedDueDate,

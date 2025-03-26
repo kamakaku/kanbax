@@ -1,0 +1,46 @@
+POST https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/api/boards/33/tasks 400 (Bad Request)
+apiRequest @ queryClient.ts:15
+onSubmit @ task-dialog.tsx:340
+(anonymous) @ chunk-YABUFNLM.js?v=7a8943ef:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=7a8943ef:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=7a8943ef:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=7a8943ef:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=7a8943ef:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=7a8943ef:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=7a8943ef:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=7a8943ef:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=7a8943ef:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=7a8943ef:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=7a8943ef:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=7a8943ef:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=7a8943ef:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=7a8943ef:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=7a8943ef:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=7a8943ef:5449Understand this errorAI
+task-dialog.tsx:367 Form submission error: Error: 400: {"message":"Invalid task data","errors":[{"code":"too_small","minimum":0,"type":"number","inclusive":false,"exact":false,"message":"Column ID must be a positive integer if provided","path":["columnId"]}]}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async onSubmit (task-dialog.tsx:340:28)
+    at async chunk-YABUFNLM.js?v=7a8943ef:1675:9
+overrideMethod @ hook.js:608
+onSubmit @ task-dialog.tsx:367
+await in onSubmit
+(anonymous) @ chunk-YABUFNLM.js?v=7a8943ef:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=7a8943ef:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=7a8943ef:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=7a8943ef:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=7a8943ef:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=7a8943ef:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=7a8943ef:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=7a8943ef:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=7a8943ef:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=7a8943ef:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=7a8943ef:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=7a8943ef:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=7a8943ef:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=7a8943ef:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=7a8943ef:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=7a8943ef:5449Understand this errorAI
+task-dialog.tsx:96 
