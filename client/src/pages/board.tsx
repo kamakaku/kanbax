@@ -11,8 +11,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { 
-  Pencil, Star, Users, Building2, Calendar as CalendarIcon, Crown, Archive, RotateCcw, 
-  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search 
+  Pencil, Star, Users, Building2, Calendar as CalendarIcon, Archive, RotateCcw, 
+  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X
 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
