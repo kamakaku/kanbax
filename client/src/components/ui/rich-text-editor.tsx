@@ -33,7 +33,20 @@ export function RichTextEditor({
   
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        codeBlock: {
+          HTMLAttributes: {
+            class: 'my-custom-code-block',
+            style: 'margin: 0 !important; padding: 0 !important; background: transparent;'
+          }
+        },
+        code: {
+          HTMLAttributes: {
+            class: 'my-custom-code',
+            style: 'margin: 0 !important; padding: 0 !important; background: transparent;'
+          }
+        }
+      }),
       Placeholder.configure({
         placeholder,
       }),
