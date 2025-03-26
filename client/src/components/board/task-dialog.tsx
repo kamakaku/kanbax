@@ -1054,17 +1054,49 @@ export function TaskDialog({
               </Form>
             </div>
             
-            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-end gap-2 rounded-b-lg">
-              <Button form="task-form" type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Abbrechen
-              </Button>
-              <Button 
-                form="task-form" 
-                type="submit"
-                className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
-              >
-                {task ? "Speichern" : "Erstellen"}
-              </Button>
+            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-between rounded-b-lg">
+              <div>
+                {task && (
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm"
+                    className="border-red-500 text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      form.setValue("archived", !form.getValues("archived"));
+                      toast({
+                        title: form.getValues("archived") 
+                          ? "Aufgabe wird archiviert..." 
+                          : "Aufgabe wird wiederhergestellt...",
+                      });
+                    }}
+                  >
+                    {form.getValues("archived") ? (
+                      <>
+                        <RotateCcw className="h-4 w-4 mr-1.5" />
+                        Wiederherstellen
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4 mr-1.5" />
+                        Archivieren
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button form="task-form" type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Abbrechen
+                </Button>
+                <Button 
+                  form="task-form" 
+                  type="submit"
+                  className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
+                >
+                  {task ? "Speichern" : "Erstellen"}
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
@@ -1073,72 +1105,76 @@ export function TaskDialog({
               {renderDetailView()}
             </div>
             
-            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-end gap-2 rounded-b-lg">
-              {task && (
+            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-between rounded-b-lg">
+              <div className="flex gap-2">
+                {task && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className={task.archived 
+                      ? "bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg border-transparent" 
+                      : "border-red-500 text-red-600 hover:bg-red-50"}
+                    onClick={async () => {
+                      if (!task) return;
+                      try {
+                        const updatedTask: Task = {
+                          ...task,
+                          archived: !task.archived
+                        };
+                        
+                        if (onUpdate) {
+                          await onUpdate(updatedTask);
+                          
+                          toast({
+                            title: updatedTask.archived 
+                              ? "Aufgabe archiviert" 
+                              : "Aufgabe wiederhergestellt",
+                          });
+                        }
+                      } catch (error) {
+                        toast({
+                          title: "Fehler",
+                          description: "Die Aufgabe konnte nicht archiviert werden",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    {task.archived ? (
+                      <>
+                        <RotateCcw className="h-4 w-4 mr-1.5" />
+                        Wiederherstellen
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4 mr-1.5" />
+                        Archivieren
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {task && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditMode(true)}
+                    className="gap-2"
+                    size="sm"
+                  >
+                    <Pencil className="h-4 w-4 mr-1.5" />
+                    Bearbeiten
+                  </Button>
+                )}
                 <Button
                   variant="outline"
-                  onClick={() => setIsEditMode(true)}
-                  className="gap-2"
+                  onClick={() => onOpenChange(false)}
                   size="sm"
                 >
-                  <Pencil className="h-4 w-4 mr-1.5" />
-                  Bearbeiten
+                  <X className="h-4 w-4 mr-1.5" />
+                  Schließen
                 </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                size="sm"
-              >
-                <X className="h-4 w-4 mr-1.5" />
-                Schließen
-              </Button>
-              {task && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="border-amber-500 text-amber-600 hover:bg-amber-50"
-                  onClick={async () => {
-                    if (!task) return;
-                    try {
-                      const updatedTask: Task = {
-                        ...task,
-                        archived: !task.archived
-                      };
-                      
-                      if (onUpdate) {
-                        await onUpdate(updatedTask);
-                        
-                        toast({
-                          title: updatedTask.archived 
-                            ? "Aufgabe archiviert" 
-                            : "Aufgabe wiederhergestellt",
-                        });
-                        
-                        onOpenChange(false);
-                      }
-                    } catch (error) {
-                      toast({
-                        title: "Fehler",
-                        description: "Die Aufgabe konnte nicht archiviert werden",
-                        variant: "destructive",
-                      });
-                    }
-                  }}
-                >
-                  {task.archived ? (
-                    <>
-                      <span className="mr-1.5">↩</span> 
-                      Wiederherstellen
-                    </>
-                  ) : (
-                    <>
-                      <span className="mr-1.5">📦</span>
-                      Archivieren
-                    </>
-                  )}
-                </Button>
-              )}
+              </div>
             </div>
           </div>
         )}
