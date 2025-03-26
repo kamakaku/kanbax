@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon, Upload, ImageIcon, Paperclip } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon, Upload, ImageIcon, FileIcon, Paperclip } from "lucide-react";
 import { CommentList } from "@/components/comments/comment-list";
 import { CommentEditor } from "@/components/comments/comment-editor";
 import classnames from 'classnames';
@@ -504,6 +504,39 @@ export function TaskDialog({
               </Button>
             </div>
           </div>
+
+          {task?.attachments && task.attachments.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Angehängte Dateien</div>
+              <div className="flex flex-wrap gap-2">
+                {task.attachments.map((url, index) => {
+                  const fileName = url.split('/').pop() || `Datei ${index + 1}`;
+                  const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
+                  
+                  return (
+                    <div 
+                      key={index} 
+                      className="flex items-center gap-1 p-1.5 rounded-md bg-muted/50 border"
+                    >
+                      {isImage ? (
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <FileIcon className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <a 
+                        href={url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[150px]"
+                      >
+                        {fileName}
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {task && (
             <div className="space-y-2">
