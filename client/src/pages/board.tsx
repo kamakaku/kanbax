@@ -367,36 +367,34 @@ export function Board() {
                   Archiviert
                 </Badge>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowEditForm(true)}
-                className="flex items-center gap-1"
-              >
-                <Pencil className="h-4 w-4" />
-                <span>Bearbeiten</span>
-              </Button>
-              {board.archived ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => unarchiveBoard.mutate()}
-                  className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  <span>Wiederherstellen</span>
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setConfirmArchive(true)}
-                  className="flex items-center gap-1 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
-                >
-                  <Archive className="h-4 w-4" />
-                  <span>Archivieren</span>
-                </Button>
-              )}
+              
+              {/* Aktionsmenü mit Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowEditForm(true)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    <span>Bearbeiten</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {board.archived ? (
+                    <DropdownMenuItem onClick={() => unarchiveBoard.mutate()} className="text-blue-600">
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      <span>Wiederherstellen</span>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={() => setConfirmArchive(true)} className="text-gray-600">
+                      <Archive className="h-4 w-4 mr-2" />
+                      <span>Archivieren</span>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               <Button 
                 variant="default" 
                 size="sm"
