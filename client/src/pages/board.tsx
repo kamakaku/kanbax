@@ -635,21 +635,29 @@ export function Board() {
             
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="show-archived"
-                  checked={showArchivedTasks}
-                  onCheckedChange={setShowArchivedTasks}
-                />
-                <label
-                  htmlFor="show-archived"
-                  className="text-sm font-medium cursor-pointer"
-                >
-                  {showArchivedTasks ? (
-                    <Eye className="h-4 w-4" />
-                  ) : (
-                    <EyeOff className="h-4 w-4" />
-                  )}
-                </label>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="show-archived"
+                    checked={showArchivedTasks}
+                    onCheckedChange={setShowArchivedTasks}
+                  />
+                  <label
+                    htmlFor="show-archived"
+                    className="flex items-center gap-1.5 text-sm font-medium cursor-pointer"
+                  >
+                    <div className="relative">
+                      <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
+                      {!showArchivedTasks && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-5 h-px bg-slate-400 rotate-45"></div>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-600">
+                      {showArchivedTasks ? "Archivierte anzeigen" : "Archivierte ausblenden"}
+                    </span>
+                  </label>
+                </div>
               </div>
               
               {(selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate || searchQuery) && (

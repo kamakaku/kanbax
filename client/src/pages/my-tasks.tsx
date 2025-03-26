@@ -7,7 +7,7 @@ import { Column as ColumnComponent } from "@/components/board/column";
 import { TaskDialog } from "@/components/board/task-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Eye, EyeOff } from "lucide-react";
+import { PlusCircle, Archive } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 // Erweiterte Task-Schnittstelle für die Frontend-Anzeige
@@ -201,14 +201,17 @@ export default function MyTasks() {
                     checked={showArchivedTasks}
                     onCheckedChange={setShowArchivedTasks}
                   />
-                  <div className="flex items-center">
-                    {showArchivedTasks ? (
-                      <Eye className="h-4 w-4 text-slate-600 mr-1" />
-                    ) : (
-                      <EyeOff className="h-4 w-4 text-slate-600 mr-1" />
-                    )}
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative">
+                      <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
+                      {!showArchivedTasks && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-5 h-px bg-slate-400 rotate-45"></div>
+                        </div>
+                      )}
+                    </div>
                     <label htmlFor="show-archived" className="text-sm text-slate-600">
-                      Archivierte Aufgaben anzeigen
+                      {showArchivedTasks ? "Archivierte anzeigen" : "Archivierte ausblenden"}
                     </label>
                   </div>
                 </div>
