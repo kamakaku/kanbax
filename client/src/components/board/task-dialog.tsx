@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon } from "lucide-react";
-import { CommentList, CommentEditor } from "@/components/comments/comment-list";
+import { CommentList } from "@/components/comments/comment-list";
+import { CommentEditor } from "@/components/comments/comment-editor";
 import classnames from 'classnames';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";

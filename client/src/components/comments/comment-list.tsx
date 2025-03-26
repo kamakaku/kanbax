@@ -1,13 +1,10 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { UserIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useToast } from "@/hooks/use-toast";
+import { RichTextContent } from "@/components/ui/rich-text-editor";
 import { type Comment, type User } from "@shared/schema";
 
 interface CommentListProps {
@@ -90,93 +87,12 @@ export function CommentList({ taskId }: CommentListProps) {
                 </span>
               </div>
             </div>
-            <div className="text-sm pl-8">
-              {comment.content}
+            <div className="text-sm pl-8 prose prose-sm dark:prose-invert max-w-none">
+              <RichTextContent content={comment.content} />
             </div>
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// Placeholder for apiRequest function - replace with your actual implementation
-const apiRequest = async (method: string, url: string, body?: any) => {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    throw new Error(`HTTP error! status: ${res.status}`);
-  }
-  return res;
-};
-
-interface CommentEditorProps {
-  taskId: number;
-  onCommentAdded?: () => void;
-}
-
-export function CommentEditor({ taskId, onCommentAdded }: CommentEditorProps) {
-  const [content, setContent] = useState("");
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  const addComment = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/tasks/${taskId}/comments`, {
-        content,
-        rawContent: content,
-        authorId: user?.id,
-        taskId
-      });
-
-      if (!res.ok) {
-        throw new Error("Fehler beim Hinzufügen des Kommentars");
-      }
-
-      return res.json();
-    },
-    onSuccess: () => {
-      setContent("");
-      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${taskId}/comments`] });
-      toast({
-        title: "Kommentar hinzugefügt",
-        description: "Dein Kommentar wurde erfolgreich hinzugefügt.",
-      });
-
-      if (onCommentAdded) {
-        onCommentAdded();
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Fehler",
-        description: `Fehler beim Hinzufügen des Kommentars: ${error}`,
-        variant: "destructive",
-      });
-    }
-  });
-
-  return (
-    <div className="mt-4">
-      <Textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Kommentar schreiben..."
-        className="mb-2 min-h-[80px]"
-      />
-      <Button 
-        onClick={() => addComment.mutate()}
-        disabled={!content.trim() || addComment.isPending}
-        size="sm"
-      >
-        {addComment.isPending ? "Wird gesendet..." : "Kommentar senden"}
-      </Button>
     </div>
   );
 }
