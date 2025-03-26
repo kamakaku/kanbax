@@ -152,23 +152,30 @@ export function Task({ task, index, onClick }: TaskProps) {
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
             
-            {/* Projekt und Board Informationen mit Icons */}
-            {(task.project || task.board) && (
-              <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
-                {task.project && (
-                  <div className="flex items-center gap-1 text-slate-600">
-                    <Folder className="h-3 w-3" />
-                    <span>{task.project.title}</span>
-                  </div>
-                )}
-                {task.board && (
-                  <div className="flex items-center gap-1 text-slate-600">
-                    <KanbanSquare className="h-3 w-3" />
-                    <span>{task.board.title}</span>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Projekt und Board Informationen mit Icons oder "Persönliche Aufgabe" für persönliche Aufgaben */}
+            <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
+              {task.isPersonal ? (
+                <div className="flex items-center gap-1 text-slate-600">
+                  <KanbanSquare className="h-3 w-3" />
+                  <span>Persönliche Aufgabe</span>
+                </div>
+              ) : (
+                <>
+                  {task.project && (
+                    <div className="flex items-center gap-1 text-slate-600">
+                      <Folder className="h-3 w-3" />
+                      <span>{task.project.title}</span>
+                    </div>
+                  )}
+                  {task.board && (
+                    <div className="flex items-center gap-1 text-slate-600">
+                      <KanbanSquare className="h-3 w-3" />
+                      <span>{task.board.title}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {task.checklist && task.checklist.length > 0 && (
               <div className="flex items-center gap-2">
