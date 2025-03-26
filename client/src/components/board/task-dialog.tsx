@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,12 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon, Upload, ImageIcon, Paperclip } from "lucide-react";
 import { CommentList } from "@/components/comments/comment-list";
 import { CommentEditor } from "@/components/comments/comment-editor";
 import classnames from 'classnames';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select,
   SelectContent,
@@ -96,6 +97,11 @@ export function TaskDialog({
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [checklist, setChecklist] = useState<{ text: string; checked: boolean; }[]>([]);
   const [isEditMode, setIsEditMode] = useState(mode === "edit");
+  const [richDescription, setRichDescription] = useState<string>(task?.richDescription || "");
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadedAttachments, setUploadedAttachments] = useState<string[]>(task?.attachments ? 
+    (Array.isArray(task.attachments) ? task.attachments : []) : []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { currentBoard } = useStore();
   const queryClient = useQueryClient();
