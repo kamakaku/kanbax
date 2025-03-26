@@ -383,8 +383,8 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
                   <FormLabel>Checklisten-Items</FormLabel>
                   <Button
                     type="button"
-                    variant="outline"
                     size="sm"
+                    className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
                     onClick={() => append({ title: "", completed: false })}
                   >
                     <PlusCircle className="h-4 w-4 mr-2" />
@@ -434,6 +434,7 @@ export function KeyResultForm({ objectiveId, keyResult, onSuccess, open, onOpenC
           <Button
             type="submit"
             disabled={mutation.isPending}
+            className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
             onClick={form.handleSubmit((data) => mutation.mutate(data))}
           >
             {mutation.isPending
