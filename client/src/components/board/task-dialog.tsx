@@ -102,6 +102,7 @@ export function TaskDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedAttachments, setUploadedAttachments] = useState<string[]>(task?.attachments ? 
     (Array.isArray(task.attachments) ? task.attachments : []) : []);
+  const [selectedAttachment, setSelectedAttachment] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { currentBoard } = useStore();
