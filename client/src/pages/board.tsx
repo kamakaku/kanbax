@@ -4,13 +4,13 @@ import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Board, type Column, type Task, type InsertBoard, type Team, type User } from "@shared/schema";
 import { Column as ColumnComponent } from "@/components/board/column";
-import { BoardSelector } from "@/components/board/board-selector";
+// BoardSelector wurde entfernt
 import { useStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star, Users, Building2, Calendar, Crown, Archive, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { Pencil, Star, Users, Building2, Calendar, Crown, Archive, RotateCcw, Eye, EyeOff, PlusCircle } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,6 +25,7 @@ import {
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+import { TaskDialog } from "@/components/board/task-dialog";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
@@ -46,6 +47,8 @@ export function Board() {
   const [showEditForm, setShowEditForm] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
+  const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
+  const [initialColumnId, setInitialColumnId] = useState<number | null>(null);
 
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
@@ -300,88 +303,40 @@ export function Board() {
       </div>
 
       <div className="relative p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-start gap-6">
-            <div>
+        {/* Header - neue Struktur */}
+        <div className="flex flex-col gap-6 mb-8">
+          {/* Erste Zeile: Titel + Fav-Stern / Buttons rechts */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">
                 {board.title}
               </h1>
-              {board.project && (
-                <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Projekt: {board.project.title}
-                </p>
-              )}
-
-              <div className="flex gap-4 mt-4">
-                {/* Creator Section */}
-                {creator && (
-                  <div className="flex items-center gap-2">
-                    <Crown className="h-4 w-4 text-amber-500" />
-                    <div className="flex items-center gap-1">
-                      <Avatar className="h-5 w-5">
-                        <AvatarImage src={creator.avatarUrl || undefined} alt={creator.username} />
-                        <AvatarFallback className="text-xs bg-amber-100 text-amber-800">
-                          {creator.username.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
-                        {creator.username} <span className="ml-1 text-xs">(Ersteller)</span>
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Teams Section */}
-                {boardTeams.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex flex-wrap gap-1">
-                      {boardTeams.map((team) => (
-                        <Badge key={team.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
-                          {team.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Users Section */}
-                {boardUsers.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex flex-wrap gap-1">
-                      {boardUsers
-                        .filter(user => user.id !== board.creator_id) // Filtere Creator aus, da er bereits angezeigt wird
-                        .map((user) => (
-                          <Badge key={user.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
-                            {user.username}
-                          </Badge>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => toggleFavorite.mutate()}
-                className="hover:bg-slate-100"
+                className="hover:bg-slate-100 mt-0.5"
               >
                 <Star
                   className={`h-5 w-5 ${board.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-slate-400"}`}
                 />
               </Button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {board.archived && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  Archiviert
+                </Badge>
+              )}
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={() => setShowEditForm(true)}
-                className="hover:bg-slate-100"
+                className="flex items-center gap-1"
               >
                 <Pencil className="h-4 w-4" />
+                <span>Bearbeiten</span>
               </Button>
               {board.archived ? (
                 <Button
@@ -404,40 +359,107 @@ export function Board() {
                   <span>Archivieren</span>
                 </Button>
               )}
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => {
+                  setInitialColumnId(null); // Kein spezieller Status, Standard ist backlog
+                  setShowNewTaskDialog(true);
+                }}
+                className="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white shadow-md"
+              >
+                <PlusCircle className="h-4 w-4 mr-1" />
+                Neuer Task
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {board.archived && (
-              <Badge variant="outline" className="mr-2 bg-amber-50 text-amber-700 border-amber-200">
-                Archiviert
-              </Badge>
-            )}
-            <div className="flex items-center gap-2 mr-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="show-archived"
-                  checked={showArchivedTasks}
-                  onCheckedChange={setShowArchivedTasks}
-                />
-                <label
-                  htmlFor="show-archived"
-                  className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
-                >
-                  {showArchivedTasks ? (
-                    <>
-                      <Eye className="h-4 w-4" />
-                      Archivierte Tasks anzeigen
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="h-4 w-4" />
-                      Archivierte Tasks ausblenden
-                    </>
-                  )}
-                </label>
-              </div>
+
+          {/* Zweite Zeile: Projekt (falls zugeordnet) */}
+          {board.project && (
+            <div className="flex items-center mt-1">
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span className="font-medium">Projekt:</span> {board.project.title}
+              </p>
             </div>
-            <BoardSelector />
+          )}
+
+          {/* Dritte Zeile: Ersteller + Benutzer */}
+          <div className="flex gap-6 mt-2">
+            {/* Creator Section */}
+            {creator && (
+              <div className="flex items-center gap-2">
+                <Crown className="h-4 w-4 text-amber-500" />
+                <div className="flex items-center gap-1">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={creator.avatarUrl || undefined} alt={creator.username} />
+                    <AvatarFallback className="text-xs bg-amber-100 text-amber-800">
+                      {creator.username.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
+                    {creator.username} <span className="ml-1 text-xs">(Ersteller)</span>
+                  </Badge>
+                </div>
+              </div>
+            )}
+            
+            {/* Teams Section */}
+            {boardTeams.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-wrap gap-1">
+                  {boardTeams.map((team) => (
+                    <Badge key={team.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
+                      {team.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Users Section */}
+            {boardUsers.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-wrap gap-1">
+                  {boardUsers
+                    .filter(user => user.id !== board.creator_id) // Filtere Creator aus, da er bereits angezeigt wird
+                    .map((user) => (
+                      <Badge key={user.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
+                        {user.username}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Vierte Zeile: Filter */}
+          <div className="flex items-center mt-2 px-3 py-2 bg-slate-50 rounded-md">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="show-archived"
+                checked={showArchivedTasks}
+                onCheckedChange={setShowArchivedTasks}
+              />
+              <label
+                htmlFor="show-archived"
+                className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+              >
+                {showArchivedTasks ? (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    Archivierte Tasks anzeigen
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="h-4 w-4" />
+                    Archivierte Tasks ausblenden
+                  </>
+                )}
+              </label>
+            </div>
           </div>
         </div>
 
@@ -494,6 +516,47 @@ export function Board() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Task Dialog für neue Tasks */}
+        <TaskDialog 
+          open={showNewTaskDialog}
+          onOpenChange={setShowNewTaskDialog}
+          mode="edit"
+          initialColumnId={initialColumnId === null ? undefined : initialColumnId}
+          task={{
+            id: 0, // Wird von der API überschrieben
+            title: "",
+            description: "",
+            richDescription: "",
+            status: "backlog", // Standard ist backlog
+            priority: "medium",
+            labels: [],
+            checklist: [],
+            boardId: boardId,
+            assignedUserIds: [],
+            assignedTeamId: null,
+            dueDate: null,
+            attachments: [],
+            archived: false,
+            order: 0
+          }}
+          onUpdate={async (newTask) => {
+            try {
+              await apiRequest("POST", `/api/boards/${boardId}/tasks`, newTask);
+              queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "tasks"] });
+              toast({ title: "Task erfolgreich erstellt" });
+              return Promise.resolve();
+            } catch (error) {
+              console.error("Error creating task:", error);
+              toast({
+                title: "Fehler beim Erstellen",
+                description: (error as Error).message,
+                variant: "destructive",
+              });
+              return Promise.reject(error);
+            }
+          }}
+        />
       </div>
     </div>
   );
