@@ -69,7 +69,8 @@ const taskFormSchema = z.object({
   description: z.string().optional(),
   status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
   priority: z.enum(["low", "medium", "high"]),
-  columnId: z.number(),
+  columnId: z.number().optional(), // Spalte ist jetzt optional
+  boardId: z.number().optional(), // Board ist jetzt optional
   labels: z.array(z.string()).default([]),
   assignedUserIds: z.array(z.number()).default([]),
   dueDate: z.string().nullable(),

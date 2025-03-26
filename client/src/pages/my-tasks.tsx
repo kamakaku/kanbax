@@ -6,6 +6,8 @@ import { DragDropContext, DropResult } from "react-beautiful-dnd";
 import { Column as ColumnComponent } from "@/components/board/column";
 import { TaskDialog } from "@/components/board/task-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 
 // Erweiterte Task-Schnittstelle für die Frontend-Anzeige
 interface TaskWithDetails extends Task {
@@ -37,6 +39,7 @@ const defaultColumns = [
 export default function MyTasks() {
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -165,6 +168,17 @@ export default function MyTasks() {
               </p>
             </div>
           </div>
+          
+          {/* Neue Aufgabe Button */}
+          <div>
+            <Button 
+              variant="default" 
+              onClick={() => setIsNewTaskDialogOpen(true)}
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Neue Aufgabe
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-x-auto">
@@ -195,6 +209,15 @@ export default function MyTasks() {
           onOpenChange={setIsTaskDialogOpen}
           onUpdate={handleTaskUpdate}
           mode="details"
+        />
+        
+        {/* Dialog für neue Aufgaben */}
+        <TaskDialog
+          open={isNewTaskDialogOpen}
+          onOpenChange={setIsNewTaskDialogOpen}
+          onUpdate={handleTaskUpdate}
+          mode="edit"
+          initialColumnId={0}
         />
       </div>
     </div>
