@@ -82,43 +82,73 @@ export function RichTextEditor({
     }
 
     try {
+      // Verwende die apiRequest-Funktion mit credentials und korrektem Content-Type
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Der Server gibt die URL in der Eigenschaft 'url' zurück
-        const fileUrl = data.url;
-        
-        if (fileUrl) {
-          console.log('Datei erfolgreich hochgeladen:', fileUrl);
-          
-          setFiles(prevFiles => {
-            const newFiles = [...prevFiles, fileUrl];
-            if (onAttachmentUpload) {
-              onAttachmentUpload(newFiles);
+      let errorMessage = 'Fehler beim Hochladen der Datei';
+      
+      try {
+        if (response.ok) {
+          try {
+            const data = await response.json();
+            // Der Server gibt die URL in der Eigenschaft 'url' zurück
+            const fileUrl = data.url;
+            
+            if (fileUrl) {
+              console.log('Datei erfolgreich hochgeladen:', fileUrl);
+              
+              setFiles(prevFiles => {
+                const newFiles = [...prevFiles, fileUrl];
+                if (onAttachmentUpload) {
+                  onAttachmentUpload(newFiles);
+                }
+                return newFiles;
+              });
+              
+              // Datei-URL in den Editor einfügen, wenn es ein Bild ist
+              if (editor && /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl)) {
+                editor.chain().focus().setImage({ src: fileUrl }).run();
+              } else if (editor) {
+                // Für andere Dateitypen einen Link einfügen
+                const fileName = data.originalname || 'Anhang';
+                editor.chain().focus()
+                  .insertContent(`<a href="${fileUrl}" target="_blank">${fileName}</a>`)
+                  .run();
+              }
+            } else {
+              console.error('Fehler beim Datei-Upload: Keine URL in der Antwort');
+              throw new Error('Keine URL in der Antwort');
             }
-            return newFiles;
-          });
-          
-          // Datei-URL in den Editor einfügen, wenn es ein Bild ist
-          if (editor && /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl)) {
-            editor.chain().focus().setImage({ src: fileUrl }).run();
-          } else if (editor) {
-            // Für andere Dateitypen einen Link einfügen
-            const fileName = data.originalname || 'Anhang';
-            editor.chain().focus()
-              .insertContent(`<a href="${fileUrl}" target="_blank">${fileName}</a>`)
-              .run();
+          } catch (jsonError) {
+            console.error('Fehler beim Parsen der JSON-Antwort:', jsonError);
+            const errorText = await response.text();
+            console.error('Server-Antwort:', errorText);
+            throw new Error('Ungültiges Antwortformat vom Server');
           }
         } else {
-          console.error('Fehler beim Datei-Upload: Keine URL in der Antwort');
+          // Versuche die Fehlermeldung als JSON zu lesen
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (jsonError) {
+            // Wenn es kein gültiges JSON ist, verwende den Text
+            const errorText = await response.text();
+            console.error('Fehler beim Datei-Upload. Server-Antwort:', errorText);
+            if (errorText.includes('<!DOCTYPE html>')) {
+              errorMessage = 'Authentifizierungsfehler oder Serverprobleme beim Upload';
+            } else {
+              errorMessage = errorText || errorMessage;
+            }
+          }
+          throw new Error(errorMessage);
         }
-      } else {
-        const errorText = await response.text();
-        console.error('Fehler beim Datei-Upload:', errorText);
+      } catch (respError) {
+        console.error('Upload-Fehler:', respError);
+        // Hier können Sie eine Toast-Benachrichtigung oder UI-Rückmeldung hinzufügen
       }
     } catch (error) {
       console.error('Fehler beim Datei-Upload:', error);

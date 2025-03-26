@@ -2146,6 +2146,12 @@ export async function registerRoutes(app: Express, db: Knex) {
         return res.status(400).json({ message: "Keine Datei hochgeladen" });
       }
 
+      // Erstelle Upload-Verzeichnisse falls sie nicht existieren
+      ensureDirectoryExists('./uploads/attachments/tasks');
+      ensureDirectoryExists('./uploads/attachments/objectives');
+      ensureDirectoryExists('./uploads/attachments/key-results');
+      ensureDirectoryExists('./uploads/attachments/comments');
+
       const userId = req.userId as number;
       const { type = 'general', entityId } = req.body;
       
