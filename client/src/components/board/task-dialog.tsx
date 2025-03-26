@@ -408,7 +408,7 @@ export function TaskDialog({
 
     const priority = task?.priority ? priorityConfig[task.priority as keyof typeof priorityConfig] : priorityConfig.medium;
     const assignedUsers = users.filter(user => task?.assignedUserIds?.includes(user.id));
-    const creator = users.find(user => user.id === task?.creatorId);
+    const creator = users.find(user => user.id === task?.creator_id);
     const statusLabel = task?.status ? statusLabels[task.status as keyof typeof statusLabels] : "Unbekannt";
     const createdAtDate = task?.createdAt ? new Date(task.createdAt) : new Date();
 
