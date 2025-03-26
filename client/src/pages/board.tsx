@@ -70,6 +70,13 @@ export function Board() {
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [initialColumnId, setInitialColumnId] = useState<number | null>(null);
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [allLabels, setAllLabels] = useState<string[]>([]);
 
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
@@ -133,6 +140,16 @@ export function Board() {
       }
       return res.json();
     },
+    onSuccess: (data) => {
+      // Alle vorhandenen Labels aus Tasks extrahieren
+      const labelSet = new Set<string>();
+      data.forEach(task => {
+        if (task.labels && Array.isArray(task.labels)) {
+          task.labels.forEach(label => labelSet.add(label));
+        }
+      });
+      setAllLabels(Array.from(labelSet).sort());
+    }
   });
 
   const updateBoard = useMutation({
@@ -439,47 +456,178 @@ export function Board() {
               </div>
             )}
 
-            {/* Users Section */}
+            {/* Users Section - Neue überlappende Avatar-Darstellung */}
             {boardUsers.length > 0 && (
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <div className="flex flex-wrap gap-1">
+                <div className="flex -space-x-2 overflow-hidden ml-1">
                   {boardUsers
                     .filter(user => user.id !== board.creator_id) // Filtere Creator aus, da er bereits angezeigt wird
                     .map((user) => (
-                      <Badge key={user.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
-                        {user.username}
-                      </Badge>
+                      <Avatar key={user.id} className="h-7 w-7 border-2 border-white rounded-full">
+                        <AvatarImage src={user.avatarUrl || undefined} alt={user.username} />
+                        <AvatarFallback className="text-xs bg-blue-100 text-blue-800">
+                          {user.username.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                     ))}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Vierte Zeile: Filter */}
-          <div className="flex items-center mt-1 px-3 py-2 bg-slate-50 rounded-md">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="show-archived"
-                checked={showArchivedTasks}
-                onCheckedChange={setShowArchivedTasks}
-              />
-              <label
-                htmlFor="show-archived"
-                className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
-              >
-                {showArchivedTasks ? (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    Archivierte Tasks anzeigen
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-4 w-4" />
-                    Archivierte Tasks ausblenden
-                  </>
-                )}
-              </label>
+          {/* Vierte Zeile: Filter und Suche */}
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="flex items-center p-3 bg-slate-50 rounded-md">
+              <div className="flex-1 flex items-center relative pr-2">
+                <Search className="h-4 w-4 absolute left-3 text-slate-400" />
+                <Input 
+                  placeholder="Tasks durchsuchen..." 
+                  className="pl-9 h-9 border-slate-200 focus:border-blue-400"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex gap-2 items-center">
+                {/* Label Filter */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Tag className="h-4 w-4" />
+                      <span>Labels</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-60 p-2">
+                    <div className="space-y-1 max-h-60 overflow-auto">
+                      {allLabels.map(label => (
+                        <div key={label} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`label-${label}`}
+                            checked={selectedLabels.includes(label)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedLabels(prev => [...prev, label]);
+                              } else {
+                                setSelectedLabels(prev => prev.filter(l => l !== label));
+                              }
+                            }}
+                          />
+                          <label htmlFor={`label-${label}`} className="flex items-center text-sm">
+                            <Badge className="px-2 py-0.5 text-xs" variant="outline">{label}</Badge>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                
+                {/* Priorität Filter */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Filter className="h-4 w-4" />
+                      <span>Priorität</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-2">
+                    <div className="space-y-1">
+                      {["high", "medium", "low"].map(priority => (
+                        <div key={priority} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`priority-${priority}`}
+                            checked={selectedPriorities.includes(priority)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedPriorities(prev => [...prev, priority]);
+                              } else {
+                                setSelectedPriorities(prev => prev.filter(p => p !== priority));
+                              }
+                            }}
+                          />
+                          <label htmlFor={`priority-${priority}`} className="text-sm capitalize">
+                            {priority}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                
+                {/* Deadline Filter */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Clock className="h-4 w-4" />
+                      <span>Deadline</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      className="rounded-md border"
+                      locale={de}
+                      disabled={{ before: new Date() }}
+                      footer={
+                        <div className="mt-2 flex justify-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setSelectedDate(undefined)}
+                            className="w-full"
+                          >
+                            Zurücksetzen
+                          </Button>
+                        </div>
+                      }
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-archived"
+                  checked={showArchivedTasks}
+                  onCheckedChange={setShowArchivedTasks}
+                />
+                <label
+                  htmlFor="show-archived"
+                  className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+                >
+                  {showArchivedTasks ? (
+                    <>
+                      <Eye className="h-4 w-4" />
+                      Archivierte Tasks anzeigen
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-4 w-4" />
+                      Archivierte Tasks ausblenden
+                    </>
+                  )}
+                </label>
+              </div>
+              
+              {(selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate || searchQuery) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedLabels([]);
+                    setSelectedPriorities([]);
+                    setSelectedDate(undefined);
+                    setSearchQuery("");
+                  }}
+                  className="text-xs text-slate-600"
+                >
+                  Filter zurücksetzen
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -488,11 +636,46 @@ export function Board() {
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
-                const filteredTasks = tasks
+                let filteredTasks = tasks
                   .filter(task => task.status === column.id)
                   // Filter out archived tasks unless showArchivedTasks is true
-                  .filter(task => showArchivedTasks || !task.archived)
-                  .sort((a, b) => a.order - b.order);
+                  .filter(task => showArchivedTasks || !task.archived);
+                  
+                // Suche nach Texteingabe
+                if (searchQuery) {
+                  const query = searchQuery.toLowerCase();
+                  filteredTasks = filteredTasks.filter(task => 
+                    task.title.toLowerCase().includes(query) || 
+                    (task.description && task.description.toLowerCase().includes(query))
+                  );
+                }
+                
+                // Labels filtern
+                if (selectedLabels.length > 0) {
+                  filteredTasks = filteredTasks.filter(task => 
+                    task.labels && task.labels.some(label => selectedLabels.includes(label))
+                  );
+                }
+                
+                // Priorität filtern
+                if (selectedPriorities.length > 0) {
+                  filteredTasks = filteredTasks.filter(task => 
+                    task.priority && selectedPriorities.includes(task.priority)
+                  );
+                }
+                
+                // Deadline filtern
+                if (selectedDate) {
+                  const targetDate = format(selectedDate, 'yyyy-MM-dd');
+                  filteredTasks = filteredTasks.filter(task => {
+                    if (!task.dueDate) return false;
+                    const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
+                    return taskDate === targetDate;
+                  });
+                }
+                
+                // Nach Order sortieren
+                filteredTasks = filteredTasks.sort((a, b) => a.order - b.order);
 
                 return (
                   <ColumnComponent
