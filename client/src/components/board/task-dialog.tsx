@@ -775,7 +775,12 @@ export function TaskDialog({
                           }
                         }}
                       />
-                      <Button type="button" onClick={addChecklistItem} size="sm">
+                      <Button 
+                        type="button" 
+                        onClick={addChecklistItem} 
+                        size="sm"
+                        className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
+                      >
                         <PlusCircle className="h-4 w-4 mr-1" />
                         Hinzufügen
                       </Button>

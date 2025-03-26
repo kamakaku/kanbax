@@ -124,7 +124,11 @@ export function ChecklistSection({ taskId }: ChecklistSectionProps) {
           value={newItemTitle}
           onChange={(e) => setNewItemTitle(e.target.value)}
         />
-        <Button type="submit" size="icon">
+        <Button 
+          type="submit" 
+          size="icon"
+          className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
+        >
           <Plus className="h-4 w-4" />
         </Button>
       </form>
