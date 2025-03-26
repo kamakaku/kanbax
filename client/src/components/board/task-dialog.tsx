@@ -228,8 +228,9 @@ export function TaskDialog({
 
   const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
     // Ermittle ob Persönliche Aufgabe über Prop oder URL
-    const isPersonalTask = personalTask || window.location.pathname.includes('/my-tasks');
-    console.log("Task erstellen als persönliche Aufgabe:", isPersonalTask);
+    console.log("Submit form, isPersonalTask:", isPersonalTask, "pathname:", window.location.pathname);
+    const isPersonalTaskSubmit = isPersonalTask || window.location.pathname.includes('/my-tasks');
+    console.log("Task erstellen als persönliche Aufgabe:", isPersonalTaskSubmit);
 
     try {
       const formattedChecklist = checklist.map(item => JSON.stringify(item));
@@ -264,7 +265,7 @@ export function TaskDialog({
         setIsEditMode(false);
       } else {
         // Neue Aufgabe erstellen
-        if (isPersonalTask) {
+        if (isPersonalTaskSubmit) {
           // Persönliche Aufgabe erstellen (ohne Board)
           console.log("Erstelle persönliche Aufgabe...");
           const taskData: Task = {
