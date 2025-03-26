@@ -81,6 +81,12 @@ export function RichTextEditor({
       formData.append('entityId', entityId.toString());
     }
 
+    console.log(`Datei wird hochgeladen für ${uploadType} mit ID ${entityId}`, { 
+      fileName: uploadedFiles[0].name,
+      fileSize: uploadedFiles[0].size,
+      fileType: uploadedFiles[0].type
+    });
+
     try {
       // Verwende die apiRequest-Funktion mit credentials und korrektem Content-Type
       const response = await fetch('/api/upload', {
@@ -95,6 +101,8 @@ export function RichTextEditor({
         if (response.ok) {
           try {
             const data = await response.json();
+            console.log('Server-Antwort beim Datei-Upload:', data);
+            
             // Der Server gibt die URL in der Eigenschaft 'url' zurück
             const fileUrl = data.url;
             
