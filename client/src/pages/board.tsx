@@ -602,29 +602,32 @@ export function Board() {
                     <Button variant="outline" size="sm" className="gap-1">
                       <Clock className="h-4 w-4" />
                       <span>Deadline</span>
+                      {selectedDate && <span className="ml-1 text-xs">✓</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      className="rounded-md border"
-                      locale={de}
-                      disabled={{ before: new Date() }}
-                      footer={
-                        <div className="mt-2 flex justify-center gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => setSelectedDate(undefined)}
-                            className="w-full"
-                          >
-                            Zurücksetzen
-                          </Button>
-                        </div>
-                      }
-                    />
+                    <div className="p-2">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          setSelectedDate(date);
+                        }}
+                        className="rounded-md border"
+                        locale={de}
+                        disabled={{ before: new Date() }}
+                      />
+                      <div className="mt-2 flex justify-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setSelectedDate(undefined)}
+                          className="w-full"
+                        >
+                          Zurücksetzen
+                        </Button>
+                      </div>
+                    </div>
                   </PopoverContent>
                 </Popover>
               </div>
