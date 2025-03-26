@@ -198,32 +198,29 @@ export function Task({ task, index, onClick }: TaskProps) {
               </div>
             )}
 
-            {/* Obere Reihe mit Fälligkeitsdatum und Kommentaren */}
-            <div className="flex items-center justify-between mt-1">
-              <div className="flex items-center gap-2">
-                {task.dueDate && (
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
-                    <CalendarIcon className="h-3 w-3" />
-                    <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
-                  </div>
-                )}
+            {/* Anzeige für Fälligkeitsdatum und Kommentare */}
+            <div className="flex items-center gap-2 mt-1">
+              {task.dueDate && (
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <CalendarIcon className="h-3 w-3" />
+                  <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
+                </div>
+              )}
 
-                {comments.length > 0 && (
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
-                    <MessageSquare className="h-3 w-3" />
-                    <span>{comments.length}</span>
-                  </div>
-                )}
-              </div>
-
-              {renderAssignedUsers()}
+              {comments.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <MessageSquare className="h-3 w-3" />
+                  <span>{comments.length}</span>
+                </div>
+              )}
             </div>
             
-            {/* Untere Leiste mit Erstelldatum */}
+            {/* Untere Leiste mit Erstelldatum und Zugewiesenen Benutzern */}
             <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
               <div className="text-xs text-slate-500">
                 {task.created_at && format(new Date(task.created_at), "dd.MM.yyyy", { locale: de })}
               </div>
+              {renderAssignedUsers()}
             </div>
           </div>
         </div>
