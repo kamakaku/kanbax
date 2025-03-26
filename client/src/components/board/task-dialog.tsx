@@ -397,71 +397,139 @@ export function TaskDialog({
       }
     };
 
+    const statusLabels = {
+      "backlog": "Backlog",
+      "todo": "Zu erledigen",
+      "in-progress": "In Bearbeitung",
+      "review": "Überprüfung",
+      "done": "Erledigt"
+    };
+
     const priority = task?.priority ? priorityConfig[task.priority as keyof typeof priorityConfig] : priorityConfig.medium;
     const assignedUsers = users.filter(user => task?.assignedUserIds?.includes(user.id));
+    const creator = users.find(user => user.id === task?.creatorId);
+    const statusLabel = task?.status ? statusLabels[task.status as keyof typeof statusLabels] : "Unbekannt";
+    const createdAtDate = task?.createdAt ? new Date(task.createdAt) : new Date();
 
     return (
       <div className="space-y-6">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className={classnames(
-              "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-              "border border-current/20",
-              priority.color,
-            )}>
-              <div className={classnames("w-1.5 h-1.5 rounded-full", priority.dot)} />
-              <span className="text-xs font-medium">{priority.label}</span>
-            </div>
-
-            {task?.labels && task.labels.map((label, index) => (
-              <div
-                key={index}
-                className={classnames(
-                  "px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600",
-                  "transition-colors hover:bg-slate-200"
-                )}
-              >
-                {label}
+        {/* Header mit Titel */}
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold">{task?.title}</h2>
+          
+          {/* Meta-Informationen in Grid-Layout */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            {/* Labels */}
+            {task?.labels && task.labels.length > 0 && (
+              <>
+                <div className="text-muted-foreground font-medium">Labels:</div>
+                <div className="flex flex-wrap gap-1">
+                  {task.labels.map((label, index) => (
+                    <div
+                      key={index}
+                      className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-700"
+                    >
+                      {label}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            
+            {/* Erstellt */}
+            <div className="text-muted-foreground font-medium">Erstellt:</div>
+            <div>{format(createdAtDate, "PPP", { locale: de })}</div>
+            
+            {/* Deadline */}
+            {task?.dueDate && (
+              <>
+                <div className="text-muted-foreground font-medium">Deadline:</div>
+                <div className="flex items-center gap-1">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  {format(new Date(task.dueDate), "PPP", { locale: de })}
+                </div>
+              </>
+            )}
+            
+            {/* Ersteller */}
+            {creator && (
+              <>
+                <div className="text-muted-foreground font-medium">Ersteller:</div>
+                <div className="flex items-center gap-1">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={creator.avatarUrl || ""} />
+                    <AvatarFallback>{creator.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span>{creator.username}</span>
+                </div>
+              </>
+            )}
+            
+            {/* Zugewiesene Benutzer */}
+            {assignedUsers.length > 0 && (
+              <>
+                <div className="text-muted-foreground font-medium">Zugewiesene Benutzer:</div>
+                <div className="flex flex-wrap gap-1">
+                  {assignedUsers.map((user) => (
+                    <div key={user.id} className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-full">
+                      <Avatar className="h-4 w-4">
+                        <AvatarImage src={user.avatarUrl || ""} />
+                        <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs">{user.username}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            
+            {/* Status */}
+            <div className="text-muted-foreground font-medium">Status:</div>
+            <div className="flex items-center">
+              <div className={`px-2 py-0.5 rounded-full text-xs ${
+                task?.status === "done" ? "bg-green-100 text-green-800" :
+                task?.status === "in-progress" ? "bg-blue-100 text-blue-800" :
+                task?.status === "review" ? "bg-purple-100 text-purple-800" :
+                task?.status === "todo" ? "bg-orange-100 text-orange-800" :
+                "bg-gray-100 text-gray-800"
+              }`}>
+                {statusLabel}
               </div>
-            ))}
+            </div>
+            
+            {/* Priorität */}
+            <div className="text-muted-foreground font-medium">Priorität:</div>
+            <div className="flex items-center">
+              <div className={classnames(
+                "flex items-center gap-1 px-2 py-0.5 rounded-full",
+                "border border-current/20",
+                priority.color,
+              )}>
+                <div className={classnames("w-1.5 h-1.5 rounded-full", priority.dot)} />
+                <span className="text-xs font-medium">{priority.label}</span>
+              </div>
+            </div>
           </div>
-
-          <div className="text-lg font-medium">{task?.title}</div>
-          {task?.description && (
-            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {task.description}
-            </div>
+        </div>
+        
+        {/* Trennlinie */}
+        <div className="border-t border-slate-200"></div>
+        
+        {/* Beschreibung */}
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Beschreibung</div>
+          {task?.description ? (
+            <div className="text-sm whitespace-pre-wrap">{task.description}</div>
+          ) : (
+            <div className="text-sm text-muted-foreground italic">Keine Beschreibung vorhanden</div>
           )}
-
-          {task?.dueDate && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CalendarIcon className="h-4 w-4" />
-              {format(new Date(task.dueDate), "PPP", { locale: de })}
-            </div>
-          )}
-
-          {assignedUsers.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Zugewiesene Benutzer</div>
-              <div className="flex flex-wrap gap-3">
-                {assignedUsers.map((user) => (
-                  <div key={user.id} className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6 border-2 border-background">
-                      <AvatarImage src={user.avatarUrl || ""} />
-                      <AvatarFallback>
-                        {user.username.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{user.username}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
-            <div className="space-y-2">
+        </div>
+        
+        {/* Checkliste */}
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
+          {checklist.length > 0 ? (
+            <div className="space-y-2 border rounded-md p-2 bg-slate-50">
               {checklist.map((item, index) => (
                 <div
                   key={index}
@@ -486,73 +554,86 @@ export function TaskDialog({
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Neues Checklist-Element"
-                value={newChecklistItem}
-                onChange={(e) => setNewChecklistItem(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addChecklistItem();
-                  }
-                }}
-              />
-              <Button type="button" onClick={addChecklistItem} size="sm">
-                <PlusCircle className="h-4 w-4 mr-1" />
-                Hinzufügen
-              </Button>
-            </div>
-          </div>
-
-          {task?.attachments && task.attachments.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Angehängte Dateien</div>
-              <div className="flex flex-wrap gap-2">
-                {task.attachments.map((url, index) => {
-                  const fileName = url.split('/').pop() || `Datei ${index + 1}`;
-                  const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
-                  
-                  return (
-                    <div 
-                      key={index} 
-                      className="flex items-center gap-1 p-1.5 rounded-md bg-muted/50 border"
-                    >
-                      {isImage ? (
-                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <FileIcon className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <a 
-                        href={url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[150px]"
-                      >
-                        {fileName}
-                      </a>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground italic">Keine Checklistenitems vorhanden</div>
           )}
-
-          {task && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
-              <CommentList taskId={task.id} />
-              <CommentEditor
-                taskId={task.id}
-                onCommentAdded={() => {
-                  queryClient.invalidateQueries({
-                    queryKey: [`/api/tasks/${task.id}/comments`]
-                  });
-                }}
-              />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Neues Checklist-Element"
+              value={newChecklistItem}
+              onChange={(e) => setNewChecklistItem(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addChecklistItem();
+                }
+              }}
+            />
+            <Button type="button" onClick={addChecklistItem} size="sm">
+              <PlusCircle className="h-4 w-4 mr-1" />
+              Hinzufügen
+            </Button>
+          </div>
+        </div>
+        
+        {/* Trennlinie */}
+        <div className="border-t border-slate-200"></div>
+        
+        {/* Angehängte Dateien */}
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Dateien</div>
+          {task?.attachments && task.attachments.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {task.attachments.map((url, index) => {
+                const fileName = url.split('/').pop() || `Datei ${index + 1}`;
+                const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
+                
+                return (
+                  <div 
+                    key={index} 
+                    className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50 border hover:bg-muted"
+                  >
+                    {isImage ? (
+                      <ImageIcon className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <FileIcon className="h-4 w-4 text-blue-600" />
+                    )}
+                    <a 
+                      href={url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px]"
+                    >
+                      {fileName}
+                    </a>
+                  </div>
+                );
+              })}
             </div>
+          ) : (
+            <div className="text-sm text-muted-foreground italic">Keine Dateien angehängt</div>
           )}
         </div>
+        
+        {/* Kommentare */}
+        {task && (
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+            <div className="border rounded-md p-3 bg-slate-50">
+              <CommentList taskId={task.id} />
+              <div className="mt-4 border-t pt-3">
+                <CommentEditor
+                  taskId={task.id}
+                  onCommentAdded={() => {
+                    queryClient.invalidateQueries({
+                      queryKey: [`/api/tasks/${task.id}/comments`]
+                    });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -974,20 +1055,71 @@ export function TaskDialog({
             </div>
             
             <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-end gap-2 rounded-b-lg">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditMode(true)}
-                className="gap-2"
-              >
-                <Pencil className="h-4 w-4" />
-                Bearbeiten
-              </Button>
+              {task && (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditMode(true)}
+                  className="gap-2"
+                  size="sm"
+                >
+                  <Pencil className="h-4 w-4 mr-1.5" />
+                  Bearbeiten
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                size="sm"
               >
+                <X className="h-4 w-4 mr-1.5" />
                 Schließen
               </Button>
+              {task && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                  onClick={async () => {
+                    if (!task) return;
+                    try {
+                      const updatedTask: Task = {
+                        ...task,
+                        archived: !task.archived
+                      };
+                      
+                      if (onUpdate) {
+                        await onUpdate(updatedTask);
+                        
+                        toast({
+                          title: updatedTask.archived 
+                            ? "Aufgabe archiviert" 
+                            : "Aufgabe wiederhergestellt",
+                        });
+                        
+                        onOpenChange(false);
+                      }
+                    } catch (error) {
+                      toast({
+                        title: "Fehler",
+                        description: "Die Aufgabe konnte nicht archiviert werden",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  {task.archived ? (
+                    <>
+                      <span className="mr-1.5">↩</span> 
+                      Wiederherstellen
+                    </>
+                  ) : (
+                    <>
+                      <span className="mr-1.5">📦</span>
+                      Archivieren
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         )}
