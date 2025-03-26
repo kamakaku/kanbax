@@ -84,6 +84,7 @@ export function Board() {
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [allLabels, setAllLabels] = useState<string[]>([]);
+  const [newLabelInput, setNewLabelInput] = useState("");
 
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
@@ -153,24 +154,28 @@ export function Board() {
       
       // Alle vorhandenen Labels aus Tasks extrahieren
       const labelSet = new Set<string>();
+      
+      // Zuerst Standard-Labels hinzufügen
+      defaultLabels.forEach(label => labelSet.add(label));
+      
+      // Dann alle Labels aus Tasks hinzufügen
       data.forEach(task => {
         if (task.labels && Array.isArray(task.labels)) {
           task.labels.forEach(label => {
-            if (label && label.trim() !== '') {
+            if (label && typeof label === 'string' && label.trim() !== '') {
               labelSet.add(label);
             }
           });
         }
       });
       
-      const extractedLabels = Array.from(labelSet);
-      console.log("Extrahierte Labels:", extractedLabels);
+      // Als Array konvertieren und sortieren
+      const sortedLabels = Array.from(labelSet).sort((a, b) => 
+        a.localeCompare(b, 'de', { sensitivity: 'base' })
+      );
       
-      // Kombiniere extrahierte Labels mit Standard-Labels
-      // um sicherzustellen, dass wir immer eine Auswahl haben
-      const combinedLabels = [...new Set([...extractedLabels, ...defaultLabels])].sort();
-      console.log("Kombinierte Labels:", combinedLabels);
-      setAllLabels(combinedLabels);
+      console.log("Extrahierte und sortierte Labels:", sortedLabels);
+      setAllLabels(sortedLabels);
     }
   });
 
@@ -580,6 +585,54 @@ export function Board() {
                           Keine Labels vorhanden
                         </div>
                       )}
+                      
+                      {/* Label Eingabefeld */}
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <div className="text-xs font-medium mb-1">Neues Label hinzufügen:</div>
+                        <div className="flex gap-2">
+                          <Input
+                            size="sm"
+                            placeholder="Neues Label"
+                            value={newLabelInput}
+                            onChange={(e) => setNewLabelInput(e.target.value)}
+                            className="h-8 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newLabelInput.trim()) {
+                                if (!allLabels.includes(newLabelInput.trim())) {
+                                  setAllLabels(prev => [...prev, newLabelInput.trim()].sort());
+                                }
+                                setSelectedLabels(prev => 
+                                  prev.includes(newLabelInput.trim()) 
+                                    ? prev 
+                                    : [...prev, newLabelInput.trim()]
+                                );
+                                setNewLabelInput('');
+                              }
+                            }}
+                          />
+                          <Button 
+                            size="sm"
+                            variant="secondary"
+                            className="h-8"
+                            onClick={() => {
+                              if (newLabelInput.trim()) {
+                                if (!allLabels.includes(newLabelInput.trim())) {
+                                  setAllLabels(prev => [...prev, newLabelInput.trim()].sort());
+                                }
+                                setSelectedLabels(prev => 
+                                  prev.includes(newLabelInput.trim()) 
+                                    ? prev 
+                                    : [...prev, newLabelInput.trim()]
+                                );
+                                setNewLabelInput('');
+                              }
+                            }}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            <span>Hinzufügen</span>
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </PopoverContent>
                 </Popover>
