@@ -371,8 +371,11 @@ export function Board() {
               {/* Aktionsmenü mit Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                    <span>Aktionen</span>
+                  <Button 
+                    variant="default"
+                    size="icon" 
+                    className="h-8 w-8 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white shadow-md"
+                  >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -381,7 +384,19 @@ export function Board() {
                     <Pencil className="h-4 w-4 mr-2" />
                     <span>Bearbeiten</span>
                   </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setInitialColumnId(null); // Kein spezieller Status, Standard ist backlog
+                      setShowNewTaskDialog(true);
+                    }}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    <span>Neuer Task</span>
+                  </DropdownMenuItem>
+                  
                   <DropdownMenuSeparator />
+                  
                   {board.archived ? (
                     <DropdownMenuItem onClick={() => unarchiveBoard.mutate()} className="text-blue-600">
                       <RotateCcw className="h-4 w-4 mr-2" />
@@ -395,19 +410,6 @@ export function Board() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-              
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => {
-                  setInitialColumnId(null); // Kein spezieller Status, Standard ist backlog
-                  setShowNewTaskDialog(true);
-                }}
-                className="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white shadow-md"
-              >
-                <PlusCircle className="h-4 w-4 mr-1" />
-                Neuer Task
-              </Button>
             </div>
           </div>
 
