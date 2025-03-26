@@ -417,98 +417,120 @@ export function TaskDialog({
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">{task?.title}</h2>
           
-          {/* Meta-Informationen in Grid-Layout */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm">
-            {/* Labels */}
-            {task?.labels && task.labels.length > 0 && (
-              <>
-                <div className="text-muted-foreground font-medium">Labels:</div>
-                <div className="flex flex-wrap gap-1">
-                  {task.labels.map((label, index) => (
-                    <div
-                      key={index}
-                      className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-700"
-                    >
-                      {label}
+          {/* Meta-Informationen in table-Layout */}
+          <div className="text-sm">
+            <table className="w-full">
+              <tbody>
+                {/* Labels */}
+                {task?.labels && task.labels.length > 0 && (
+                  <tr>
+                    <td className="text-muted-foreground font-medium pr-2 py-0.5 align-top w-1/5">Labels:</td>
+                    <td className="py-0.5">
+                      <div className="flex flex-wrap gap-1">
+                        {task.labels.map((label, index) => (
+                          <div
+                            key={index}
+                            className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-700"
+                          >
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* Erstellt */}
+                <tr>
+                  <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Erstellt:</td>
+                  <td className="py-0.5">{format(createdAtDate, "PPP", { locale: de })}</td>
+                </tr>
+                
+                {/* Deadline */}
+                {task?.dueDate && (
+                  <tr>
+                    <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Deadline:</td>
+                    <td className="py-0.5">
+                      <div className="flex items-center gap-1">
+                        <CalendarIcon className="h-3.5 w-3.5" />
+                        {format(new Date(task.dueDate), "PPP", { locale: de })}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* Ersteller */}
+                {creator && (
+                  <tr>
+                    <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Ersteller:</td>
+                    <td className="py-0.5">
+                      <div className="flex items-center gap-1">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={creator.avatarUrl || ""} />
+                          <AvatarFallback>{creator.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span>{creator.username}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* Benutzer */}
+                {assignedUsers.length > 0 && (
+                  <tr>
+                    <td className="text-muted-foreground font-medium pr-2 py-0.5 align-top w-1/5">Benutzer:</td>
+                    <td className="py-0.5">
+                      <div className="flex flex-wrap gap-1">
+                        {assignedUsers.map((user) => (
+                          <div key={user.id} className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-full">
+                            <Avatar className="h-4 w-4">
+                              <AvatarImage src={user.avatarUrl || ""} />
+                              <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs">{user.username}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* Status */}
+                <tr>
+                  <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Status:</td>
+                  <td className="py-0.5">
+                    <div className="flex items-center">
+                      <div className={`px-2 py-0.5 rounded-full text-xs ${
+                        task?.status === "done" ? "bg-green-100 text-green-800" :
+                        task?.status === "in-progress" ? "bg-blue-100 text-blue-800" :
+                        task?.status === "review" ? "bg-purple-100 text-purple-800" :
+                        task?.status === "todo" ? "bg-orange-100 text-orange-800" :
+                        "bg-gray-100 text-gray-800"
+                      }`}>
+                        {statusLabel}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-            
-            {/* Erstellt */}
-            <div className="text-muted-foreground font-medium">Erstellt:</div>
-            <div>{format(createdAtDate, "PPP", { locale: de })}</div>
-            
-            {/* Deadline */}
-            {task?.dueDate && (
-              <>
-                <div className="text-muted-foreground font-medium">Deadline:</div>
-                <div className="flex items-center gap-1">
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  {format(new Date(task.dueDate), "PPP", { locale: de })}
-                </div>
-              </>
-            )}
-            
-            {/* Ersteller */}
-            {creator && (
-              <>
-                <div className="text-muted-foreground font-medium">Ersteller:</div>
-                <div className="flex items-center gap-1">
-                  <Avatar className="h-5 w-5">
-                    <AvatarImage src={creator.avatarUrl || ""} />
-                    <AvatarFallback>{creator.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <span>{creator.username}</span>
-                </div>
-              </>
-            )}
-            
-            {/* Benutzer */}
-            {assignedUsers.length > 0 && (
-              <>
-                <div className="text-muted-foreground font-medium">Benutzer:</div>
-                <div className="flex flex-wrap gap-1">
-                  {assignedUsers.map((user) => (
-                    <div key={user.id} className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-full">
-                      <Avatar className="h-4 w-4">
-                        <AvatarImage src={user.avatarUrl || ""} />
-                        <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs">{user.username}</span>
+                  </td>
+                </tr>
+                
+                {/* Priorität */}
+                <tr>
+                  <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Priorität:</td>
+                  <td className="py-0.5">
+                    <div className="flex items-center">
+                      <div className={classnames(
+                        "flex items-center gap-1 px-2 py-0.5 rounded-full",
+                        "border border-current/20",
+                        priority.color,
+                      )}>
+                        <div className={classnames("w-1.5 h-1.5 rounded-full", priority.dot)} />
+                        <span className="text-xs font-medium">{priority.label}</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-            
-            {/* Status */}
-            <div className="text-muted-foreground font-medium">Status:</div>
-            <div className="flex items-center">
-              <div className={`px-2 py-0.5 rounded-full text-xs ${
-                task?.status === "done" ? "bg-green-100 text-green-800" :
-                task?.status === "in-progress" ? "bg-blue-100 text-blue-800" :
-                task?.status === "review" ? "bg-purple-100 text-purple-800" :
-                task?.status === "todo" ? "bg-orange-100 text-orange-800" :
-                "bg-gray-100 text-gray-800"
-              }`}>
-                {statusLabel}
-              </div>
-            </div>
-            
-            {/* Priorität */}
-            <div className="text-muted-foreground font-medium">Priorität:</div>
-            <div className="flex items-center">
-              <div className={classnames(
-                "flex items-center gap-1 px-2 py-0.5 rounded-full",
-                "border border-current/20",
-                priority.color,
-              )}>
-                <div className={classnames("w-1.5 h-1.5 rounded-full", priority.dot)} />
-                <span className="text-xs font-medium">{priority.label}</span>
-              </div>
-            </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
         
