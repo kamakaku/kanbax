@@ -418,7 +418,7 @@ export function TaskDialog({
           <h2 className="text-xl font-semibold">{task?.title}</h2>
           
           {/* Meta-Informationen in Grid-Layout */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm">
             {/* Labels */}
             {task?.labels && task.labels.length > 0 && (
               <>
@@ -465,10 +465,10 @@ export function TaskDialog({
               </>
             )}
             
-            {/* Zugewiesene Benutzer */}
+            {/* Benutzer */}
             {assignedUsers.length > 0 && (
               <>
-                <div className="text-muted-foreground font-medium">Zugewiesene Benutzer:</div>
+                <div className="text-muted-foreground font-medium">Benutzer:</div>
                 <div className="flex flex-wrap gap-1">
                   {assignedUsers.map((user) => (
                     <div key={user.id} className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-full">
