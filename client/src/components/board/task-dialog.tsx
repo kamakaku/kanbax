@@ -735,22 +735,39 @@ export function TaskDialog({
                             
                             // Upload-Logik hier...
                             const formData = new FormData();
+                            
+                            // Wir verwenden den allgemeinen Upload-Endpunkt mit Typ 'task'
                             for (const file of fileArray) {
-                              formData.append('files', file);
+                              formData.append('file', file);
                             }
                             
-                            // Bestimme die Upload-URL basierend auf dem Task-Kontext
-                            const uploadEndpoint = task?.id 
-                              ? `/api/tasks/${task.id}/attachments`
-                              : '/api/attachments/temp';
+                            // Füge Metadaten hinzu
+                            formData.append('type', 'task');
+                            if (task?.id) {
+                              formData.append('entityId', task.id.toString());
+                            }
                               
-                            fetch(uploadEndpoint, {
+                            fetch('/api/upload', {
                               method: 'POST',
-                              body: formData
+                              body: formData,
+                              credentials: 'include' // Wichtig für die Session-Authentifizierung
                             })
-                            .then(res => res.json())
+                            .then(res => {
+                              if (!res.ok) {
+                                throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
+                              }
+                              return res.json();
+                            })
                             .then(data => {
-                              if (data.urls && Array.isArray(data.urls)) {
+                              if (data.url) {
+                                // Einzelne Datei-URL vom Server
+                                setUploadedAttachments(prev => [...prev, data.url]);
+                                toast({
+                                  title: "Datei erfolgreich hochgeladen",
+                                  description: `${data.originalname || 'Datei'} wurde hochgeladen.`
+                                });
+                              } else if (data.urls && Array.isArray(data.urls)) {
+                                // Mehrere Datei-URLs
                                 setUploadedAttachments(prev => [...prev, ...data.urls]);
                                 toast({
                                   title: "Dateien erfolgreich hochgeladen",
@@ -760,9 +777,17 @@ export function TaskDialog({
                             })
                             .catch(err => {
                               console.error("Fehler beim Hochladen:", err);
+                              let errorMsg = "Die Dateien konnten nicht hochgeladen werden.";
+                              
+                              if (err.message && err.message.includes('HTTP error 401')) {
+                                errorMsg = "Bitte melden Sie sich an, um Dateien hochzuladen.";
+                              } else if (err.message && err.message.includes('HTTP error 413')) {
+                                errorMsg = "Die Datei ist zu groß. Maximale Größe überschritten.";
+                              }
+                              
                               toast({
                                 title: "Fehler beim Hochladen",
-                                description: "Die Dateien konnten nicht hochgeladen werden.",
+                                description: errorMsg,
                                 variant: "destructive"
                               });
                             });
