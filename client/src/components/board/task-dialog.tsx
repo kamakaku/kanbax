@@ -384,6 +384,14 @@ export function TaskDialog({
   };
 
   const renderDetailView = () => {
+    // Stelle sicher, dass uploadedAttachments die Anhänge aus dem Task enthält
+    useEffect(() => {
+      if (task?.attachments && Array.isArray(task.attachments) && task.attachments.length > 0) {
+        console.log("Aktualisiere Anhänge in der Detailansicht:", task.attachments);
+        setUploadedAttachments(task.attachments);
+      }
+    }, [task?.attachments]);
+    
     const priorityConfig = {
       high: {
         color: "text-red-600",
@@ -612,31 +620,153 @@ export function TaskDialog({
         {/* Angehängte Dateien */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">Dateien</div>
-          {/* Verwende sowohl task.attachments als auch den uploadedAttachments State */}
+          {/* Prüfe ob Anhänge im Task oder im State vorhanden sind */}
           {((task?.attachments && task.attachments.length > 0) || uploadedAttachments.length > 0) ? (
-            <div className="flex flex-wrap gap-2">
-              {/* Verwende entweder die Anhänge aus dem Task-Objekt oder aus dem State */}
+            <div className="space-y-2">
+              {/* Verwende entweder die Anhänge aus dem State oder aus dem Task-Objekt */}
               {(uploadedAttachments.length > 0 ? uploadedAttachments : task?.attachments || []).map((url, index) => {
                 const fileName = url.split('/').pop() || `Datei ${index + 1}`;
-                const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
+                const fileUrl = url.startsWith('/') ? window.location.origin + url : url;
                 const isPdf = /\.pdf$/i.test(url);
-                
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                const isDoc = /\.(doc|docx)$/i.test(url);
+                const isExcel = /\.(xls|xlsx|csv)$/i.test(url);
+
                 return (
-                  <div 
-                    key={index} 
-                    className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50 border hover:bg-muted cursor-pointer"
-                    onClick={() => setSelectedAttachment(url)}
-                  >
-                    {isImage ? (
-                      <ImageIcon className="h-4 w-4 text-blue-600" />
-                    ) : isPdf ? (
-                      <FileIcon className="h-4 w-4 text-red-600" />
-                    ) : (
-                      <FileIcon className="h-4 w-4 text-blue-600" />
+                  <div key={index} className="relative border rounded-md overflow-hidden">
+                    <div className={`flex items-center p-2 ${
+                      isPdf ? 'bg-red-50' : 
+                      isImage ? 'bg-blue-50' : 
+                      isDoc ? 'bg-indigo-50' : 
+                      isExcel ? 'bg-green-50' : 
+                      'bg-gray-50'
+                    }`}>
+                      {isPdf ? (
+                        <FileText className="h-5 w-5 text-red-500 mr-2" />
+                      ) : isImage ? (
+                        <img src={fileUrl} alt={fileName} className="h-5 w-5 object-cover rounded mr-2" />
+                      ) : isDoc ? (
+                        <FileText className="h-5 w-5 text-indigo-500 mr-2" />
+                      ) : isExcel ? (
+                        <FileText className="h-5 w-5 text-green-500 mr-2" />
+                      ) : (
+                        <FileIcon className="h-5 w-5 text-gray-500 mr-2" />
+                      )}
+                      <span className={`text-sm font-medium ${
+                        isPdf ? 'text-red-800' : 
+                        isImage ? 'text-blue-800' : 
+                        isDoc ? 'text-indigo-800' : 
+                        isExcel ? 'text-green-800' : 
+                        'text-gray-800'
+                      }`}>{fileName}</span>
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="ml-auto h-6 w-6 rounded-full hover:bg-red-100 hover:text-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Verhindere Bubbling zum Parent
+                          
+                          // Entferne den Anhang aus dem lokalen State
+                          const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
+                          setUploadedAttachments(newAttachments);
+                          
+                          // Aktualisiere auch die Aufgabe, falls nötig
+                          if (task?.id && onUpdate && typeof onUpdate === 'function') {
+                            try {
+                              const updatedTask = {
+                                ...task,
+                                attachments: newAttachments
+                              };
+                              const updateResult = onUpdate(updatedTask as Task);
+                              
+                              if (updateResult && typeof updateResult.then === 'function') {
+                                updateResult
+                                  .then(() => {
+                                    console.log("Anhang erfolgreich entfernt");
+                                  })
+                                  .catch((err) => {
+                                    console.error("Fehler beim Entfernen des Anhangs:", err);
+                                  });
+                              } else {
+                                console.log("Anhang lokal entfernt (kein Promise zurückgegeben)");
+                              }
+                            } catch (err) {
+                              console.error("Fehler beim Aktualisieren der Aufgabe:", err);
+                            }
+                          }
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    {isImage && (
+                      <div className="p-3 bg-gray-50">
+                        <a 
+                          href={fileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="block"
+                        >
+                          <img 
+                            src={fileUrl} 
+                            alt={fileName} 
+                            className="w-full h-32 object-contain bg-white p-2 border border-dashed rounded" 
+                          />
+                        </a>
+                      </div>
                     )}
-                    <span className="text-sm text-blue-600 hover:text-blue-800 truncate max-w-[200px]">
-                      {fileName}
-                    </span>
+                    
+                    {!isImage && (
+                      <div className="p-3 bg-gray-50">
+                        <a 
+                          href={fileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedAttachment(url);
+                            window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="flex items-center justify-center p-4 border border-dashed rounded bg-white"
+                        >
+                          <div className="flex flex-col items-center">
+                            {isPdf ? (
+                              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 mb-2">
+                                <path d="M7 18H17V16H7V18Z" fill="currentColor" />
+                                <path d="M17 14H7V12H17V14Z" fill="currentColor" />
+                                <path d="M7 10H11V8H7V10Z" fill="currentColor" />
+                                <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM6 4H13V9H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5C5 4.44772 5.44772 4 6 4ZM15 4.10002C16.6113 4.4271 17.9413 5.52906 18.584 7H15V4.10002Z" fill="currentColor" />
+                              </svg>
+                            ) : isDoc ? (
+                              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-indigo-500 mb-2">
+                                <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M9 15H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M9 18H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M16 13H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            ) : isExcel ? (
+                              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-500 mb-2">
+                                <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M8 13H9V17H8V13Z" fill="currentColor"/>
+                                <path d="M11 13H12V17H11V13Z" fill="currentColor"/>
+                                <path d="M14 13H15V17H14V13Z" fill="currentColor"/>
+                              </svg>
+                            ) : (
+                              <FileIcon className="h-12 w-12 text-gray-400 mb-2" />
+                            )}
+                            <span className="text-sm text-gray-600">{isPdf ? "PDF öffnen" : "Datei öffnen"}</span>
+                          </div>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 );
               })}
