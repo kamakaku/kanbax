@@ -353,12 +353,24 @@ function cleanHtml(htmlContent: string): string {
   // Bilder mit relativen Pfaden korrigieren und klickbar machen
   cleanedHtml = cleanedHtml.replace(
     /<img\s+([^>]*)src="(uploads\/[^"]+)"([^>]*)>/g, 
-    '<img $1src="/$2"$3 style="max-width: 250px; cursor: pointer; border-radius: 4px;" onclick="window.open(\'/$2\', \'_blank\')">'
+    '<img $1src="/$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;" onclick="window.open(\'/$2\', \'_blank\')">'
   );
   
   cleanedHtml = cleanedHtml.replace(
     /<img\s+([^>]*)src="(\/uploads\/[^"]+)"([^>]*)>/g, 
-    '<img $1src="$2"$3 style="max-width: 250px; cursor: pointer; border-radius: 4px;" onclick="window.open(\'$2\', \'_blank\')">'
+    '<img $1src="$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;" onclick="window.open(\'$2\', \'_blank\')">'
+  );
+  
+  // Alle verbleibenden Bilder generell in ihrer Größe beschränken
+  cleanedHtml = cleanedHtml.replace(
+    /<img\s+([^>]*)>/g, 
+    (match, attributes) => {
+      // Nur ersetzen, wenn noch kein style mit max-width vorhanden ist
+      if (!attributes.includes('max-width')) {
+        return `<img ${attributes} style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;">`;
+      }
+      return match;
+    }
   );
   
   // Selbständige href-Pfade korrigieren
