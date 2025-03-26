@@ -101,19 +101,19 @@ export function TaskCard({ task, index }: TaskCardProps) {
           onClick={() => setIsDialogOpen(true)}
           className="cursor-pointer"
         >
-          <Card className={`mb-2 hover:shadow-md transition-shadow ${isPersonalTask ? 'border-amber-500 bg-amber-50/70' : ''} relative overflow-hidden`}>
+          <Card className="mb-2 hover:shadow-md transition-shadow relative overflow-hidden">
             {isPersonalTask && (
-              <div className="absolute top-0 right-0 w-12 h-12 overflow-hidden">
-                <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-amber-500 text-white w-16 h-16"></div>
+              <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
+                <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-blue-400 to-blue-600 text-white w-10 h-10"></div>
               </div>
             )}
             <CardHeader className="p-3">
               <div className="flex items-start justify-between">
                 <h3 className="text-sm font-medium">
                   {isPersonalTask && (
-                    <div className="inline-flex items-center mr-1 text-amber-600">
-                      <UserIcon className="h-3 w-3 mr-1" />
-                      <span className="text-xs font-medium">Persönliche Aufgabe</span>
+                    <div className="inline-flex items-center mr-1">
+                      <UserIcon className="h-3 w-3 mr-1 text-blue-500" />
+                      <span className="text-xs font-medium bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Persönliche Aufgabe</span>
                     </div>
                   )}
                   {task.title}

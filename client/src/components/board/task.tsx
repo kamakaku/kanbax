@@ -104,9 +104,9 @@ export function Task({ task, index, onClick }: TaskProps) {
             `rounded-lg border p-3 cursor-grab active:cursor-grabbing`,
             "transition-all duration-200",
             "hover:border-slate-300 hover:shadow-sm hover:-translate-y-[2px]",
-            // Persönliche Aufgaben haben eine besondere Hintergrundfarbe und Rahmen
+            // Persönliche Aufgaben haben nur einen subtilen Hinweis, keine vollständige Färbung
             task.isPersonal 
-              ? "bg-amber-50/70 border-amber-500 relative overflow-hidden" 
+              ? "bg-white border-slate-200 relative overflow-hidden" 
               : "bg-white border-slate-200",
             snapshot.isDragging && [
               "shadow-2xl",
@@ -128,8 +128,8 @@ export function Task({ task, index, onClick }: TaskProps) {
         >
           {/* Farbige Ecke für persönliche Aufgaben */}
           {task.isPersonal && (
-            <div className="absolute top-0 right-0 w-12 h-12 overflow-hidden">
-              <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-amber-500 text-white w-16 h-16"></div>
+            <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
+              <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-blue-400 to-blue-600 text-white w-10 h-10"></div>
             </div>
           )}
           <div className="flex flex-col gap-2">
@@ -165,9 +165,9 @@ export function Task({ task, index, onClick }: TaskProps) {
             {/* Projekt und Board Informationen mit Icons oder "Persönliche Aufgabe" für persönliche Aufgaben */}
             <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
               {task.isPersonal ? (
-                <div className="flex items-center gap-1 text-slate-600">
-                  <KanbanSquare className="h-3 w-3" />
-                  <span>Persönliche Aufgabe</span>
+                <div className="flex items-center gap-1">
+                  <KanbanSquare className="h-3 w-3 text-blue-500" />
+                  <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent font-medium">Persönliche Aufgabe</span>
                 </div>
               ) : (
                 <>
