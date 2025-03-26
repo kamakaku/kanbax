@@ -13,6 +13,7 @@ interface ColumnProps {
   };
   tasks: Task[];
   onUpdate: (task: Task) => Promise<void>;
+  showArchivedTasks?: boolean;
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {

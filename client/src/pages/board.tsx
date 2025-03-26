@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star, Users, Building2, Calendar, Crown, Archive, RotateCcw } from "lucide-react";
+import { Pencil, Star, Users, Building2, Calendar, Crown, Archive, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
@@ -44,6 +45,7 @@ export function Board() {
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
 
   // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
@@ -410,6 +412,31 @@ export function Board() {
                 Archiviert
               </Badge>
             )}
+            <div className="flex items-center gap-2 mr-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-archived"
+                  checked={showArchivedTasks}
+                  onCheckedChange={setShowArchivedTasks}
+                />
+                <label
+                  htmlFor="show-archived"
+                  className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+                >
+                  {showArchivedTasks ? (
+                    <>
+                      <Eye className="h-4 w-4" />
+                      Archivierte Tasks anzeigen
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-4 w-4" />
+                      Archivierte Tasks ausblenden
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
             <BoardSelector />
           </div>
         </div>
@@ -418,16 +445,19 @@ export function Board() {
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
-                const columnTasks = tasks
+                const filteredTasks = tasks
                   .filter(task => task.status === column.id)
+                  // Filter out archived tasks unless showArchivedTasks is true
+                  .filter(task => showArchivedTasks || !task.archived)
                   .sort((a, b) => a.order - b.order);
 
                 return (
                   <ColumnComponent
                     key={column.id}
                     column={column}
-                    tasks={columnTasks}
+                    tasks={filteredTasks}
                     onUpdate={updateTask.mutate}
+                    showArchivedTasks={showArchivedTasks}
                   />
                 );
               })}
