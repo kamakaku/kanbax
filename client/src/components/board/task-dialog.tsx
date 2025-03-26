@@ -250,6 +250,9 @@ export function TaskDialog({
         const date = new Date(data.dueDate);
         adjustedDueDate = endOfDay(date).toISOString();
       }
+      
+      // Verwende die Rich-Text-Beschreibung und Anhänge
+      const finalAttachments = uploadedAttachments.length > 0 ? uploadedAttachments : null;
 
       if (task && onUpdate) {
         // Bestehende Aufgabe aktualisieren
@@ -552,16 +555,123 @@ export function TaskDialog({
                       <FormItem>
                         <FormLabel>Beschreibung</FormLabel>
                         <FormControl>
-                          <Textarea
-                            placeholder="Beschreiben Sie die Aufgabe"
-                            {...field}
-                            value={field.value || ""}
+                          <RichTextEditor
+                            content={richDescription}
+                            onChange={setRichDescription}
+                            placeholder="Beschreiben Sie die Aufgabe detailliert"
+                            uploadType="task"
+                            entityId={task?.id}
+                            onAttachmentUpload={(urls) => {
+                              setUploadedAttachments(prev => [...prev, ...urls]);
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  
+                  {/* Datei-Upload Bereich */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Dateien anhängen</label>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-1"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        <span>Hochladen</span>
+                      </Button>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files?.length) {
+                            const fileArray = Array.from(e.target.files);
+                            setFiles(prev => [...prev, ...fileArray]);
+                            
+                            // Upload-Logik hier...
+                            const formData = new FormData();
+                            for (const file of fileArray) {
+                              formData.append('files', file);
+                            }
+                            
+                            // Bestimme die Upload-URL basierend auf dem Task-Kontext
+                            const uploadEndpoint = task?.id 
+                              ? `/api/tasks/${task.id}/attachments`
+                              : '/api/attachments/temp';
+                              
+                            fetch(uploadEndpoint, {
+                              method: 'POST',
+                              body: formData
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                              if (data.urls && Array.isArray(data.urls)) {
+                                setUploadedAttachments(prev => [...prev, ...data.urls]);
+                                toast({
+                                  title: "Dateien erfolgreich hochgeladen",
+                                  description: `${data.urls.length} Datei(en) wurden erfolgreich hochgeladen.`
+                                });
+                              }
+                            })
+                            .catch(err => {
+                              console.error("Fehler beim Hochladen:", err);
+                              toast({
+                                title: "Fehler beim Hochladen",
+                                description: "Die Dateien konnten nicht hochgeladen werden.",
+                                variant: "destructive"
+                              });
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Anzeige der hochgeladenen Dateien */}
+                    {uploadedAttachments.length > 0 && (
+                      <div className="space-y-2 mt-2">
+                        <div className="text-sm font-medium">Angehängte Dateien</div>
+                        <div className="flex flex-wrap gap-2">
+                          {uploadedAttachments.map((url, index) => {
+                            const fileName = url.split('/').pop() || `Datei ${index + 1}`;
+                            const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
+                            
+                            return (
+                              <div 
+                                key={index} 
+                                className="flex items-center gap-1 p-1 rounded-md bg-muted/50 border"
+                              >
+                                {isImage ? (
+                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <span className="text-xs truncate max-w-[120px]">{fileName}</span>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-5 w-5"
+                                  onClick={() => {
+                                    setUploadedAttachments(prev => 
+                                      prev.filter((_, i) => i !== index)
+                                    );
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <FormField
                     control={form.control}
