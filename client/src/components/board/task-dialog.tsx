@@ -943,60 +943,152 @@ export function TaskDialog({
                       />
                     </div>
                     
-                    {/* Anzeige der hochgeladenen Dateien mit verbesserten Thumbnails */}
+                    {/* Anzeige der hochgeladenen Dateien im Stil der Kommentare */}
                     {uploadedAttachments.length > 0 && (
                       <div className="space-y-2 mt-2">
                         <div className="text-sm font-medium">Angehängte Dateien ({uploadedAttachments.length})</div>
-                        <div className="flex flex-wrap gap-3">
+                        <div className="space-y-2">
                           {uploadedAttachments.map((url, index) => {
                             console.log("Rendering attachment:", url);
+                            const fileName = url.split('/').pop() || 'Datei';
+                            const fileUrl = url.startsWith('/') ? window.location.origin + url : url;
+                            const isPdf = /\.pdf$/i.test(url);
+                            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                            const isDoc = /\.(doc|docx)$/i.test(url);
+                            const isExcel = /\.(xls|xlsx|csv)$/i.test(url);
+
                             return (
-                              <div key={index} className="relative border rounded w-20 h-20 flex items-center justify-center">
-                                {/* Direkte Fallback-Anzeige statt Komponente */}
-                                <div className="text-xs text-center p-1">
-                                  <FileIcon className="h-6 w-6 mx-auto mb-1" />
-                                  <span className="block truncate w-full">
-                                    {url.split('/').pop() || 'Datei'}
-                                  </span>
-                                </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-background border shadow-sm hover:bg-destructive hover:text-white"
-                                  onClick={() => {
-                                    // Entferne den Anhang aus dem lokalen State
-                                    const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
-                                    setUploadedAttachments(newAttachments);
-                                    
-                                    // Aktualisiere auch die Aufgabe, falls nötig
-                                    if (task?.id && onUpdate && typeof onUpdate === 'function') {
-                                      try {
-                                        const updatedTask = {
-                                          ...task,
-                                          attachments: newAttachments
-                                        };
-                                        const updateResult = onUpdate(updatedTask as Task);
-                                        
-                                        // Prüfe, ob das Ergebnis ein Promise ist
-                                        if (updateResult && typeof updateResult.then === 'function') {
-                                          updateResult
-                                            .then(() => {
-                                              console.log("Anhang erfolgreich entfernt");
-                                            })
-                                            .catch((err) => {
-                                              console.error("Fehler beim Entfernen des Anhangs:", err);
-                                            });
-                                        } else {
-                                          console.log("Anhang lokal entfernt (kein Promise zurückgegeben)");
+                              <div key={index} className="relative border rounded-md overflow-hidden">
+                                <div className={`flex items-center p-2 ${
+                                  isPdf ? 'bg-red-50' : 
+                                  isImage ? 'bg-blue-50' : 
+                                  isDoc ? 'bg-indigo-50' : 
+                                  isExcel ? 'bg-green-50' : 
+                                  'bg-gray-50'
+                                }`}>
+                                  {isPdf ? (
+                                    <FileText className="h-5 w-5 text-red-500 mr-2" />
+                                  ) : isImage ? (
+                                    <img src={fileUrl} alt={fileName} className="h-5 w-5 object-cover rounded mr-2" />
+                                  ) : isDoc ? (
+                                    <FileText className="h-5 w-5 text-indigo-500 mr-2" />
+                                  ) : isExcel ? (
+                                    <FileText className="h-5 w-5 text-green-500 mr-2" />
+                                  ) : (
+                                    <FileIcon className="h-5 w-5 text-gray-500 mr-2" />
+                                  )}
+                                  <span className={`text-sm font-medium ${
+                                    isPdf ? 'text-red-800' : 
+                                    isImage ? 'text-blue-800' : 
+                                    isDoc ? 'text-indigo-800' : 
+                                    isExcel ? 'text-green-800' : 
+                                    'text-gray-800'
+                                  }`}>{fileName}</span>
+                                  
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="ml-auto h-6 w-6 rounded-full hover:bg-red-100 hover:text-red-600"
+                                    onClick={() => {
+                                      // Entferne den Anhang aus dem lokalen State
+                                      const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
+                                      setUploadedAttachments(newAttachments);
+                                      
+                                      // Aktualisiere auch die Aufgabe, falls nötig
+                                      if (task?.id && onUpdate && typeof onUpdate === 'function') {
+                                        try {
+                                          const updatedTask = {
+                                            ...task,
+                                            attachments: newAttachments
+                                          };
+                                          const updateResult = onUpdate(updatedTask as Task);
+                                          
+                                          if (updateResult && typeof updateResult.then === 'function') {
+                                            updateResult
+                                              .then(() => {
+                                                console.log("Anhang erfolgreich entfernt");
+                                              })
+                                              .catch((err) => {
+                                                console.error("Fehler beim Entfernen des Anhangs:", err);
+                                              });
+                                          } else {
+                                            console.log("Anhang lokal entfernt (kein Promise zurückgegeben)");
+                                          }
+                                        } catch (err) {
+                                          console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                         }
-                                      } catch (err) {
-                                        console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                       }
-                                    }
-                                  }}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                
+                                {isImage && (
+                                  <div className="p-3 bg-gray-50">
+                                    <a 
+                                      href={fileUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                      }}
+                                      className="block"
+                                    >
+                                      <img 
+                                        src={fileUrl} 
+                                        alt={fileName} 
+                                        className="w-full h-32 object-contain bg-white p-2 border border-dashed rounded" 
+                                      />
+                                    </a>
+                                  </div>
+                                )}
+                                
+                                {!isImage && (
+                                  <div className="p-3 bg-gray-50">
+                                    <a 
+                                      href={fileUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                      }}
+                                      className="flex items-center justify-center p-4 border border-dashed rounded bg-white"
+                                    >
+                                      <div className="flex flex-col items-center">
+                                        {isPdf ? (
+                                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 mb-2">
+                                            <path d="M7 18H17V16H7V18Z" fill="currentColor" />
+                                            <path d="M17 14H7V12H17V14Z" fill="currentColor" />
+                                            <path d="M7 10H11V8H7V10Z" fill="currentColor" />
+                                            <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM6 4H13V9H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5C5 4.44772 5.44772 4 6 4ZM15 4.10002C16.6113 4.4271 17.9413 5.52906 18.584 7H15V4.10002Z" fill="currentColor" />
+                                          </svg>
+                                        ) : isDoc ? (
+                                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-indigo-500 mb-2">
+                                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            <path d="M9 15H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            <path d="M9 18H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            <path d="M16 13H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                          </svg>
+                                        ) : isExcel ? (
+                                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-500 mb-2">
+                                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            <path d="M8 13H9V17H8V13Z" fill="currentColor"/>
+                                            <path d="M11 13H12V17H11V13Z" fill="currentColor"/>
+                                            <path d="M14 13H15V17H14V13Z" fill="currentColor"/>
+                                          </svg>
+                                        ) : (
+                                          <FileIcon className="h-12 w-12 text-gray-400 mb-2" />
+                                        )}
+                                        <span className="text-sm text-gray-600">{isPdf ? "PDF öffnen" : "Datei öffnen"}</span>
+                                      </div>
+                                    </a>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
