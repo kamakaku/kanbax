@@ -217,6 +217,7 @@ export function TeamForm({ open, onClose, defaultValues, onSubmit }: TeamFormPro
           <Button
             type="submit"
             form="team-form"
+            className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
           >
             {defaultValues ? "Team aktualisieren" : "Team erstellen"}
           </Button>
