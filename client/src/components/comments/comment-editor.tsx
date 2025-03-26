@@ -21,16 +21,12 @@ export function CommentEditor({ taskId, onCommentAdded }: CommentEditorProps) {
     if (!content || !user) return;
 
     try {
-      const res = await apiRequest("POST", `/api/tasks/${taskId}/comments`, {
+      const result = await apiRequest("POST", `/api/tasks/${taskId}/comments`, {
         content,
         rawContent: content,
         authorId: user.id,
         taskId,
       });
-
-      if (!res.ok) {
-        throw new Error("Failed to add comment");
-      }
 
       // Reset content
       setContent("");

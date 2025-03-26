@@ -38,7 +38,7 @@ export function CommentList({ taskId }: CommentListProps) {
       return Array.isArray(data) ? data : [];
     },
     staleTime: 30000, // Consider data fresh for 30 seconds
-    cacheTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 5 * 60 * 1000, // Cache for 5 minutes (modern replacement for cacheTime)
   });
 
   const isLoading = isLoadingComments || isLoadingUsers;
@@ -62,7 +62,7 @@ export function CommentList({ taskId }: CommentListProps) {
   return (
     <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
       {comments.map((comment) => {
-        const author = users.find(u => u.id === comment.authorId);
+        const author = users.find((u: User) => u.id === comment.authorId);
         const commentDate = new Date(comment.createdAt);
         const formattedDate = format(commentDate, "dd.MM.yyyy HH:mm", { locale: de });
 
