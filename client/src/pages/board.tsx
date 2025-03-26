@@ -155,10 +155,7 @@ export function Board() {
       // Alle vorhandenen Labels aus Tasks extrahieren
       const labelSet = new Set<string>();
       
-      // Zuerst Standard-Labels hinzufügen
-      defaultLabels.forEach(label => labelSet.add(label));
-      
-      // Dann alle Labels aus Tasks hinzufügen
+      // Alle Labels aus Tasks hinzufügen
       data.forEach(task => {
         if (task.labels && Array.isArray(task.labels)) {
           task.labels.forEach(label => {
@@ -168,6 +165,11 @@ export function Board() {
           });
         }
       });
+      
+      // Dann Standard-Labels hinzufügen, wenn Set leer ist oder für zusätzliche Optionen
+      if (labelSet.size === 0 || true) {
+        defaultLabels.forEach(label => labelSet.add(label));
+      }
       
       // Als Array konvertieren und sortieren
       const sortedLabels = Array.from(labelSet).sort((a, b) => 
