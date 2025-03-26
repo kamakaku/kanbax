@@ -604,28 +604,25 @@ export function Board() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="end">
-                    <div className="p-2">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => {
-                          setSelectedDate(date);
-                        }}
-                        className="rounded-md border"
-                        locale={de}
-                        disabled={{ before: new Date() }}
-                      />
-                      <div className="mt-2 flex justify-center gap-2">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      locale={de}
+                      className="border-0"
+                    />
+                    {selectedDate && (
+                      <div className="px-4 py-3 border-t flex justify-end">
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => setSelectedDate(undefined)}
-                          className="w-full"
                         >
+                          <X className="h-4 w-4 mr-1" />
                           Zurücksetzen
                         </Button>
                       </div>
-                    </div>
+                    )}
                   </PopoverContent>
                 </Popover>
                 
