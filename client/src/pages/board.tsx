@@ -342,7 +342,7 @@ export function Board() {
 
       <div className="relative p-8">
         {/* Header - neue Struktur */}
-        <div className="flex flex-col gap-3 mb-6">
+        <div className="flex flex-col gap-1 mb-2">
           {/* Erste Zeile: Titel + Fav-Stern / Buttons rechts */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -415,7 +415,7 @@ export function Board() {
 
           {/* Zweite Zeile: Projekt (falls zugeordnet) */}
           {board.project && (
-            <div className="flex items-center mt-1">
+            <div className="flex items-center mt-0.5">
               <p className="text-sm text-muted-foreground flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 <span className="font-medium">Projekt:</span> {board.project.title}
@@ -424,7 +424,7 @@ export function Board() {
           )}
 
           {/* Dritte Zeile: Ersteller + Benutzer */}
-          <div className="flex gap-6 mt-1">
+          <div className="flex gap-6 mt-0.5">
             {/* Creator Section */}
             {creator && (
               <div className="flex items-center gap-2">

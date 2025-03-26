@@ -182,13 +182,13 @@ export default function MyTasks() {
 
       <div className="relative p-8">
         {/* Header mit Titel und Button */}
-        <div className="flex flex-col gap-3 mb-6">
+        <div className="flex flex-col gap-1 mb-2">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
                 Meine Aufgaben
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Alle Ihnen zugewiesenen Aufgaben an einem Ort
               </p>
             </div>
