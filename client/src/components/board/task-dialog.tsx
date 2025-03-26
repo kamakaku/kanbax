@@ -1063,12 +1063,22 @@ export function TaskDialog({
                     size="sm"
                     className="border-red-500 text-red-600 hover:bg-red-50"
                     onClick={() => {
-                      form.setValue("archived", !form.getValues("archived"));
-                      toast({
-                        title: form.getValues("archived") 
-                          ? "Aufgabe wird archiviert..." 
-                          : "Aufgabe wird wiederhergestellt...",
-                      });
+                      try {
+                        form.setValue("archived", !form.getValues("archived"));
+                        // Wenn wir im Formular-Modus sind, müssen wir sonst nichts tun - 
+                        // die Änderung wird beim Speichern des Formulars übernommen.
+                        toast({
+                          title: form.getValues("archived") 
+                            ? "Aufgabe wird archiviert..." 
+                            : "Aufgabe wird wiederhergestellt...",
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "Fehler",
+                          description: "Die Einstellung konnte nicht geändert werden",
+                          variant: "destructive",
+                        });
+                      }
                     }}
                   >
                     {form.getValues("archived") ? (
@@ -1119,6 +1129,12 @@ export function TaskDialog({
                       try {
                         const updatedTask: Task = {
                           ...task,
+                          id: task.id,
+                          title: task.title,
+                          status: task.status,
+                          priority: task.priority,
+                          order: task.order,
+                          boardId: task.boardId,
                           archived: !task.archived
                         };
                         
