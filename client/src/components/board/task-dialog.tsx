@@ -771,14 +771,24 @@ export function TaskDialog({
                                     attachments: newAttachments
                                   };
                                   
-                                  // Verwende Promise-Kette statt await
-                                  onUpdate(updatedTask)
-                                    .then(() => {
-                                      console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
-                                    })
-                                    .catch(updateError => {
-                                      console.error("Fehler beim Aktualisieren der Aufgabe mit Anhang:", updateError);
-                                    });
+                                  try {
+                                    const updateResult = onUpdate(updatedTask);
+                                    
+                                    // Prüfe, ob das Ergebnis ein Promise ist
+                                    if (updateResult && typeof updateResult.then === 'function') {
+                                      updateResult
+                                        .then(() => {
+                                          console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
+                                        })
+                                        .catch(updateError => {
+                                          console.error("Fehler beim Aktualisieren der Aufgabe mit Anhang:", updateError);
+                                        });
+                                    } else {
+                                      console.log("Anhang lokal aktualisiert (kein Promise zurückgegeben)");
+                                    }
+                                  } catch (err) {
+                                    console.error("Fehler beim Aktualisieren der Aufgabe:", err);
+                                  }
                                 }
                                 
                                 toast({
@@ -797,14 +807,24 @@ export function TaskDialog({
                                     attachments: newAttachments
                                   };
                                   
-                                  // Verwende Promise-Kette statt await
-                                  onUpdate(updatedTask)
-                                    .then(() => {
-                                      console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
-                                    })
-                                    .catch(updateError => {
-                                      console.error("Fehler beim Aktualisieren der Aufgabe mit Anhängen:", updateError);
-                                    });
+                                  try {
+                                    const updateResult = onUpdate(updatedTask);
+                                    
+                                    // Prüfe, ob das Ergebnis ein Promise ist
+                                    if (updateResult && typeof updateResult.then === 'function') {
+                                      updateResult
+                                        .then(() => {
+                                          console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
+                                        })
+                                        .catch(updateError => {
+                                          console.error("Fehler beim Aktualisieren der Aufgabe mit Anhängen:", updateError);
+                                        });
+                                    } else {
+                                      console.log("Anhänge lokal aktualisiert (kein Promise zurückgegeben)");
+                                    }
+                                  } catch (err) {
+                                    console.error("Fehler beim Aktualisieren der Aufgabe:", err);
+                                  }
                                 }
                                 
                                 toast({
@@ -865,14 +885,27 @@ export function TaskDialog({
                                     
                                     // Aktualisiere auch die Aufgabe, falls nötig
                                     if (task?.id && onUpdate) {
-                                      onUpdate({
-                                        ...task,
-                                        attachments: newAttachments
-                                      }).then(() => {
-                                        console.log("Anhang erfolgreich entfernt");
-                                      }).catch(err => {
-                                        console.error("Fehler beim Entfernen des Anhangs:", err);
-                                      });
+                                      try {
+                                        const updateResult = onUpdate({
+                                          ...task,
+                                          attachments: newAttachments
+                                        });
+                                        
+                                        // Prüfe, ob das Ergebnis ein Promise ist
+                                        if (updateResult && typeof updateResult.then === 'function') {
+                                          updateResult
+                                            .then(() => {
+                                              console.log("Anhang erfolgreich entfernt");
+                                            })
+                                            .catch(err => {
+                                              console.error("Fehler beim Entfernen des Anhangs:", err);
+                                            });
+                                        } else {
+                                          console.log("Anhang lokal entfernt (kein Promise zurückgegeben)");
+                                        }
+                                      } catch (err) {
+                                        console.error("Fehler beim Aktualisieren der Aufgabe:", err);
+                                      }
                                     }
                                   }}
                                 >
