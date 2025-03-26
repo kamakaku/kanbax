@@ -89,8 +89,8 @@ export const tasks = pgTable("tasks", {
   richDescription: text("rich_description"),  // Rich text description
   status: text("status").notNull(),
   order: integer("order").notNull(),
-  boardId: integer("board_id").notNull(),
-  columnId: integer("column_id").notNull(),
+  boardId: integer("board_id"),
+  columnId: integer("column_id"),
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
   dueDate: text("due_date"), // Store as ISO string
@@ -245,8 +245,8 @@ export const insertTaskSchema = createInsertSchema(tasks)
   .extend({
     title: z.string().min(1, "Title is required"),
     status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
-    boardId: z.number().int().positive("Board ID is required"),
-    columnId: z.number().int(),
+    boardId: z.number().int().positive("Board ID is required").optional(),
+    columnId: z.number().int().optional(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable().optional(), // Accept ISO string or null
@@ -568,6 +568,8 @@ export type Task = typeof tasks.$inferSelect & {
     id: number;
     title: string;
   } | null;
+  created_at?: Date | string; // Für Kompatibilität mit API-Antworten
+  createdAt?: Date | string; // Drizzle-Feld
 };
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;
