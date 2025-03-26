@@ -148,6 +148,9 @@ export function Board() {
       return res.json();
     },
     onSuccess: (data) => {
+      // Debug: Ausgabe der Task-Labels
+      console.log("Tasks mit Labels:", data.map(task => ({ id: task.id, labels: task.labels })));
+      
       // Alle vorhandenen Labels aus Tasks extrahieren
       const labelSet = new Set<string>();
       data.forEach(task => {
@@ -156,15 +159,18 @@ export function Board() {
         }
       });
       
+      const extractedLabels = Array.from(labelSet);
+      console.log("Extrahierte Labels:", extractedLabels);
+      
       // Wenn keine Labels in den Tasks gefunden wurden, 
       // verwenden wir die Standard-Labels
-      const extractedLabels = Array.from(labelSet);
-      
       if (extractedLabels.length === 0) {
         // Bei leeren Boards die Standard-Labels verwenden
+        console.log("Verwende Standard-Labels:", defaultLabels);
         setAllLabels(defaultLabels);
       } else {
         // Ansonsten die extrahierten Labels verwenden
+        console.log("Verwende extrahierte Labels:", extractedLabels.sort());
         setAllLabels(extractedLabels.sort());
       }
     }
