@@ -610,25 +610,24 @@ export function TaskDialog({
               {(uploadedAttachments.length > 0 ? uploadedAttachments : task?.attachments || []).map((url, index) => {
                 const fileName = url.split('/').pop() || `Datei ${index + 1}`;
                 const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
+                const isPdf = /\.pdf$/i.test(url);
                 
                 return (
                   <div 
                     key={index} 
-                    className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50 border hover:bg-muted"
+                    className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50 border hover:bg-muted cursor-pointer"
+                    onClick={() => setSelectedAttachment(url)}
                   >
                     {isImage ? (
                       <ImageIcon className="h-4 w-4 text-blue-600" />
+                    ) : isPdf ? (
+                      <FileIcon className="h-4 w-4 text-red-600" />
                     ) : (
                       <FileIcon className="h-4 w-4 text-blue-600" />
                     )}
-                    <a 
-                      href={url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px]"
-                    >
+                    <span className="text-sm text-blue-600 hover:text-blue-800 truncate max-w-[200px]">
                       {fileName}
-                    </a>
+                    </span>
                   </div>
                 );
               })}
@@ -636,6 +635,64 @@ export function TaskDialog({
           ) : (
             <div className="text-sm text-muted-foreground italic">Keine Dateien angehängt</div>
           )}
+          
+          {/* Attachment Lightbox Dialog */}
+          <Dialog open={!!selectedAttachment} onOpenChange={(open) => !open && setSelectedAttachment(null)}>
+            <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-lg">
+              <div className="relative bg-black/10 flex items-center justify-center">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setSelectedAttachment(null)}
+                  className="absolute top-2 right-2 z-10 bg-black/20 hover:bg-black/30 text-white"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                
+                {selectedAttachment && (
+                  <>
+                    {/\.(jpeg|jpg|gif|png|webp)$/i.test(selectedAttachment) ? (
+                      // Bild Vorschau
+                      <div className="w-full h-full flex items-center justify-center p-4">
+                        <img 
+                          src={selectedAttachment} 
+                          alt="Vorschau" 
+                          className="max-h-[70vh] max-w-full object-contain"
+                        />
+                      </div>
+                    ) : /\.pdf$/i.test(selectedAttachment) ? (
+                      // PDF Vorschau
+                      <div className="w-full h-[70vh] bg-white">
+                        <iframe 
+                          src={selectedAttachment} 
+                          title="PDF Vorschau" 
+                          className="w-full h-full"
+                        />
+                      </div>
+                    ) : (
+                      // Andere Dateitypen
+                      <div className="p-8 flex flex-col items-center justify-center">
+                        <FileIcon className="h-16 w-16 text-blue-600 mb-4" />
+                        <p className="text-lg font-medium mb-4">
+                          {selectedAttachment.split('/').pop()}
+                        </p>
+                        <a 
+                          href={selectedAttachment} 
+                          download
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                        >
+                          <Paperclip className="h-4 w-4" />
+                          Herunterladen
+                        </a>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         
         {/* Kommentare */}
