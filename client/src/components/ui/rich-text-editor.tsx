@@ -205,7 +205,7 @@ export function RichTextEditor({
       )}
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none p-4 min-h-[100px] focus:outline-none w-full"
+        className="prose prose-sm max-w-none p-4 min-h-[100px] focus:outline-none w-full [&_.ProseMirror_pre]:m-0 [&_.ProseMirror_pre]:p-0"
         style={{ width: '100%' }}
       />
       {files.length > 0 && (
@@ -257,7 +257,7 @@ function AttachmentThumbnail({ file }: { file: string }) {
 export function RichTextContent({ content }: { content: string }) {
   return (
     <div 
-      className="prose prose-sm max-w-none" 
+      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0" 
       dangerouslySetInnerHTML={{ __html: content }} 
     />
   );
