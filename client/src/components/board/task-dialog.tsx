@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon, Upload, ImageIcon, FileIcon, Paperclip, Archive, RotateCcw } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon, Upload, ImageIcon, FileIcon, FileText, Paperclip, Archive, RotateCcw } from "lucide-react";
 import { CommentList } from "@/components/comments/comment-list";
 import { CommentEditor } from "@/components/comments/comment-editor";
 import classnames from 'classnames';
@@ -102,6 +102,8 @@ export function TaskDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedAttachments, setUploadedAttachments] = useState<string[]>([]);
   const [selectedAttachment, setSelectedAttachment] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { currentBoard } = useStore();
@@ -939,18 +941,43 @@ export function TaskDialog({
                   
                   {/* Datei-Upload Bereich */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Dateien anhängen</label>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-1"
-                      >
-                        <Paperclip className="h-4 w-4" />
-                        <span>Hochladen</span>
-                      </Button>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Dateien anhängen</label>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center gap-1"
+                          disabled={uploading}
+                        >
+                          {uploading ? (
+                            <>
+                              <span className="animate-pulse">Lädt...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Paperclip className="h-4 w-4" />
+                              <span>Hochladen</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      
+                      {uploading && (
+                        <div className="w-full">
+                          <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
+                            <div 
+                              className="h-full bg-primary transition-all duration-300 ease-in-out" 
+                              style={{ width: `${uploadProgress}%` }}
+                            ></div>
+                          </div>
+                          <div className="text-xs text-center mt-1 text-muted-foreground">
+                            {uploadProgress === 100 ? 'Verarbeite...' : `${uploadProgress}% hochgeladen`}
+                          </div>
+                        </div>
+                      )}
                       <input
                         type="file"
                         ref={fileInputRef}
@@ -960,6 +987,10 @@ export function TaskDialog({
                           if (e.target.files?.length) {
                             const fileArray = Array.from(e.target.files);
                             setFiles(prev => [...prev, ...fileArray]);
+                            
+                            // Upload gestartet
+                            setUploading(true);
+                            setUploadProgress(0);
                             
                             // Upload-Logik hier...
                             const formData = new FormData();
@@ -975,12 +1006,31 @@ export function TaskDialog({
                               formData.append('entityId', task.id.toString());
                             }
                               
+                            // Simuliere Fortschrittsanzeige
+                            const simulateProgress = () => {
+                              let progress = 0;
+                              const interval = setInterval(() => {
+                                progress += Math.random() * 10;
+                                if (progress > 95) {
+                                  progress = 95; // Cap bei 95%, 100% erst bei Fertigstellung
+                                  clearInterval(interval);
+                                }
+                                setUploadProgress(Math.min(Math.round(progress), 95));
+                              }, 300);
+                              return interval;
+                            };
+                            
+                            const progressInterval = simulateProgress();
+                            
                             fetch('/api/upload', {
                               method: 'POST',
                               body: formData,
                               credentials: 'include' // Wichtig für die Session-Authentifizierung
                             })
                             .then(res => {
+                              clearInterval(progressInterval);
+                              setUploadProgress(100); // Auf 100% setzen, wenn Antwort zurückkommt
+                              
                               if (!res.ok) {
                                 throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
                               }
@@ -1060,6 +1110,9 @@ export function TaskDialog({
                                   description: `${data.urls.length} Datei(en) wurden erfolgreich hochgeladen.`
                                 });
                               }
+                              
+                              // Upload abgeschlossen, Status zurücksetzen
+                              setUploading(false);
                             })
                             .catch(err => {
                               console.error("Fehler beim Hochladen:", err);
@@ -1070,6 +1123,9 @@ export function TaskDialog({
                               } else if (err.message && err.message.includes('HTTP error 413')) {
                                 errorMsg = "Die Datei ist zu groß. Maximale Größe überschritten.";
                               }
+                              
+                              // Auch bei Fehler Upload-Status zurücksetzen
+                              setUploading(false);
                               
                               toast({
                                 title: "Fehler beim Hochladen",
@@ -1086,7 +1142,7 @@ export function TaskDialog({
                     {uploadedAttachments.length > 0 && (
                       <div className="space-y-2 mt-2">
                         <div className="text-sm font-medium">Angehängte Dateien ({uploadedAttachments.length})</div>
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           {uploadedAttachments.map((url, index) => {
                             console.log("Rendering attachment:", url);
                             const fileName = url.split('/').pop() || 'Datei';
