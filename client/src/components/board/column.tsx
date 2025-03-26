@@ -14,6 +14,7 @@ interface ColumnProps {
   tasks: Task[];
   onUpdate: (task: Task) => Promise<void>;
   showArchivedTasks?: boolean;
+  onClick?: (task: Task) => void;
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -49,7 +50,7 @@ const getColumnStyle = (columnId: string | number) => {
   return statusColors[id] || statusColors.backlog;
 };
 
-export function Column({ column, tasks, onUpdate, showArchivedTasks = false }: ColumnProps) {
+export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onClick }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -116,8 +117,12 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false }: C
                 task={task}
                 index={index}
                 onClick={(task) => {
-                  setSelectedTask(task);
-                  setIsTaskDialogOpen(true);
+                  if (onClick) {
+                    onClick(task);
+                  } else {
+                    setSelectedTask(task);
+                    setIsTaskDialogOpen(true);
+                  }
                 }}
                 onUpdate={onUpdate}
               />

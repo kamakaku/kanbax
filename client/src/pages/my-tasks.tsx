@@ -7,7 +7,8 @@ import { Column as ColumnComponent } from "@/components/board/column";
 import { TaskDialog } from "@/components/board/task-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Eye, EyeOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // Erweiterte Task-Schnittstelle für die Frontend-Anzeige
 interface TaskWithDetails extends Task {
@@ -41,6 +42,7 @@ export default function MyTasks() {
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -189,6 +191,29 @@ export default function MyTasks() {
                 Alle Ihnen zugewiesenen Aufgaben an einem Ort
               </p>
             </div>
+            
+            {/* Archivierte Aufgaben Toggle */}
+            <div className="flex items-center space-x-2 mt-1 bg-slate-50 p-2 rounded-md border border-slate-200">
+              <div className="flex flex-col">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="show-archived"
+                    checked={showArchivedTasks}
+                    onCheckedChange={setShowArchivedTasks}
+                  />
+                  <div className="flex items-center">
+                    {showArchivedTasks ? (
+                      <Eye className="h-4 w-4 text-slate-600 mr-1" />
+                    ) : (
+                      <EyeOff className="h-4 w-4 text-slate-600 mr-1" />
+                    )}
+                    <label htmlFor="show-archived" className="text-sm text-slate-600">
+                      Archivierte Aufgaben anzeigen
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           
           {/* Neue Aufgabe Button */}
@@ -212,6 +237,10 @@ export default function MyTasks() {
                   .filter(task => {
                     // Aufgaben müssen den richtigen Status haben
                     if (task.status !== column.id) return false;
+                    
+                    // Archivierte Aufgaben filtern, es sei denn showArchivedTasks ist true
+                    if (task.archived && !showArchivedTasks) return false;
+                    
                     // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch 
                     // Board-gebundene Aufgaben anzeigen
                     return true;
@@ -224,6 +253,11 @@ export default function MyTasks() {
                     column={column}
                     tasks={columnTasks}
                     onUpdate={handleTaskUpdate}
+                    showArchivedTasks={showArchivedTasks}
+                    onClick={(task) => {
+                      setSelectedTask(task as TaskWithDetails);
+                      setIsTaskDialogOpen(true);
+                    }}
                   />
                 );
               })}
