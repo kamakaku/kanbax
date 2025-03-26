@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon, Upload, ImageIcon, FileIcon, Paperclip } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Tag, Pencil, User as UserIcon, Upload, ImageIcon, FileIcon, Paperclip, Archive, RotateCcw } from "lucide-react";
 import { CommentList } from "@/components/comments/comment-list";
 import { CommentEditor } from "@/components/comments/comment-editor";
 import classnames from 'classnames';
