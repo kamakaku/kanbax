@@ -326,7 +326,7 @@ export function RichTextEditor({
   );
 }
 
-function AttachmentThumbnail({ file }: { file: string }) {
+export function AttachmentThumbnail({ file }: { file: string }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
   
