@@ -231,6 +231,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
   .pick({
     title: true,
     description: true,
+    richDescription: true,
     status: true,
     order: true,
     boardId: true,
@@ -241,6 +242,8 @@ export const insertTaskSchema = createInsertSchema(tasks)
     archived: true,
     assignedUserIds: true,
     assignedTeamId: true,
+    checklist: true,
+    attachments: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
@@ -267,6 +270,8 @@ export const insertTaskSchema = createInsertSchema(tasks)
       z.number().int().positive("Team ID must be positive if provided"),
       z.null()
     ]).optional().nullable(),
+    // Dateianlagen
+    attachments: z.array(z.string()).optional().nullable(),
   });
 
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)
