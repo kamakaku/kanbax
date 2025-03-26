@@ -16,12 +16,31 @@
     min-height: 100px !important;
   }
   
-  /* Entfernung von Abständen in Code-Blöcken des Rich Text Editors */
+  /* Aggressivere Regeln zur Entfernung von Abständen in Code-Blöcken */
+  pre, 
+  code, 
+  .prose pre, 
+  .prose code,
+  .prose-sm pre, 
+  .prose-sm code,
   .ProseMirror pre,
-  .prose-sm :where(pre):not(:where([class~="not-prose"],[class~="not-prose"] *)),
-  .prose :where(pre):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
+  .ProseMirror code,
+  .prose pre code,
+  .prose-sm pre code,
+  .ProseMirror pre code,
+  div[contenteditable="true"] pre,
+  div[contenteditable="true"] code {
     margin: 0 !important;
     padding: 0 !important;
+    white-space: pre-wrap !important;
+  }
+  
+  /* Höchste Spezifität für Tailwind-Prose-Selektoren */
+  .prose :where(pre):not(:where([class~="not-prose"],[class~="not-prose"] *)),
+  .prose-sm :where(pre):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
+    margin: 0 !important;
+    padding: 0 !important;
+    white-space: pre-wrap !important;
   }
   
   :root {
