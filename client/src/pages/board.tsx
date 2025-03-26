@@ -304,7 +304,7 @@ export function Board() {
 
       <div className="relative p-8">
         {/* Header - neue Struktur */}
-        <div className="flex flex-col gap-6 mb-8">
+        <div className="flex flex-col gap-3 mb-6">
           {/* Erste Zeile: Titel + Fav-Stern / Buttons rechts */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -385,7 +385,7 @@ export function Board() {
           )}
 
           {/* Dritte Zeile: Ersteller + Benutzer */}
-          <div className="flex gap-6 mt-2">
+          <div className="flex gap-6 mt-1">
             {/* Creator Section */}
             {creator && (
               <div className="flex items-center gap-2">
@@ -436,7 +436,7 @@ export function Board() {
           </div>
 
           {/* Vierte Zeile: Filter */}
-          <div className="flex items-center mt-2 px-3 py-2 bg-slate-50 rounded-md">
+          <div className="flex items-center mt-1 px-3 py-2 bg-slate-50 rounded-md">
             <div className="flex items-center space-x-2">
               <Switch
                 id="show-archived"
