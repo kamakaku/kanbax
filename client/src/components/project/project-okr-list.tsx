@@ -112,6 +112,7 @@ export function ProjectOKRList({ projectId }: ProjectOKRListProps) {
             <Button
               type="submit"
               form="objective-form"
+              className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
             >
               Objective erstellen
             </Button>

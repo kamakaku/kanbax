@@ -277,6 +277,7 @@ export function ProjectForm({ open, onClose, existingProject, onSuccess }: Proje
             type="submit"
             form="project-form"
             disabled={createProject.isPending || updateProject.isPending}
+            className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
           >
             {existingProject ? "Änderungen speichern" : "Projekt erstellen"}
           </Button>
