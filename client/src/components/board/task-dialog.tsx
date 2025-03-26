@@ -700,7 +700,25 @@ export function TaskDialog({
                             uploadType="task"
                             entityId={task?.id}
                             onAttachmentUpload={(urls) => {
-                              setUploadedAttachments(prev => [...prev, ...urls]);
+                              console.log("Rich-Text-Editor hat Anhänge hochgeladen:", urls);
+                              setUploadedAttachments(prev => {
+                                const newAttachments = [...prev, ...urls];
+                                console.log("Neue Anhangsliste in Task-Dialog:", newAttachments);
+                                
+                                // Task sofort mit neuen Anhängen aktualisieren, wenn möglich
+                                if (task && onUpdate) {
+                                  const updatedTask = {
+                                    ...task,
+                                    attachments: newAttachments
+                                  };
+                                  console.log("Sofortige Task-Aktualisierung mit neuen Anhängen", updatedTask);
+                                  onUpdate(updatedTask as Task)
+                                    .then(() => console.log("Task mit neuen Anhängen aktualisiert"))
+                                    .catch(err => console.error("Fehler beim Aktualisieren des Tasks mit Anhängen:", err));
+                                }
+                                
+                                return newAttachments;
+                              });
                             }}
                           />
                         </FormControl>
