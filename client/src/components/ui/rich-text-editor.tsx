@@ -327,48 +327,42 @@ export function RichTextEditor({
 }
 
 function AttachmentThumbnail({ file }: { file: string }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
+  
   const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(file);
   const isPdf = /\.pdf$/i.test(file);
+  const isDoc = /\.(doc|docx)$/i.test(file);
+  const isExcel = /\.(xls|xlsx|csv)$/i.test(file);
+  const isZip = /\.(zip|rar|7z|tar|gz)$/i.test(file);
+  const isVideo = /\.(mp4|avi|mov|wmv|flv|mkv)$/i.test(file);
+  const isAudio = /\.(mp3|wav|ogg|flac|aac)$/i.test(file);
+  
   const fileName = file.split('/').pop() || 'Datei';
-  
-  if (isImage) {
-    return (
-      <a href={file} target="_blank" rel="noopener noreferrer" className="block">
-        <div className="relative w-20 h-20 border rounded overflow-hidden group">
-          <img src={file} alt={fileName} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <ImageIcon className="w-5 h-5 text-white" />
-          </div>
-        </div>
-      </a>
-    );
-  }
-  
-  if (isPdf) {
-    // Stelle sicher, dass die URL absolut ist
-    let pdfUrl = file;
-    
-    // Überprüfe ob die URL relativ oder absolut ist
-    if (pdfUrl.startsWith('/')) {
-      // Absolute URL mit Origin
-      pdfUrl = window.location.origin + pdfUrl;
-    } else if (!pdfUrl.startsWith('http')) {
-      // Relative URL ohne führenden Slash
-      pdfUrl = window.location.origin + '/' + pdfUrl;
+
+  // Sorge für eine absolute URL
+  const getAbsoluteUrl = (url: string) => {
+    if (url.startsWith('/')) {
+      return window.location.origin + url;
     }
-    
-    return (
-      <a 
-        href={pdfUrl} 
-        target="_blank" 
-        rel="noopener noreferrer" 
-        onClick={(e) => {
-          e.preventDefault();
-          // Öffne das PDF in einem neuen Fenster mit spezifischen Optionen
-          window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-        }}
-        className="block border rounded overflow-hidden w-20 h-20 flex flex-col items-center justify-center hover:bg-muted/20 transition-colors"
-      >
+    if (!url.startsWith('http')) {
+      return window.location.origin + '/' + url;
+    }
+    return url;
+  };
+  
+  const absoluteUrl = getAbsoluteUrl(file);
+  
+  // Generiere ein größeres Preview-Bild für Bilder
+  const handleImageClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setShowFullPreview(true);
+  };
+  
+  // Kleiner Helfer, um ein Icon basierend auf dem Dateityp auszuwählen
+  const FileTypeIcon = () => {
+    if (isPdf) {
+      return (
         <div className="h-12 w-full bg-red-50 flex items-center justify-center border-b">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500">
             <path d="M7 18H17V16H7V18Z" fill="currentColor" />
@@ -377,24 +371,147 @@ function AttachmentThumbnail({ file }: { file: string }) {
             <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM6 4H13V9H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5C5 4.44772 5.44772 4 6 4ZM15 4.10002C16.6113 4.4271 17.9413 5.52906 18.584 7H15V4.10002Z" fill="currentColor" />
           </svg>
         </div>
-        <div className="p-1 text-xs text-center truncate w-full font-medium text-slate-700">
-          {fileName.length > 12 ? fileName.substring(0, 9) + '...' : fileName}
+      );
+    } else if (isDoc) {
+      return (
+        <div className="h-12 w-full bg-blue-50 flex items-center justify-center border-b">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-600">
+            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 15H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 18H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M16 13H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
-      </a>
+      );
+    } else if (isExcel) {
+      return (
+        <div className="h-12 w-full bg-green-50 flex items-center justify-center border-b">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-600">
+            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M8 13H9V17H8V13Z" fill="currentColor"/>
+            <path d="M11 13H12V17H11V13Z" fill="currentColor"/>
+            <path d="M14 13H15V17H14V13Z" fill="currentColor"/>
+          </svg>
+        </div>
+      );
+    } else if (isZip) {
+      return (
+        <div className="h-12 w-full bg-yellow-50 flex items-center justify-center border-b">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-600">
+            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M10 13V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14 13V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M10 13H14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M10 17H14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      );
+    } else if (isVideo) {
+      return (
+        <div className="h-12 w-full bg-purple-50 flex items-center justify-center border-b">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-purple-600">
+            <path d="M19.82 5H4.18C3.07989 5 2.08183 5.41458 1.35052 6.15224C0.619206 6.88991 0.21 7.89913 0.21 8.95V15.05C0.21 16.1009 0.619206 17.1101 1.35052 17.8478C2.08183 18.5854 3.07989 19 4.18 19H19.82C20.9201 19 21.9182 18.5854 22.6495 17.8478C23.3808 17.1101 23.79 16.1009 23.79 15.05V8.95C23.79 7.89913 23.3808 6.88991 22.6495 6.15224C21.9182 5.41458 20.9201 5 19.82 5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 15L15 12L9 9V15Z" fill="currentColor"/>
+          </svg>
+        </div>
+      );
+    } else if (isAudio) {
+      return (
+        <div className="h-12 w-full bg-indigo-50 flex items-center justify-center border-b">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-indigo-600">
+            <path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z" fill="currentColor"/>
+            <path d="M16.24 7.76C16.7979 8.31724 17.2404 8.97897 17.5424 9.70736C17.8445 10.4357 18.0004 11.2142 18.0004 12C18.0004 12.7858 17.8445 13.5643 17.5424 14.2926C17.2404 15.021 16.7979 15.6828 16.24 16.24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M19.07 4.93C20.9447 6.80528 21.9979 9.34836 21.9979 12C21.9979 14.6516 20.9447 17.1947 19.07 19.07" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7.76 16.24C7.20214 15.6828 6.75959 15.021 6.45755 14.2926C6.15551 13.5643 5.99959 12.7858 5.99959 12C5.99959 11.2142 6.15551 10.4357 6.45755 9.70736C6.75959 8.97897 7.20214 8.31724 7.76 7.76" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4.93 19.07C3.05529 17.1947 2.00214 14.6516 2.00214 12C2.00214 9.34836 3.05529 6.80528 4.93 4.93" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      );
+    } else {
+      return (
+        <div className="text-muted-foreground mb-1">
+          <Upload className="w-5 h-5 mx-auto" />
+        </div>
+      );
+    }
+  };
+  
+  // Bild-Thumbnails
+  if (isImage) {
+    return (
+      <>
+        <div 
+          className="relative w-20 h-20 border rounded overflow-hidden group cursor-pointer"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onClick={handleImageClick}
+        >
+          <img src={file} alt={fileName} className="w-full h-full object-cover" />
+          <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="text-white text-xs text-center px-1">
+              <ImageIcon className="w-5 h-5 mx-auto mb-1" />
+              <span className="line-clamp-1">{fileName.length > 10 ? fileName.substring(0, 7) + '...' : fileName}</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Image Viewer Modal */}
+        {showFullPreview && (
+          <Dialog open={showFullPreview} onOpenChange={setShowFullPreview}>
+            <DialogContent className="max-w-4xl p-0 bg-transparent border-none shadow-none">
+              <div className="relative bg-black/80 rounded-lg p-2 max-h-[90vh] flex items-center justify-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowFullPreview(false)}
+                  className="absolute top-2 right-2 bg-black/40 text-white hover:bg-black/60 z-10"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <img 
+                  src={absoluteUrl} 
+                  alt={fileName} 
+                  className="max-h-[85vh] max-w-full object-contain rounded-md"
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </>
     );
   }
   
+  // PDF und andere Dateitypen
   return (
     <a 
-      href={file} 
+      href={absoluteUrl} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="block border rounded p-2 text-xs text-center w-20 h-20 flex flex-col items-center justify-center hover:bg-muted transition-colors"
+      onClick={(e) => {
+        e.preventDefault();
+        window.open(absoluteUrl, '_blank', 'noopener,noreferrer');
+      }}
+      className="relative group block border rounded w-20 h-20 overflow-hidden"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="text-muted-foreground mb-1">
-        <Upload className="w-5 h-5 mx-auto" />
+      <div className="flex flex-col items-center justify-center h-full">
+        <FileTypeIcon />
+        
+        <div className="p-1 text-[10px] text-center truncate w-full font-medium text-slate-700">
+          {fileName.length > 10 ? fileName.substring(0, 7) + '...' : fileName}
+        </div>
       </div>
-      <div className="truncate w-full">{fileName}</div>
+      
+      {/* Hover-Overlay */}
+      <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="text-white text-xs text-center px-1">
+          <span className="line-clamp-2">{fileName}</span>
+        </div>
+      </div>
     </a>
   );
 }
