@@ -80,15 +80,15 @@ export function Column({ column, tasks, onUpdate }: ColumnProps) {
             </div>
           </div>
           <Button
-            variant="ghost"
-            size="icon"
-            className={`h-6 w-6 hover:bg-white/80 ${columnStyle.text}`}
+            size="sm"
+            className="h-6 px-2 py-1 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
             onClick={() => {
               setSelectedTask(null);
               setIsTaskDialogOpen(true);
             }}
           >
-            <Plus className="h-3 w-3" />
+            <Plus className="h-3 w-3 mr-1" />
+            <span className="text-xs">Neu</span>
           </Button>
         </div>
       </div>
