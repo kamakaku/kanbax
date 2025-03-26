@@ -468,7 +468,10 @@ export function OKRDetailPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h4 className="text-lg font-semibold">Key Results ({keyResults.length})</h4>
-              <Button onClick={() => setIsKeyResultDialogOpen(true)}>
+              <Button 
+                onClick={() => setIsKeyResultDialogOpen(true)}
+                className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
+              >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Key Result hinzufügen
               </Button>
@@ -704,6 +707,7 @@ export function OKRDetailPage() {
             <Button
               type="submit"
               form="objective-edit-form"
+              className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
             >
               Objective aktualisieren
             </Button>
@@ -723,7 +727,7 @@ export function OKRDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmArchive}>Archivieren</AlertDialogAction>
+            <AlertDialogAction onClick={confirmArchive} className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg">Archivieren</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -740,7 +744,7 @@ export function OKRDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmUnarchive}>Wiederherstellen</AlertDialogAction>
+            <AlertDialogAction onClick={confirmUnarchive} className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg">Wiederherstellen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
