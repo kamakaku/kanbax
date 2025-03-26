@@ -1087,13 +1087,19 @@ export async function registerRoutes(app: Express, db: Knex) {
         creatorId: userId,
         // Standardwerte für persönliche Tasks
         status: req.body.status || "todo",
-        order: req.body.order || 0
+        order: req.body.order || 0,
+        // Für persönliche Tasks explizit null setzen
+        boardId: null,
+        columnId: null
       };
+
+      console.log("Creating personal task with data:", taskData);
 
       // Validiere mit angepasstem Schema (ohne boardId Pflichtfeld)
       const result = insertTaskSchema.safeParse(taskData);
 
       if (!result.success) {
+        console.error("Task validation failed:", result.error.errors);
         return res.status(400).json({
           message: "Ungültige Task-Daten",
           errors: result.error.errors

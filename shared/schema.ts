@@ -89,7 +89,7 @@ export const tasks = pgTable("tasks", {
   richDescription: text("rich_description"),  // Rich text description
   status: text("status").notNull(),
   order: integer("order").notNull(),
-  boardId: integer("board_id"),
+  boardId: integer("board_id").notNull(),  // Bleibt .notNull() für Kompatibilität mit bestehenden Daten
   columnId: integer("column_id"),
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
@@ -245,8 +245,18 @@ export const insertTaskSchema = createInsertSchema(tasks)
   .extend({
     title: z.string().min(1, "Title is required"),
     status: z.enum(["backlog", "todo", "in-progress", "review", "done"]),
-    boardId: z.number().int().positive("Board ID is required").optional(),
-    columnId: z.number().int().optional(),
+    // Erlaubt null, undefined oder positive Zahlen für persönliche Aufgaben
+    boardId: z.union([
+      z.number().int().positive("Board ID must be a positive integer if provided"),
+      z.null(),
+      z.undefined()
+    ]).optional(),
+    // Erlaubt null, undefined oder positive Zahlen für persönliche Aufgaben
+    columnId: z.union([
+      z.number().int().positive("Column ID must be a positive integer if provided"),
+      z.null(),
+      z.undefined()
+    ]).optional(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
     dueDate: z.string().nullable().optional(), // Accept ISO string or null
