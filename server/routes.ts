@@ -2156,7 +2156,10 @@ export async function registerRoutes(app: Express, db: Knex) {
       const { type = 'general', entityId } = req.body;
       
       // Pfad relativ zum Server-Root
-      const filePath = req.file.path.replace(/^\.\//, '/');
+      const filePath = req.file.path.replace(/^\.\//, '');
+      
+      // Stelle sicher, dass der Pfad korrekt formatiert ist für HTTP-Zugriff
+      const urlPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
       
       // Protokolliert den Upload für Debugging
       console.log("Datei hochgeladen:", {
@@ -2256,7 +2259,8 @@ export async function registerRoutes(app: Express, db: Knex) {
               }
               
               // Neuen Anhang hinzufügen
-              currentAttachments.push(filePath);
+              // Verwende urlPath für die Speicherung, damit die Datei später richtig zugänglich ist
+              currentAttachments.push(urlPath);
               
               // Task aktualisieren mit dem neuen Anhang
               await pool.query(
@@ -2275,7 +2279,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       
       // Erfolgreiche Antwort senden
       res.json({
-        url: filePath,
+        url: urlPath, // Hier urlPath statt filePath verwenden, damit der Pfad korrekt für den Browser formatiert ist
         filename: req.file.filename,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
