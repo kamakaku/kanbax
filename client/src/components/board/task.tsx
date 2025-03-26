@@ -65,7 +65,7 @@ export function Task({ task, index, onClick }: TaskProps) {
   });
 
   // Ensure users is always an array
-  const users = Array.isArray(usersResponse) ? usersResponse : Object.values(usersResponse);
+  const users: User[] = Array.isArray(usersResponse) ? usersResponse : [];
   const priority = priorityConfig[task.priority as keyof typeof priorityConfig];
 
   const renderAssignedUsers = () => {
@@ -78,7 +78,7 @@ export function Task({ task, index, onClick }: TaskProps) {
           return user ? (
             <Avatar 
               key={userId} 
-              className="h-5 w-5 border-2 border-background 
+              className="h-6 w-6 border-2 border-white 
                        transition-transform hover:scale-110 hover:z-10"
             >
               <AvatarImage src={user.avatarUrl || ""} />
@@ -152,19 +152,19 @@ export function Task({ task, index, onClick }: TaskProps) {
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
             
-            {/* Board und Projekt Informationen mit Icons */}
-            {(task.board || task.project) && (
+            {/* Projekt und Board Informationen mit Icons */}
+            {(task.project || task.board) && (
               <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
-                {task.board && (
-                  <div className="flex items-center gap-1 text-slate-600">
-                    <KanbanSquare className="h-3 w-3" />
-                    <span>{task.board.title}</span>
-                  </div>
-                )}
                 {task.project && (
                   <div className="flex items-center gap-1 text-slate-600">
                     <Folder className="h-3 w-3" />
                     <span>{task.project.title}</span>
+                  </div>
+                )}
+                {task.board && (
+                  <div className="flex items-center gap-1 text-slate-600">
+                    <KanbanSquare className="h-3 w-3" />
+                    <span>{task.board.title}</span>
                   </div>
                 )}
               </div>
@@ -198,6 +198,7 @@ export function Task({ task, index, onClick }: TaskProps) {
               </div>
             )}
 
+            {/* Obere Reihe mit Fälligkeitsdatum und Kommentaren */}
             <div className="flex items-center justify-between mt-1">
               <div className="flex items-center gap-2">
                 {task.dueDate && (
@@ -216,6 +217,13 @@ export function Task({ task, index, onClick }: TaskProps) {
               </div>
 
               {renderAssignedUsers()}
+            </div>
+            
+            {/* Untere Leiste mit Erstelldatum */}
+            <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+              <div className="text-xs text-slate-500">
+                {task.created_at && format(new Date(task.created_at), "dd.MM.yyyy", { locale: de })}
+              </div>
             </div>
           </div>
         </div>
