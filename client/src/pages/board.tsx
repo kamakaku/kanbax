@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -10,7 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Pencil, Star, Users, Building2, Calendar, Crown, Archive, RotateCcw, Eye, EyeOff, PlusCircle } from "lucide-react";
+import { 
+  Pencil, Star, Users, Building2, Calendar as CalendarIcon, Crown, Archive, RotateCcw, 
+  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search 
+} from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,6 +29,24 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { TaskDialog } from "@/components/board/task-dialog";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
