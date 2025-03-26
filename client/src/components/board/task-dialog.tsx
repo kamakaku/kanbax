@@ -21,7 +21,7 @@ import { CommentEditor } from "@/components/comments/comment-editor";
 import classnames from 'classnames';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextEditor, AttachmentThumbnail } from "@/components/ui/rich-text-editor";
 import {
   Select,
   SelectContent,
@@ -943,30 +943,19 @@ export function TaskDialog({
                       />
                     </div>
                     
-                    {/* Anzeige der hochgeladenen Dateien */}
+                    {/* Anzeige der hochgeladenen Dateien mit verbesserten Thumbnails */}
                     {uploadedAttachments.length > 0 && (
                       <div className="space-y-2 mt-2">
                         <div className="text-sm font-medium">Angehängte Dateien</div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-3">
                           {uploadedAttachments.map((url, index) => {
-                            const fileName = url.split('/').pop() || `Datei ${index + 1}`;
-                            const isImage = /\.(jpeg|jpg|gif|png|webp)$/i.test(url);
-                            
                             return (
-                              <div 
-                                key={index} 
-                                className="flex items-center gap-1 p-1 rounded-md bg-muted/50 border"
-                              >
-                                {isImage ? (
-                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <Paperclip className="h-4 w-4 text-muted-foreground" />
-                                )}
-                                <span className="text-xs truncate max-w-[120px]">{fileName}</span>
+                              <div key={index} className="relative">
+                                <AttachmentThumbnail file={url} />
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-5 w-5"
+                                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-background border shadow-sm hover:bg-destructive hover:text-white"
                                   onClick={() => {
                                     // Entferne den Anhang aus dem lokalen State
                                     const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
@@ -987,7 +976,7 @@ export function TaskDialog({
                                             .then(() => {
                                               console.log("Anhang erfolgreich entfernt");
                                             })
-                                            .catch(err => {
+                                            .catch((err) => {
                                               console.error("Fehler beim Entfernen des Anhangs:", err);
                                             });
                                         } else {
