@@ -16,6 +16,12 @@
     min-height: 100px !important;
   }
   
+  /* Entfernung von Abständen in Code-Blöcken des Rich Text Editors */
+  .ProseMirror pre {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
   :root {
     --background: 222 25% 98%;
     --foreground: 222 20% 10%;
