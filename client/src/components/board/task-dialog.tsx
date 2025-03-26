@@ -224,14 +224,8 @@ export function TaskDialog({
   };
 
   const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
-    if (!currentBoard?.id) {
-      toast({
-        title: "Fehler",
-        description: "Kein aktives Board ausgewählt",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Im persönlichen Board-Kontext brauchen wir nicht unbedingt ein aktives Board
+    const isPersonalContext = window.location.pathname.includes('/my-tasks');
 
     try {
       const formattedChecklist = checklist.map(item => JSON.stringify(item));
@@ -249,7 +243,7 @@ export function TaskDialog({
           ...data,
           dueDate: adjustedDueDate,
           checklist: formattedChecklist,
-          boardId: currentBoard.id,
+          boardId: task.boardId, // Behalte das ursprüngliche Board bei
         };
         await onUpdate(updatedTask);
 
@@ -263,29 +257,66 @@ export function TaskDialog({
         toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
       } else {
-        const taskData: Task = {
-          id: 0,
-          title: data.title,
-          description: data.description || "",
-          status: data.status,
-          order: data.order,
-          boardId: currentBoard.id,
-          columnId: data.columnId,
-          priority: data.priority,
-          labels: data.labels,
-          dueDate: adjustedDueDate,
-          archived: false,
-          assignedUserIds: data.assignedUserIds,
-          assignedTeamId: null,
-          assignedAt: null,
-          checklist: formattedChecklist,
-        };
+        // Prüfen ob wir im persönlichen Board oder einem regulären Board sind
+        if (isPersonalContext) {
+          // Persönliche Aufgabe erstellen (ohne Board)
+          const taskData: Task = {
+            id: 0,
+            title: data.title,
+            description: data.description || "",
+            status: data.status,
+            order: data.order,
+            boardId: null, // Kann null sein für persönliche Aufgaben
+            columnId: null, // Kann null sein für persönliche Aufgaben
+            priority: data.priority,
+            labels: data.labels,
+            dueDate: adjustedDueDate,
+            archived: false,
+            assignedUserIds: data.assignedUserIds,
+            assignedTeamId: null,
+            assignedAt: null,
+            checklist: formattedChecklist,
+          };
 
-        const response = await apiRequest(
-          "POST",
-          `/api/boards/${currentBoard.id}/tasks`,
-          taskData
-        );
+          const response = await apiRequest(
+            "POST",
+            `/api/tasks`,
+            taskData
+          );
+        } else if (currentBoard?.id) {
+          // Normale Aufgabe in einem Board erstellen
+          const taskData: Task = {
+            id: 0,
+            title: data.title,
+            description: data.description || "",
+            status: data.status,
+            order: data.order,
+            boardId: currentBoard.id,
+            columnId: data.columnId || 0, // Fallback zu 0 wenn undefined
+            priority: data.priority,
+            labels: data.labels,
+            dueDate: adjustedDueDate,
+            archived: false,
+            assignedUserIds: data.assignedUserIds,
+            assignedTeamId: null,
+            assignedAt: null,
+            checklist: formattedChecklist,
+          };
+
+          const response = await apiRequest(
+            "POST",
+            `/api/boards/${currentBoard.id}/tasks`,
+            taskData
+          );
+        } else {
+          // Fehlerfall - kein Board verfügbar
+          toast({
+            title: "Fehler",
+            description: "Kein aktives Board ausgewählt",
+            variant: "destructive",
+          });
+          return;
+        }
 
         if (!response) {
           throw new Error("Fehler beim Erstellen der Aufgabe");
