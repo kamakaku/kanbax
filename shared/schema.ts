@@ -553,7 +553,8 @@ export type Task = typeof tasks.$inferSelect & {
     name: string;
     description: string | null;
   } | null;
-  columnId?: number; // Optional Spalten-ID
+  columnId?: number | null; // Optional Spalten-ID
+  boardId?: number | null; // Optional Board-ID
   board?: {
     id: number;
     title: string;

@@ -264,6 +264,7 @@ export function TaskDialog({
             id: 0,
             title: data.title,
             description: data.description || "",
+            richDescription: null,
             status: data.status,
             order: data.order,
             boardId: null, // Kann null sein für persönliche Aufgaben
@@ -276,19 +277,25 @@ export function TaskDialog({
             assignedTeamId: null,
             assignedAt: null,
             checklist: formattedChecklist,
+            attachments: null
           };
 
-          const response = await apiRequest(
+          const personalResponse = await apiRequest(
             "POST",
             `/api/tasks`,
             taskData
           );
+          
+          if (!personalResponse) {
+            throw new Error("Fehler beim Erstellen der persönlichen Aufgabe");
+          }
         } else if (currentBoard?.id) {
           // Normale Aufgabe in einem Board erstellen
           const taskData: Task = {
             id: 0,
             title: data.title,
             description: data.description || "",
+            richDescription: null,
             status: data.status,
             order: data.order,
             boardId: currentBoard.id,
@@ -301,6 +308,7 @@ export function TaskDialog({
             assignedTeamId: null,
             assignedAt: null,
             checklist: formattedChecklist,
+            attachments: null
           };
 
           const response = await apiRequest(
@@ -318,9 +326,7 @@ export function TaskDialog({
           return;
         }
 
-        if (!response) {
-          throw new Error("Fehler beim Erstellen der Aufgabe");
-        }
+        // Response-Prüfung wird in den jeweiligen Blöcken durchgeführt
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),

@@ -203,7 +203,7 @@ export function Task({ task, index, onClick }: TaskProps) {
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 {/* Erstelldatum */}
                 <div>
-                  {task.created_at && format(new Date(task.created_at), "dd.MM.yyyy", { locale: de })}
+                  {task.createdAt && format(new Date(task.createdAt), "dd.MM.yyyy", { locale: de })}
                 </div>
                 
                 {/* Fälligkeitsdatum */}
