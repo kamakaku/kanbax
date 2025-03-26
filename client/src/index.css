@@ -10,6 +10,12 @@
 @tailwind utilities;
 
 @layer base {
+  /* Verbesserung der Textbox-Größe im Rich Text Editor */
+  .ProseMirror {
+    width: 100% !important;
+    min-height: 100px !important;
+  }
+  
   :root {
     --background: 222 25% 98%;
     --foreground: 222 20% 10%;

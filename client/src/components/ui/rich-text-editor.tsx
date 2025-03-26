@@ -205,7 +205,8 @@ export function RichTextEditor({
       )}
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none p-4 min-h-[100px] focus:outline-none"
+        className="prose prose-sm max-w-none p-4 min-h-[100px] focus:outline-none w-full"
+        style={{ width: '100%' }}
       />
       {files.length > 0 && (
         <div className="border-t p-2">
