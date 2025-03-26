@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MessageSquare, KanbanSquare, Folder } from "lucide-react";
+import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
@@ -101,9 +101,13 @@ export function Task({ task, index, onClick }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            `bg-white rounded-lg border border-slate-200 p-3 cursor-grab active:cursor-grabbing`,
+            `rounded-lg border p-3 cursor-grab active:cursor-grabbing`,
             "transition-all duration-200",
             "hover:border-slate-300 hover:shadow-sm hover:-translate-y-[2px]",
+            // Persönliche Aufgaben haben eine besondere Hintergrundfarbe und Rahmen
+            task.isPersonal 
+              ? "bg-amber-50/70 border-amber-500 relative overflow-hidden" 
+              : "bg-white border-slate-200",
             snapshot.isDragging && [
               "shadow-2xl",
               "scale-[1.02]",
@@ -122,6 +126,12 @@ export function Task({ task, index, onClick }: TaskProps) {
               : "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)"
           }}
         >
+          {/* Farbige Ecke für persönliche Aufgaben */}
+          {task.isPersonal && (
+            <div className="absolute top-0 right-0 w-12 h-12 overflow-hidden">
+              <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-amber-500 text-white w-16 h-16"></div>
+            </div>
+          )}
           <div className="flex flex-col gap-2">
             {/* Priority and Labels in one row */}
             <div className="flex items-center gap-2 flex-wrap">
