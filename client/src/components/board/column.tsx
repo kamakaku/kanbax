@@ -49,9 +49,12 @@ const getColumnStyle = (columnId: string | number) => {
   return statusColors[id] || statusColors.backlog;
 };
 
-export function Column({ column, tasks, onUpdate }: ColumnProps) {
+export function Column({ column, tasks, onUpdate, showArchivedTasks = false }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Filtere Aufgaben basierend auf showArchivedTasks
+  const filteredTasks = tasks.filter(task => showArchivedTasks || !task.archived);
 
   const columnStyle = getColumnStyle(column.id);
   const displayTitle = column.title || "Untitled";
@@ -77,7 +80,7 @@ export function Column({ column, tasks, onUpdate }: ColumnProps) {
               bg-white backdrop-blur-sm 
               border ${columnStyle.border}
             `}>
-              {tasks.length}
+              {filteredTasks.length}
             </div>
           </div>
           <Button
@@ -107,7 +110,7 @@ export function Column({ column, tasks, onUpdate }: ColumnProps) {
               ${snapshot.isDraggingOver ? "bg-slate-50" : ""}
             `}
           >
-            {tasks.map((task, index) => (
+            {filteredTasks.map((task, index) => (
               <TaskComponent
                 key={task.id}
                 task={task}
@@ -116,6 +119,7 @@ export function Column({ column, tasks, onUpdate }: ColumnProps) {
                   setSelectedTask(task);
                   setIsTaskDialogOpen(true);
                 }}
+                onUpdate={onUpdate}
               />
             ))}
             {provided.placeholder}

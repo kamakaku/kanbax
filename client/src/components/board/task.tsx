@@ -5,15 +5,19 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon } from "lucide-react";
+import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon, RotateCcw, Archive } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/queryClient"; 
+import { useToast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
 
 interface TaskProps {
   task: TaskType;
   index: number;
   onClick?: (task: TaskType) => void;
+  onUpdate?: (task: TaskType) => Promise<void>;
 }
 
 const priorityConfig = {
@@ -40,7 +44,10 @@ const priorityConfig = {
   }
 };
 
-export function Task({ task, index, onClick }: TaskProps) {
+export function Task({ task, index, onClick, onUpdate }: TaskProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const { data: usersResponse = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -51,6 +58,49 @@ export function Task({ task, index, onClick }: TaskProps) {
       return response.json();
     },
   });
+
+  // Mutation zum Wiederherstellen einer archivierten Aufgabe
+  const restoreTask = useMutation({
+    mutationFn: async () => {
+      return apiRequest("PATCH", `/api/tasks/${task.id}`, { 
+        ...task,
+        archived: false 
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Aufgabe wiederhergestellt",
+        description: "Die Aufgabe wurde erfolgreich wiederhergestellt.",
+        variant: "success",
+      });
+      
+      // Aktualisiere die verschiedenen Caches
+      queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/boards/${task.boardId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/boards/${task.boardId}/tasks`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}`] });
+      
+      // Wenn onUpdate bereitgestellt wurde, rufe es mit der aktualisierten Aufgabe auf
+      if (onUpdate) {
+        onUpdate({
+          ...task,
+          archived: false
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: `Fehler beim Wiederherstellen der Aufgabe: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleRestore = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Verhindert, dass der Click-Event zum Task-Dialog propagiert
+    restoreTask.mutate();
+  };
 
   // Load comments count
   const { data: comments = [] } = useQuery({
@@ -108,6 +158,8 @@ export function Task({ task, index, onClick }: TaskProps) {
             task.isPersonal 
               ? "bg-white border-slate-200 relative overflow-hidden" 
               : "bg-white border-slate-200",
+            // Archivierte Aufgaben haben einen roten Rahmen
+            task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && [
               "shadow-2xl",
               "scale-[1.02]",
@@ -133,30 +185,51 @@ export function Task({ task, index, onClick }: TaskProps) {
             </div>
           )}
           <div className="flex flex-col gap-2">
-            {/* Priority and Labels in one row */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className={cn(
-                "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-                "border border-current/20",
-                priority.color,
-              )}>
-                <div className={cn("w-1.5 h-1.5 rounded-full", priority.dot)} />
-                <span className="text-xs font-medium">{priority.label}</span>
+            {/* Priority and Labels in one row mit Archivierungs-Badge */}
+            <div className="flex items-center gap-2 flex-wrap justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className={cn(
+                  "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
+                  "border border-current/20",
+                  priority.color,
+                )}>
+                  <div className={cn("w-1.5 h-1.5 rounded-full", priority.dot)} />
+                  <span className="text-xs font-medium">{priority.label}</span>
+                </div>
+
+                {/* Archiviert Badge */}
+                {task.archived && (
+                  <div className="px-2 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-600">
+                    <span className="text-xs font-medium">Archiviert</span>
+                  </div>
+                )}
+
+                {/* Other Labels */}
+                {task.labels && task.labels.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {task.labels.map((label) => (
+                      <span 
+                        key={label} 
+                        className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600 
+                                  transition-colors hover:bg-slate-200"
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Other Labels */}
-              {task.labels && task.labels.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {task.labels.map((label) => (
-                    <span 
-                      key={label} 
-                      className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600 
-                                transition-colors hover:bg-slate-200"
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
+              {/* Wiederherstellungs-Button für archivierte Aufgaben */}
+              {task.archived && onUpdate && (
+                <Button
+                  onClick={handleRestore}
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-full hover:from-blue-500 hover:to-blue-700"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </Button>
               )}
             </div>
 
