@@ -17,7 +17,9 @@
   }
   
   /* Entfernung von Abständen in Code-Blöcken des Rich Text Editors */
-  .ProseMirror pre {
+  .ProseMirror pre,
+  .prose-sm :where(pre):not(:where([class~="not-prose"],[class~="not-prose"] *)),
+  .prose :where(pre):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
     margin: 0 !important;
     padding: 0 !important;
   }
