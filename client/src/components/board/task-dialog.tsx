@@ -100,8 +100,7 @@ export function TaskDialog({
   const [isEditMode, setIsEditMode] = useState(mode === "edit");
   const [richDescription, setRichDescription] = useState<string>(task?.richDescription || "");
   const [files, setFiles] = useState<File[]>([]);
-  const [uploadedAttachments, setUploadedAttachments] = useState<string[]>(task?.attachments ? 
-    (Array.isArray(task.attachments) ? task.attachments : []) : []);
+  const [uploadedAttachments, setUploadedAttachments] = useState<string[]>([]);
   const [selectedAttachment, setSelectedAttachment] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -144,6 +143,8 @@ export function TaskDialog({
   useEffect(() => {
     if (open) {
       setIsEditMode(mode === "edit");
+      
+      // Reset form values
       form.reset({
         title: task?.title || "",
         description: task?.description || "",
@@ -156,6 +157,14 @@ export function TaskDialog({
         archived: task?.archived || false,
         order: task?.order || 0,
       });
+      
+      // Aktualisiere uploadedAttachments mit den Anhängen aus der Aufgabe
+      if (task?.attachments && Array.isArray(task.attachments)) {
+        console.log("Setze Anhänge aus Task:", task.attachments);
+        setUploadedAttachments(task.attachments);
+      } else {
+        setUploadedAttachments([]);
+      }
 
       if (task?.checklist) {
         try {
