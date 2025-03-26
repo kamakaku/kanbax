@@ -2235,6 +2235,44 @@ export async function registerRoutes(app: Express, db: Knex) {
         }
       }
       
+      // Wenn dies ein Task-Anhang ist, aktualisieren wir direkt die Task
+      if (type === 'task' && entityId) {
+        try {
+          const taskId = parseInt(entityId);
+          if (!isNaN(taskId)) {
+            // Task abrufen, um aktuelle Anhänge zu erhalten
+            const taskResult = await pool.query(
+              'SELECT attachments FROM tasks WHERE id = $1',
+              [taskId]
+            );
+            
+            if (taskResult.rows.length > 0) {
+              const currentTask = taskResult.rows[0];
+              let currentAttachments = currentTask.attachments || [];
+              
+              // Sicherstellen, dass es ein Array ist
+              if (!Array.isArray(currentAttachments)) {
+                currentAttachments = [];
+              }
+              
+              // Neuen Anhang hinzufügen
+              currentAttachments.push(filePath);
+              
+              // Task aktualisieren mit dem neuen Anhang
+              await pool.query(
+                'UPDATE tasks SET attachments = $1 WHERE id = $2',
+                [currentAttachments, taskId]
+              );
+              
+              console.log(`Task ${taskId} mit neuem Anhang ${filePath} aktualisiert.`);
+            }
+          }
+        } catch (err) {
+          console.error("Fehler beim direkten Aktualisieren der Task mit dem Anhang:", err);
+          // Wir brechen nicht ab, da der Upload selbst erfolgreich war
+        }
+      }
+      
       // Erfolgreiche Antwort senden
       res.json({
         url: filePath,
