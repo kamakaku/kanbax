@@ -706,15 +706,26 @@ export function TaskDialog({
                                 console.log("Neue Anhangsliste in Task-Dialog:", newAttachments);
                                 
                                 // Task sofort mit neuen Anhängen aktualisieren, wenn möglich
-                                if (task && onUpdate) {
-                                  const updatedTask = {
-                                    ...task,
-                                    attachments: newAttachments
-                                  };
-                                  console.log("Sofortige Task-Aktualisierung mit neuen Anhängen", updatedTask);
-                                  onUpdate(updatedTask as Task)
-                                    .then(() => console.log("Task mit neuen Anhängen aktualisiert"))
-                                    .catch(err => console.error("Fehler beim Aktualisieren des Tasks mit Anhängen:", err));
+                                if (task && onUpdate && typeof onUpdate === 'function') {
+                                  try {
+                                    const updatedTask = {
+                                      ...task,
+                                      attachments: newAttachments
+                                    };
+                                    console.log("Sofortige Task-Aktualisierung mit neuen Anhängen", updatedTask);
+                                    
+                                    // Führe onUpdate aus und fange Promise korrekt ab oder behandle es als normalen Funktionsaufruf
+                                    const result = onUpdate(updatedTask as Task);
+                                    if (result && typeof result.then === 'function') {
+                                      result
+                                        .then(() => console.log("Task mit neuen Anhängen aktualisiert"))
+                                        .catch(err => console.error("Fehler beim Aktualisieren des Tasks mit Anhängen:", err));
+                                    } else {
+                                      console.log("Task-Aktualisierung aufgerufen (keine Promise-Rückgabe)");
+                                    }
+                                  } catch (error) {
+                                    console.error("Fehler bei der Task-Aktualisierung:", error);
+                                  }
                                 }
                                 
                                 return newAttachments;
@@ -783,14 +794,14 @@ export function TaskDialog({
                                 setUploadedAttachments(newAttachments);
                                 
                                 // Aktualisiere die Aufgabe sofort, falls eine existiert
-                                if (task?.id && onUpdate) {
+                                if (task?.id && onUpdate && typeof onUpdate === 'function') {
                                   const updatedTask = {
                                     ...task,
                                     attachments: newAttachments
                                   };
                                   
                                   try {
-                                    const updateResult = onUpdate(updatedTask);
+                                    const updateResult = onUpdate(updatedTask as Task);
                                     
                                     // Prüfe, ob das Ergebnis ein Promise ist
                                     if (updateResult && typeof updateResult.then === 'function') {
@@ -819,14 +830,14 @@ export function TaskDialog({
                                 setUploadedAttachments(newAttachments);
                                 
                                 // Aktualisiere die Aufgabe sofort, falls eine existiert
-                                if (task?.id && onUpdate) {
+                                if (task?.id && onUpdate && typeof onUpdate === 'function') {
                                   const updatedTask = {
                                     ...task,
                                     attachments: newAttachments
                                   };
                                   
                                   try {
-                                    const updateResult = onUpdate(updatedTask);
+                                    const updateResult = onUpdate(updatedTask as Task);
                                     
                                     // Prüfe, ob das Ergebnis ein Promise ist
                                     if (updateResult && typeof updateResult.then === 'function') {
@@ -902,12 +913,13 @@ export function TaskDialog({
                                     setUploadedAttachments(newAttachments);
                                     
                                     // Aktualisiere auch die Aufgabe, falls nötig
-                                    if (task?.id && onUpdate) {
+                                    if (task?.id && onUpdate && typeof onUpdate === 'function') {
                                       try {
-                                        const updateResult = onUpdate({
+                                        const updatedTask = {
                                           ...task,
                                           attachments: newAttachments
-                                        });
+                                        };
+                                        const updateResult = onUpdate(updatedTask as Task);
                                         
                                         // Prüfe, ob das Ergebnis ein Promise ist
                                         if (updateResult && typeof updateResult.then === 'function') {
