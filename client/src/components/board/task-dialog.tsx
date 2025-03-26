@@ -622,7 +622,7 @@ export function TaskDialog({
           <div className="text-sm font-medium text-muted-foreground">Dateien</div>
           {/* Prüfe ob Anhänge im Task oder im State vorhanden sind */}
           {((task?.attachments && task.attachments.length > 0) || uploadedAttachments.length > 0) ? (
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {/* Verwende entweder die Anhänge aus dem State oder aus dem Task-Objekt */}
               {(uploadedAttachments.length > 0 ? uploadedAttachments : task?.attachments || []).map((url, index) => {
                 const fileName = url.split('/').pop() || `Datei ${index + 1}`;
