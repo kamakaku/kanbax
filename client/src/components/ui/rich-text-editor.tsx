@@ -2,8 +2,9 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
+import LinkExtension from '@tiptap/extension-link';
 import { Button } from "./button";
-import { Upload, Image as ImageIcon, Link, Bold, Italic, List, ListOrdered, X } from "lucide-react";
+import { Upload, Image as ImageIcon, Link as LinkIcon, Bold, Italic, List, ListOrdered, X } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 import { Dialog, DialogContent } from "./dialog";
@@ -56,6 +57,14 @@ export function RichTextEditor({
         allowBase64: true,
         HTMLAttributes: {
           class: 'max-w-full rounded-md',
+        },
+      }),
+      LinkExtension.configure({
+        openOnClick: true,
+        HTMLAttributes: {
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          class: 'text-blue-500 underline',
         },
       }),
     ],
@@ -179,10 +188,10 @@ export function RichTextEditor({
         // Wenn Text ausgewählt ist
         if (editor.isActive('link')) {
           // Wenn bereits ein Link aktiv ist, entferne ihn
-          editor.chain().focus().unsetLink().run();
+          editor.commands.unsetLink();
         }
-        // Füge den Link hinzu (mit dem TipTap Editor API)
-        editor.chain().focus().setLink({ href: url }).run();
+        // Füge den Link hinzu (mit der API der Link-Extension)
+        editor.commands.setLink({ href: url, target: '_blank' });
       }
     }
   };
@@ -276,7 +285,7 @@ export function RichTextEditor({
             onClick={handleLinkClick}
             className={`h-8 w-8 ${editor?.isActive('link') ? 'bg-muted' : ''}`}
           >
-            <Link className="h-4 w-4" />
+            <LinkIcon className="h-4 w-4" />
           </Button>
           <div className="ml-auto">
             <Button 
