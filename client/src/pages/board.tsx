@@ -12,7 +12,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { 
   Pencil, Star, Users, Building2, Calendar as CalendarIcon, Archive, RotateCcw, 
-  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X
+  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus
 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
