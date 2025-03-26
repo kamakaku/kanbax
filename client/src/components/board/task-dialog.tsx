@@ -252,6 +252,7 @@ export function TaskDialog({
           queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
           queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}`] }),
           queryClient.invalidateQueries({ queryKey: ["/api/users"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/user/tasks/assigned"] }),
         ]);
 
         toast({ title: "Task erfolgreich aktualisiert" });
@@ -282,7 +283,7 @@ export function TaskDialog({
 
           const personalResponse = await apiRequest(
             "POST",
-            `/api/tasks`,
+            `/api/user/tasks`,
             taskData
           );
           
@@ -331,6 +332,7 @@ export function TaskDialog({
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["/api/boards"] }),
           queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/user/tasks/assigned"] }),
         ]);
 
         onOpenChange(false);
