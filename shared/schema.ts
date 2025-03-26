@@ -580,6 +580,7 @@ export type Task = typeof tasks.$inferSelect & {
   } | null;
   created_at?: Date | string; // Für Kompatibilität mit API-Antworten
   createdAt?: Date | string; // Drizzle-Feld
+  isPersonal?: boolean; // Flag für persönliche Aufgaben (boardId === null)
 };
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;

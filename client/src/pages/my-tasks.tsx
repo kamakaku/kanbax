@@ -191,9 +191,15 @@ export default function MyTasks() {
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
-                // Persönliche Aufgaben werden anhand ihres Status und boardId=null identifiziert
+                // Alle Aufgaben für diese Spalte finden - sowohl persönliche als auch Board-gebundene Aufgaben
                 const columnTasks = tasks
-                  .filter(task => task.status === column.id)
+                  .filter(task => {
+                    // Aufgaben müssen den richtigen Status haben
+                    if (task.status !== column.id) return false;
+                    // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch 
+                    // Board-gebundene Aufgaben anzeigen
+                    return true;
+                  })
                   .sort((a, b) => (a.order || 0) - (b.order || 0));
 
                 return (

@@ -86,8 +86,9 @@ export function TaskDialog({
   onUpdate,
   mode = task ? "details" : "edit",
   initialColumnId,
-  personalTask = false,
+  personalTask: isPersonalTask = false,
 }: TaskDialogProps) {
+  console.log("TaskDialog geöffnet", { isPersonalTask, mode, initialColumnId });
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [checklist, setChecklist] = useState<{ text: string; checked: boolean; }[]>([]);
