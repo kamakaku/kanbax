@@ -62,6 +62,7 @@ interface TaskDialogProps {
   onUpdate?: (task: Task) => Promise<void>;
   mode?: "edit" | "details";
   initialColumnId?: number;
+  personalTask?: boolean; // Neuer Prop für persönliche Aufgaben
 }
 
 const taskFormSchema = z.object({
@@ -85,6 +86,7 @@ export function TaskDialog({
   onUpdate,
   mode = task ? "details" : "edit",
   initialColumnId,
+  personalTask = false,
 }: TaskDialogProps) {
   const [newLabel, setNewLabel] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -224,8 +226,9 @@ export function TaskDialog({
   };
 
   const onSubmit = async (data: z.infer<typeof taskFormSchema>) => {
-    // Im persönlichen Board-Kontext brauchen wir nicht unbedingt ein aktives Board
-    const isPersonalContext = window.location.pathname.includes('/my-tasks');
+    // Ermittle ob Persönliche Aufgabe über Prop oder URL
+    const isPersonalTask = personalTask || window.location.pathname.includes('/my-tasks');
+    console.log("Task erstellen als persönliche Aufgabe:", isPersonalTask);
 
     try {
       const formattedChecklist = checklist.map(item => JSON.stringify(item));
@@ -238,6 +241,7 @@ export function TaskDialog({
       }
 
       if (task && onUpdate) {
+        // Bestehende Aufgabe aktualisieren
         const updatedTask: Task = {
           ...task,
           ...data,
@@ -258,9 +262,10 @@ export function TaskDialog({
         toast({ title: "Task erfolgreich aktualisiert" });
         setIsEditMode(false);
       } else {
-        // Prüfen ob wir im persönlichen Board oder einem regulären Board sind
-        if (isPersonalContext) {
+        // Neue Aufgabe erstellen
+        if (isPersonalTask) {
           // Persönliche Aufgabe erstellen (ohne Board)
+          console.log("Erstelle persönliche Aufgabe...");
           const taskData: Task = {
             id: 0,
             title: data.title,
@@ -268,8 +273,8 @@ export function TaskDialog({
             richDescription: null,
             status: data.status,
             order: data.order,
-            boardId: null, // Kann null sein für persönliche Aufgaben
-            columnId: null, // Kann null sein für persönliche Aufgaben
+            boardId: null, // Für persönliche Aufgaben ist boardId null
+            columnId: null, // Für persönliche Aufgaben ist columnId null
             priority: data.priority,
             labels: data.labels,
             dueDate: adjustedDueDate,
@@ -292,6 +297,7 @@ export function TaskDialog({
           }
         } else if (currentBoard?.id) {
           // Normale Aufgabe in einem Board erstellen
+          console.log("Erstelle Board-Aufgabe für Board:", currentBoard.id);
           const taskData: Task = {
             id: 0,
             title: data.title,
@@ -318,7 +324,7 @@ export function TaskDialog({
             taskData
           );
         } else {
-          // Fehlerfall - kein Board verfügbar
+          // Kein Board verfügbar und nicht im persönlichen Kontext - zeige Fehlermeldung
           toast({
             title: "Fehler",
             description: "Kein aktives Board ausgewählt",

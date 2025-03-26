@@ -211,13 +211,14 @@ export default function MyTasks() {
           mode="details"
         />
         
-        {/* Dialog für neue Aufgaben */}
+        {/* Dialog für neue Aufgaben - mit personalTask=true für persönliche Aufgabenerstellung */}
         <TaskDialog
           open={isNewTaskDialogOpen}
           onOpenChange={setIsNewTaskDialogOpen}
           onUpdate={handleTaskUpdate}
           mode="edit"
           initialColumnId={0}
+          personalTask={true}
         />
       </div>
     </div>
