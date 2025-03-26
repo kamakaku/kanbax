@@ -155,24 +155,22 @@ export function Board() {
       const labelSet = new Set<string>();
       data.forEach(task => {
         if (task.labels && Array.isArray(task.labels)) {
-          task.labels.forEach(label => labelSet.add(label));
+          task.labels.forEach(label => {
+            if (label && label.trim() !== '') {
+              labelSet.add(label);
+            }
+          });
         }
       });
       
       const extractedLabels = Array.from(labelSet);
       console.log("Extrahierte Labels:", extractedLabels);
       
-      // Wenn keine Labels in den Tasks gefunden wurden, 
-      // verwenden wir die Standard-Labels
-      if (extractedLabels.length === 0) {
-        // Bei leeren Boards die Standard-Labels verwenden
-        console.log("Verwende Standard-Labels:", defaultLabels);
-        setAllLabels(defaultLabels);
-      } else {
-        // Ansonsten die extrahierten Labels verwenden
-        console.log("Verwende extrahierte Labels:", extractedLabels.sort());
-        setAllLabels(extractedLabels.sort());
-      }
+      // Kombiniere extrahierte Labels mit Standard-Labels
+      // um sicherzustellen, dass wir immer eine Auswahl haben
+      const combinedLabels = [...new Set([...extractedLabels, ...defaultLabels])].sort();
+      console.log("Kombinierte Labels:", combinedLabels);
+      setAllLabels(combinedLabels);
     }
   });
 
@@ -793,10 +791,15 @@ export function Board() {
             title: "",
             description: "",
             richDescription: "",
-            status: "backlog", // Standard ist backlog
+            // Status basierend auf der ausgewählten Spalte, falls vorhanden
+            status: initialColumnId 
+              ? defaultColumns.find(col => parseInt(col.id.toString()) === initialColumnId)?.id || "backlog" 
+              : "backlog",
             priority: "medium",
             labels: [],
             checklist: [],
+            // Spalten-ID, Fallback auf 1 statt 0 (ungültig)
+            columnId: initialColumnId || 1,
             boardId: boardId,
             assignedUserIds: [],
             assignedTeamId: null,
