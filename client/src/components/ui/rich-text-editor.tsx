@@ -3,9 +3,10 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
 import { Button } from "./button";
-import { Upload, Image as ImageIcon, Link, Bold, Italic, List, ListOrdered } from "lucide-react";
-import { useState, useRef } from 'react';
+import { Upload, Image as ImageIcon, Link, Bold, Italic, List, ListOrdered, X } from "lucide-react";
+import { useState, useRef, useEffect } from 'react';
 import { apiRequest } from '@/lib/queryClient';
+import { Dialog, DialogContent } from "./dialog";
 
 interface RichTextEditorProps {
   content?: string;
@@ -353,12 +354,12 @@ function cleanHtml(htmlContent: string): string {
   // Bilder mit relativen Pfaden korrigieren und klickbar machen
   cleanedHtml = cleanedHtml.replace(
     /<img\s+([^>]*)src="(uploads\/[^"]+)"([^>]*)>/g, 
-    '<img $1src="/$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;" onclick="window.open(\'/$2\', \'_blank\')">'
+    '<img $1src="/$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;">'
   );
   
   cleanedHtml = cleanedHtml.replace(
     /<img\s+([^>]*)src="(\/uploads\/[^"]+)"([^>]*)>/g, 
-    '<img $1src="$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;" onclick="window.open(\'$2\', \'_blank\')">'
+    '<img $1src="$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;">'
   );
   
   // Alle verbleibenden Bilder generell in ihrer Größe beschränken
@@ -380,14 +381,107 @@ function cleanHtml(htmlContent: string): string {
   return cleanedHtml;
 }
 
-export function RichTextContent({ content }: { content: string }) {
-  // Verarbeite den Inhalt mit der Hilfsfunktion
-  const processedContent = cleanHtml(content);
+// Bild-Viewer Modal Komponente
+function ImageViewerModal({ 
+  isOpen, 
+  onClose, 
+  imageSrc 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  imageSrc: string;
+}) {
+  // Füge einen Event-Handler hinzu, um das Bild bei Escape-Taste zu schließen
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    
+    if (isOpen) {
+      window.addEventListener('keydown', handleEscKey);
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, onClose]);
 
   return (
-    <div 
-      className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0 [&_code]:m-0 [&_code]:p-0 [&_code]:bg-transparent [&_a]:text-blue-500 [&_a]:underline [&_img]:max-w-[250px] [&_img]:cursor-pointer [&_img]:rounded-md hover:[&_img]:opacity-90" 
-      dangerouslySetInnerHTML={{ __html: processedContent }} 
-    />
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl p-0 bg-transparent border-none shadow-none">
+        <div className="relative bg-black/80 rounded-lg p-2 max-h-[90vh] flex items-center justify-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="absolute top-2 right-2 bg-black/40 text-white hover:bg-black/60 z-10"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <img 
+            src={imageSrc} 
+            alt="Vergrößerte Ansicht" 
+            className="max-h-[85vh] max-w-full object-contain rounded-md"
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function RichTextContent({ content }: { content: string }) {
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  
+  // Verarbeite den Inhalt, aber benutze eine spezielle Version für die Image-Klick-Handler
+  const processedContent = useMemo(() => {
+    if (!content) return '';
+    
+    // Beginne mit der normalen HTML-Bereinigung
+    let cleanedHtml = cleanHtml(content);
+    
+    // Ersetze alle onclick-Handler durch einen speziellen data-attribute, den wir später abfangen können
+    cleanedHtml = cleanedHtml.replace(
+      /onclick="window\.open\('([^']+)', '_blank'\)"/g,
+      'data-lightbox-src="$1"'
+    );
+    
+    return cleanedHtml;
+  }, [content]);
+
+  // Event-Handler für Klicks auf Bilder im gereinigten HTML
+  const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    
+    // Prüfe, ob auf ein Bild geklickt wurde
+    if (target.tagName === 'IMG') {
+      // Wenn das Bild einen Lightbox-src-Attribute hat, öffne es im Modal
+      const lightboxSrc = target.getAttribute('data-lightbox-src');
+      if (lightboxSrc) {
+        e.preventDefault();
+        setSelectedImage(lightboxSrc);
+      } else if (target.getAttribute('src')) {
+        // Falls kein Lightbox-Attribut gefunden wurde, verwende die normale src
+        e.preventDefault();
+        setSelectedImage(target.getAttribute('src'));
+      }
+    }
+  };
+
+  return (
+    <>
+      <div 
+        className="prose prose-sm max-w-none [&_pre]:m-0 [&_pre]:p-0 [&_code]:m-0 [&_code]:p-0 [&_code]:bg-transparent [&_a]:text-blue-500 [&_a]:underline [&_img]:max-w-[250px] [&_img]:cursor-pointer [&_img]:rounded-md hover:[&_img]:opacity-90" 
+        dangerouslySetInnerHTML={{ __html: processedContent }} 
+        onClick={handleContentClick}
+      />
+      
+      {selectedImage && (
+        <ImageViewerModal 
+          isOpen={!!selectedImage} 
+          onClose={() => setSelectedImage(null)} 
+          imageSrc={selectedImage}
+        />
+      )}
+    </>
   );
 }
