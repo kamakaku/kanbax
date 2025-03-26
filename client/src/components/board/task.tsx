@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MessageSquare } from "lucide-react";
+import { CalendarIcon, MessageSquare, LayoutDashboard, FolderKanban } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
@@ -152,15 +152,28 @@ export function Task({ task, index, onClick }: TaskProps) {
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
             
-            {task.board && (
-              <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                <span className="bg-slate-100 px-1.5 py-0.5 rounded">
-                  {task.board.title}
-                </span>
+            {/* Board und Projekt Informationen mit Icons */}
+            {(task.board || task.project) && (
+              <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
+                {task.board && (
+                  <div className="flex items-center gap-1 text-slate-600">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/>
+                      <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/>
+                      <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/>
+                      <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                    <span>{task.board.title}</span>
+                  </div>
+                )}
                 {task.project && (
-                  <span className="text-slate-400">
-                    • {task.project.title}
-                  </span>
+                  <div className="flex items-center gap-1 text-slate-600">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 18V9C4 8.44772 4.44772 8 5 8H19C19.5523 8 20 8.44772 20 9V18C20 18.5523 19.5523 19 19 19H5C4.44772 19 4 18.5523 4 18Z" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M8 8V5C8 4.44772 8.44772 4 9 4H15C15.5523 4 16 4.44772 16 5V8" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                    <span>{task.project.title}</span>
+                  </div>
                 )}
               </div>
             )}
