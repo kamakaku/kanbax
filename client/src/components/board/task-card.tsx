@@ -76,7 +76,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
     const creatorId = currentBoard?.creator_id;
     
     return (
-      <div className="flex -space-x-2">
+      <div className="flex -space-x-3">
         {assignedUsers.map((user) => {
           const isCreator = user.id === creatorId;
           return (

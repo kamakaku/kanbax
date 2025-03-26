@@ -475,7 +475,7 @@ export function Board() {
 
           {/* Vierte Zeile: Filter und Suche - alles in einer Zeile */}
           <div className="flex flex-col mt-1">
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
+            <div className="flex items-center justify-between py-3 px-0 bg-slate-50 rounded-md">
               {/* LINKE SEITE: Suchfeld und Filter */}
               <div className="flex flex-1 items-center gap-2">
                 {/* Suchfeld - ausklappbar */}
