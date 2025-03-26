@@ -634,8 +634,28 @@ export function Board() {
             </div>
             
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center space-x-4">
+                {/* Reset-Filter Button wird jetzt mit links gezeigt */}
+                {(selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate || searchQuery) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedLabels([]);
+                      setSelectedPriorities([]);
+                      setSelectedDate(undefined);
+                      setSearchQuery("");
+                    }}
+                    className="text-xs text-slate-600"
+                  >
+                    Filter zurücksetzen
+                  </Button>
+                )}
+              </div>
+              
+              {/* Archiv-Toggle wird jetzt rechts angeordnet ohne Text */}
+              <div className="flex items-center">
+                <div className="flex items-center">
                   <Switch
                     id="show-archived"
                     checked={showArchivedTasks}
@@ -643,7 +663,7 @@ export function Board() {
                   />
                   <label
                     htmlFor="show-archived"
-                    className="flex items-center gap-1.5 text-sm font-medium cursor-pointer"
+                    className="flex items-center ml-2 cursor-pointer"
                   >
                     <div className="relative">
                       <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
@@ -653,28 +673,9 @@ export function Board() {
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-slate-600">
-                      {showArchivedTasks ? "Archivierte anzeigen" : "Archivierte ausblenden"}
-                    </span>
                   </label>
                 </div>
               </div>
-              
-              {(selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate || searchQuery) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedLabels([]);
-                    setSelectedPriorities([]);
-                    setSelectedDate(undefined);
-                    setSearchQuery("");
-                  }}
-                  className="text-xs text-slate-600"
-                >
-                  Filter zurücksetzen
-                </Button>
-              )}
             </div>
           </div>
         </div>

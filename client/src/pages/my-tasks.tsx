@@ -192,35 +192,33 @@ export default function MyTasks() {
               </p>
             </div>
             
-            {/* Archivierte Aufgaben Toggle */}
-            <div className="flex items-center space-x-2 mt-1 bg-slate-50 p-2 rounded-md border border-slate-200">
-              <div className="flex flex-col">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="show-archived"
-                    checked={showArchivedTasks}
-                    onCheckedChange={setShowArchivedTasks}
-                  />
-                  <div className="flex items-center gap-1.5">
-                    <div className="relative">
-                      <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
-                      {!showArchivedTasks && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-5 h-px bg-slate-400 rotate-45"></div>
-                        </div>
-                      )}
-                    </div>
-                    <label htmlFor="show-archived" className="text-sm text-slate-600">
-                      {showArchivedTasks ? "Archivierte anzeigen" : "Archivierte ausblenden"}
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Filter-Zeile wird später hinzugefügt, wenn detailliertes Filtern benötigt wird */}
           </div>
           
-          {/* Neue Aufgabe Button */}
-          <div>
+          <div className="flex items-center gap-4">
+            {/* Archiv-Toggle ganz rechts */}
+            <div className="flex items-center">
+              <Switch
+                id="show-archived"
+                checked={showArchivedTasks}
+                onCheckedChange={setShowArchivedTasks}
+              />
+              <label
+                htmlFor="show-archived"
+                className="flex items-center ml-2 cursor-pointer"
+              >
+                <div className="relative">
+                  <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
+                  {!showArchivedTasks && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-5 h-px bg-slate-400 rotate-45"></div>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+            
+            {/* Neue Aufgabe Button */}
             <Button 
               onClick={() => setIsNewTaskDialogOpen(true)}
               className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
