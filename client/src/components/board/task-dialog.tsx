@@ -198,6 +198,8 @@ export function TaskDialog({
     const updatedTask: Task = {
       ...task,
       checklist: formattedChecklist,
+      richDescription: task.richDescription,
+      attachments: task.attachments
     };
 
     try {
@@ -260,8 +262,10 @@ export function TaskDialog({
           ...task,
           ...data,
           dueDate: adjustedDueDate,
+          richDescription: richDescription || task.richDescription,
           checklist: formattedChecklist,
           boardId: task.boardId, // Behalte das ursprüngliche Board bei
+          attachments: finalAttachments || task.attachments
         };
         await onUpdate(updatedTask);
 
@@ -284,7 +288,7 @@ export function TaskDialog({
             id: 0,
             title: data.title,
             description: data.description || "",
-            richDescription: null,
+            richDescription: richDescription || null,
             status: data.status,
             order: data.order,
             boardId: null as unknown as number, // Für persönliche Aufgaben ist boardId null
@@ -297,7 +301,7 @@ export function TaskDialog({
             assignedTeamId: null,
             assignedAt: null,
             checklist: formattedChecklist,
-            attachments: null
+            attachments: finalAttachments
           };
 
           const personalResponse = await apiRequest(
@@ -316,7 +320,7 @@ export function TaskDialog({
             id: 0,
             title: data.title,
             description: data.description || "",
-            richDescription: null,
+            richDescription: richDescription || null,
             status: data.status,
             order: data.order,
             boardId: currentBoard.id,
@@ -329,7 +333,7 @@ export function TaskDialog({
             assignedTeamId: null,
             assignedAt: null,
             checklist: formattedChecklist,
-            attachments: null
+            attachments: finalAttachments
           };
 
           const response = await apiRequest(
