@@ -383,15 +383,15 @@ export function TaskDialog({
     }
   };
 
+  // Stelle sicher, dass uploadedAttachments die Anhänge aus dem Task enthält
+  useEffect(() => {
+    if (task?.attachments && Array.isArray(task.attachments) && task.attachments.length > 0) {
+      console.log("Aktualisiere Anhänge in der Detailansicht:", task.attachments);
+      setUploadedAttachments(task.attachments);
+    }
+  }, [task?.attachments]);
+  
   const renderDetailView = () => {
-    // Stelle sicher, dass uploadedAttachments die Anhänge aus dem Task enthält
-    useEffect(() => {
-      if (task?.attachments && Array.isArray(task.attachments) && task.attachments.length > 0) {
-        console.log("Aktualisiere Anhänge in der Detailansicht:", task.attachments);
-        setUploadedAttachments(task.attachments);
-      }
-    }, [task?.attachments]);
-    
     const priorityConfig = {
       high: {
         color: "text-red-600",
