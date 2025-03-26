@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, User as UserIcon } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -87,6 +87,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
   };
 
   const hasChecklist = task.checklist && task.checklist.length > 0;
+  
+  // Prüfen, ob dies eine persönliche Aufgabe ist (boardId === null)
+  const isPersonalTask = task.boardId === null;
 
   return (
     <Draggable draggableId={`task-${task.id}`} index={index}>
@@ -98,10 +101,17 @@ export function TaskCard({ task, index }: TaskCardProps) {
           onClick={() => setIsDialogOpen(true)}
           className="cursor-pointer"
         >
-          <Card className="mb-2 hover:shadow-md transition-shadow">
+          <Card className={`mb-2 hover:shadow-md transition-shadow ${isPersonalTask ? 'border-amber-300 bg-amber-50/60' : ''}`}>
             <CardHeader className="p-3">
               <div className="flex items-start justify-between">
-                <h3 className="text-sm font-medium">{task.title}</h3>
+                <h3 className="text-sm font-medium">
+                  {isPersonalTask && (
+                    <div className="inline-flex items-center mr-1 text-amber-700">
+                      <UserIcon className="h-3 w-3 mr-1" />
+                    </div>
+                  )}
+                  {task.title}
+                </h3>
               </div>
             </CardHeader>
             <CardContent className="p-3 pt-0">
