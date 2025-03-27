@@ -190,14 +190,16 @@ export function Board() {
   
   // Labels aus Tasks extrahieren und setzen, wenn Tasks geladen wurden
   useEffect(() => {
-    if (tasks && tasks.length > 0) {
-      const labels = extractLabelsFromTasks(tasks);
-      setAllLabels(labels);
-    } else {
-      // Fallback, wenn keine Tasks vorhanden sind
-      setAllLabels(["Wichtig", "Dringend", "Warten", "Idee", "Feature", "Bug", "Dokumentation"]);
+    if (!tasksLoading) {
+      if (tasks && tasks.length > 0) {
+        const labels = extractLabelsFromTasks(tasks);
+        setAllLabels(labels);
+      } else {
+        // Fallback, wenn keine Tasks vorhanden sind
+        setAllLabels(["Wichtig", "Dringend", "Warten", "Idee", "Feature", "Bug", "Dokumentation"]);
+      }
     }
-  }, [tasks]);
+  }, [tasks, tasksLoading]);
 
   const updateBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
