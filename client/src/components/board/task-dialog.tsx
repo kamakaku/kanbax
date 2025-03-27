@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -1256,7 +1256,6 @@ export function TaskDialog({
                                     progress += Math.random() * 10;
                                     if (progress > maxProgress) {
                                       progress = maxProgress; // Cap bei maxProgress, 100% erst bei Fertigstellung
-                                      clearInterval(interval);
                                     }
                                     setUploadProgress(Math.min(Math.round(progress), maxProgress));
                                   }, 300);
