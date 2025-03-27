@@ -168,6 +168,11 @@ export function Board() {
       const sortedLabels = Array.from(labelSet).sort((a, b) => 
         a.localeCompare(b, 'de', { sensitivity: 'base' })
       );
+      
+      // Wenn keine Labels vorhanden sind, einige Testlabels hinzufügen
+      if (sortedLabels.length === 0) {
+        sortedLabels.push("Wichtig", "Dringend", "Warten", "Idee");
+      }
 
       setAllLabels(sortedLabels);
     }
