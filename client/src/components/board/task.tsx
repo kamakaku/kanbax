@@ -234,6 +234,17 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             </div>
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
+            
+            {/* Beschreibung */}
+            {(task.description || task.richDescription) && (
+              <div className="mt-1 text-xs text-slate-500 line-clamp-2">
+                {task.richDescription ? (
+                  <div dangerouslySetInnerHTML={{ __html: task.richDescription }} />
+                ) : (
+                  task.description
+                )}
+              </div>
+            )}
 
             {/* Projekt und Board Informationen mit Icons oder "Persönliche Aufgabe" für persönliche Aufgaben */}
             <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
