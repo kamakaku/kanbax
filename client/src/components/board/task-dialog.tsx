@@ -1006,16 +1006,20 @@ export function TaskDialog({
                               formData.append('entityId', task.id.toString());
                             }
                               
-                            // Simuliere Fortschrittsanzeige
+                            // Simuliere Fortschrittsanzeige mit zufälligem Maximalwert
                             const simulateProgress = () => {
                               let progress = 0;
+                              // Zufälliger Maximalwert zwischen 90% und 98%
+                              const maxProgress = 90 + Math.floor(Math.random() * 9);
+                              console.log(`Maximaler Fortschritt für diesen Upload: ${maxProgress}%`);
+                              
                               const interval = setInterval(() => {
                                 progress += Math.random() * 10;
-                                if (progress > 95) {
-                                  progress = 95; // Cap bei 95%, 100% erst bei Fertigstellung
+                                if (progress > maxProgress) {
+                                  progress = maxProgress; // Cap bei maxProgress, 100% erst bei Fertigstellung
                                   clearInterval(interval);
                                 }
-                                setUploadProgress(Math.min(Math.round(progress), 95));
+                                setUploadProgress(Math.min(Math.round(progress), maxProgress));
                               }, 300);
                               return interval;
                             };

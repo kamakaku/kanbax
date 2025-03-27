@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, User as UserIcon } from "lucide-react";
+import { CalendarIcon, User as UserIcon, Paperclip } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -34,8 +34,8 @@ export function TaskCard({ task, index }: TaskCardProps) {
   });
 
   const updateTask = useMutation({
-    mutationFn: async (updatedTask: Task) => {
-      const response = await apiRequest("PATCH", `/api/tasks/${task.id}`, updatedTask);
+    mutationFn: async (updatedTask: Task): Promise<any> => {
+      const response = await apiRequest<any>("PATCH", `/api/tasks/${task.id}`, updatedTask);
       if (!response.ok) {
         throw new Error("Fehler beim Aktualisieren des Tasks");
       }
@@ -166,6 +166,15 @@ export function TaskCard({ task, index }: TaskCardProps) {
                       {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
                     </div>
                   )}
+                  
+                  {/* Anzeige der Dateianhänge */}
+                  {task.attachments && task.attachments.length > 0 && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Paperclip className="h-4 w-4" />
+                      <span>{task.attachments.length}</span>
+                    </div>
+                  )}
+                  
                   {renderAssignedUsers()}
                 </div>
               </div>
@@ -176,7 +185,10 @@ export function TaskCard({ task, index }: TaskCardProps) {
             open={isDialogOpen}
             onOpenChange={setIsDialogOpen}
             task={task}
-            onUpdate={(updatedTask) => updateTask.mutate(updatedTask)}
+            onUpdate={async (updatedTask) => {
+              updateTask.mutate(updatedTask);
+              return Promise.resolve(); // Liefere eine Promise zurück
+            }}
             mode="details"
           />
         </div>
