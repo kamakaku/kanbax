@@ -165,12 +165,15 @@ export function Board() {
     // Immer Testlabels hinzufügen (sowohl wenn keine Labels vorhanden sind als auch wenn bereits welche existieren)
     const finalLabels = [...sortedLabels];
     
-    // Standard-Labels hinzufügen, wenn sie noch nicht vorhanden sind
+    // Die folgenden Labels sind nur auskommentiert zur Referenz, falls sie später hinzugefügt werden sollen
+    // Wir zeigen nur die tatsächlich verwendeten Labels an
+    /*
     ["Wichtig", "Dringend", "Warten", "Idee", "Feature", "Bug", "Dokumentation", "Umsetzung", "Zuarbeit"].forEach(label => {
       if (!finalLabels.includes(label)) {
         finalLabels.push(label);
       }
     });
+    */
     
     console.log("Finale Labels:", finalLabels);
     
@@ -195,8 +198,8 @@ export function Board() {
         const labels = extractLabelsFromTasks(tasks);
         setAllLabels(labels);
       } else {
-        // Fallback, wenn keine Tasks vorhanden sind
-        setAllLabels(["Wichtig", "Dringend", "Warten", "Idee", "Feature", "Bug", "Dokumentation"]);
+        // Fallback, wenn keine Tasks vorhanden sind - keine Labels anzeigen
+        setAllLabels([]);
       }
     }
   }, [tasks, tasksLoading]);
