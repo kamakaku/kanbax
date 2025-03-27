@@ -77,7 +77,7 @@ export function Board() {
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [initialColumnId, setInitialColumnId] = useState<number | null>(null);
-  
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
@@ -151,10 +151,10 @@ export function Board() {
     onSuccess: (data) => {
       // Debug: Ausgabe der Task-Labels
       console.log("Tasks mit Labels:", data.map(task => ({ id: task.id, labels: task.labels })));
-      
+
       // Alle vorhandenen Labels aus Tasks extrahieren
       const labelSet = new Set<string>();
-      
+
       // Alle Labels aus Tasks hinzufügen
       data.forEach(task => {
         if (task.labels && Array.isArray(task.labels)) {
@@ -165,17 +165,17 @@ export function Board() {
           });
         }
       });
-      
+
       // Dann Standard-Labels hinzufügen, wenn Set leer ist oder für zusätzliche Optionen
       if (labelSet.size === 0 || true) {
         defaultLabels.forEach(label => labelSet.add(label));
       }
-      
+
       // Als Array konvertieren und sortieren
       const sortedLabels = Array.from(labelSet).sort((a, b) => 
         a.localeCompare(b, 'de', { sensitivity: 'base' })
       );
-      
+
       console.log("Extrahierte und sortierte Labels:", sortedLabels);
       setAllLabels(sortedLabels);
     }
@@ -212,7 +212,7 @@ export function Board() {
       toast({ title: "Favoriten-Status aktualisiert" });
     },
   });
-  
+
   // Archivierungsmutation
   const archiveBoard = useMutation({
     mutationFn: async () => {
@@ -222,12 +222,12 @@ export function Board() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
-      
+
       toast({
         title: "Board archiviert",
         description: "Das Board wurde erfolgreich archiviert.",
       });
-      
+
       // Zurück zur Projektseite oder Boards-Übersicht
       setLocation(board?.project_id ? `/projects/${board.project_id}` : '/all-boards');
     },
@@ -239,7 +239,7 @@ export function Board() {
       });
     }
   });
-  
+
   // Wiederherstellungsmutation
   const unarchiveBoard = useMutation({
     mutationFn: async () => {
@@ -249,12 +249,12 @@ export function Board() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId] });
-      
+
       toast({
         title: "Board wiederhergestellt",
         description: "Das Board wurde erfolgreich wiederhergestellt.",
       });
-      
+
       setConfirmArchive(false);
     },
     onError: (error) => {
@@ -396,7 +396,7 @@ export function Board() {
                   Archiviert
                 </Badge>
               )}
-              
+
               {/* Aktionsmenü mit Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -413,7 +413,7 @@ export function Board() {
                     <Pencil className="h-4 w-4 mr-2" />
                     <span>Bearbeiten</span>
                   </DropdownMenuItem>
-                  
+
                   <DropdownMenuItem 
                     onClick={() => {
                       setInitialColumnId(null); // Kein spezieller Status, Standard ist backlog
@@ -423,9 +423,9 @@ export function Board() {
                     <PlusCircle className="h-4 w-4 mr-2" />
                     <span>Neuer Task</span>
                   </DropdownMenuItem>
-                  
+
                   <DropdownMenuSeparator />
-                  
+
                   {board.archived ? (
                     <DropdownMenuItem onClick={() => unarchiveBoard.mutate()} className="text-blue-600">
                       <RotateCcw className="h-4 w-4 mr-2" />
@@ -467,7 +467,7 @@ export function Board() {
                 </div>
               </div>
             )}
-            
+
             {/* Teams Section */}
             {boardTeams.length > 0 && (
               <div className="flex items-center gap-2">
@@ -552,7 +552,7 @@ export function Board() {
                     </Badge>
                   )}
                 </div>
-                
+
                 {/* Label Filter - Verbesserte Version */}
                 <Popover>
                   <PopoverTrigger asChild>
@@ -571,42 +571,33 @@ export function Board() {
                         className="h-8 text-sm"
                       />
                     </div>
-                    
+
                     <div className="text-xs font-medium mb-2 text-slate-500">Verfügbare Labels:</div>
-                    
+
                     {/* Scrollbare Liste der Labels */}
                     <div className="space-y-1 max-h-60 overflow-auto border rounded-md p-2 mb-3">
-                      {allLabels.length > 0 ? (
-                        // Gefilterte und sortierte Labels anzeigen
-                        allLabels
-                          .filter(label => label.toLowerCase().includes(newLabelInput.toLowerCase()))
-                          .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
-                          .map(label => (
-                            <div key={label} className="flex items-center space-x-2 py-1 px-1 hover:bg-slate-50 rounded-sm">
-                              <Checkbox 
-                                id={`label-${label}`}
-                                checked={selectedLabels.includes(label)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedLabels(prev => [...prev, label]);
-                                  } else {
-                                    setSelectedLabels(prev => prev.filter(l => l !== label));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={`label-${label}`} className="flex-1 flex items-center text-sm cursor-pointer">
-                                <Badge className="px-2 py-0.5 text-xs bg-white" variant="outline">{label}</Badge>
-                              </label>
-                            </div>
-                          ))
-                      ) : (
-                        <div className="py-2 text-center text-sm text-muted-foreground">
-                          Keine Labels vorhanden
-                        </div>
-                      )}
+                      {allLabels.filter(label => label.toLowerCase().includes(newLabelInput.toLowerCase()))
+                        .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
+                        .map(label => (
+                          <div key={label} className="flex items-center space-x-2 py-1 px-1 hover:bg-slate-50 rounded-sm">
+                            <Checkbox 
+                              id={`label-${label}`}
+                              checked={selectedLabels.includes(label)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedLabels(prev => [...prev, label]);
+                                } else {
+                                  setSelectedLabels(prev => prev.filter(l => l !== label));
+                                }
+                              }}
+                            />
+                            <label htmlFor={`label-${label}`} className="flex-1 flex items-center text-sm cursor-pointer">
+                              <Badge className="px-2 py-0.5 text-xs bg-white" variant="outline">{label}</Badge>
+                            </label>
+                          </div>
+                        ))}
                     </div>
-                    
-                    {/* Wenn keine Übereinstimmung gefunden, aber Text eingegeben wurde: Label hinzufügen */}
+
                     {newLabelInput.trim() && !allLabels.includes(newLabelInput.trim()) && (
                       <div className="flex items-center justify-between border-t pt-3 mt-2">
                         <span className="text-sm">Neues Label erstellen?</span>
@@ -616,18 +607,15 @@ export function Board() {
                           className="h-8"
                           onClick={() => {
                             if (newLabelInput.trim()) {
-                              // Neues Label zur Liste hinzufügen
                               setAllLabels(prev => 
                                 [...prev, newLabelInput.trim()]
                                 .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
                               );
-                              // Gleichzeitig das neue Label auswählen
                               setSelectedLabels(prev => 
                                 prev.includes(newLabelInput.trim()) 
                                   ? prev 
                                   : [...prev, newLabelInput.trim()]
                               );
-                              // Eingabefeld leeren
                               setNewLabelInput('');
                             }
                           }}
@@ -637,8 +625,7 @@ export function Board() {
                         </Button>
                       </div>
                     )}
-                    
-                    {/* Ausgewählte Labels anzeigen */}
+
                     {selectedLabels.length > 0 && (
                       <div className="border-t pt-3 mt-3">
                         <div className="text-xs font-medium mb-2 text-slate-500">Ausgewählte Labels:</div>
@@ -661,7 +648,7 @@ export function Board() {
                     )}
                   </PopoverContent>
                 </Popover>
-                
+
                 {/* Priorität Filter */}
                 <Popover>
                   <PopoverTrigger asChild>
@@ -693,7 +680,7 @@ export function Board() {
                     </div>
                   </PopoverContent>
                 </Popover>
-                
+
                 {/* Deadline Filter */}
                 <Popover>
                   <PopoverTrigger asChild>
@@ -725,7 +712,7 @@ export function Board() {
                     )}
                   </PopoverContent>
                 </Popover>
-                
+
                 {/* Reset-Filter Button */}
                 {(selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate || searchQuery) && (
                   <Button
@@ -743,7 +730,7 @@ export function Board() {
                   </Button>
                 )}
               </div>
-              
+
               {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
               <div className="flex items-center">
                 <Switch
@@ -777,7 +764,7 @@ export function Board() {
                   .filter(task => task.status === column.id)
                   // Filter out archived tasks unless showArchivedTasks is true
                   .filter(task => showArchivedTasks || !task.archived);
-                  
+
                 // Suche nach Texteingabe
                 if (searchQuery) {
                   const query = searchQuery.toLowerCase();
@@ -786,21 +773,21 @@ export function Board() {
                     (task.description && task.description.toLowerCase().includes(query))
                   );
                 }
-                
+
                 // Labels filtern
                 if (selectedLabels.length > 0) {
                   filteredTasks = filteredTasks.filter(task => 
                     task.labels && task.labels.some(label => selectedLabels.includes(label))
                   );
                 }
-                
+
                 // Priorität filtern
                 if (selectedPriorities.length > 0) {
                   filteredTasks = filteredTasks.filter(task => 
                     task.priority && selectedPriorities.includes(task.priority)
                   );
                 }
-                
+
                 // Deadline filtern
                 if (selectedDate) {
                   const targetDate = format(selectedDate, 'yyyy-MM-dd');
@@ -810,7 +797,7 @@ export function Board() {
                     return taskDate === targetDate;
                   });
                 }
-                
+
                 // Nach Order sortieren
                 filteredTasks = filteredTasks.sort((a, b) => a.order - b.order);
 
@@ -839,7 +826,7 @@ export function Board() {
             await updateBoard.mutateAsync(data);
           }}
         />
-        
+
         {/* Archivierungsbestätigung */}
         <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
           <AlertDialogContent>
