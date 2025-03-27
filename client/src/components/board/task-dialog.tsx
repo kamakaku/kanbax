@@ -140,9 +140,11 @@ const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
           <SelectValue placeholder="Label auswählen" />
         </SelectTrigger>
         <SelectContent>
-          {filteredLabels.filter(label => label && label.trim() !== '').map(label => (
-            <SelectItem key={label} value={label}>{label}</SelectItem>
-          ))}
+          {filteredLabels
+            .filter(label => label && label.trim() !== '')
+            .map(label => (
+              <SelectItem key={label} value={label}>{label}</SelectItem>
+            ))}
         </SelectContent>
       </Select>
     </div>
@@ -850,306 +852,39 @@ export function TaskDialog({
                                 <path d="M14 13H15V17H14V13Z" fill="currentColor"/>
                               </svg>
                             ) : (
-                              <FileIcon className="h-12 w-12 text-gray-400 mb-2" />
+                              <FileIcon className="h-5 w-5 text-gray-500 mr-2" />
                             )}
-                            <span className="text-sm text-gray-600">{isPdf ? "PDF öffnen" : "Datei öffnen"}</span>
-                          </div>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground italic">Keine Dateien angehängt</div>
-          )}
+                            <span className={`text-sm font-medium ${
+                              isPdf ? 'text-red-800' : 
+                              isImage ? 'text-blue-800' : 
+                              isDoc ? 'text-indigo-800' : 
+                              isExcel ? 'text-green-800' : 
+                              'text-gray-800'
+                            }`}>{fileName}</span>
 
-          {/* Attachment Lightbox Dialog */}
-          <Dialog open={!!selectedAttachment} onOpenChange={(open) => !open && setSelectedAttachment(null)}>
-            <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-lg">
-              <div className="relative bg-black/10 flex items-center justify-center">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setSelectedAttachment(null)}
-                  className="absolute top-2 right-2 z-10 bg-black/20 hover:bg-black/30 text-white"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="ml-auto h-6 w-6 rounded-full hover:bg-red-100 hover:text-red-600"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Verhindere Bubbling zum Parent
 
-                {selectedAttachment && (
-                  <>
-                    {/\.(jpeg|jpg|gif|png|webp)$/i.test(selectedAttachment) ? (
-                      // Bild Vorschau
-                      <div className="w-full h-full flex items-center justify-center p-4">
-                        <img 
-                          src={selectedAttachment} 
-                          alt="Vorschau" 
-                          className="max-h-[70vh] max-w-full object-contain"
-                        />
-                      </div>
-                    ) : /\.pdf$/i.test(selectedAttachment) ? (
-                      // PDF Vorschau
-                      <div className="w-full h-[70vh] bg-white">
-                        <iframe 
-                          src={selectedAttachment} 
-                          title="PDF Vorschau" 
-                          className="w-full h-full"
-                        />
-                      </div>
-                    ) : (
-                      // Andere Dateitypen
-                      <div className="p-8 flex flex-col items-center justify-center">
-                        <FileIcon className="h-16 w-16 text-blue-600 mb-4" />
-                        <p className="text-lg font-medium mb-4">
-                          {selectedAttachment.split('/').pop()}
-                        </p>
-                        <a 
-                          href={selectedAttachment} 
-                          download
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                        >
-                          <Paperclip className="h-4 w-4" />
-                          Herunterladen
-                        </a>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+                                // Entferne den Anhang aus dem lokalen State
+                                const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
+                                setUploadedAttachments(newAttachments);
 
-        {/* Kommentare */}
-        {task && (
-          <div className="space-y-3">
-            <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
-            <div className="border rounded-md p-3 bg-slate-50">
-              <CommentList taskId={task.id} />
-              <div className="mt-4 border-t pt-3">
-                <CommentEditor
-                  taskId={task.id}
-                  onCommentAdded={() => {
-                    queryClient.invalidateQueries({
-                      queryKey: [`/api/tasks/${task.id}/comments`]
-                    });
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0">
-        <div className="px-6 pt-6 pb-2">
-          <DialogTitle>
-            {isEditMode ? (task ? "Aufgabe bearbeiten" : "Neue Aufgabe") : ""}
-          </DialogTitle>
-        </div>
-
-        {isEditMode ? (
-          <div className="flex flex-col h-full">
-            <div className="px-6 overflow-y-auto pb-24" style={{ maxHeight: "calc(85vh - 120px)" }}>
-              <Form {...form}>
-                <form id="task-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Titel</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Titel der Aufgabe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Beschreibung</FormLabel>
-                        <FormControl>
-                          <RichTextEditor
-                            content={richDescription}
-                            onChange={setRichDescription}
-                            placeholder="Beschreiben Sie die Aufgabe detailliert"
-                            uploadType="task"
-                            entityId={task?.id}
-                            onAttachmentUpload={(urls) => {
-                              console.log("Rich-Text-Editor hat Anhänge hochgeladen:", urls);
-                              setUploadedAttachments(prev => {
-                                const newAttachments = [...prev, ...urls];
-                                console.log("Neue Anhangsliste in Task-Dialog:", newAttachments);
-
-                                // Task sofort mit neuen Anhängen aktualisieren, wenn möglich
-                                if (task && onUpdate && typeof onUpdate === 'function') {
+                                // Aktualisiere auch die Aufgabe, falls nötig
+                                if (task?.id && onUpdate && typeof onUpdate === 'function') {
                                   try {
                                     const updatedTask = {
                                       ...task,
                                       attachments: newAttachments
                                     };
-                                    console.log("Sofortige Task-Aktualisierung mit neuen Anhängen", updatedTask);
 
-                                    // Führe onUpdate aus und fange Promise korrekt ab oder behandle es als normalen Funktionsaufruf
-                                    const result = onUpdate(updatedTask as Task);
-                                    if (result && typeof result.then === 'function') {
-                                      result
-                                        .then(() => console.log("Task mit neuen Anhängen aktualisiert"))
-                                        .catch(err => console.error("Fehler beim Aktualisieren des Tasks mit Anhängen:", err));
-                                    } else {
-                                      console.log("Task-Aktualisierung aufgerufen (keine Promise-Rückgabe)");
-                                    }
-                                  } catch (error) {
-                                    console.error("Fehler bei der Task-Aktualisierung:", error);
-                                  }
-                                }
-
-                                return newAttachments;
-                              });
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Datei-Upload Bereich */}
-                  <div className="space-y-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Dateien anhängen</label>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center gap-1"
-                          disabled={uploading}
-                        >
-                          {uploading ? (
-                            <>
-                              <span className="animate-pulse">Lädt...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Paperclip className="h-4 w-4" />
-                              <span>Hochladen</span>
-                            </>
-                          )}
-                        </Button>
-                      </div>
-
-                      {uploading && (
-                        <div className="w-full">
-                          <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
-                            <div 
-                              className="h-full bg-primary transition-all duration-300 ease-in-out" 
-                              style={{ width: `${uploadProgress}%` }}
-                            ></div>
-                          </div>
-                          <div className="text-xs text-center mt-1 text-muted-foreground">
-                            {uploadProgress === 100 ? 'Verarbeite...' : `${uploadProgress}% hochgeladen`}
-                          </div>
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        multiple
-                        onChange={(e) => {
-                          if (e.target.files?.length) {
-                            const fileArray = Array.from(e.target.files);
-                            setFiles(prev => [...prev, ...fileArray]);
-
-                            // Upload gestartet
-                            setUploading(true);
-                            setUploadProgress(0);
-
-                            // Upload-Logik hier...
-                            const formData = new FormData();
-
-                            // Wir verwenden den allgemeinen Upload-Endpunkt mit Typ 'task'
-                            for (const file of fileArray) {
-                              formData.append('file', file);
-                            }
-
-                            // Füge Metadaten hinzu
-                            formData.append('type', 'task');
-                            if (task?.id) {
-                              formData.append('entityId', task.id.toString());
-                            }
-
-                            // Simuliere Fortschrittsanzeige mit zufälligem Maximalwert
-                            const simulateProgress = () => {
-                              let progress = 0;
-                              // Zufälliger Maximalwert zwischen 90% und 98%
-                              const maxProgress = 90 + Math.floor(Math.random() * 9);
-                              console.log(`Maximaler Fortschritt für diesen Upload: ${maxProgress}%`);
-
-                              const interval = setInterval(() => {
-                                progress += Math.random() * 10;
-                                if (progress > maxProgress) {
-                                  progress = maxProgress; // Cap bei maxProgress, 100% erst bei Fertigstellung
-                                  clearInterval(interval);
-                                }
-                                setUploadProgress(Math.min(Math.round(progress), maxProgress));
-                              }, 300);
-                              return interval;
-                            };
-
-                            const progressInterval = simulateProgress();
-
-                            fetch('/api/upload', {
-                              method: 'POST',
-                              body: formData,
-                              credentials: 'include' // Wichtig für die Session-Authentifizierung
-                            })
-                            .then(res => {
-                              clearInterval(progressInterval);
-                              setUploadProgress(100); // Auf 100% setzen, wenn Antwort zurückkommt
-
-                              if (!res.ok) {
-                                throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
-                              }
-                              return res.json();
-                            })
-                            .then((data) => {
-                              if (data.url) {
-                                // Einzelne Datei-URL vom Server
-                                const newAttachments = [...uploadedAttachments, data.url];
-                                setUploadedAttachments(newAttachments);
-
-                                // Aktualisiere die Aufgabe sofort, falls eine existiert
-                                if (task?.id && onUpdate && typeof onUpdate === 'function') {
-                                  console.log("Upload erfolgreich, aktualisiere Task mit neuem Anhang:", data.url);
-                                  console.log("Aktuelle Anhänge:", uploadedAttachments);
-                                  console.log("Neue Anhänge:", newAttachments);
-
-                                  const updatedTask = {
-                                    ...task,
-                                    attachments: newAttachments
-                                  };
-
-                                  try {
                                     // Führe onUpdate aus und behandle es als Promise
                                     Promise.resolve(onUpdate(updatedTask as Task))
                                       .then(() => {
-                                        console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
+                                        console.log("Anhang erfolgreich entfernt");
 
                                         // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
                                         if (queryClient) {
@@ -1173,655 +908,881 @@ export function TaskDialog({
                                           });
                                         }
                                       })
-                                      .catch(updateError => {
-                                        console.error("Fehler beim Aktualisieren der Aufgabe mit Anhang:", updateError);
+                                      .catch((err) => {
+                                        console.error("Fehler beim Entfernen des Anhangs:", err);
                                       });
                                   } catch (err) {
                                     console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                   }
                                 }
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
 
-                                toast({
-                                  title: "Datei erfolgreich hochgeladen",
-                                  description: `${data.originalname || 'Datei'} wurde hochgeladen.`
-                                });
-                              } else if (data.urls && Array.isArray(data.urls)) {
-                                // Mehrere Datei-URLs
-                                const newAttachments = [...uploadedAttachments, ...data.urls];
-                                setUploadedAttachments(newAttachments);
-
-                                // Aktualisiere die Aufgabe sofort, falls eine existiert
-                                if (task?.id && onUpdate && typeof onUpdate === 'function') {
-                                  console.log("Mehrere Dateien hochgeladen, aktualisiere Task mit neuen Anhängen:", data.urls);
-                                  console.log("Aktuelle Anhänge:", uploadedAttachments);
-                                  console.log("Neue Anhänge:", newAttachments);
-
-                                  const updatedTask = {
-                                    ...task,
-                                    attachments: newAttachments
-                                  };
-
-                                  try {
-                                    // Führe onUpdate aus und behandle es als Promise
-                                    Promise.resolve(onUpdate(updatedTask as Task))
-                                      .then(() => {
-                                        console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
-
-                                        // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
-                                        if (queryClient) {
-                                          queryClient.invalidateQueries({ 
-                                            queryKey: ["/api/boards"] 
-                                          });
-                                          queryClient.invalidateQueries({ 
-                                            queryKey: ["/api/tasks"] 
-                                          });
-
-                                          // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
-                                          if (task.boardId) {
-                                            queryClient.invalidateQueries({ 
-                                              queryKey: ["/api/boards", task.boardId, "tasks"] 
-                                            });
-                                          }
-
-                                          // Invalidiere die spezifische Task
-                                          queryClient.invalidateQueries({ 
-                                            queryKey: [`/api/tasks/${task.id}`] 
-                                          });
-                                        }
-                                      })
-                                      .catch(updateError => {
-                                        console.error("Fehler beim Aktualisieren der Aufgabe mit Anhängen:", updateError);
-                                      });
-                                  } catch (err) {
-                                    console.error("Fehler beim Aktualisieren der Aufgabe:", err);
-                                  }
-                                }
-
-                                toast({
-                                  title: "Dateien erfolgreich hochgeladen",
-                                  description: `${data.urls.length} Datei(en) wurden erfolgreich hochgeladen.`
-                                });
-                              }
-
-                              // Upload abgeschlossen, Status zurücksetzen
-                              setUploading(false);
-                            })
-                            .catch(err => {
-                              console.error("Fehler beim Hochladen:", err);
-                              let errorMsg = "Die Dateien konnten nicht hochgeladen werden.";
-
-                              if (err.message && err.message.includes('HTTP error 401')) {
-                                errorMsg = "Bitte melden Sie sich an, um Dateien hochzuladen.";
-                              } else if (err.message && err.message.includes('HTTP error 413')) {
-                                errorMsg = "Die Datei ist zu groß. Maximale Größe überschritten.";
-                              }
-
-                              // Auch bei Fehler Upload-Status zurücksetzen
-                              setUploading(false);
-
-                              toast({
-                                title: "Fehler beim Hochladen",
-                                description: errorMsg,
-                                variant: "destructive"
-                              });
-                            });
-                          }
-                        }}
-                      />
-                    </div>
-
-                    {/* Anzeige der hochgeladenen Dateien im Stil der Kommentare */}
-                    {uploadedAttachments.length > 0 && (
-                      <div className="space-y-2 mt-2">
-                        <div className="text-sm font-medium">Angehängte Dateien ({uploadedAttachments.length})</div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {uploadedAttachments.map((url, index) => {
-                            console.log("Rendering attachment:", url);
-                            const fileName = url.split('/').pop() || 'Datei';
-                            const fileUrl = url.startsWith('/') ? window.location.origin + url : url;
-                            const isPdf = /\.pdf$/i.test(url);
-                            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-                            const isDoc = /\.(doc|docx)$/i.test(url);
-                            const isExcel = /\.(xls|xlsx|csv)$/i.test(url);
-
-                            return (
-                              <div key={index} className="relative border rounded-md overflow-hidden">
-                                <div className={`flex items-center p-2 ${
-                                  isPdf ? 'bg-red-50' : 
-                                  isImage ? 'bg-blue-50' : 
-                                  isDoc ? 'bg-indigo-50' : 
-                                  isExcel ? 'bg-green-50' : 
-                                  'bg-gray-50'
-                                }`}>
-                                  {isPdf ? (
-                                    <FileText className="h-5 w-5 text-red-500 mr-2" />
-                                  ) : isImage ? (
-                                    <img src={fileUrl} alt={fileName} className="h-5 w-5 object-cover rounded mr-2" />
-                                  ) : isDoc ? (
-                                    <FileText className="h-5 w-5 text-indigo-500 mr-2" />
-                                  ) : isExcel ? (
-                                    <FileText className="h-5 w-5 text-green-500 mr-2" />
-                                  ) : (
-                                    <FileIcon className="h-5 w-5 text-gray-500 mr-2" />
-                                  )}
-                                  <span className={`text-sm font-medium ${
-                                    isPdf ? 'text-red-800' : 
-                                    isImage ? 'text-blue-800' : 
-                                    isDoc ? 'text-indigo-800' : 
-                                    isExcel ? 'text-green-800' : 
-                                    'text-gray-800'
-                                  }`}>{fileName}</span>
-
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="ml-auto h-6 w-6 rounded-full hover:bg-red-100 hover:text-red-600"
-                                    onClick={() => {
-                                      // Entferne den Anhang aus dem lokalen State
-                                      const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
-                                      setUploadedAttachments(newAttachments);
-
-                                      // Aktualisiere auch die Aufgabe, falls nötig
-                                      if (task?.id && onUpdate && typeof onUpdate === 'function') {
-                                        try {
-                                          const updatedTask = {
-                                            ...task,
-                                            attachments: newAttachments
-                                          };
-
-                                          // Führe onUpdate aus und behandle es als Promise
-                                          Promise.resolve(onUpdate(updatedTask as Task))
-                                            .then(() => {
-                                              console.log("Anhang erfolgreich entfernt");
-
-                                              // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
-                                              if (queryClient) {
-                                                queryClient.invalidateQueries({ 
-                                                  queryKey: ["/api/boards"] 
-                                                });
-                                                queryClient.invalidateQueries({ 
-                                                  queryKey: ["/api/tasks"] 
-                                                });
-
-                                                // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
-                                                if (task.boardId) {
-                                                  queryClient.invalidateQueries({ 
-                                                    queryKey: ["/api/boards", task.boardId, "tasks"] 
-                                                  });
-                                                }
-
-                                                // Invalidiere die spezifische Task
-                                                queryClient.invalidateQueries({ 
-                                                  queryKey: [`/api/tasks/${task.id}`] 
-                                                });
-                                              }
-                                            })
-                                            .catch((err) => {
-                                              console.error("Fehler beim Entfernen des Anhangs:", err);
-                                            });
-                                        } catch (err) {
-                                          console.error("Fehler beim Aktualisieren der Aufgabe:", err);
-                                        }
-                                      }
-                                    }}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-
-                                {isImage && (
-                                  <div className="p-3 bg-gray-50">
-                                    <a 
-                                      href={fileUrl} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                                      }}
-                                      className="block"
-                                    >
-                                      <img 
-                                        src={fileUrl} 
-                                        alt={fileName} 
-                                        className="w-full h-32 object-contain bg-white p-2 border border-dashed rounded" 
-                                      />
-                                    </a>
-                                  </div>
-                                )}
-
-                                {!isImage && (
-                                  <div className="p-3 bg-gray-50">
-                                    <a 
-                                      href={fileUrl} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                                      }}
-                                      className="flex items-center justify-center p-4 border border-dashed rounded bg-white"
-                                    >
-                                      <div className="flex flex-col items-center">
-                                        {isPdf ? (
-                                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 mb-2">
-                                            <path d="M7 18H17V16H7V18Z" fill="currentColor" />
-                                            <path d="M17 14H7V12H17V14Z" fill="currentColor" />
-                                            <path d="M7 10H11V8H7V10Z" fill="currentColor" />
-                                            <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM6 4H13V9H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5C5 4.44772 5.44772 4 6 4ZM15 4.10002C16.6113 4.4271 17.9413 5.52906 18.584 7H15V4.10002Z" fill="currentColor" />
-                                          </svg>
-                                        ) : isDoc ? (
-                                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-indigo-500 mb-2">
-                                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            <path d="M9 15H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            <path d="M9 18H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            <path d="M16 13H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                          </svg>
-                                        ) : isExcel ? (
-                                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-500 mb-2">
-                                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            <path d="M8 13H9V17H8V13Z" fill="currentColor"/>
-                                            <path d="M11 13H12V17H11V13Z" fill="currentColor"/>
-                                            <path d="M14 13H15V17H14V13Z" fill="currentColor"/>
-                                          </svg>
-                                        ) : (
-                                          <FileIcon className="h-12 w-12 text-gray-400 mb-2" />
-                                        )}
-                                        <span className="text-sm text-gray-600">{isPdf ? "PDF öffnen" : "Datei öffnen"}</span>
-                                      </div>
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Status auswählen" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="backlog">Backlog</SelectItem>
-                            <SelectItem value="todo">To Do</SelectItem>
-                            <SelectItem value="in-progress">In Progress</SelectItem>
-                            <SelectItem value="review">Review</SelectItem>
-                            <SelectItem value="done">Done</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="priority"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Priorität</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Priorität auswählen" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="low">Niedrig</SelectItem>
-                            <SelectItem value="medium">Mittel</SelectItem>
-                            <SelectItem value="high">Hoch</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fälligkeitsdatum</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={`w-full pl-3 text-left font-normal ${
-                                  !field.value && "text-muted-foreground"
-                                }`}
-                              >
-                                {field.value ? (
-                                  format(new Date(field.value), "PPP", { locale: de })
-                                ) : (
-                                  <span>Wählen Sie ein Datum</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <div className="p-3">
-                              <Calendar
-                                mode="single"
-                                selected={field.value ? new Date(field.value) : undefined}
-                                onSelect={(date) => {
-                                  field.onChange(date ? date.toISOString() : null);
+                          {isImage && (
+                            <div className="p-3 bg-gray-50">
+                              <a 
+                                href={fileUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  window.open(fileUrl, '_blank', 'noopener,noreferrer');
                                 }}
-                                disabled={(date) =>
-                                  date < new Date(new Date().setHours(0, 0, 0, 0))
-                                }
+                                className="block"
+                              >
+                                <img 
+                                  src={fileUrl} 
+                                  alt={fileName} 
+                                  className="w-full h-32 object-contain bg-white p-2 border border-dashed rounded" 
+                                />
+                              </a>
+                            </div>
+                          )}
+
+                          {!isImage && (
+                            <div className="p-3 bg-gray-50">
+                              <a 
+                                href={fileUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setSelectedAttachment(url);
+                                  window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                }}
+                                className="flex items-center justify-center p-4 border border-dashed rounded bg-white"
+                              >
+                                <div className="flex flex-col items-center">
+                                  {isPdf ? (
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 mb-2">
+                                      <path d="M7 18H17V16H7V18Z" fill="currentColor" />
+                                      <path d="M17 14H7V12H17V14Z" fill="currentColor" />
+                                      <path d="M7 10H11V8H7V10Z" fill="currentColor" />
+                                      <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM6 4H13V9H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5C5 4.44772 5.44772 4 6 4ZM15 4.10002C16.6113 4.4271 17.9413 5.52906 18.584 7H15V4.10002Z" fill="currentColor" />
+                                    </svg>
+                                  ) : isDoc ? (
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-indigo-500 mb-2">
+                                      <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      <path d="M9 15H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      <path d="M9 18H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      <path d="M16 13H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                  ) : isExcel ? (
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-500 mb-2">
+                                      <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      <path d="M8 13H9V17H8V13Z" fill="currentColor"/>
+                                      <path d="M11 13H12V17H11V13Z" fill="currentColor"/>
+                                      <path d="M14 13H15V17H14V13Z" fill="currentColor"/>
+                                    </svg>
+                                  ) : (
+                                    <FileIcon className="h-12 w-12 text-gray-400 mb-2" />
+                                  )}
+                                  <span className="text-sm text-gray-600">{isPdf ? "PDF öffnen" : "Datei öffnen"}</span>
+                                </div>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">Keine Dateien angehängt</div>
+                )}
+
+                {/* Attachment Lightbox Dialog */}
+                <Dialog open={!!selectedAttachment} onOpenChange={(open) => !open && setSelectedAttachment(null)}>
+                  <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-lg">
+                    <div className="relative bg-black/10 flex items-center justify-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setSelectedAttachment(null)}
+                        className="absolute top-2 right-2 z-10 bg-black/20 hover:bg-black/30 text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+
+                      {selectedAttachment && (
+                        <>
+                          {/\.(jpeg|jpg|gif|png|webp)$/i.test(selectedAttachment) ? (
+                            // Bild Vorschau
+                            <div className="w-full h-full flex items-center justify-center p-4">
+                              <img 
+                                src={selectedAttachment} 
+                                alt="Vorschau" 
+                                className="max-h-[70vh] max-w-full object-contain"
                               />
                             </div>
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="labels"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Labels</FormLabel>
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap gap-2">
-                            {field.value?.map((label, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md"
-                              >
-                                <Tag className="h-3 w-3" />
-                                <span className="text-sm">{label}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeLabel(label)}
-                                  className="text-primary/50 hover:text-primary"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex gap-2">
-                            {/* Replaced with LabelSelect Component */}
-                            <LabelSelect value={field.value || []} onChange={field.onChange} />
-                          </div>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Zeige Benutzerauswahl nur für normale Aufgaben (nicht für persönliche) */}
-                  {!isPersonalTask ? (
-                    <FormField
-                      control={form.control}
-                      name="assignedUserIds"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Zugewiesene Benutzer</FormLabel>
-                          <FormControl>
-                            {isLoadingUsers ? (
-                              <div className="text-sm text-muted-foreground">
-                                Lade Benutzer...
-                              </div>
-                            ) : users.length === 0 ? (
-                              <div className="text-sm text-muted-foreground">
-                                Keine Benutzer verfügbar
-                              </div>
-                            ) : (
-                              <DialogMultiSelect
-                                placeholder="Benutzer auswählen..."
-                                options={users.map(user => ({
-                                  value: user.id.toString(),
-                                  label: user.username
-                                }))}
-                                selected={Array.isArray(field.value) ? field.value.map((id: number) => id.toString()) : []}
-                                onChange={(values: string[]) => {
-                                  const numberValues = values.map((v: string) => parseInt(v));
-                                  field.onChange(numberValues);
-                                }}
+                          ) : /\.pdf$/i.test(selectedAttachment) ? (
+                            // PDF Vorschau
+                            <div className="w-full h-[70vh] bg-white">
+                              <iframe 
+                                src={selectedAttachment} 
+                                title="PDF Vorschau" 
+                                className="w-full h-full"
                               />
-                            )}
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                            </div>
+                          ) : (
+                            // Andere Dateitypen
+                            <div className="p-8 flex flex-col items-center justify-center">
+                              <FileIcon className="h-16 w-16 text-blue-600 mb-4" />
+                              <p className="text-lg font-medium mb-4">
+                                {selectedAttachment.split('/').pop()}
+                              </p>
+                              <a 
+                                href={selectedAttachment} 
+                                download
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                              >
+                                <Paperclip className="h-4 w-4" />
+                                Herunterladen
+                              </a>
+                            </div>
+                          )}
+                        </>
                       )}
-                    />
-                  ) : (
-                    <div className="flex items-center p-2 bg-amber-50 text-amber-700 rounded-md border border-amber-200 mt-2 mb-4">
-                      <UserIcon className="h-4 w-4 mr-2" />
-                      <span className="text-sm">Persönliche Aufgabe - wird automatisch nur Ihnen zugewiesen</span>
                     </div>
-                  )}
+                  </DialogContent>
+                </Dialog>
+              </div>
 
-                  <div className="space-y-2">
-                    <FormLabel>Checkliste</FormLabel>
-                    <div className="space-y-2">
-                      {checklist.map((item, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={item.checked}
-                            onChange={() => toggleChecklistItem(index)}
-                            className="h-4 w-4"
-                          />
-                          <span className={item.checked ? "line-through text-muted-foreground" : ""}>
-                            {item.text}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => deleteChecklistItem(index)}
-                            className="ml-auto text-destructive hover:text-destructive/80"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Neues Checklist-Element"
-                        value={newChecklistItem}
-                        onChange={(e) => setNewChecklistItem(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addChecklistItem();
-                          }
+              {/* Kommentare */}
+              {task && (
+                <div className="space-y-3">
+                  <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+                  <div className="border rounded-md p-3 bg-slate-50">
+                    <CommentList taskId={task.id} />
+                    <div className="mt-4 border-t pt-3">
+                      <CommentEditor
+                        taskId={task.id}
+                        onCommentAdded={() => {
+                          queryClient.invalidateQueries({
+                            queryKey: [`/api/tasks/${task.id}/comments`]
+                          });
                         }}
                       />
-                      <Button 
-                        type="button" 
-                        onClick={addChecklistItem} 
-                        size="sm"
-                        className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
-                      >
-                        <PlusCircle className="h-4 w-4 mr-1" />
-                        Hinzufügen
-                      </Button>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
 
-                  {task && (
-                    <div className="space-y-2">
-                      <FormLabel>Kommentare</FormLabel>
-                      <CommentList taskId={task.id} />
-                      <CommentEditor taskId={task.id} onCommentAdded={() => {
-                        queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/comments`] });
-                      }} />
+            {/* Kommentare */}
+            {task && (
+              <div className="space-y-3">
+                <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+                <div className="border rounded-md p-3 bg-slate-50">
+                  <CommentList taskId={task.id} />
+                  <div className="mt-4 border-t pt-3">
+                    <CommentEditor
+                      taskId={task.id}
+                      onCommentAdded={() => {
+                        queryClient.invalidateQueries({
+                          queryKey: [`/api/tasks/${task.id}/comments`]
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="max-w-2xl p-0">
+            <div className="px-6 pt-6 pb-2">
+              <DialogTitle>
+                {isEditMode ? (task ? "Aufgabe bearbeiten" : "Neue Aufgabe") : ""}
+              </DialogTitle>
+            </div>
+
+            {isEditMode ? (
+              <div className="flex flex-col h-full">
+                <div className="px-6 overflow-y-auto pb-24" style={{ maxHeight: "calc(85vh - 120px)" }}>
+                  <Form {...form}>
+                    <form id="task-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Titel</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Titel der Aufgabe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Beschreibung</FormLabel>
+                            <FormControl>
+                              <RichTextEditor
+                                content={richDescription}
+                                onChange={setRichDescription}
+                                placeholder="Beschreiben Sie die Aufgabe detailliert"
+                                uploadType="task"
+                                entityId={task?.id}
+                                onAttachmentUpload={(urls) => {
+                                  console.log("Rich-Text-Editor hat Anhänge hochgeladen:", urls);
+                                  setUploadedAttachments(prev => {
+                                    const newAttachments = [...prev, ...urls];
+                                    console.log("Neue Anhangsliste in Task-Dialog:", newAttachments);
+
+                                    // Task sofort mit neuen Anhängen aktualisieren, wenn möglich
+                                    if (task && onUpdate && typeof onUpdate === 'function') {
+                                      try {
+                                        const updatedTask = {
+                                          ...task,
+                                          attachments: newAttachments
+                                        };
+                                        console.log("Sofortige Task-Aktualisierung mit neuen Anhängen", updatedTask);
+
+                                        // Führe onUpdate aus und fange Promise korrekt ab oder behandle es als normalen Funktionsaufruf
+                                        const result = onUpdate(updatedTask as Task);
+                                        if (result && typeof result.then === 'function') {
+                                          result
+                                            .then(() => console.log("Task mit neuen Anhängen aktualisiert"))
+                                            .catch(err => console.error("Fehler beim Aktualisieren des Tasks mit Anhängen:", err));
+                                        } else {
+                                          console.log("Task-Aktualisierung aufgerufen (keine Promise-Rückgabe)");
+                                        }
+                                      } catch (error) {
+                                        console.error("Fehler bei der Task-Aktualisierung:", error);
+                                      }
+                                    }
+
+                                    return newAttachments;
+                                  });
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Datei-Upload Bereich */}
+                      <div className="space-y-2">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium">Dateien anhängen</label>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="flex items-center gap-1"
+                              disabled={uploading}
+                            >
+                              {uploading ? (
+                                <>
+                                  <span className="animate-pulse">Lädt...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Paperclip className="h-4 w-4" />
+                                  <span>Hochladen</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+
+                          {uploading && (
+                            <div className="w-full">
+                              <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
+                                <div 
+                                  className="h-full bg-primary transition-all duration-300 ease-in-out" 
+                                  style={{ width: `${uploadProgress}%` }}
+                                ></div>
+                              </div>
+                              <div className="text-xs text-center mt-1 text-muted-foreground">
+                                {uploadProgress === 100 ? 'Verarbeite...' : `${uploadProgress}% hochgeladen`}
+                              </div>
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            multiple
+                            onChange={(e) => {
+                              if (e.target.files?.length) {
+                                const fileArray = Array.from(e.target.files);
+                                setFiles(prev => [...prev, ...fileArray]);
+
+                                // Upload gestartet
+                                setUploading(true);
+                                setUploadProgress(0);
+
+                                // Upload-Logik hier...
+                                const formData = new FormData();
+
+                                // Wir verwenden den allgemeinen Upload-Endpunkt mit Typ 'task'
+                                for (const file of fileArray) {
+                                  formData.append('file', file);
+                                }
+
+                                // Füge Metadaten hinzu
+                                formData.append('type', 'task');
+                                if (task?.id) {
+                                  formData.append('entityId', task.id.toString());
+                                }
+
+                                // Simuliere Fortschrittsanzeige mit zufälligem Maximalwert
+                                const simulateProgress = () => {
+                                  let progress = 0;
+                                  // Zufälliger Maximalwert zwischen 90% und 98%
+                                  const maxProgress = 90 + Math.floor(Math.random() * 9);
+                                  console.log(`Maximaler Fortschritt für diesen Upload: ${maxProgress}%`);
+
+                                  const interval = setInterval(() => {
+                                    progress += Math.random() * 10;
+                                    if (progress > maxProgress) {
+                                      progress = maxProgress; // Cap bei maxProgress, 100% erst bei Fertigstellung
+                                      clearInterval(interval);
+                                    }
+                                    setUploadProgress(Math.min(Math.round(progress), maxProgress));
+                                  }, 300);
+                                  return interval;
+                                };
+
+                                const progressInterval = simulateProgress();
+
+                                fetch('/api/upload', {
+                                  method: 'POST',
+                                  body: formData,
+                                  credentials: 'include' // Wichtig für die Session-Authentifizierung
+                                })
+                                .then(res => {
+                                  clearInterval(progressInterval);
+                                  setUploadProgress(100); // Auf 100% setzen, wenn Antwort zurückkommt
+
+                                  if (!res.ok) {
+                                    throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
+                                  }
+                                  return res.json();
+                                })
+                                .then((data) => {
+                                  if (data.url) {
+                                    // Einzelne Datei-URL vom Server
+                                    const newAttachments = [...uploadedAttachments, data.url];
+                                    setUploadedAttachments(newAttachments);
+
+                                    // Aktualisiere die Aufgabe sofort, falls eine existiert
+                                    if (task?.id && onUpdate && typeof onUpdate === 'function') {
+                                      console.log("Upload erfolgreich, aktualisiere Task mit neuem Anhang:", data.url);
+                                      console.log("Aktuelle Anhänge:", uploadedAttachments);
+                                      console.log("Neue Anhänge:", newAttachments);
+
+                                      const updatedTask = {
+                                        ...task,
+                                        attachments: newAttachments
+                                      };
+
+                                      try {
+                                        // Führe onUpdate aus und behandle es als Promise
+                                        Promise.resolve(onUpdate(updatedTask as Task))
+                                          .then(() => {
+                                            console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
+
+                                            // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
+                                            if (queryClient) {
+                                              queryClient.invalidateQueries({ 
+                                                queryKey: ["/api/boards"] 
+                                              });
+                                              queryClient.invalidateQueries({ 
+                                                queryKey: ["/api/tasks"] 
+                                              });
+
+                                              // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
+                                              if (task.boardId) {
+                                                queryClient.invalidateQueries({ 
+                                                  queryKey: ["/api/boards", task.boardId, "tasks"] 
+                                                });
+                                              }
+
+                                              // Invalidiere die spezifische Task
+                                              queryClient.invalidateQueries({ 
+                                                queryKey: [`/api/tasks/${task.id}`] 
+                                              });
+                                            }
+                                          })
+                                          .catch(updateError => {
+                                            console.error("Fehler beim Aktualisieren der Aufgabe mit Anhang:", updateError);
+                                          });
+                                      } catch (err) {
+                                        console.error("Fehler beim Aktualisieren der Aufgabe:", err);
+                                      }
+                                    }
+
+                                    toast({
+                                      title: "Datei erfolgreich hochgeladen",
+                                      description: `${data.originalname || 'Datei'} wurde hochgeladen.`
+                                    });
+                                  } else if (data.urls && Array.isArray(data.urls)) {
+                                    // Mehrere Datei-URLs
+                                    const newAttachments = [...uploadedAttachments, ...data.urls];
+                                    setUploadedAttachments(newAttachments);
+
+                                    // Aktualisiere die Aufgabe sofort, falls eine existiert
+                                    if (task?.id && onUpdate && typeof onUpdate === 'function') {
+                                      console.log("Mehrere Dateien hochgeladen, aktualisiere Task mit neuen Anhängen:", data.urls);
+                                      console.log("Aktuelle Anhänge:", uploadedAttachments);
+                                      console.log("Neue Anhänge:", newAttachments);
+
+                                      const updatedTask = {
+                                        ...task,
+                                        attachments: newAttachments
+                                      };
+
+                                      try {
+                                        // Führe onUpdate aus und behandle es als Promise
+                                        Promise.resolve(onUpdate(updatedTask as Task))
+                                          .then(() => {
+                                            console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
+
+                                            // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
+                                            if (queryClient) {
+                                              queryClient.invalidateQueries({ 
+                                                queryKey: ["/api/boards"] 
+                                              });
+                                              queryClient.invalidateQueries({ 
+                                                queryKey: ["/api/tasks"] 
+                                              });
+
+                                              // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
+                                              if (task.boardId) {
+                                                queryClient.invalidateQueries({ 
+                                                  queryKey: ["/api/boards", task.boardId, "tasks"] 
+                                                });
+                                              }
+
+                                              // Invalidiere die spezifische Task
+                                              queryClient.invalidateQueries({ 
+                                                queryKey: [`/api/tasks/${task.id}`] 
+                                              });
+                                            }
+                                          })
+                                          .catch(updateError => {
+                                            console.error("Fehler beim Aktualisieren der Aufgabe mit Anhängen:", updateError);
+                                          });
+                                      } catch (err) {
+                                        console.error("Fehler beim Aktualisieren der Aufgabe:", err);
+                                      }
+                                    }
+
+                                    toast({
+                                      title: "Dateien erfolgreich hochgeladen",
+                                      description: `${data.urls.length} Datei(en) wurden erfolgreich hochgeladen.`
+                                    });
+                                  }
+
+                                  // Upload abgeschlossen, Status zurücksetzen
+                                  setUploading(false);
+                                })
+                                .catch(err => {
+                                  console.error("Fehler beim Hochladen:", err);
+                                  let errorMsg = "Die Dateien konnten nicht hochgeladen werden.";
+
+                                  if (err.message && err.message.includes('HTTP error 401')) {
+                                    errorMsg = "Bitte melden Sie sich an, um Dateien hochzuladen.";
+                                  } else if (err.message && err.message.includes('HTTP error 413')) {
+                                    errorMsg = "Die Datei ist zu groß. Maximale Größe überschritten.";
+                                  }
+
+                                  // Auch bei Fehler Upload-Status zurücksetzen
+                                  setUploading(false);
+
+                                  toast({
+                                    title: "Fehler beim Hochladen",
+                                    description: errorMsg,
+                                    variant: "destructive"
+                                  });
+                                });
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {/* Anzeige der hochgeladenen Dateien im Stil der Kommentare */}
+                        {uploadedAttachments.length > 0 && (
+                          <div className="space-y-2 mt-2">
+                            <div className="text-sm font-medium">Angehängte Dateien ({uploadedAttachments.length})</div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {uploadedAttachments.map((url, index) => {
+                                console.log("Rendering attachment:", url);
+                                const fileName = url.split('/').pop() || 'Datei';
+                                const fileUrl = url.startsWith('/') ? window.location.origin + url : url;
+                                const isPdf = /\.pdf$/i.test(url);
+                                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                                const isDoc = /\.(doc|docx)$/i.test(url);
+                                const isExcel = /\.(xls|xlsx|csv)$/i.test(url);
+
+                                return (
+                                  <div key={index} className="relative border rounded-md overflow-hidden">
+                                    <div className={`flex items-center p-2 ${
+                                      isPdf ? 'bg-red-50' : 
+                                      isImage ? 'bg-blue-50' : 
+                                      isDoc ? 'bg-indigo-50' : 
+                                      isExcel ? 'bg-green-50' : 
+                                      'bg-gray-50'
+                                    }`}>
+                                      {isPdf ? (
+                                        <FileText className="h-5 w-5 text-red-500 mr-2" />
+                                      ) : isImage ? (
+                                        <img src={fileUrl} alt={fileName} className="h-5 w-5 object-cover rounded mr-2" />
+                                      ) :isDoc ? (
+                                          <FileText className="h-5 w-5 text-indigo-500 mr-2" />
+                                        ) : isExcel ? (
+                                          <FileText className="h-5 w-5 text-green-500 mr-2" />
+                                        ) : (
+                                          <FileIcon className="h-5 w-5 text-gray-500 mr-2" />
+                                        )}
+                                        <span className={`text-sm font-medium ${
+                                          isPdf ? 'text-red-800' : 
+                                          isImage ? 'text-blue-800' : 
+                                          isDoc ? 'text-indigo-800' : 
+                                          isExcel ? 'text-green-800' : 
+                                          'text-gray-800'
+                                        }`}>{fileName}</span>
+
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="ml-auto h-6 w-6 rounded-full hover:bg-red-100 hover:text-red-600"
+                                          onClick={() => {
+                                            // Entferne den Anhang aus dem lokalen State
+                                            const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
+                                            setUploadedAttachments(newAttachments);
+
+                                            // Aktualisiere auch die Aufgabe, falls nötig
+                                            if (task?.id && onUpdate && typeof onUpdate === 'function') {
+                                              try {
+                                                const updatedTask = {
+                                                  ...task,
+                                                  attachments: newAttachments
+                                                };
+
+                                                // Führe onUpdate aus und behandle es als Promise
+                                                Promise.resolve(onUpdate(updatedTask as Task))
+                                                  .then(() => {
+                                                    console.log("Anhang erfolgreich entfernt");
+
+                                                    // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
+                                                    if (queryClient) {
+                                                      queryClient.invalidateQueries({ 
+                                                        queryKey: ["/api/boards"] 
+                                                      });
+                                                      queryClient.invalidateQueries({ 
+                                                        queryKey: ["/api/tasks"] 
+                                                      });
+
+                                                      // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
+                                                      if (task.boardId) {
+                                                        queryClient.invalidateQueries({ 
+                                                          queryKey: ["/api/boards", task.boardId, "tasks"] 
+                                                        });
+                                                      }
+
+                                                      // Invalidiere die spezifische Task
+                                                      queryClient.invalidateQueries({ 
+                                                        queryKey: [`/api/tasks/${task.id}`] 
+                                                      });
+                                                    }
+                                                  })
+                                                  .catch((err) => {
+                                                    console.error("Fehler beim Entfernen des Anhangs:", err);
+                                                  });
+                                              } catch (err) {
+                                                console.error("Fehler beim Aktualisieren der Aufgabe:", err);
+                                              }
+                                            }
+                                          }}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+
+                                      {isImage && (
+                                        <div className="p-3 bg-gray-50">
+                                          <a 
+                                            href={fileUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                            }}
+                                            className="block"
+                                          >
+                                            <img 
+                                              src={fileUrl} 
+                                              alt={fileName} 
+                                              className="w-full h-32 object-contain bg-white p-2 border border-dashed rounded" 
+                                            />
+                                          </a>
+                                        </div>
+                                      )}
+
+                                      {!isImage && (
+                                        <div className="p-3 bg-gray-50">
+                                          <a 
+                                            href={fileUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                            }}
+                                            className="flex items-center justify-center p-4 border border-dashed rounded bg-white"
+                                          >
+                                            <div className="flex flex-col items-center">
+                                              {isPdf ? (
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 mb-2">
+                                                  <path d="M7 18H17V16H7V18Z" fill="currentColor" />
+                                                  <path d="M17 14H7V12H17V14Z" fill="currentColor" />
+                                                  <path d="M7 10H11V8H7V10Z" fill="currentColor" />
+                                                  <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM6 4H13V9H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5C5 4.44772 5.44772 4 6 4ZM15 4.10002C16.6113 4.4271 17.9413 5.52906 18.584 7H15V4.10002Z" fill="currentColor" />
+                                                </svg>
+                                              ) : isDoc ? (
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-indigo-500 mb-2">
+                                                  <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                  <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                  <path d="M9 15H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                  <path d="M9 18H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                  <path d="M16 13H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                              ) : isExcel ? (
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-500 mb-2">
+                                                  <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                  <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                  <path d="M8 13H9V17H8V13Z" fill="currentColor"/>
+                                                  <path d="M11 13H12V17H11V13Z" fill="currentColor"/>
+                                                  <path d="M14 13H15V17H14V13Z" fill="currentColor"/>
+                                                </svg>
+                                              ) : (
+                                                <FileIcon className="h-12 w-12 text-gray-400 mb-2" />
+                                              )}
+                                              <span className="text-sm text-gray-600">{isPdf ? "PDF öffnen" : "Datei öffnen"}</span>
+                                            </div>
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Attachment Lightbox Dialog */}
+                          <Dialog open={!!selectedAttachment} onOpenChange={(open) => !open && setSelectedAttachment(null)}>
+                            <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-lg">
+                              <div className="relative bg-black/10 flex items-center justify-center">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => setSelectedAttachment(null)}
+                                  className="absolute top-2 right-2 z-10 bg-black/20 hover:bg-black/30 text-white"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+
+                                {selectedAttachment && (
+                                  <>
+                                    {/\.(jpeg|jpg|gif|png|webp)$/i.test(selectedAttachment) ? (
+                                      // Bild Vorschau
+                                      <div className="w-full h-full flex items-center justify-center p-4">
+                                        <img 
+                                          src={selectedAttachment} 
+                                          alt="Vorschau" 
+                                          className="max-h-[70vh] max-w-full object-contain"
+                                        />
+                                      </div>
+                                    ) : /\.pdf$/i.test(selectedAttachment) ? (
+                                      // PDF Vorschau
+                                      <div className="w-full h-[70vh] bg-white">
+                                        <iframe 
+                                          src={selectedAttachment} 
+                                          title="PDF Vorschau" 
+                                          className="w-full h-full"
+                                        />
+                                      </div>
+                                    ) : (
+                                      // Andere Dateitypen
+                                      <div className="p-8 flex flex-col items-center justify-center">
+                                        <FileIcon className="h-16 w-16 text-blue-600 mb-4" />
+                                        <p className="text-lg font-medium mb-4">
+                                          {selectedAttachment.split('/').pop()}
+                                        </p>
+                                        <a 
+                                          href={selectedAttachment} 
+                                          download
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                        >
+                                          <Paperclip className="h-4 w-4" />
+                                          Herunterladen
+                                        </a>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+
+                        {/* Kommentare */}
+                        {task && (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+                            <div className="border rounded-md p-3 bg-slate-50">
+                              <CommentList taskId={task.id} />
+                              <div className="mt-4 border-t pt-3">
+                                <CommentEditor
+                                  taskId={task.id}
+                                  onCommentAdded={() => {
+                                    queryClient.invalidateQueries({
+                                      queryKey: [`/api/tasks/${task.id}/comments`]
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Kommentare */}
+                      {task && (
+                        <div className="space-y-3">
+                          <div className="text-sm font-medium text-muted-foreground">Kommentare</div>
+                          <div className="border rounded-md p-3 bg-slate-50">
+                            <CommentList taskId={task.id} />
+                            <div className="mt-4 border-t pt-3">
+                              <CommentEditor
+                                taskId={task.id}
+                                onCommentAdded={() => {
+                                  queryClient.invalidateQueries({
+                                    queryKey: [`/api/tasks/${task.id}/comments`]
+                                  });
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col h-full">
+                      <div className="px-6 overflow-y-auto pb-24" style={{ maxHeight: "calc(85vh - 120px)" }}>
+                        {renderDetailView()}
+                      </div>
+
+                      <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-between rounded-b-lg">
+                        <div className="flex gap-2">
+                          {task && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className={task.archived 
+                                ? "bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg border-transparent" 
+                                : "border-red-500 text-red-600 hover:bg-red-50"}
+                              onClick={async () => {
+                                if (!task) return;
+                                try {
+                                  // Wir bereiten ein Objekt vor, das nur die notwendigen Felder enthält,
+                                  // die für die API-Validierung erforderlich sind
+                                  const updatedTask: UpdateTask = {
+                                    id: task.id,
+                                    title: task.title,
+                                    status: task.status,
+                                    priority: task.priority || "medium",
+                                    order: task.order, 
+                                    boardId: task.boardId,
+                                    archived: !task.archived,
+                                    // Weitere erforderliche Felder
+                                    assignedUserIds: task.assignedUserIds || [],
+                                    labels: task.labels || []
+                                  };
+
+                                  if (onUpdate) {
+                                    await onUpdate(updatedTask);
+
+                                    toast({
+                                      title: updatedTask.archived 
+                                        ? "Aufgabe archiviert" 
+                                        : "Aufgabe wiederhergestellt",
+                                    });
+                                  }
+                                } catch (error) {
+                                  console.error("Fehler beim Archivieren:", error);
+                                  toast({
+                                    title: "Fehler",
+                                    description: getErrorMessage(error) || "Die Aufgabe konnte nicht archiviert werden",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              {task.archived ? (
+                                <>
+                                  <RotateCcw className="h-4 w-4 mr-1.5" />
+                                  Wiederherstellen
+                                </>
+                              ) : (
+                                <>
+                                  <Archive className="h-4 w-4 mr-1.5" />
+                                  Archivieren
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {task && (
+                            <Button
+                              variant="outline"
+                              onClick={() => setIsEditMode(true)}
+                              className="gap-2"
+                              size="sm"
+                            >
+                              <Pencil className="h-4 w-4 mr-1.5" />
+                              Bearbeiten
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            size="sm"
+                          >
+                            <X className="h-4 w-4 mr-1.5" />
+                            Schließen
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
-                </form>
-              </Form>
-            </div>
-
-            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-between rounded-b-lg">
-              <div>
-                {task && (
-                  <Button 
-                    type="button"
-                    variant="outline" 
-                    size="sm"
-                    className="border-red-500 text-red-600 hover:bg-red-50"
-                    onClick={() => {
-                      try {
-                        form.setValue("archived", !form.getValues("archived"));
-                        // Wenn wir im Formular-Modus sind, müssen wir sonst nichts tun - 
-                        // die Änderung wird beim Speichern des Formulars übernommen.
-                        toast({
-                          title: form.getValues("archived") 
-                            ? "Aufgabe wird archiviert..." 
-                            : "Aufgabe wird wiederhergestellt...",
-                        });
-                      } catch (error) {
-                        toast({
-                          title: "Fehler",
-                          description: "Die Einstellung konnte nicht geändert werden",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                  >
-                    {form.getValues("archived") ? (
-                      <>
-                        <RotateCcw className="h-4 w-4 mr-1.5" />
-                        Wiederherstellen
-                      </>
-                    ) : (
-                      <>
-                        <Archive className="h-4 w-4 mr-1.5" />
-                        Archivieren
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button form="task-form" type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Abbrechen
-                </Button>
-                <Button 
-                  form="task-form" 
-                  type="submit"
-                  className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
-                >
-                  {task ? "Speichern" : "Erstellen"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col h-full">
-            <div className="px-6 overflow-y-auto pb-24" style={{ maxHeight: "calc(85vh - 120px)" }}>
-              {renderDetailView()}
-            </div>
-
-            <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-between rounded-b-lg">
-              <div className="flex gap-2">
-                {task && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className={task.archived 
-                      ? "bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg border-transparent" 
-                      : "border-red-500 text-red-600 hover:bg-red-50"}
-                    onClick={async () => {
-                      if (!task) return;
-                      try {
-                        // Wir bereiten ein Objekt vor, das nur die notwendigen Felder enthält,
-                        // die für die API-Validierung erforderlich sind
-                        const updatedTask: UpdateTask = {
-                          id: task.id,
-                          title: task.title,
-                          status: task.status,
-                          priority: task.priority || "medium",
-                          order: task.order, 
-                          boardId: task.boardId,
-                          archived: !task.archived,
-                          // Weitere erforderliche Felder
-                          assignedUserIds: task.assignedUserIds || [],
-                          labels: task.labels || []
-                        };
-
-                        if (onUpdate) {
-                          await onUpdate(updatedTask);
-
-                          toast({
-                            title: updatedTask.archived 
-                              ? "Aufgabe archiviert" 
-                              : "Aufgabe wiederhergestellt",
-                          });
-                        }
-                      } catch (error) {
-                        console.error("Fehler beim Archivieren:", error);
-                        toast({
-                          title: "Fehler",
-                          description: getErrorMessage(error) || "Die Aufgabe konnte nicht archiviert werden",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                  >
-                    {task.archived ? (
-                      <>
-                        <RotateCcw className="h-4 w-4 mr-1.5" />
-                        Wiederherstellen
-                      </>
-                    ) : (
-                      <>
-                        <Archive className="h-4 w-4 mr-1.5" />
-                        Archivieren
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {task && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsEditMode(true)}
-                    className="gap-2"
-                    size="sm"
-                  >
-                    <Pencil className="h-4 w-4 mr-1.5" />
-                    Bearbeiten
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  size="sm"
-                >
-                  <X className="h-4 w-4 mr-1.5" />
-                  Schließen
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
+                </DialogContent>
+              </Dialog>
+            );
+          }
