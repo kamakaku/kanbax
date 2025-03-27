@@ -550,35 +550,52 @@ export function Board() {
                   )}
                 </div>
 
-                {/* Label Filter - Verbesserte Version */}
-                <Select
-                  value={selectedLabels.length === 1 ? selectedLabels[0] : 'all'}
-                  onValueChange={(value) => {
-                    if (value === 'all') {
-                      setSelectedLabels([]);
-                    } else {
-                      setSelectedLabels([value]);
-                    }
-                  }}
-                >
-                  <SelectTrigger className={cn(
-                    "w-[180px] border-dashed border-slate-200",
-                    selectedLabels.length > 0 && "border-solid border-blue-500 text-blue-500"
-                  )}>
-                    <SelectValue placeholder="Label Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Labels</SelectLabel>
-                      <SelectItem value="all">Alle Labels</SelectItem>
-                      {allLabels.map((label) => (
-                        <SelectItem key={label} value={label}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                {/* Label Filter - mit Mehrfachauswahl wie in my-tasks */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className={cn(
+                        "gap-1",
+                        selectedLabels.length > 0 && "border-solid border-blue-500 text-blue-500 bg-blue-50"
+                      )}
+                    >
+                      <Tag className="h-4 w-4" />
+                      <span>Labels</span>
+                      {selectedLabels.length > 0 && <span className="ml-1 text-xs">({selectedLabels.length})</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-60 p-2">
+                    <div className="space-y-1 max-h-60 overflow-auto">
+                      {allLabels.length > 0 ? (
+                        allLabels.map(label => (
+                          <div key={label} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`label-${label}`}
+                              checked={selectedLabels.includes(label)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedLabels(prev => [...prev, label]);
+                                } else {
+                                  setSelectedLabels(prev => prev.filter(l => l !== label));
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`label-${label}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {label}
+                            </label>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-500 p-2">Keine Labels verfügbar</p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Priorität Filter */}
                 <Popover>
