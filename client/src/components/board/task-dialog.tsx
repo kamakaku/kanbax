@@ -140,7 +140,7 @@ const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
           <SelectValue placeholder="Label auswählen" />
         </SelectTrigger>
         <SelectContent>
-          {filteredLabels.map(label => (
+          {filteredLabels.filter(label => label && label.trim() !== '').map(label => (
             <SelectItem key={label} value={label}>{label}</SelectItem>
           ))}
         </SelectContent>
