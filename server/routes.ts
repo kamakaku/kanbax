@@ -874,8 +874,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       console.error("Invalid board ID received:", req.params.id);
-      return res.status(400).json({ message: "Invalid board ID" });
-    }
+      return res.status(400).json({ message: "Invalid board ID" });}
 
     try {
       // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
@@ -1137,11 +1136,17 @@ export async function registerRoutes(app: Express, db: Knex) {
     // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
     const userId = req.userId!;
 
-    // Füge die userId zum Task hinzu, damit der Ersteller korrekt gesetzt wird
+    // Füge die userId zum Task hinzu und stelle sicher, dass der Creator auch zugewiesen ist
+    const assignedUserIds = Array.isArray(req.body.assignedUserIds) ? req.body.assignedUserIds : [];
+    if (!assignedUserIds.includes(userId)) {
+      assignedUserIds.push(userId);
+    }
+
     const result = insertTaskSchema.safeParse({ 
       ...req.body, 
       boardId,
-      creatorId: userId
+      creatorId: userId,
+      assignedUserIds
     });
 
     if (!result.success) {
