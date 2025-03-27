@@ -47,6 +47,7 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
+import {Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue} from "@/components/ui/select";
 
 // Define the default columns for the Kanban board
 const defaultColumns = [
@@ -149,9 +150,6 @@ export function Board() {
       return res.json();
     },
     onSuccess: (data) => {
-      // Debug: Ausgabe der Task-Labels
-      console.log("Tasks mit Labels:", data.map(task => ({ id: task.id, labels: task.labels })));
-
       // Alle vorhandenen Labels aus Tasks extrahieren
       const labelSet = new Set<string>();
 
@@ -166,17 +164,11 @@ export function Board() {
         }
       });
 
-      // Dann Standard-Labels hinzufügen, wenn Set leer ist oder für zusätzliche Optionen
-      if (labelSet.size === 0 || true) {
-        defaultLabels.forEach(label => labelSet.add(label));
-      }
-
       // Als Array konvertieren und sortieren
       const sortedLabels = Array.from(labelSet).sort((a, b) => 
         a.localeCompare(b, 'de', { sensitivity: 'base' })
       );
 
-      console.log("Extrahierte und sortierte Labels:", sortedLabels);
       setAllLabels(sortedLabels);
     }
   });
@@ -554,100 +546,34 @@ export function Board() {
                 </div>
 
                 {/* Label Filter - Verbesserte Version */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <Tag className="h-4 w-4" />
-                      <span>Labels {selectedLabels.length > 0 && `(${selectedLabels.length})`}</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3">
-                    {/* Suchleiste für vorhandene Labels */}
-                    <div className="mb-2">
-                      <Input
-                        placeholder="Labels suchen..."
-                        value={newLabelInput}
-                        onChange={(e) => setNewLabelInput(e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-
-                    <div className="text-xs font-medium mb-2 text-slate-500">Verfügbare Labels:</div>
-
-                    {/* Scrollbare Liste der Labels */}
-                    <div className="space-y-1 max-h-60 overflow-auto border rounded-md p-2 mb-3">
-                      {allLabels.filter(label => label.toLowerCase().includes(newLabelInput.toLowerCase()))
-                        .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
-                        .map(label => (
-                          <div key={label} className="flex items-center space-x-2 py-1 px-1 hover:bg-slate-50 rounded-sm">
-                            <Checkbox 
-                              id={`label-${label}`}
-                              checked={selectedLabels.includes(label)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedLabels(prev => [...prev, label]);
-                                } else {
-                                  setSelectedLabels(prev => prev.filter(l => l !== label));
-                                }
-                              }}
-                            />
-                            <label htmlFor={`label-${label}`} className="flex-1 flex items-center text-sm cursor-pointer">
-                              <Badge className="px-2 py-0.5 text-xs bg-white" variant="outline">{label}</Badge>
-                            </label>
-                          </div>
-                        ))}
-                    </div>
-
-                    {newLabelInput.trim() && !allLabels.includes(newLabelInput.trim()) && (
-                      <div className="flex items-center justify-between border-t pt-3 mt-2">
-                        <span className="text-sm">Neues Label erstellen?</span>
-                        <Button 
-                          size="sm"
-                          variant="secondary"
-                          className="h-8"
-                          onClick={() => {
-                            if (newLabelInput.trim()) {
-                              setAllLabels(prev => 
-                                [...prev, newLabelInput.trim()]
-                                .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
-                              );
-                              setSelectedLabels(prev => 
-                                prev.includes(newLabelInput.trim()) 
-                                  ? prev 
-                                  : [...prev, newLabelInput.trim()]
-                              );
-                              setNewLabelInput('');
-                            }
-                          }}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          <span>"{newLabelInput.trim()}" hinzufügen</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {selectedLabels.length > 0 && (
-                      <div className="border-t pt-3 mt-3">
-                        <div className="text-xs font-medium mb-2 text-slate-500">Ausgewählte Labels:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedLabels.map(label => (
-                            <Badge key={label} variant="secondary" className="pl-2 pr-1 py-1 flex items-center">
-                              {label}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-4 w-4 ml-1 hover:bg-slate-300 rounded-full"
-                                onClick={() => setSelectedLabels(prev => prev.filter(l => l !== label))}
-                              >
-                                <X className="h-2 w-2" />
-                              </Button>
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
+                <Select
+                  value={selectedLabels.length === 1 ? selectedLabels[0] : ''}
+                  onValueChange={(value) => {
+                    if (value === '') {
+                      setSelectedLabels([]);
+                    } else {
+                      setSelectedLabels([value]);
+                    }
+                  }}
+                >
+                  <SelectTrigger className={cn(
+                    "w-[180px] border-dashed border-slate-200",
+                    selectedLabels.length > 0 && "border-solid border-blue-500 text-blue-500"
+                  )}>
+                    <SelectValue placeholder="Label Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Labels</SelectLabel>
+                      <SelectItem value="">Alle Labels</SelectItem>
+                      {allLabels.map((label) => (
+                        <SelectItem key={label} value={label}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
 
                 {/* Priorität Filter */}
                 <Popover>
