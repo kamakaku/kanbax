@@ -140,6 +140,43 @@ export function Board() {
     }
   }, [board, setCurrentBoard]);
 
+  // Alle vorhandenen Labels aus Tasks extrahieren
+  function extractLabelsFromTasks(taskList: Task[]) {
+    const labelSet = new Set<string>();
+
+    // Alle Labels aus Tasks hinzufügen
+    taskList.forEach(task => {
+      if (task.labels && Array.isArray(task.labels)) {
+        task.labels.forEach(label => {
+          if (label && typeof label === 'string' && label.trim() !== '') {
+            labelSet.add(label);
+          }
+        });
+      }
+    });
+
+    // Als Array konvertieren und sortieren
+    const sortedLabels = Array.from(labelSet).sort((a, b) => 
+      a.localeCompare(b, 'de', { sensitivity: 'base' })
+    );
+    
+    console.log("Extrahierte Labels:", sortedLabels);
+    
+    // Immer Testlabels hinzufügen (sowohl wenn keine Labels vorhanden sind als auch wenn bereits welche existieren)
+    const finalLabels = [...sortedLabels];
+    
+    // Standard-Labels hinzufügen, wenn sie noch nicht vorhanden sind
+    ["Wichtig", "Dringend", "Warten", "Idee", "Feature", "Bug", "Dokumentation", "Umsetzung", "Zuarbeit"].forEach(label => {
+      if (!finalLabels.includes(label)) {
+        finalLabels.push(label);
+      }
+    });
+    
+    console.log("Finale Labels:", finalLabels);
+    
+    return finalLabels;
+  }
+
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["/api/boards", boardId, "tasks"],
     queryFn: async () => {
@@ -148,35 +185,19 @@ export function Board() {
         throw new Error("Fehler beim Laden der Tasks");
       }
       return res.json();
-    },
-    onSuccess: (data) => {
-      // Alle vorhandenen Labels aus Tasks extrahieren
-      const labelSet = new Set<string>();
-
-      // Alle Labels aus Tasks hinzufügen
-      data.forEach(task => {
-        if (task.labels && Array.isArray(task.labels)) {
-          task.labels.forEach(label => {
-            if (label && typeof label === 'string' && label.trim() !== '') {
-              labelSet.add(label);
-            }
-          });
-        }
-      });
-
-      // Als Array konvertieren und sortieren
-      const sortedLabels = Array.from(labelSet).sort((a, b) => 
-        a.localeCompare(b, 'de', { sensitivity: 'base' })
-      );
-      
-      // Wenn keine Labels vorhanden sind, einige Testlabels hinzufügen
-      if (sortedLabels.length === 0) {
-        sortedLabels.push("Wichtig", "Dringend", "Warten", "Idee");
-      }
-
-      setAllLabels(sortedLabels);
     }
   });
+  
+  // Labels aus Tasks extrahieren und setzen, wenn Tasks geladen wurden
+  useEffect(() => {
+    if (tasks && tasks.length > 0) {
+      const labels = extractLabelsFromTasks(tasks);
+      setAllLabels(labels);
+    } else {
+      // Fallback, wenn keine Tasks vorhanden sind
+      setAllLabels(["Wichtig", "Dringend", "Warten", "Idee", "Feature", "Bug", "Dokumentation"]);
+    }
+  }, [tasks]);
 
   const updateBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
