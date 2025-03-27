@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon, RotateCcw, Archive, Paperclip } from "lucide-react";
+import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon, RotateCcw, Archive, Paperclip, File } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -234,7 +234,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             </div>
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
-            
+
             {/* Beschreibung */}
             {(task.description || task.richDescription) && (
               <div className="mt-1 text-xs text-slate-500 line-clamp-2">
@@ -325,8 +325,15 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                 {/* Anhänge */}
                 {task.attachments && task.attachments.length > 0 && (
                   <div className="flex items-center gap-1">
-                    <Paperclip className="h-3 w-3" />
+                    <Paperclip className="h-3.5 w-3.5" />
                     <span>{task.attachments.length}</span>
+                  </div>
+                )}
+                {/* Dateien */}
+                {task.files && task.files.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <File className="h-3.5 w-3.5" />
+                    <span>{task.files.length}</span>
                   </div>
                 )}
               </div>
