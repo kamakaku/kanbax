@@ -680,19 +680,37 @@ export function TaskDialog({
                                 ...task,
                                 attachments: newAttachments
                               };
-                              const updateResult = onUpdate(updatedTask as Task);
                               
-                              if (updateResult && typeof updateResult.then === 'function') {
-                                updateResult
-                                  .then(() => {
-                                    console.log("Anhang erfolgreich entfernt");
-                                  })
-                                  .catch((err) => {
-                                    console.error("Fehler beim Entfernen des Anhangs:", err);
-                                  });
-                              } else {
-                                console.log("Anhang lokal entfernt (kein Promise zurückgegeben)");
-                              }
+                              // Führe onUpdate aus und behandle es als Promise
+                              Promise.resolve(onUpdate(updatedTask as Task))
+                                .then(() => {
+                                  console.log("Anhang erfolgreich entfernt");
+                                  
+                                  // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
+                                  if (queryClient) {
+                                    queryClient.invalidateQueries({ 
+                                      queryKey: ["/api/boards"] 
+                                    });
+                                    queryClient.invalidateQueries({ 
+                                      queryKey: ["/api/tasks"] 
+                                    });
+                                    
+                                    // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
+                                    if (task.boardId) {
+                                      queryClient.invalidateQueries({ 
+                                        queryKey: ["/api/boards", task.boardId, "tasks"] 
+                                      });
+                                    }
+                                    
+                                    // Invalidiere die spezifische Task
+                                    queryClient.invalidateQueries({ 
+                                      queryKey: [`/api/tasks/${task.id}`] 
+                                    });
+                                  }
+                                })
+                                .catch((err) => {
+                                  console.error("Fehler beim Entfernen des Anhangs:", err);
+                                });
                             } catch (err) {
                               console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                             }
@@ -1048,26 +1066,46 @@ export function TaskDialog({
                                 
                                 // Aktualisiere die Aufgabe sofort, falls eine existiert
                                 if (task?.id && onUpdate && typeof onUpdate === 'function') {
+                                  console.log("Upload erfolgreich, aktualisiere Task mit neuem Anhang:", data.url);
+                                  console.log("Aktuelle Anhänge:", uploadedAttachments);
+                                  console.log("Neue Anhänge:", newAttachments);
+                                  
                                   const updatedTask = {
                                     ...task,
                                     attachments: newAttachments
                                   };
                                   
                                   try {
-                                    const updateResult = onUpdate(updatedTask as Task);
-                                    
-                                    // Prüfe, ob das Ergebnis ein Promise ist
-                                    if (updateResult && typeof updateResult.then === 'function') {
-                                      updateResult
-                                        .then(() => {
-                                          console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
-                                        })
-                                        .catch(updateError => {
-                                          console.error("Fehler beim Aktualisieren der Aufgabe mit Anhang:", updateError);
-                                        });
-                                    } else {
-                                      console.log("Anhang lokal aktualisiert (kein Promise zurückgegeben)");
-                                    }
+                                    // Führe onUpdate aus und behandle es als Promise
+                                    Promise.resolve(onUpdate(updatedTask as Task))
+                                      .then(() => {
+                                        console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
+                                        
+                                        // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
+                                        if (queryClient) {
+                                          queryClient.invalidateQueries({ 
+                                            queryKey: ["/api/boards"] 
+                                          });
+                                          queryClient.invalidateQueries({ 
+                                            queryKey: ["/api/tasks"] 
+                                          });
+                                          
+                                          // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
+                                          if (task.boardId) {
+                                            queryClient.invalidateQueries({ 
+                                              queryKey: ["/api/boards", task.boardId, "tasks"] 
+                                            });
+                                          }
+                                          
+                                          // Invalidiere die spezifische Task
+                                          queryClient.invalidateQueries({ 
+                                            queryKey: [`/api/tasks/${task.id}`] 
+                                          });
+                                        }
+                                      })
+                                      .catch(updateError => {
+                                        console.error("Fehler beim Aktualisieren der Aufgabe mit Anhang:", updateError);
+                                      });
                                   } catch (err) {
                                     console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                   }
@@ -1084,26 +1122,46 @@ export function TaskDialog({
                                 
                                 // Aktualisiere die Aufgabe sofort, falls eine existiert
                                 if (task?.id && onUpdate && typeof onUpdate === 'function') {
+                                  console.log("Mehrere Dateien hochgeladen, aktualisiere Task mit neuen Anhängen:", data.urls);
+                                  console.log("Aktuelle Anhänge:", uploadedAttachments);
+                                  console.log("Neue Anhänge:", newAttachments);
+                                  
                                   const updatedTask = {
                                     ...task,
                                     attachments: newAttachments
                                   };
                                   
                                   try {
-                                    const updateResult = onUpdate(updatedTask as Task);
-                                    
-                                    // Prüfe, ob das Ergebnis ein Promise ist
-                                    if (updateResult && typeof updateResult.then === 'function') {
-                                      updateResult
-                                        .then(() => {
-                                          console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
-                                        })
-                                        .catch(updateError => {
-                                          console.error("Fehler beim Aktualisieren der Aufgabe mit Anhängen:", updateError);
-                                        });
-                                    } else {
-                                      console.log("Anhänge lokal aktualisiert (kein Promise zurückgegeben)");
-                                    }
+                                    // Führe onUpdate aus und behandle es als Promise
+                                    Promise.resolve(onUpdate(updatedTask as Task))
+                                      .then(() => {
+                                        console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
+                                        
+                                        // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
+                                        if (queryClient) {
+                                          queryClient.invalidateQueries({ 
+                                            queryKey: ["/api/boards"] 
+                                          });
+                                          queryClient.invalidateQueries({ 
+                                            queryKey: ["/api/tasks"] 
+                                          });
+                                          
+                                          // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
+                                          if (task.boardId) {
+                                            queryClient.invalidateQueries({ 
+                                              queryKey: ["/api/boards", task.boardId, "tasks"] 
+                                            });
+                                          }
+                                          
+                                          // Invalidiere die spezifische Task
+                                          queryClient.invalidateQueries({ 
+                                            queryKey: [`/api/tasks/${task.id}`] 
+                                          });
+                                        }
+                                      })
+                                      .catch(updateError => {
+                                        console.error("Fehler beim Aktualisieren der Aufgabe mit Anhängen:", updateError);
+                                      });
                                   } catch (err) {
                                     console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                   }
@@ -1200,19 +1258,37 @@ export function TaskDialog({
                                             ...task,
                                             attachments: newAttachments
                                           };
-                                          const updateResult = onUpdate(updatedTask as Task);
                                           
-                                          if (updateResult && typeof updateResult.then === 'function') {
-                                            updateResult
-                                              .then(() => {
-                                                console.log("Anhang erfolgreich entfernt");
-                                              })
-                                              .catch((err) => {
-                                                console.error("Fehler beim Entfernen des Anhangs:", err);
-                                              });
-                                          } else {
-                                            console.log("Anhang lokal entfernt (kein Promise zurückgegeben)");
-                                          }
+                                          // Führe onUpdate aus und behandle es als Promise
+                                          Promise.resolve(onUpdate(updatedTask as Task))
+                                            .then(() => {
+                                              console.log("Anhang erfolgreich entfernt");
+                                              
+                                              // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
+                                              if (queryClient) {
+                                                queryClient.invalidateQueries({ 
+                                                  queryKey: ["/api/boards"] 
+                                                });
+                                                queryClient.invalidateQueries({ 
+                                                  queryKey: ["/api/tasks"] 
+                                                });
+                                                
+                                                // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
+                                                if (task.boardId) {
+                                                  queryClient.invalidateQueries({ 
+                                                    queryKey: ["/api/boards", task.boardId, "tasks"] 
+                                                  });
+                                                }
+                                                
+                                                // Invalidiere die spezifische Task
+                                                queryClient.invalidateQueries({ 
+                                                  queryKey: [`/api/tasks/${task.id}`] 
+                                                });
+                                              }
+                                            })
+                                            .catch((err) => {
+                                              console.error("Fehler beim Entfernen des Anhangs:", err);
+                                            });
                                         } catch (err) {
                                           console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                         }
