@@ -547,9 +547,9 @@ export function Board() {
 
                 {/* Label Filter - Verbesserte Version */}
                 <Select
-                  value={selectedLabels.length === 1 ? selectedLabels[0] : ''}
+                  value={selectedLabels.length === 1 ? selectedLabels[0] : 'all'}
                   onValueChange={(value) => {
-                    if (value === '') {
+                    if (value === 'all') {
                       setSelectedLabels([]);
                     } else {
                       setSelectedLabels([value]);
@@ -565,7 +565,7 @@ export function Board() {
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Labels</SelectLabel>
-                      <SelectItem value="">Alle Labels</SelectItem>
+                      <SelectItem value="all">Alle Labels</SelectItem>
                       {allLabels.map((label) => (
                         <SelectItem key={label} value={label}>
                           {label}
