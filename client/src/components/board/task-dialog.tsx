@@ -53,7 +53,7 @@ export function TaskDialog({
   open,
   onOpenChange,
   onUpdate,
-  mode = task ? "details" : "edit",
+  mode = "details",
   initialColumnId,
   personalTask = false,
   isPersonalTask = personalTask,
