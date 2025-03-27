@@ -247,7 +247,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Projekt und Board Informationen mit Icons oder "Persönliche Aufgabe" für persönliche Aufgaben */}
-            <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
+            <div className="flex flex-col gap-1 mt-2 text-xs">
               {task.isPersonal ? (
                 <div className="flex items-center gap-1">
                   <KanbanSquare className="h-3 w-3 text-blue-500" />
