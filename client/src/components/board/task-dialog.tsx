@@ -829,7 +829,7 @@ export function TaskDialog({
                         >
                           <div className="flex flex-col items-center">
                             {isPdf ? (
-                              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 mb-2">
+                              <svg width="48" height="48" viewBox="0 0 24 24fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 mb-2">
                                 <path d="M7 18H17V16H7V18Z" fill="currentColor" />
                                 <path d="M17 14H7V12H17V14Z" fill="currentColor" />
                                 <path d="M7 10H11V8H7V10Z" fill="currentColor" />
