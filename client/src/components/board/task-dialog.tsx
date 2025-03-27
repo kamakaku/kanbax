@@ -558,11 +558,13 @@ export function TaskDialog({
         {/* Beschreibung */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">Beschreibung</div>
-          {task?.description ? (
-            <div className="text-sm whitespace-pre-wrap">{task.description}</div>
-          ) : (
-            <div className="text-sm text-muted-foreground italic">Keine Beschreibung vorhanden</div>
-          )}
+          {task?.richDescription ? (
+              <div className="text-sm" dangerouslySetInnerHTML={{ __html: task.richDescription }} />
+            ) : task?.description ? (
+              <div className="text-sm whitespace-pre-wrap">{task.description}</div>
+            ) : (
+              <div className="text-sm text-muted-foreground italic">Keine Beschreibung vorhanden</div>
+            )}
         </div>
         
         {/* Checkliste */}
