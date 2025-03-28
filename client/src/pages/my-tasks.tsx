@@ -56,16 +56,16 @@ export default function MyTasks() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Laden der zugewiesenen Aufgaben des aktuellen Benutzers
   const { data: tasks = [], isLoading, error } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/user/tasks/assigned"],
     queryFn: async () => {
       const result = await apiRequest<TaskWithDetails[]>("GET", "/api/user/tasks/assigned");
-      
+
       // Debug-Logging für die geladenen Aufgaben
       console.log("Geladene Aufgaben:", result);
-      
+
       // Persönliche Aufgaben identifizieren und markieren
       const transformedTasks = result.map(task => {
         // Wenn boardId null ist, handelt es sich um eine persönliche Aufgabe
@@ -77,11 +77,11 @@ export default function MyTasks() {
         }
         return task;
       });
-      
+
       // Debug-Logging für persönliche Aufgaben
       const personalTasks = transformedTasks.filter(task => task.boardId === null || task.isPersonal);
       console.log("Persönliche Aufgaben:", personalTasks);
-      
+
       return transformedTasks;
     },
     staleTime: 1000 * 60, // 1 Minute
@@ -262,7 +262,7 @@ export default function MyTasks() {
                 Alle Ihnen zugewiesenen Aufgaben an einem Ort
               </p>
             </div>
-            
+
             {/* Neue Aufgabe Button */}
             <Button 
               onClick={() => setIsNewTaskDialogOpen(true)}
@@ -272,7 +272,7 @@ export default function MyTasks() {
               Neue Aufgabe
             </Button>
           </div>
-          
+
           {/* Filter- und Archiv-Zeile - alles in EINER Zeile */}
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
             {/* LINKE SEITE: Suchfeld und Filter */}
@@ -322,7 +322,7 @@ export default function MyTasks() {
                   </Badge>
                 )}
               </div>
-              
+
               {/* Label Filter */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -335,25 +335,28 @@ export default function MyTasks() {
                   <div className="space-y-1 max-h-60 overflow-auto">
                     {allLabels.length > 0 ? (
                       allLabels.map(label => (
-                        <div key={label} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`label-${label}`}
-                            checked={selectedLabels.includes(label)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedLabels(prev => [...prev, label]);
-                              } else {
-                                setSelectedLabels(prev => prev.filter(l => l !== label));
-                              }
-                            }}
-                          />
-                          <label
-                            htmlFor={`label-${label}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {label}
-                          </label>
-                        </div>
+                        <div 
+                        key={label} 
+                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-100 transition-colors"
+                      >
+                        <Checkbox 
+                          id={`label-${label}`}
+                          checked={selectedLabels.includes(label)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedLabels(prev => [...prev, label]);
+                            } else {
+                              setSelectedLabels(prev => prev.filter(l => l !== label));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`label-${label}`}
+                          className="text-sm font-medium leading-none cursor-pointer flex-1"
+                        >
+                          {label}
+                        </label>
+                      </div>
                       ))
                     ) : (
                       <p className="text-sm text-slate-500 p-2">Keine Labels verfügbar</p>
@@ -361,7 +364,7 @@ export default function MyTasks() {
                   </div>
                 </PopoverContent>
               </Popover>
-              
+
               {/* Prioritäten Filter */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -398,7 +401,7 @@ export default function MyTasks() {
                   </div>
                 </PopoverContent>
               </Popover>
-              
+
               {/* Fälligkeitsdatum Filter */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -432,7 +435,7 @@ export default function MyTasks() {
                   )}
                 </PopoverContent>
               </Popover>
-              
+
               {/* Reset Filter Button - nur anzeigen, wenn mindestens ein Filter aktiv ist */}
               {(searchQuery || selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate) && (
                 <Button 
@@ -446,7 +449,7 @@ export default function MyTasks() {
                 </Button>
               )}
             </div>
-            
+
             {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
             <div className="flex items-center">
               <Switch
@@ -480,10 +483,10 @@ export default function MyTasks() {
                   .filter(task => {
                     // Aufgaben müssen den richtigen Status haben
                     if (task.status !== column.id) return false;
-                    
+
                     // Archivierte Aufgaben filtern, es sei denn showArchivedTasks ist true
                     if (task.archived && !showArchivedTasks) return false;
-                    
+
                     // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch 
                     // Board-gebundene Aufgaben anzeigen
                     return true;
@@ -516,7 +519,7 @@ export default function MyTasks() {
           onUpdate={handleTaskUpdate}
           mode="details"
         />
-        
+
         {/* Dialog für neue Aufgaben - mit isPersonalTask=true für persönliche Aufgabenerstellung */}
         <TaskDialog
           open={isNewTaskDialogOpen}
