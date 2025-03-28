@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PlusCircle, Archive, Search, Tag, Filter, Clock, X } from "lucide-react";
+import { PlusCircle, Archive, Search, Tag, Filter, Clock, X, LayoutGrid, Table } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -54,6 +54,7 @@ export default function MyTasks() {
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [viewMode, setViewMode] = useState('kanban'); // Add viewMode state
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -193,7 +194,7 @@ export default function MyTasks() {
       // Filter nach Labels
       if (selectedLabels.length > 0) {
         if (!task.labels || !Array.isArray(task.labels)) return false;
-        const hasSelectedLabel = selectedLabels.some(label => 
+        const hasSelectedLabel = selectedLabels.some(label =>
           task.labels && task.labels.includes(label)
         );
         if (!hasSelectedLabel) return false;
@@ -212,9 +213,12 @@ export default function MyTasks() {
         if (taskDateString !== selectedDateString) return false;
       }
 
+      // Filter for archived tasks
+      if (task.archived && !showArchivedTasks) return false;
+
       return true;
     });
-  }, [tasks, searchQuery, selectedLabels, selectedPriorities, selectedDate]);
+  }, [tasks, searchQuery, selectedLabels, selectedPriorities, selectedDate, showArchivedTasks]);
 
   if (isLoading) {
     return (
@@ -263,14 +267,56 @@ export default function MyTasks() {
               </p>
             </div>
 
-            {/* Neue Aufgabe Button */}
-            <Button 
-              onClick={() => setIsNewTaskDialogOpen(true)}
-              className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
-            >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Neue Aufgabe
-            </Button>
+            {/* Neue Aufgabe Button und View Mode Controls */}
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => setIsNewTaskDialogOpen(true)}
+                className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Neue Aufgabe
+              </Button>
+
+              <div className="flex items-center">
+                <Switch
+                  id="show-archived"
+                  checked={showArchivedTasks}
+                  onCheckedChange={setShowArchivedTasks}
+                />
+                <label
+                  htmlFor="show-archived"
+                  className="flex items-center ml-2 cursor-pointer"
+                >
+                  <div className="relative">
+                    <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
+                    {!showArchivedTasks && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-5 h-px bg-slate-400 rotate-45"></div>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center border rounded-md">
+                <Button
+                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                  onClick={() => setViewMode('kanban')}
+                  size="icon"
+                  className="rounded-none rounded-l-md"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  onClick={() => setViewMode('table')}
+                  size="icon"
+                  className="rounded-none rounded-r-md"
+                >
+                  <Table className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Filter- und Archiv-Zeile - alles in EINER Zeile */}
@@ -288,17 +334,17 @@ export default function MyTasks() {
                   <PopoverContent className="w-80 p-0" side="bottom" align="start">
                     <div className="flex items-center px-3 py-2">
                       <Search className="h-4 w-4 mr-2 text-slate-400" />
-                      <Input 
-                        placeholder="Tasks durchsuchen..." 
+                      <Input
+                        placeholder="Tasks durchsuchen..."
                         className="border-none shadow-none focus-visible:ring-0 h-9"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         autoFocus
                       />
                       {searchQuery && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setSearchQuery("")}
                           className="ml-2 h-8 px-2"
                         >
@@ -311,9 +357,9 @@ export default function MyTasks() {
                 {searchQuery && (
                   <Badge variant="secondary" className="ml-2">
                     Suche: {searchQuery}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setSearchQuery("")}
                       className="h-4 w-4 ml-1 p-0"
                     >
@@ -335,28 +381,28 @@ export default function MyTasks() {
                   <div className="space-y-1 max-h-60 overflow-auto">
                     {allLabels.length > 0 ? (
                       allLabels.map(label => (
-                        <div 
-                        key={label} 
-                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-100 transition-colors"
-                      >
-                        <Checkbox 
-                          id={`label-${label}`}
-                          checked={selectedLabels.includes(label)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedLabels(prev => [...prev, label]);
-                            } else {
-                              setSelectedLabels(prev => prev.filter(l => l !== label));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`label-${label}`}
-                          className="text-sm font-medium leading-none cursor-pointer flex-1"
+                        <div
+                          key={label}
+                          className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-100 transition-colors"
                         >
-                          {label}
-                        </label>
-                      </div>
+                          <Checkbox
+                            id={`label-${label}`}
+                            checked={selectedLabels.includes(label)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedLabels(prev => [...prev, label]);
+                              } else {
+                                setSelectedLabels(prev => prev.filter(l => l !== label));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`label-${label}`}
+                            className="text-sm font-medium leading-none cursor-pointer flex-1"
+                          >
+                            {label}
+                          </label>
+                        </div>
                       ))
                     ) : (
                       <p className="text-sm text-slate-500 p-2">Keine Labels verfügbar</p>
@@ -377,7 +423,7 @@ export default function MyTasks() {
                   <div className="space-y-1">
                     {["high", "medium", "low"].map((priority) => (
                       <div key={priority} className="flex items-center space-x-2">
-                        <Checkbox 
+                        <Checkbox
                           id={`priority-${priority}`}
                           checked={selectedPriorities.includes(priority)}
                           onCheckedChange={(checked) => {
@@ -438,9 +484,9 @@ export default function MyTasks() {
 
               {/* Reset Filter Button - nur anzeigen, wenn mindestens ein Filter aktiv ist */}
               {(searchQuery || selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={resetFilters}
                   className="text-blue-500 hover:text-blue-700"
                 >
@@ -452,24 +498,7 @@ export default function MyTasks() {
 
             {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
             <div className="flex items-center">
-              <Switch
-                id="show-archived"
-                checked={showArchivedTasks}
-                onCheckedChange={setShowArchivedTasks}
-              />
-              <label
-                htmlFor="show-archived"
-                className="flex items-center ml-2 cursor-pointer"
-              >
-                <div className="relative">
-                  <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
-                  {!showArchivedTasks && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-5 h-px bg-slate-400 rotate-45"></div>
-                    </div>
-                  )}
-                </div>
-              </label>
+              {/* Moved to the header */}
             </div>
           </div>
         </div>
@@ -487,7 +516,7 @@ export default function MyTasks() {
                     // Archivierte Aufgaben filtern, es sei denn showArchivedTasks ist true
                     if (task.archived && !showArchivedTasks) return false;
 
-                    // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch 
+                    // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch
                     // Board-gebundene Aufgaben anzeigen
                     return true;
                   })
