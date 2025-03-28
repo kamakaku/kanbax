@@ -547,10 +547,13 @@ export function Board() {
                       <span>Labels {selectedLabels.length > 0 && `(${selectedLabels.length})`}</span>
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64 p-2">
-                    <div className="space-y-1">
+                  <PopoverContent className="w-64 p-3">
+                    <div className="space-y-2">
                       {allLabels.map((label) => (
-                        <div key={label} className="flex items-center space-x-2">
+                        <div 
+                          key={label} 
+                          className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-100 transition-colors"
+                        >
                           <Checkbox 
                             id={`label-${label}`}
                             checked={selectedLabels.includes(label)}
@@ -564,7 +567,7 @@ export function Board() {
                           />
                           <label
                             htmlFor={`label-${label}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            className="text-sm font-medium leading-none cursor-pointer flex-1"
                           >
                             {label}
                           </label>
@@ -583,10 +586,13 @@ export function Board() {
                       <span>Priorität</span>
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-40 p-2">
-                    <div className="space-y-1">
+                  <PopoverContent className="w-48 p-3">
+                    <div className="space-y-2">
                       {["high", "medium", "low"].map(priority => (
-                        <div key={priority} className="flex items-center space-x-2">
+                        <div 
+                          key={priority} 
+                          className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-100 transition-colors"
+                        >
                           <Checkbox 
                             id={`priority-${priority}`}
                             checked={selectedPriorities.includes(priority)}
@@ -598,7 +604,10 @@ export function Board() {
                               }
                             }}
                           />
-                          <label htmlFor={`priority-${priority}`} className="text-sm capitalize">
+                          <label 
+                            htmlFor={`priority-${priority}`} 
+                            className="text-sm font-medium capitalize cursor-pointer flex-1"
+                          >
                             {priority}
                           </label>
                         </div>
