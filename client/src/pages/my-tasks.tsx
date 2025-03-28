@@ -16,6 +16,7 @@ import { PlusCircle, Archive, Search, Tag, Filter, Clock, X, LayoutGrid, Table }
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { BoardTableView } from "@/components/board/board-table-view"; // Added import
 
 // Erweiterte Task-Schnittstelle für die Frontend-Anzeige
 interface TaskWithDetails extends Task {
@@ -477,7 +478,7 @@ export default function MyTasks() {
                     <Table className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 <div className="flex items-center">
                   <Switch
                     id="show-archived"
