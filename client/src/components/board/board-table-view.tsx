@@ -1,9 +1,18 @@
 
-import { useState } from 'react';
-import { Task } from '@shared/schema';
-import { Button } from '@/components/ui/button';
-import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import { Task } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
 
 interface BoardTableViewProps {
   tasks: Task[];
@@ -33,22 +42,30 @@ export function BoardTableView({ tasks, onTaskClick }: BoardTableViewProps) {
   };
 
   return (
-    <div className="w-full overflow-auto">
+    <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead onClick={() => handleSort('title')} className="cursor-pointer">
-              Titel {sortField === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
+            <TableHead>
+              <Button variant="ghost" onClick={() => handleSort('title')}>
+                Titel <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
             </TableHead>
-            <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
-              Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+            <TableHead>
+              <Button variant="ghost" onClick={() => handleSort('status')}>
+                Status <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
             </TableHead>
-            <TableHead onClick={() => handleSort('priority')} className="cursor-pointer">
-              Priorität {sortField === 'priority' && (sortDirection === 'asc' ? '↑' : '↓')}
+            <TableHead>
+              <Button variant="ghost" onClick={() => handleSort('priority')}>
+                Priorität <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
             </TableHead>
             <TableHead>Labels</TableHead>
-            <TableHead onClick={() => handleSort('due_date')} className="cursor-pointer">
-              Fällig am {sortField === 'due_date' && (sortDirection === 'asc' ? '↑' : '↓')}
+            <TableHead>
+              <Button variant="ghost" onClick={() => handleSort('dueDate')}>
+                Fällig <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -61,37 +78,20 @@ export function BoardTableView({ tasks, onTaskClick }: BoardTableViewProps) {
             >
               <TableCell>{task.title}</TableCell>
               <TableCell>
-                <div className={cn(
-                  "px-2 py-1 rounded-full text-xs inline-block",
-                  task.status === 'todo' && "bg-blue-100 text-blue-800",
-                  task.status === 'in-progress' && "bg-amber-100 text-amber-800",
-                  task.status === 'done' && "bg-green-100 text-green-800",
-                  task.status === 'review' && "bg-purple-100 text-purple-800"
-                )}>
-                  {task.status}
-                </div>
+                <Badge variant="secondary">{task.status}</Badge>
               </TableCell>
               <TableCell>
-                <div className={cn(
-                  "px-2 py-1 rounded-full text-xs inline-block",
-                  task.priority === 'high' && "bg-red-100 text-red-800",
-                  task.priority === 'medium' && "bg-yellow-100 text-yellow-800",
-                  task.priority === 'low' && "bg-green-100 text-green-800"
-                )}>
-                  {task.priority}
-                </div>
+                <Badge variant="outline">{task.priority}</Badge>
               </TableCell>
               <TableCell>
                 <div className="flex gap-1 flex-wrap">
-                  {task.labels?.map((label, index) => (
-                    <span key={index} className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">
-                      {label}
-                    </span>
+                  {task.labels?.map((label, i) => (
+                    <Badge key={i} variant="secondary">{label}</Badge>
                   ))}
                 </div>
               </TableCell>
               <TableCell>
-                {task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}
+                {task.dueDate ? formatDate(task.dueDate) : '-'}
               </TableCell>
             </TableRow>
           ))}
