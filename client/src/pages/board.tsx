@@ -135,6 +135,14 @@ export function Board() {
   };
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
+    queryKey: ["/api/boards", boardId, "tasks"],
+    queryFn: async () => {
+      const res = await fetch(`/api/boards/${boardId}/tasks`);
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      return res.json();
+    },
+    enabled: !!boardId
+  });
 
   useEffect(() => {
     if (board) {
@@ -158,46 +166,6 @@ export function Board() {
       ));
     }
   }, [board, setCurrentBoard, tasks]);
-    queryKey: ["/api/boards", boardId, "tasks"],
-    queryFn: async () => {
-      const res = await fetch(`/api/boards/${boardId}/tasks`);
-      if (!res.ok) {
-        throw new Error("Fehler beim Laden der Tasks");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      // Debug: Ausgabe der Task-Labels
-      console.log("Tasks mit Labels:", data.map(task => ({ id: task.id, labels: task.labels })));
-
-      // Alle vorhandenen Labels aus Tasks extrahieren
-      const labelSet = new Set<string>();
-
-      // Alle Labels aus Tasks hinzufügen
-      data.forEach(task => {
-        if (task.labels && Array.isArray(task.labels)) {
-          task.labels.forEach(label => {
-            if (label && typeof label === 'string' && label.trim() !== '') {
-              labelSet.add(label);
-            }
-          });
-        }
-      });
-
-      // Dann Standard-Labels hinzufügen, wenn Set leer ist oder für zusätzliche Optionen
-      if (labelSet.size === 0 || true) {
-        defaultLabels.forEach(label => labelSet.add(label));
-      }
-
-      // Als Array konvertieren und sortieren
-      const sortedLabels = Array.from(labelSet).sort((a, b) => 
-        a.localeCompare(b, 'de', { sensitivity: 'base' })
-      );
-
-      console.log("Extrahierte und sortierte Labels:", sortedLabels);
-      setAllLabels(sortedLabels);
-    }
-  });
 
   const updateBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
