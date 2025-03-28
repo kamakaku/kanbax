@@ -167,12 +167,16 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           style={{
             position: "relative",
             ...provided.draggableProps.style,
-            transform: provided.draggableProps.style?.transform,
-            opacity: snapshot.isDragging ? 0.8 : 1,
+            transform: snapshot.isDragging
+              ? provided.draggableProps.style?.transform
+              : 'none',
             cursor: snapshot.isDragging ? "grabbing" : "grab",
             zIndex: snapshot.isDragging ? 9999 : "auto",
-            backgroundColor: snapshot.isDragging ? "white" : undefined,
-            boxShadow: snapshot.isDragging ? "0 4px 12px rgba(0, 0, 0, 0.1)" : undefined
+            backgroundColor: "white",
+            boxShadow: snapshot.isDragging ? "0 8px 16px rgba(0, 0, 0, 0.1)" : undefined,
+            opacity: 1,
+            pointerEvents: snapshot.isDragging ? "none" : "auto",
+            userSelect: "none"
           }}
         >
           {/* Farbige Ecke für persönliche Aufgaben */}
