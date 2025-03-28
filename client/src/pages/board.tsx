@@ -138,7 +138,24 @@ export function Board() {
     if (board) {
       setCurrentBoard(board);
     }
-  }, [board, setCurrentBoard]);
+
+    // Extrahiere alle Labels aus den Tasks
+    if (tasks) {
+      const labelSet = new Set<string>();
+      tasks.forEach(task => {
+        if (task.labels && Array.isArray(task.labels)) {
+          task.labels.forEach(label => {
+            if (label && typeof label === 'string' && label.trim() !== '') {
+              labelSet.add(label);
+            }
+          });
+        }
+      });
+      setAllLabels(Array.from(labelSet).sort((a, b) => 
+        a.localeCompare(b, 'de', { sensitivity: 'base' })
+      ));
+    }
+  }, [board, setCurrentBoard, tasks]);
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["/api/boards", boardId, "tasks"],
