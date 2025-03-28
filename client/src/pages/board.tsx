@@ -549,7 +549,7 @@ export function Board() {
                   </PopoverTrigger>
                   <PopoverContent className="w-64 p-3">
                     <Select
-                      value={selectedLabels}
+                      value={selectedLabels[0] || ""}
                       onValueChange={(value) => {
                         setSelectedLabels(
                           selectedLabels.includes(value)
@@ -557,7 +557,7 @@ export function Board() {
                             : [...selectedLabels, value]
                         );
                       }}
-                      defaultValue={selectedLabels[0] || ""}
+                      multiple={false}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Label auswählen..." />
