@@ -7,7 +7,7 @@ import { Task } from '../../shared/schema';
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
 
-export default function Board() {
+export const Board = () => {
   const { boardId } = useParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
@@ -17,69 +17,32 @@ export default function Board() {
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
 
-  // Task loading logic here...
-
-  const handleDragEnd = (result: any) => {
-    // Drag and drop logic here...
-  };
-
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center p-4 bg-white/50 backdrop-blur-sm border-b">
-        <div className="flex items-center gap-4">
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'outline'}
-              onClick={() => setViewMode('kanban')}
-              size="sm"
-            >
-              Kanban
-            </Button>
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'outline'}
-              onClick={() => setViewMode('table')}
-              size="sm"
-            >
-              Tabelle
-            </Button>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center space-x-4">
+          <Button onClick={() => setViewMode(viewMode === 'kanban' ? 'table' : 'kanban')}>
+            {viewMode === 'kanban' ? 'Zur Tabellenansicht' : 'Zur Kanban-Ansicht'}
+          </Button>
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={showArchivedTasks}
+              onCheckedChange={setShowArchivedTasks}
+            />
+            <span>Archivierte Tasks anzeigen</span>
           </div>
-          <Switch
-            id="show-archived"
-            checked={showArchivedTasks}
-            onCheckedChange={setShowArchivedTasks}
-          />
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 overflow-auto">
         {viewMode === 'kanban' ? (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-6 pb-4">
-              <Column
-                title="Backlog"
-                tasks={tasks.filter(task => task.status === 'backlog')}
-                status="backlog"
-              />
-              <Column
-                title="To Do"
-                tasks={tasks.filter(task => task.status === 'todo')}
-                status="todo"
-              />
-              <Column
-                title="In Progress"
-                tasks={tasks.filter(task => task.status === 'in-progress')}
-                status="in-progress"
-              />
-              <Column
-                title="Review"
-                tasks={tasks.filter(task => task.status === 'review')}
-                status="review"
-              />
-              <Column
-                title="Done"
-                tasks={tasks.filter(task => task.status === 'done')}
-                status="done"
-              />
+          <DragDropContext onDragEnd={() => {}}>
+            <div className="flex gap-4 p-4 h-full">
+              <Column status="backlog" tasks={tasks} />
+              <Column status="todo" tasks={tasks} />
+              <Column status="in-progress" tasks={tasks} />
+              <Column status="review" tasks={tasks} />
+              <Column status="done" tasks={tasks} />
             </div>
           </DragDropContext>
         ) : (
@@ -97,4 +60,6 @@ export default function Board() {
       </div>
     </div>
   );
-}
+};
+
+export default Board;
