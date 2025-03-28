@@ -114,7 +114,8 @@ export function TaskCard({ task, index }: TaskCardProps) {
             transform: snapshot.isDragging
               ? provided.draggableProps.style?.transform
               : "translate(0, 0)",
-            zIndex: snapshot.isDragging ? 9999 : 1
+            zIndex: snapshot.isDragging ? 9999 : 1,
+            maxHeight: "none" // Stellt sicher, dass die Karte ihre natürliche Höhe basierend auf dem Inhalt behält
           }}
         >
           {isPersonalTask && (

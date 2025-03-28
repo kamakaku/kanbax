@@ -109,7 +109,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
               max-h-[calc(100vh-13rem)]
               overflow-y-auto
               transition-colors 
-              flex flex-col gap-3 
+              flex flex-col gap-2 
               w-full
               ${snapshot.isDraggingOver ? "bg-slate-100/50 border-2 border-dashed border-slate-300" : ""}
             `}

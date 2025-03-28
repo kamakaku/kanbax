@@ -161,7 +161,8 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             transform: snapshot.isDragging 
               ? provided.draggableProps.style?.transform 
               : "translate(0, 0)",
-            zIndex: snapshot.isDragging ? 9999 : 1
+            zIndex: snapshot.isDragging ? 9999 : 1,
+            maxHeight: "none" // Stellt sicher, dass die Karte ihre natürliche Höhe basierend auf dem Inhalt behält
           }}
         >
           {/* Farbige Ecke für persönliche Aufgaben */}
@@ -320,13 +321,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                     <span>{task.attachments.length}</span>
                   </div>
                 )}
-                {/* Dateien */}
-                {task.files && task.files.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    <File className="h-3.5 w-3.5" />
-                    <span>{task.files.length}</span>
-                  </div>
-                )}
+                {/* Dateien-Anzeige entfernt, da es keine files-Eigenschaft gibt */}
               </div>
 
               {/* Zugewiesene Benutzer */}
