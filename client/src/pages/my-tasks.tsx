@@ -512,13 +512,12 @@ export default function MyTasks() {
               {defaultColumns.map((column) => {
                 // Filter tasks based on archive status and column
                 const columnTasks = filteredTasks
-                  .filter(task => showArchivedTasks ? true : !task.archived)
                   .filter(task => {
                     // Aufgaben müssen den richtigen Status haben
                     if (task.status !== column.id) return false;
 
-                    // Archivierte Aufgaben filtern, es sei denn showArchivedTasks ist true
-                    if (task.archived && !showArchivedTasks) return false;
+                    // Archivierte Aufgaben nur anzeigen wenn showArchivedTasks true ist
+                    if (!showArchivedTasks && task.archived) return false;
 
                     // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch
                     // Board-gebundene Aufgaben anzeigen
