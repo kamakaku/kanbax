@@ -104,6 +104,14 @@ const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
   // Hole alle Tasks für das aktuelle Board
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    queryFn: async () => {
+      if (!currentBoard?.id) return [];
+      const response = await fetch(`/api/boards/${currentBoard.id}/tasks`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Laden der Tasks");
+      }
+      return response.json();
+    },
     enabled: !!currentBoard?.id
   });
 
@@ -134,9 +142,48 @@ const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
     label.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Fix für den Select-Fehler - Stelle sicher, dass value ein einzelner String ist
+  const selectedLabel = Array.isArray(value) && value.length > 0 ? value[0] : "";
+
+  const handleValueChange = (newValue: string) => {
+    if (Array.isArray(value)) {
+      const exists = value.includes(newValue);
+      if (exists) {
+        // Wenn bereits vorhanden, entferne Label
+        onChange(value.filter(v => v !== newValue));
+      } else {
+        // Sonst hinzufügen
+        onChange([...value, newValue]);
+      }
+    } else {
+      onChange([newValue]);
+    }
+  };
+
   return (
     <div>
-      <Select value={value} onValueChange={onChange}>
+      <div className="flex flex-wrap gap-1 mb-2">
+        {Array.isArray(value) && value.map(label => (
+          <div 
+            key={label} 
+            className="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded"
+          >
+            <span className="text-sm">{label}</span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-4 w-4 p-0 rounded-full"
+              onClick={() => handleValueChange(label)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      <Select 
+        value={""} 
+        onValueChange={handleValueChange}
+      >
         <SelectTrigger>
           <SelectValue placeholder="Label auswählen" />
         </SelectTrigger>

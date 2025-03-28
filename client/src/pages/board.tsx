@@ -155,6 +155,7 @@ export function Board() {
     
     if (taskIdParam) {
       const parsedTaskId = parseInt(taskIdParam);
+      console.log("URL hat taskId:", parsedTaskId);
       setCurrentTaskId(parsedTaskId);
       setShowTaskDialog(true);
     } else {
@@ -764,6 +765,8 @@ export function Board() {
                       setShowNewTaskDialog(true);
                     }}
                     onTaskClick={(task) => {
+                      setCurrentTaskId(task.id);
+                      setShowTaskDialog(true);
                       setLocation(`${path}?taskId=${task.id}`);
                     }}
                   />

@@ -120,6 +120,7 @@ export function Column({ id, title, tasks, onAddClick, onTaskClick, showArchived
                 task={task}
                 index={index}
                 onClick={(task) => {
+                  console.log("Task geklickt in Spalte:", task.id);
                   if (onTaskClick) {
                     onTaskClick(task);
                   } else {
