@@ -117,6 +117,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
               : 'none',
             cursor: snapshot.isDragging ? "grabbing" : "grab",
             zIndex: snapshot.isDragging ? 9999 : "auto",
+            backgroundColor: "white",
+            boxShadow: snapshot.isDragging ? "0 8px 16px rgba(0, 0, 0, 0.1)" : undefined,
+            opacity: 1,
             pointerEvents: snapshot.isDragging ? "none" : "auto",
             userSelect: "none"
           }}
