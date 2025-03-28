@@ -156,8 +156,6 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && [
               "shadow-2xl",
-              "scale-[1.02]",
-              "rotate-3",
               "border-2",
               "border-primary",
               "!bg-white",
