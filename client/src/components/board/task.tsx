@@ -170,6 +170,13 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
               <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-blue-400 to-blue-600 text-white w-10 h-10"></div>
             </div>
           )}
+          
+          {/* Farbige Ecke für archivierte Aufgaben */}
+          {task.archived && (
+            <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
+              <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-red-300 to-red-600 text-white w-10 h-10"></div>
+            </div>
+          )}
           <div className="flex flex-col gap-2">
             {/* Priority and Labels in one row mit Archivierungs-Badge */}
             <div className="flex items-center gap-2 flex-wrap justify-between">
@@ -183,12 +190,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                   <span className="text-xs font-medium">{priority.label}</span>
                 </div>
 
-                {/* Archiviert Badge */}
-                {task.archived && (
-                  <div className="px-2 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-600">
-                    <span className="text-xs font-medium">Archiviert</span>
-                  </div>
-                )}
+                {/* Archiviert Badge entfernt */}
 
                 {/* Other Labels */}
                 {task.labels && task.labels.length > 0 && (
@@ -206,20 +208,23 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                 )}
               </div>
 
-              {/* Wiederherstellungs-Button für archivierte Aufgaben */}
-              {task.archived && onUpdate && (
-                <Button
-                  onClick={handleRestore}
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-full hover:from-blue-500 hover:to-blue-700"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                </Button>
-              )}
+              {/* Wiederherstellungs-Button wurde nach unten verschoben */}
             </div>
 
-            <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
+            <div className="flex flex-col">
+              <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
+              
+              {/* Wiederherstellungs-Button für archivierte Aufgaben */}
+              {task.archived && onUpdate && (
+                <button
+                  onClick={handleRestore}
+                  className="mt-1 flex items-center text-xs text-red-600 hover:text-red-800 transition-colors"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Wiederherstellen
+                </button>
+              )}
+            </div>
 
             {/* Beschreibung */}
             {(task.description || task.richDescription) && (
