@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { UserIcon, FileIcon, FileText } from "lucide-react";
+import { UserIcon, FileIcon, FileText, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RichTextContent } from "@/components/ui/rich-text-editor";
 import { type Comment, type User } from "@shared/schema";
+import { Button } from "@/components/ui/button"; // Added import for Button
+import { useMutation } from "@tanstack/react-query"; // Added import for useMutation
+
 
 interface CommentListProps {
   taskId: number;
@@ -43,6 +46,18 @@ export function CommentList({ taskId }: CommentListProps) {
 
   const isLoading = isLoadingComments || isLoadingUsers;
 
+  // Placeholder for delete mutation.  Replace with actual implementation
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: number) => {
+      return fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      // Invalidate the comments query to refetch after successful deletion
+      // queryClient.invalidateQueries(['/api/tasks/${taskId}/comments']);
+    },
+  });
+
+
   if (isLoading) {
     return (
       <div className="text-sm text-muted-foreground">
@@ -65,6 +80,7 @@ export function CommentList({ taskId }: CommentListProps) {
         const author = users.find((u: User) => u.id === comment.authorId);
         const commentDate = new Date(comment.createdAt);
         const formattedDate = format(commentDate, "dd.MM.yyyy HH:mm", { locale: de });
+        const isAuthor = user?.id === comment.authorId; // Check if current user is the author
 
         return (
           <div key={comment.id} className="border-b pb-3 last:border-0">
@@ -85,6 +101,16 @@ export function CommentList({ taskId }: CommentListProps) {
                 <span className="text-xs text-muted-foreground">
                   {formattedDate}
                 </span>
+                {isAuthor && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => deleteCommentMutation.mutate(comment.id)} // Pass comment ID to mutation
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                )}
               </div>
             </div>
             <div className="text-sm pl-8 prose prose-sm dark:prose-invert max-w-none">
@@ -92,13 +118,12 @@ export function CommentList({ taskId }: CommentListProps) {
               {comment.content.includes('.pdf') && comment.content.includes('href=') ? (
                 <div>
                   <RichTextContent content={comment.content} />
-                  {/* Extrahiere PDF-Link und zeige Vorschau an */}
                   {(() => {
                     const pdfMatch = comment.content.match(/href="([^"]+\.pdf)"/);
                     if (pdfMatch && pdfMatch[1]) {
                       // Stelle sicher, dass die URL absolut ist
                       let pdfUrl = pdfMatch[1];
-                      
+
                       // Überprüfe ob die URL relativ oder absolut ist
                       if (pdfUrl.startsWith('/')) {
                         // Absolute URL mit Origin
@@ -107,9 +132,9 @@ export function CommentList({ taskId }: CommentListProps) {
                         // Relative URL ohne führenden Slash
                         pdfUrl = window.location.origin + '/' + pdfUrl;
                       }
-                      
+
                       const pdfName = pdfUrl.split('/').pop() || 'Dokument.pdf';
-                      
+
                       return (
                         <div className="mt-2 border rounded-md overflow-hidden">
                           <div className="flex items-center p-2 bg-red-50">

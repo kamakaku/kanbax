@@ -1297,6 +1297,40 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
   });
 
+  // Delete comment
+  app.delete("/api/comments/:id", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid comment ID" });
+    }
+
+    try {
+      const userId = req.userId!;
+      
+      // Check if user is comment author
+      const comment = await pool.query(
+        'SELECT * FROM comments WHERE id = $1',
+        [id]
+      );
+
+      if (comment.rows.length === 0) {
+        return res.status(404).json({ message: "Kommentar nicht gefunden" });
+      }
+
+      if (comment.rows[0].author_id !== userId) {
+        return res.status(403).json({ message: "Keine Berechtigung zum Löschen des Kommentars" });
+      }
+
+      // Delete comment
+      await pool.query('DELETE FROM comments WHERE id = $1', [id]);
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      res.status(500).json({ message: "Fehler beim Löschen des Kommentars" });
+    }
+  });
+
   // Checklist routes
   app.get("/api/tasks/:taskId/checklist", requireAuth, async (req, res) => {
     const taskId = parseInt(req.params.taskId);
