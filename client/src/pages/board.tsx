@@ -780,7 +780,7 @@ export function Board() {
               </div>
             </DragDropContext>
           ) : (
-            <div className="px-4">
+            <div>
               <BoardTableView 
                 tasks={tasks.filter(task => {
                   // Archivierte Tasks filtern
