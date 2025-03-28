@@ -155,19 +155,11 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             "bg-white border-slate-200 relative overflow-hidden",
             task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && [
-              "shadow-2xl",
-              "border-2",
-              "border-primary",
-              "!bg-white",
+              "opacity-50"
               "z-50"
             ]
           )}
-          style={{
-            ...provided.draggableProps.style,
-            transform: provided.draggableProps.style?.transform,
-            cursor: snapshot.isDragging ? "grabbing" : "grab",
-            zIndex: snapshot.isDragging ? 9999 : 'auto'
-          }}
+          style={provided.draggableProps.style}
         >
           {/* Farbige Ecke für persönliche Aufgaben */}
           {task.isPersonal && (
