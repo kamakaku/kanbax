@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -83,6 +83,74 @@ const taskFormSchema = z.object({
   order: z.number().default(0),
 });
 
+interface LabelSelectProps {
+  value: string[];
+  onChange: (value: string[]) => void;
+}
+
+const defaultLabels = [
+  "Wichtig", "Dringend", "Dokumentation", "Design", "Entwicklung",
+  "Feedback", "Bug", "Feature", "Verbesserung", "Recherche", "Meeting",
+  "Planung", "Review", "Test", "UX", "Vorarbeit", "Zuarbeit"
+];
+
+const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
+  const { currentBoard } = useStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [customLabel, setCustomLabel] = useState("");
+
+  // Hole alle Tasks für das aktuelle Board
+  const { data: tasks = [] } = useQuery<Task[]>({
+    queryKey: ["/api/boards", currentBoard?.id, "tasks"],
+    enabled: !!currentBoard?.id
+  });
+
+  // Extrahiere alle einzigartigen Labels aus den Tasks
+  const existingLabels = useMemo(() => {
+    const labelSet = new Set<string>();
+
+    // Labels aus Tasks sammeln
+    tasks.forEach(task => {
+      if (task.labels && Array.isArray(task.labels)) {
+        task.labels.forEach(label => {
+          if (label && typeof label === 'string' && label.trim() !== '') {
+            labelSet.add(label);
+          }
+        });
+      }
+    });
+
+    // Standard-Labels hinzufügen
+    defaultLabels.forEach(label => labelSet.add(label));
+
+    // Als sortiertes Array zurückgeben
+    return Array.from(labelSet).sort();
+  }, [tasks]);
+
+  // Filter labels based on search query
+  const filteredLabels = existingLabels.filter(label =>
+    label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Label auswählen" />
+        </SelectTrigger>
+        <SelectContent>
+          {filteredLabels.map(label => (
+            <SelectItem key={label} value={label}>{label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+
+
 export function TaskDialog({
   task,
   open,
@@ -145,7 +213,7 @@ export function TaskDialog({
   useEffect(() => {
     if (open) {
       setIsEditMode(mode === "edit");
-      
+
       // Reset form values
       form.reset({
         title: task?.title || "",
@@ -159,7 +227,7 @@ export function TaskDialog({
         archived: task?.archived || false,
         order: task?.order || 0,
       });
-      
+
       // Aktualisiere uploadedAttachments mit den Anhängen aus der Aufgabe
       if (task?.attachments && Array.isArray(task.attachments)) {
         console.log("Setze Anhänge aus Task:", task.attachments);
@@ -265,7 +333,7 @@ export function TaskDialog({
         const date = new Date(data.dueDate);
         adjustedDueDate = endOfDay(date).toISOString();
       }
-      
+
       // Verwende die Rich-Text-Beschreibung und Anhänge
       const finalAttachments = uploadedAttachments.length > 0 ? uploadedAttachments : null;
 
@@ -322,7 +390,7 @@ export function TaskDialog({
             `/api/user/tasks`,
             taskData
           );
-          
+
           if (!personalResponse) {
             throw new Error("Fehler beim Erstellen der persönlichen Aufgabe");
           }
@@ -392,7 +460,7 @@ export function TaskDialog({
       setUploadedAttachments(task.attachments);
     }
   }, [task?.attachments]);
-  
+
   const renderDetailView = () => {
     const priorityConfig = {
       high: {
@@ -437,7 +505,7 @@ export function TaskDialog({
         {/* Header mit Titel */}
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">{task?.title}</h2>
-          
+
           {/* Meta-Informationen in table-Layout */}
           <div className="text-sm">
             <table className="w-full">
@@ -460,13 +528,13 @@ export function TaskDialog({
                     </td>
                   </tr>
                 )}
-                
+
                 {/* Erstellt */}
                 <tr>
                   <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Erstellt:</td>
                   <td className="py-0.5">{format(createdAtDate, "PPP", { locale: de })}</td>
                 </tr>
-                
+
                 {/* Deadline */}
                 {task?.dueDate && (
                   <tr>
@@ -476,7 +544,7 @@ export function TaskDialog({
                     </td>
                   </tr>
                 )}
-                
+
                 {/* Ersteller */}
                 {creator && (
                   <tr>
@@ -492,7 +560,7 @@ export function TaskDialog({
                     </td>
                   </tr>
                 )}
-                
+
                 {/* Benutzer */}
                 {assignedUsers.length > 0 && (
                   <tr>
@@ -512,7 +580,7 @@ export function TaskDialog({
                     </td>
                   </tr>
                 )}
-                
+
                 {/* Status */}
                 <tr>
                   <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Status:</td>
@@ -530,7 +598,7 @@ export function TaskDialog({
                     </div>
                   </td>
                 </tr>
-                
+
                 {/* Priorität */}
                 <tr>
                   <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Priorität:</td>
@@ -551,20 +619,22 @@ export function TaskDialog({
             </table>
           </div>
         </div>
-        
+
         {/* Trennlinie */}
         <div className="border-t border-slate-200"></div>
-        
+
         {/* Beschreibung */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">Beschreibung</div>
-          {task?.description ? (
-            <div className="text-sm whitespace-pre-wrap">{task.description}</div>
-          ) : (
-            <div className="text-sm text-muted-foreground italic">Keine Beschreibung vorhanden</div>
-          )}
+          {task?.richDescription ? (
+              <div className="text-sm" dangerouslySetInnerHTML={{ __html: task.richDescription }} />
+            ) : task?.description ? (
+              <div className="text-sm whitespace-pre-wrap">{task.description}</div>
+            ) : (
+              <div className="text-sm text-muted-foreground italic">Keine Beschreibung vorhanden</div>
+            )}
         </div>
-        
+
         {/* Checkliste */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">Checkliste</div>
@@ -615,10 +685,10 @@ export function TaskDialog({
             </Button>
           </div>
         </div>
-        
+
         {/* Trennlinie */}
         <div className="border-t border-slate-200"></div>
-        
+
         {/* Angehängte Dateien */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">Dateien</div>
@@ -661,18 +731,18 @@ export function TaskDialog({
                         isExcel ? 'text-green-800' : 
                         'text-gray-800'
                       }`}>{fileName}</span>
-                      
+
                       <Button 
                         variant="ghost" 
                         size="icon" 
                         className="ml-auto h-6 w-6 rounded-full hover:bg-red-100 hover:text-red-600"
                         onClick={(e) => {
                           e.stopPropagation(); // Verhindere Bubbling zum Parent
-                          
+
                           // Entferne den Anhang aus dem lokalen State
                           const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
                           setUploadedAttachments(newAttachments);
-                          
+
                           // Aktualisiere auch die Aufgabe, falls nötig
                           if (task?.id && onUpdate && typeof onUpdate === 'function') {
                             try {
@@ -680,12 +750,12 @@ export function TaskDialog({
                                 ...task,
                                 attachments: newAttachments
                               };
-                              
+
                               // Führe onUpdate aus und behandle es als Promise
                               Promise.resolve(onUpdate(updatedTask as Task))
                                 .then(() => {
                                   console.log("Anhang erfolgreich entfernt");
-                                  
+
                                   // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
                                   if (queryClient) {
                                     queryClient.invalidateQueries({ 
@@ -694,14 +764,14 @@ export function TaskDialog({
                                     queryClient.invalidateQueries({ 
                                       queryKey: ["/api/tasks"] 
                                     });
-                                    
+
                                     // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
                                     if (task.boardId) {
                                       queryClient.invalidateQueries({ 
                                         queryKey: ["/api/boards", task.boardId, "tasks"] 
                                       });
                                     }
-                                    
+
                                     // Invalidiere die spezifische Task
                                     queryClient.invalidateQueries({ 
                                       queryKey: [`/api/tasks/${task.id}`] 
@@ -720,7 +790,7 @@ export function TaskDialog({
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    
+
                     {isImage && (
                       <div className="p-3 bg-gray-50">
                         <a 
@@ -741,7 +811,7 @@ export function TaskDialog({
                         </a>
                       </div>
                     )}
-                    
+
                     {!isImage && (
                       <div className="p-3 bg-gray-50">
                         <a 
@@ -794,7 +864,7 @@ export function TaskDialog({
           ) : (
             <div className="text-sm text-muted-foreground italic">Keine Dateien angehängt</div>
           )}
-          
+
           {/* Attachment Lightbox Dialog */}
           <Dialog open={!!selectedAttachment} onOpenChange={(open) => !open && setSelectedAttachment(null)}>
             <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-lg">
@@ -807,7 +877,7 @@ export function TaskDialog({
                 >
                   <X className="h-4 w-4" />
                 </Button>
-                
+
                 {selectedAttachment && (
                   <>
                     {/\.(jpeg|jpg|gif|png|webp)$/i.test(selectedAttachment) ? (
@@ -853,7 +923,7 @@ export function TaskDialog({
             </DialogContent>
           </Dialog>
         </div>
-        
+
         {/* Kommentare */}
         {task && (
           <div className="space-y-3">
@@ -923,7 +993,7 @@ export function TaskDialog({
                               setUploadedAttachments(prev => {
                                 const newAttachments = [...prev, ...urls];
                                 console.log("Neue Anhangsliste in Task-Dialog:", newAttachments);
-                                
+
                                 // Task sofort mit neuen Anhängen aktualisieren, wenn möglich
                                 if (task && onUpdate && typeof onUpdate === 'function') {
                                   try {
@@ -932,7 +1002,7 @@ export function TaskDialog({
                                       attachments: newAttachments
                                     };
                                     console.log("Sofortige Task-Aktualisierung mit neuen Anhängen", updatedTask);
-                                    
+
                                     // Führe onUpdate aus und fange Promise korrekt ab oder behandle es als normalen Funktionsaufruf
                                     const result = onUpdate(updatedTask as Task);
                                     if (result && typeof result.then === 'function') {
@@ -946,7 +1016,7 @@ export function TaskDialog({
                                     console.error("Fehler bei der Task-Aktualisierung:", error);
                                   }
                                 }
-                                
+
                                 return newAttachments;
                               });
                             }}
@@ -956,7 +1026,7 @@ export function TaskDialog({
                       </FormItem>
                     )}
                   />
-                  
+
                   {/* Datei-Upload Bereich */}
                   <div className="space-y-2">
                     <div className="space-y-2">
@@ -982,7 +1052,7 @@ export function TaskDialog({
                           )}
                         </Button>
                       </div>
-                      
+
                       {uploading && (
                         <div className="w-full">
                           <div className="h-2 w-full bg-gray-200 rounded overflow-hidden">
@@ -1005,32 +1075,32 @@ export function TaskDialog({
                           if (e.target.files?.length) {
                             const fileArray = Array.from(e.target.files);
                             setFiles(prev => [...prev, ...fileArray]);
-                            
+
                             // Upload gestartet
                             setUploading(true);
                             setUploadProgress(0);
-                            
+
                             // Upload-Logik hier...
                             const formData = new FormData();
-                            
+
                             // Wir verwenden den allgemeinen Upload-Endpunkt mit Typ 'task'
                             for (const file of fileArray) {
                               formData.append('file', file);
                             }
-                            
+
                             // Füge Metadaten hinzu
                             formData.append('type', 'task');
                             if (task?.id) {
                               formData.append('entityId', task.id.toString());
                             }
-                              
+
                             // Simuliere Fortschrittsanzeige mit zufälligem Maximalwert
                             const simulateProgress = () => {
                               let progress = 0;
                               // Zufälliger Maximalwert zwischen 90% und 98%
                               const maxProgress = 90 + Math.floor(Math.random() * 9);
                               console.log(`Maximaler Fortschritt für diesen Upload: ${maxProgress}%`);
-                              
+
                               const interval = setInterval(() => {
                                 progress += Math.random() * 10;
                                 if (progress > maxProgress) {
@@ -1041,9 +1111,9 @@ export function TaskDialog({
                               }, 300);
                               return interval;
                             };
-                            
+
                             const progressInterval = simulateProgress();
-                            
+
                             fetch('/api/upload', {
                               method: 'POST',
                               body: formData,
@@ -1052,7 +1122,7 @@ export function TaskDialog({
                             .then(res => {
                               clearInterval(progressInterval);
                               setUploadProgress(100); // Auf 100% setzen, wenn Antwort zurückkommt
-                              
+
                               if (!res.ok) {
                                 throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
                               }
@@ -1063,24 +1133,24 @@ export function TaskDialog({
                                 // Einzelne Datei-URL vom Server
                                 const newAttachments = [...uploadedAttachments, data.url];
                                 setUploadedAttachments(newAttachments);
-                                
+
                                 // Aktualisiere die Aufgabe sofort, falls eine existiert
                                 if (task?.id && onUpdate && typeof onUpdate === 'function') {
                                   console.log("Upload erfolgreich, aktualisiere Task mit neuem Anhang:", data.url);
                                   console.log("Aktuelle Anhänge:", uploadedAttachments);
                                   console.log("Neue Anhänge:", newAttachments);
-                                  
+
                                   const updatedTask = {
                                     ...task,
                                     attachments: newAttachments
                                   };
-                                  
+
                                   try {
                                     // Führe onUpdate aus und behandle es als Promise
                                     Promise.resolve(onUpdate(updatedTask as Task))
                                       .then(() => {
                                         console.log("Aufgabe mit neuem Anhang aktualisiert:", newAttachments);
-                                        
+
                                         // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
                                         if (queryClient) {
                                           queryClient.invalidateQueries({ 
@@ -1089,14 +1159,14 @@ export function TaskDialog({
                                           queryClient.invalidateQueries({ 
                                             queryKey: ["/api/tasks"] 
                                           });
-                                          
+
                                           // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
                                           if (task.boardId) {
                                             queryClient.invalidateQueries({ 
                                               queryKey: ["/api/boards", task.boardId, "tasks"] 
                                             });
                                           }
-                                          
+
                                           // Invalidiere die spezifische Task
                                           queryClient.invalidateQueries({ 
                                             queryKey: [`/api/tasks/${task.id}`] 
@@ -1110,7 +1180,7 @@ export function TaskDialog({
                                     console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                   }
                                 }
-                                
+
                                 toast({
                                   title: "Datei erfolgreich hochgeladen",
                                   description: `${data.originalname || 'Datei'} wurde hochgeladen.`
@@ -1119,24 +1189,24 @@ export function TaskDialog({
                                 // Mehrere Datei-URLs
                                 const newAttachments = [...uploadedAttachments, ...data.urls];
                                 setUploadedAttachments(newAttachments);
-                                
+
                                 // Aktualisiere die Aufgabe sofort, falls eine existiert
                                 if (task?.id && onUpdate && typeof onUpdate === 'function') {
                                   console.log("Mehrere Dateien hochgeladen, aktualisiere Task mit neuen Anhängen:", data.urls);
                                   console.log("Aktuelle Anhänge:", uploadedAttachments);
                                   console.log("Neue Anhänge:", newAttachments);
-                                  
+
                                   const updatedTask = {
                                     ...task,
                                     attachments: newAttachments
                                   };
-                                  
+
                                   try {
                                     // Führe onUpdate aus und behandle es als Promise
                                     Promise.resolve(onUpdate(updatedTask as Task))
                                       .then(() => {
                                         console.log("Aufgabe mit neuen Anhängen aktualisiert:", newAttachments);
-                                        
+
                                         // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
                                         if (queryClient) {
                                           queryClient.invalidateQueries({ 
@@ -1145,14 +1215,14 @@ export function TaskDialog({
                                           queryClient.invalidateQueries({ 
                                             queryKey: ["/api/tasks"] 
                                           });
-                                          
+
                                           // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
                                           if (task.boardId) {
                                             queryClient.invalidateQueries({ 
                                               queryKey: ["/api/boards", task.boardId, "tasks"] 
                                             });
                                           }
-                                          
+
                                           // Invalidiere die spezifische Task
                                           queryClient.invalidateQueries({ 
                                             queryKey: [`/api/tasks/${task.id}`] 
@@ -1166,29 +1236,29 @@ export function TaskDialog({
                                     console.error("Fehler beim Aktualisieren der Aufgabe:", err);
                                   }
                                 }
-                                
+
                                 toast({
                                   title: "Dateien erfolgreich hochgeladen",
                                   description: `${data.urls.length} Datei(en) wurden erfolgreich hochgeladen.`
                                 });
                               }
-                              
+
                               // Upload abgeschlossen, Status zurücksetzen
                               setUploading(false);
                             })
                             .catch(err => {
                               console.error("Fehler beim Hochladen:", err);
                               let errorMsg = "Die Dateien konnten nicht hochgeladen werden.";
-                              
+
                               if (err.message && err.message.includes('HTTP error 401')) {
                                 errorMsg = "Bitte melden Sie sich an, um Dateien hochzuladen.";
                               } else if (err.message && err.message.includes('HTTP error 413')) {
                                 errorMsg = "Die Datei ist zu groß. Maximale Größe überschritten.";
                               }
-                              
+
                               // Auch bei Fehler Upload-Status zurücksetzen
                               setUploading(false);
-                              
+
                               toast({
                                 title: "Fehler beim Hochladen",
                                 description: errorMsg,
@@ -1199,7 +1269,7 @@ export function TaskDialog({
                         }}
                       />
                     </div>
-                    
+
                     {/* Anzeige der hochgeladenen Dateien im Stil der Kommentare */}
                     {uploadedAttachments.length > 0 && (
                       <div className="space-y-2 mt-2">
@@ -1241,7 +1311,7 @@ export function TaskDialog({
                                     isExcel ? 'text-green-800' : 
                                     'text-gray-800'
                                   }`}>{fileName}</span>
-                                  
+
                                   <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -1250,7 +1320,7 @@ export function TaskDialog({
                                       // Entferne den Anhang aus dem lokalen State
                                       const newAttachments = uploadedAttachments.filter((_, i) => i !== index);
                                       setUploadedAttachments(newAttachments);
-                                      
+
                                       // Aktualisiere auch die Aufgabe, falls nötig
                                       if (task?.id && onUpdate && typeof onUpdate === 'function') {
                                         try {
@@ -1258,12 +1328,12 @@ export function TaskDialog({
                                             ...task,
                                             attachments: newAttachments
                                           };
-                                          
+
                                           // Führe onUpdate aus und behandle es als Promise
                                           Promise.resolve(onUpdate(updatedTask as Task))
                                             .then(() => {
                                               console.log("Anhang erfolgreich entfernt");
-                                              
+
                                               // Manuell den QueryClient invalidieren für alle wichtigen TaskCard-Queries
                                               if (queryClient) {
                                                 queryClient.invalidateQueries({ 
@@ -1272,14 +1342,14 @@ export function TaskDialog({
                                                 queryClient.invalidateQueries({ 
                                                   queryKey: ["/api/tasks"] 
                                                 });
-                                                
+
                                                 // Prüfe ob boardId existiert und invalidiere spezifische Board-Tasks
                                                 if (task.boardId) {
                                                   queryClient.invalidateQueries({ 
                                                     queryKey: ["/api/boards", task.boardId, "tasks"] 
                                                   });
                                                 }
-                                                
+
                                                 // Invalidiere die spezifische Task
                                                 queryClient.invalidateQueries({ 
                                                   queryKey: [`/api/tasks/${task.id}`] 
@@ -1298,7 +1368,7 @@ export function TaskDialog({
                                     <X className="h-4 w-4" />
                                   </Button>
                                 </div>
-                                
+
                                 {isImage && (
                                   <div className="p-3 bg-gray-50">
                                     <a 
@@ -1319,7 +1389,7 @@ export function TaskDialog({
                                     </a>
                                   </div>
                                 )}
-                                
+
                                 {!isImage && (
                                   <div className="p-3 bg-gray-50">
                                     <a 
@@ -1490,23 +1560,11 @@ export function TaskDialog({
                             ))}
                           </div>
                           <div className="flex gap-2">
-                            <Input
-                              placeholder="Neues Label"
-                              value={newLabel}
-                              onChange={(e) => setNewLabel(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleAddLabel();
-                                }
-                              }}
-                            />
-                            <Button type="button" onClick={handleAddLabel} size="sm">
-                              <Tag className="h-4 w-4 mr-1" />
-                              Hinzufügen
-                            </Button>
+                            {/* Replaced with LabelSelect Component */}
+                            <LabelSelect value={field.value || []} onChange={field.onChange} />
                           </div>
                         </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -1617,7 +1675,7 @@ export function TaskDialog({
                 </form>
               </Form>
             </div>
-            
+
             <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-between rounded-b-lg">
               <div>
                 {task && (
@@ -1678,7 +1736,7 @@ export function TaskDialog({
             <div className="px-6 overflow-y-auto pb-24" style={{ maxHeight: "calc(85vh - 120px)" }}>
               {renderDetailView()}
             </div>
-            
+
             <div className="fixed bottom-0 w-full p-4 bg-background border-t border-border flex justify-between rounded-b-lg">
               <div className="flex gap-2">
                 {task && (
@@ -1705,10 +1763,10 @@ export function TaskDialog({
                           assignedUserIds: task.assignedUserIds || [],
                           labels: task.labels || []
                         };
-                        
+
                         if (onUpdate) {
                           await onUpdate(updatedTask);
-                          
+
                           toast({
                             title: updatedTask.archived 
                               ? "Aufgabe archiviert" 
