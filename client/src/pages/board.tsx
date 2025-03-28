@@ -778,10 +778,8 @@ export function Board() {
               </div>
             </DragDropContext>
           ) : (
-            <div>
-              {/* Placeholder for Table View */}
-              <p>Table View will be implemented here.</p>
-              {/*  Implementation of the table view would go here.  This would likely involve iterating through the tasks and rendering them in a table format. */}
+            <div className="px-4">
+              <BoardTableView tasks={tasks} />
             </div>
           )}
         </div>
