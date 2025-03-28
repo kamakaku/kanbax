@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, User as UserIcon, Paperclip } from "lucide-react";
+import { CalendarIcon, User as UserIcon, Paperclip, RotateCcw } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -123,6 +123,13 @@ export function TaskCard({ task, index }: TaskCardProps) {
             </div>
           )}
           
+          {/* Archiv-Indikator für archivierte Aufgaben */}
+          {task.archived && (
+            <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
+              <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-red-300 to-red-600 text-white w-10 h-10"></div>
+            </div>
+          )}
+          
           {/* Header mit Titel */}
           <div className="mb-2">
             <h3 className="text-sm font-medium">
@@ -134,6 +141,23 @@ export function TaskCard({ task, index }: TaskCardProps) {
               )}
               {task.title}
             </h3>
+            
+            {/* Wiederherstellungsbutton für archivierte Aufgaben */}
+            {task.archived && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Verhindert das Öffnen des Dialogs
+                  updateTask.mutate({
+                    ...task,
+                    archived: false
+                  });
+                }}
+                className="mt-1 flex items-center text-xs text-red-600 hover:text-red-800 transition-colors"
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Wiederherstellen
+              </button>
+            )}
           </div>
             
           {/* Labels */}
