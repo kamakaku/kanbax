@@ -102,15 +102,33 @@ export function TaskCard({ task, index }: TaskCardProps) {
 
   return (
     <Draggable draggableId={`task-${task.id}`} index={index}>
-      {(provided) => (
+      {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           onClick={() => setIsDialogOpen(true)}
-          className="cursor-pointer"
+          className="cursor-grab active:cursor-grabbing"
+          style={{
+            position: "relative",
+            ...provided.draggableProps.style,
+            transform: snapshot.isDragging
+              ? provided.draggableProps.style?.transform
+              : 'none',
+            cursor: snapshot.isDragging ? "grabbing" : "grab",
+            zIndex: snapshot.isDragging ? 9999 : "auto",
+            pointerEvents: snapshot.isDragging ? "none" : "auto",
+            userSelect: "none"
+          }}
         >
-          <Card className="mb-2 hover:shadow-md transition-shadow relative overflow-hidden">
+          <Card className={`mb-2 transition-shadow relative overflow-hidden 
+            ${snapshot.isDragging ? "shadow-xl" : "hover:shadow-md"} 
+            ${snapshot.isDragging ? "border-2 border-primary" : ""}
+            ${snapshot.isDragging ? "scale-[1.02]" : ""}
+            ${snapshot.isDragging ? "rotate-3" : ""}
+            ${snapshot.isDragging ? "!bg-white" : ""}
+            ${snapshot.isDragging ? "z-50" : ""}
+          `}>
             {isPersonalTask && (
               <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
                 <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-blue-400 to-blue-600 text-white w-10 h-10"></div>
