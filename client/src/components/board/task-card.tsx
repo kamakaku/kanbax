@@ -106,7 +106,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
           onClick={() => setIsDialogOpen(true)}
           className={cn(
             "rounded-lg border p-3 pb-4 mb-2 cursor-grab active:cursor-grabbing transition-all",
-            "bg-white border-slate-200 relative overflow-hidden w-full",
+            "bg-white border-slate-200 relative overflow-hidden w-full h-full flex flex-col",
             snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
           )}
           style={{
@@ -191,7 +191,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
           )}
 
           {/* Footer mit Datum, Anhängen und Benutzern */}
-          <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100">
+          <div className="flex items-center justify-between mt-auto pt-3 pb-1 border-t border-slate-100 flex-shrink-0">
             <div className="flex items-center gap-2">
               {task.dueDate && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">

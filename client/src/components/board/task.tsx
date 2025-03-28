@@ -153,6 +153,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           className={cn(
             "rounded-lg border p-3 pb-4 cursor-grab active:cursor-grabbing transition-all",
             "bg-white border-slate-200 relative overflow-hidden w-full",
+            "flex flex-col h-full", // Wichtig für einheitliche Höhen
             task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
           )}
@@ -177,7 +178,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
               <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-red-300 to-red-600 text-white w-10 h-10"></div>
             </div>
           )}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 h-full justify-between">
             {/* Priority and Labels in one row mit Archivierungs-Badge */}
             <div className="flex items-center gap-2 flex-wrap justify-between">
               <div className="flex items-center gap-2 flex-wrap">
@@ -291,7 +292,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Untere Leiste mit allen Informationen */}
-            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100 w-full min-h-[36px]">
+            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100 w-full min-h-[36px] flex-shrink-0">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 {/* Erstelldatum */}
                 <div>
