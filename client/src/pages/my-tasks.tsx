@@ -50,6 +50,11 @@ export default function MyTasks() {
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
+  
+  const handleNewTaskDialog = () => {
+    setSelectedLabels([]); // Labels zurücksetzen
+    setIsNewTaskDialogOpen(true);
+  };
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
@@ -272,7 +277,7 @@ export default function MyTasks() {
             {/* Neue Aufgabe Button und View Mode Controls */}
             <div className="flex items-center gap-4">
               <Button
-                onClick={() => setIsNewTaskDialogOpen(true)}
+                onClick={handleNewTaskDialog}
                 className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-md transition-all duration-300 hover:shadow-lg"
               >
                 <PlusCircle className="h-4 w-4 mr-2" />

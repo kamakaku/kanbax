@@ -170,7 +170,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
               <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-blue-400 to-blue-600 text-white w-10 h-10"></div>
             </div>
           )}
-          
+
           {/* Farbige Ecke für archivierte Aufgaben */}
           {task.archived && (
             <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
@@ -213,7 +213,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
 
             <div className="flex flex-col">
               <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
-              
+
               {/* Wiederherstellungs-Button für archivierte Aufgaben */}
               {task.archived && onUpdate && (
                 <button
@@ -291,7 +291,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Untere Leiste mit allen Informationen */}
-            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100">
+            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100 w-full">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 {/* Erstelldatum */}
                 <div>
