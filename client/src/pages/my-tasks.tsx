@@ -543,7 +543,7 @@ export default function MyTasks() {
             </DragDropContext>
           ) : (
             <BoardTableView
-              tasks={filteredTasks}
+              tasks={filteredTasks.filter(task => showArchivedTasks || !task.archived)}
               onTaskClick={(task) => {
                 setSelectedTask(task);
                 setIsTaskDialogOpen(true);
