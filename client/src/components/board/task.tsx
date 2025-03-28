@@ -164,8 +164,9 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           )}
           style={{
             ...provided.draggableProps.style,
-            transform: snapshot.isDragging ? provided.draggableProps.style?.transform : undefined,
-            cursor: snapshot.isDragging ? "grabbing" : "grab"
+            transform: provided.draggableProps.style?.transform,
+            cursor: snapshot.isDragging ? "grabbing" : "grab",
+            zIndex: snapshot.isDragging ? 9999 : 'auto'
           }}
         >
           {/* Farbige Ecke für persönliche Aufgaben */}
