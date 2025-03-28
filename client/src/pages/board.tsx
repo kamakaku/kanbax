@@ -692,57 +692,61 @@ export function Board() {
         </div>
 
         <div className="flex-1">
+          {/* DragDrop Bereich */}
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-6 pb-4">
-              {defaultColumns.map((column) => {
-                let filteredTasks = tasks
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-3">
+              {defaultColumns.map(column => {
+                const columnTasks = tasks
                   .filter(task => task.status === column.id)
-                  // Filter out archived tasks unless showArchivedTasks is true
-                  .filter(task => showArchivedTasks || !task.archived);
-
-                // Suche nach Texteingabe
-                if (searchQuery) {
-                  const query = searchQuery.toLowerCase();
-                  filteredTasks = filteredTasks.filter(task => 
-                    task.title.toLowerCase().includes(query) || 
-                    (task.description && task.description.toLowerCase().includes(query))
-                  );
-                }
-
-                // Labels filtern
-                if (selectedLabels.length > 0) {
-                  filteredTasks = filteredTasks.filter(task => 
-                    task.labels && task.labels.some(label => selectedLabels.includes(label))
-                  );
-                }
-
-                // Priorität filtern
-                if (selectedPriorities.length > 0) {
-                  filteredTasks = filteredTasks.filter(task => 
-                    task.priority && selectedPriorities.includes(task.priority)
-                  );
-                }
-
-                // Deadline filtern
-                if (selectedDate) {
-                  const targetDate = format(selectedDate, 'yyyy-MM-dd');
-                  filteredTasks = filteredTasks.filter(task => {
-                    if (!task.dueDate) return false;
-                    const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
-                    return taskDate === targetDate;
-                  });
-                }
-
-                // Nach Order sortieren
-                filteredTasks = filteredTasks.sort((a, b) => a.order - b.order);
+                  .filter(task => !task.archived || (task.archived && showArchivedTasks))
+                  .filter(task => {
+                    // Suche
+                    if (searchQuery) {
+                      const query = searchQuery.toLowerCase();
+                      if (!task.title.toLowerCase().includes(query) && 
+                          !(task.description && task.description.toLowerCase().includes(query))) {
+                        return false;
+                      }
+                    }
+                    
+                    // Label-Filter
+                    if (selectedLabels.length > 0) {
+                      if (!task.labels || !task.labels.some(label => selectedLabels.includes(label))) {
+                        return false;
+                      }
+                    }
+                    
+                    // Prioritäts-Filter
+                    if (selectedPriorities.length > 0) {
+                      if (!task.priority || !selectedPriorities.includes(task.priority)) {
+                        return false;
+                      }
+                    }
+                    
+                    // Deadline-Filter
+                    if (selectedDate && task.dueDate) {
+                      const targetDate = format(selectedDate, 'yyyy-MM-dd');
+                      const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
+                      if (taskDate !== targetDate) return false;
+                    }
+                    
+                    return true;
+                  })
+                  .sort((a, b) => a.order - b.order);
 
                 return (
                   <ColumnComponent
                     key={column.id}
-                    column={column}
-                    tasks={filteredTasks}
-                    onUpdate={updateTask.mutate}
-                    showArchivedTasks={showArchivedTasks}
+                    id={column.id}
+                    title={column.title}
+                    tasks={columnTasks}
+                    onAddClick={() => {
+                      setInitialColumnId(parseInt(column.id));
+                      setShowNewTaskDialog(true);
+                    }}
+                    onTaskClick={(task) => {
+                      setLocation(`${path}?taskId=${task.id}`);
+                    }}
                   />
                 );
               })}
