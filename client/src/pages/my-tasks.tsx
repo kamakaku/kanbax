@@ -214,8 +214,10 @@ export default function MyTasks() {
         if (taskDateString !== selectedDateString) return false;
       }
 
-      // Filter for archived tasks
-      if (task.archived && !showArchivedTasks) return false;
+      // Filter für archivierte Aufgaben
+      if (!showArchivedTasks && task.archived) {
+        return false;
+      }
 
       return true;
     });
