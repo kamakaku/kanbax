@@ -781,7 +781,44 @@ export function Board() {
             </DragDropContext>
           ) : (
             <div className="px-4">
-              <BoardTableView tasks={tasks} />
+              <BoardTableView 
+                tasks={tasks.filter(task => {
+                  // Archivierte Tasks filtern
+                  if (!showArchivedTasks && task.archived) return false;
+                  
+                  // Textsuche
+                  if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    if (!task.title.toLowerCase().includes(query) && 
+                        !(task.description && task.description.toLowerCase().includes(query))) {
+                      return false;
+                    }
+                  }
+
+                  // Labels filtern
+                  if (selectedLabels.length > 0) {
+                    if (!task.labels?.some(label => selectedLabels.includes(label))) {
+                      return false;
+                    }
+                  }
+
+                  // Priorität filtern
+                  if (selectedPriorities.length > 0) {
+                    if (!task.priority || !selectedPriorities.includes(task.priority)) {
+                      return false;
+                    }
+                  }
+
+                  // Deadline filtern
+                  if (selectedDate && task.dueDate) {
+                    const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
+                    const filterDate = format(selectedDate, 'yyyy-MM-dd');
+                    if (taskDate !== filterDate) return false;
+                  }
+
+                  return true;
+                })} 
+              />
             </div>
           )}
         </div>
