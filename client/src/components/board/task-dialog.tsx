@@ -97,8 +97,6 @@ const defaultLabels = [
 
 const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
   const { currentBoard } = useStore();
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [customLabel, setCustomLabel] = useState("");
 
   // Hole alle Tasks für das aktuelle Board
@@ -129,23 +127,77 @@ const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
     return Array.from(labelSet).sort();
   }, [tasks]);
 
-  // Filter labels based on search query
-  const filteredLabels = existingLabels.filter(label =>
-    label.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Bereite die Optionen für DialogMultiSelect vor
+  const labelOptions = useMemo(() => {
+    return existingLabels.map(label => ({
+      value: label,
+      label: label
+    }));
+  }, [existingLabels]);
+
+  // Funktion zum Hinzufügen eines benutzerdefinierten Labels
+  const handleAddCustomLabel = () => {
+    if (customLabel.trim() && !value.includes(customLabel.trim())) {
+      const newValue = [...value, customLabel.trim()];
+      onChange(newValue);
+      setCustomLabel("");
+    }
+  };
 
   return (
-    <div>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Label auswählen" />
-        </SelectTrigger>
-        <SelectContent>
-          {filteredLabels.map(label => (
-            <SelectItem key={label} value={label}>{label}</SelectItem>
+    <div className="space-y-2">
+      {/* MultiSelect für vorhandene Labels */}
+      <DialogMultiSelect
+        options={labelOptions}
+        selected={value}
+        onChange={onChange}
+        placeholder="Labels auswählen..."
+      />
+      
+      {/* Input für benutzerdefinierte Labels */}
+      <div className="flex gap-2">
+        <Input 
+          placeholder="Neues Label erstellen..."
+          value={customLabel}
+          onChange={(e) => setCustomLabel(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAddCustomLabel();
+            }
+          }}
+        />
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="icon"
+          onClick={handleAddCustomLabel}
+          disabled={!customLabel.trim()}
+        >
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* Anzeige der aktuell ausgewählten Labels */}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {value.map(label => (
+            <div 
+              key={label}
+              className="bg-slate-100 text-xs px-2 py-1 rounded-full flex items-center gap-1"
+            >
+              <span>{label}</span>
+              <button
+                type="button"
+                onClick={() => onChange(value.filter(l => l !== label))}
+                className="hover:text-rose-500 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
           ))}
-        </SelectContent>
-      </Select>
+        </div>
+      )}
     </div>
   );
 };
@@ -497,7 +549,8 @@ export function TaskDialog({
 
     const priority = task?.priority ? priorityConfig[task.priority as keyof typeof priorityConfig] : priorityConfig.medium;
     const assignedUsers = users.filter(user => task?.assignedUserIds?.includes(user.id));
-    const creator = users.find(user => user.id === task?.creator_id);
+    // Find the creator (updated to use creator_id if available)
+    const creator = users.find(user => user.id === (task as any)?.creator_id);
     const statusLabel = task?.status ? statusLabels[task.status as keyof typeof statusLabels] : "Unbekannt";
     const createdAtDate = task?.createdAt ? new Date(task.createdAt) : new Date();
 
