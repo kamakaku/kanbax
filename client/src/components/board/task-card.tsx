@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { type Task, type User } from "@shared/schema";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, User as UserIcon, Paperclip } from "lucide-react";
 import { Draggable } from "react-beautiful-dnd";
@@ -13,6 +12,7 @@ import { useStore } from "@/lib/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { TaskDialog } from "./task-dialog";
+import { cn } from "@/lib/utils";
 
 interface TaskCardProps {
   task: Task;
@@ -35,11 +35,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
 
   const updateTask = useMutation({
     mutationFn: async (updatedTask: Task): Promise<any> => {
-      const response = await apiRequest<any>("PATCH", `/api/tasks/${task.id}`, updatedTask);
-      if (!response.ok) {
-        throw new Error("Fehler beim Aktualisieren des Tasks");
-      }
-      return response.json();
+      return await apiRequest<any>("PATCH", `/api/tasks/${task.id}`, updatedTask);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -53,12 +49,12 @@ export function TaskCard({ task, index }: TaskCardProps) {
           );
         }
       });
-      toast({ title: "Task updated successfully" });
+      toast({ title: "Task aktualisiert" });
       setIsDialogOpen(false);
     },
     onError: (error) => {
       toast({
-        title: "Failed to update task",
+        title: "Fehler beim Aktualisieren",
         description: error.message,
         variant: "destructive",
       });
@@ -108,100 +104,86 @@ export function TaskCard({ task, index }: TaskCardProps) {
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           onClick={() => setIsDialogOpen(true)}
-          className="cursor-grab active:cursor-grabbing"
+          className={cn(
+            "rounded-lg border p-3 mb-2 cursor-grab active:cursor-grabbing transition-all",
+            "bg-white border-slate-200 relative overflow-hidden",
+            snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
+          )}
           style={{
-            position: "relative",
-            ...provided.draggableProps.style,
-            transform: snapshot.isDragging
-              ? provided.draggableProps.style?.transform
-              : 'none',
-            cursor: snapshot.isDragging ? "grabbing" : "grab",
-            zIndex: snapshot.isDragging ? 9999 : "auto",
-            backgroundColor: "white",
-            boxShadow: snapshot.isDragging ? "0 8px 16px rgba(0, 0, 0, 0.1)" : undefined,
-            opacity: 1,
-            pointerEvents: snapshot.isDragging ? "none" : "auto",
-            userSelect: "none"
+            ...provided.draggableProps.style
           }}
         >
-          <Card className={`mb-2 transition-shadow relative overflow-hidden 
-            ${snapshot.isDragging ? "shadow-xl" : "hover:shadow-md"} 
-            ${snapshot.isDragging ? "border-2 border-primary" : ""}
-            ${snapshot.isDragging ? "scale-[1.02]" : ""}
-            ${snapshot.isDragging ? "rotate-3" : ""}
-            ${snapshot.isDragging ? "!bg-white" : ""}
-            ${snapshot.isDragging ? "z-50" : ""}
-          `}>
-            {isPersonalTask && (
-              <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
-                <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-blue-400 to-blue-600 text-white w-10 h-10"></div>
-              </div>
-            )}
-            <CardHeader className="p-3">
-              <div className="flex items-start justify-between">
-                <h3 className="text-sm font-medium">
-                  {isPersonalTask && (
-                    <div className="inline-flex items-center mr-1">
-                      <UserIcon className="h-3 w-3 mr-1 text-blue-500" />
-                      <span className="text-xs font-medium bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Persönliche Aufgabe</span>
-                    </div>
-                  )}
-                  {task.title}
-                </h3>
-              </div>
-            </CardHeader>
-            <CardContent className="p-3 pt-0">
-              {task.labels && task.labels.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {task.labels.map((label) => (
-                    <Badge key={label} variant="secondary">
-                      {label}
-                    </Badge>
-                  ))}
+          {isPersonalTask && (
+            <div className="absolute top-0 right-0 w-8 h-8 overflow-hidden">
+              <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-r from-blue-400 to-blue-600 text-white w-10 h-10"></div>
+            </div>
+          )}
+          
+          {/* Header mit Titel */}
+          <div className="mb-2">
+            <h3 className="text-sm font-medium">
+              {isPersonalTask && (
+                <div className="inline-flex items-center mr-1">
+                  <UserIcon className="h-3 w-3 mr-1 text-blue-500" />
+                  <span className="text-xs font-medium bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Persönliche Aufgabe</span>
                 </div>
               )}
+              {task.title}
+            </h3>
+          </div>
+            
+          {/* Labels */}
+          {task.labels && task.labels.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {task.labels.map((label) => (
+                <Badge key={label} variant="secondary">
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          )}
 
-              {hasChecklist && (
-                <div className="mb-2">
-                  <Progress 
-                    value={
-                      (task.checklist.filter(item => {
-                        try {
-                          const parsed = JSON.parse(item);
-                          return parsed.checked;
-                        } catch {
-                          return false;
-                        }
-                      }).length / task.checklist.length) * 100
-                    } 
-                    className="h-1"
-                  />
+          {/* Checklist Progress */}
+          {hasChecklist && (
+            <div className="mb-2">
+              <Progress 
+                value={
+                  (task.checklist.filter(item => {
+                    try {
+                      const parsed = JSON.parse(item);
+                      return parsed.checked;
+                    } catch {
+                      return false;
+                    }
+                  }).length / task.checklist.length) * 100
+                } 
+                className="h-1"
+              />
+            </div>
+          )}
+
+          {/* Footer mit Datum, Anhängen und Benutzern */}
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-2">
+              {task.dueDate && (
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <CalendarIcon className="h-4 w-4" />
+                  {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
                 </div>
               )}
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {task.dueDate && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <CalendarIcon className="h-4 w-4" />
-                      {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
-                    </div>
-                  )}
-                  
-                  {/* Anzeige der Dateianhänge */}
-                  {task.attachments && Array.isArray(task.attachments) && task.attachments.length > 0 && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Paperclip className="h-4 w-4" />
-                      <span>{task.attachments.length}</span>
-                    </div>
-                  )}
-                  
-                  {renderAssignedUsers()}
+              
+              {/* Anzeige der Dateianhänge */}
+              {task.attachments && Array.isArray(task.attachments) && task.attachments.length > 0 && (
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Paperclip className="h-4 w-4" />
+                  <span>{task.attachments.length}</span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
+              )}
+            </div>
+            
+            {renderAssignedUsers()}
+          </div>
+          
           <TaskDialog
             open={isDialogOpen}
             onOpenChange={setIsDialogOpen}

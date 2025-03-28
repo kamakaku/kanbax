@@ -112,9 +112,6 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
               flex flex-col gap-3 
               ${snapshot.isDraggingOver ? "bg-slate-100/50 border-2 border-dashed border-slate-300" : ""}
             `}
-            style={{
-              overflow: "auto"
-            }}
           >
             {filteredTasks.map((task, index) => (
               <TaskComponent
