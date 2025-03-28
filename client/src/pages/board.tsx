@@ -691,8 +691,6 @@ export function Board() {
                   </Button>
                 </div>
               </div>
-            </div>-5" />
-              </Button>
             </div>
           </div>
         </div>
