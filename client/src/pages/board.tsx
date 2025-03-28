@@ -38,11 +38,31 @@ export const Board = () => {
         {viewMode === 'kanban' ? (
           <DragDropContext onDragEnd={() => {}}>
             <div className="flex gap-4 p-4 h-full">
-              <Column status="backlog" tasks={tasks} />
-              <Column status="todo" tasks={tasks} />
-              <Column status="in-progress" tasks={tasks} />
-              <Column status="review" tasks={tasks} />
-              <Column status="done" tasks={tasks} />
+              <Column 
+                column={{ id: "backlog", title: "Backlog" }} 
+                tasks={tasks.filter(t => t.status === "backlog")} 
+                onUpdate={async () => {}} 
+              />
+              <Column 
+                column={{ id: "todo", title: "To Do" }} 
+                tasks={tasks.filter(t => t.status === "todo")} 
+                onUpdate={async () => {}} 
+              />
+              <Column 
+                column={{ id: "in-progress", title: "In Progress" }} 
+                tasks={tasks.filter(t => t.status === "in-progress")} 
+                onUpdate={async () => {}} 
+              />
+              <Column 
+                column={{ id: "review", title: "Review" }} 
+                tasks={tasks.filter(t => t.status === "review")} 
+                onUpdate={async () => {}} 
+              />
+              <Column 
+                column={{ id: "done", title: "Done" }} 
+                tasks={tasks.filter(t => t.status === "done")} 
+                onUpdate={async () => {}} 
+              />
             </div>
           </DragDropContext>
         ) : (
