@@ -190,6 +190,7 @@ app.use((req, res, next) => {
                 currentPort++;
                 retryCount++;
                 server.close();
+                log(`Attempting to start on port ${currentPort}`);
                 if (retryCount < maxRetries) {
                   resolve();
                 } else {
@@ -211,7 +212,7 @@ app.use((req, res, next) => {
       }
     };
 
-    // Start at port 5000 to match Replit's expectation and Vite's settings
+    // Start at port 5000 to match Replit's expectations
     const port = parseInt(process.env.PORT || "5000", 10);
     log(`Starting server on port ${port}`);
     await startServer(port);

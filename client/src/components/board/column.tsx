@@ -52,10 +52,10 @@ const getColumnStyle = (columnId: string | number) => {
 
 export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onClick }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
 
-  // Filtere Aufgaben basierend auf showArchivedTasks
-  const filteredTasks = tasks.filter(task => showArchivedTasks || !task.archived);
+  // Die Filterung erfolgt jetzt in der übergeordneten Komponente
+  const filteredTasks = tasks;
 
   const columnStyle = getColumnStyle(column.id);
   const displayTitle = column.title || "Untitled";
@@ -88,7 +88,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
             size="sm"
             className="h-6 px-2 py-1 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
             onClick={() => {
-              setSelectedTask(null);
+              setSelectedTask(undefined);
               setIsTaskDialogOpen(true);
             }}
           >

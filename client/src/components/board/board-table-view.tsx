@@ -10,9 +10,11 @@ import { TaskDialog } from "@/components/board/task-dialog";
 
 interface BoardTableViewProps {
   tasks: Task[];
+  onTaskClick?: (task: Task) => void;
+  showArchivedTasks?: boolean;
 }
 
-export function BoardTableView({ tasks }: BoardTableViewProps) {
+export function BoardTableView({ tasks, onTaskClick, showArchivedTasks = false }: BoardTableViewProps) {
   const [sortField, setSortField] = useState<keyof Task>("title");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -27,9 +29,13 @@ export function BoardTableView({ tasks }: BoardTableViewProps) {
     }
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
+  // Filter tasks based on archived status
+  const filteredTasks = tasks.filter(task => showArchivedTasks || !task.archived);
+  
+  // Sort filtered tasks
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    const aValue = a[sortField] || "";
+    const bValue = b[sortField] || "";
 
     if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
     if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
@@ -37,8 +43,12 @@ export function BoardTableView({ tasks }: BoardTableViewProps) {
   });
 
   const handleTaskClick = (task: Task) => {
-    setSelectedTask(task);
-    setIsDialogOpen(true);
+    if (onTaskClick) {
+      onTaskClick(task);
+    } else {
+      setSelectedTask(task);
+      setIsDialogOpen(true);
+    }
   };
 
   return (
@@ -100,12 +110,11 @@ export function BoardTableView({ tasks }: BoardTableViewProps) {
               </td>
               <td className="p-4">
                 <div className="flex -space-x-2">
-                  {task.assignedUsers?.map((user) => (
-                    <Avatar key={user.id} className="h-8 w-8 border-2 border-background">
-                      <AvatarImage src={user.avatarUrl || ""} />
-                      <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  ))}
+                  {Array.isArray(task.assignedUserIds) && task.assignedUserIds.length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      {task.assignedUserIds.length} Nutzer
+                    </div>
+                  )}
                 </div>
               </td>
             </tr>

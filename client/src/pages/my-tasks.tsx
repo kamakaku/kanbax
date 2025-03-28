@@ -183,6 +183,8 @@ export default function MyTasks() {
 
   // Filter und Suchfunktionalität
   const filteredTasks = useMemo(() => {
+    if (!tasks) return [];
+    
     return tasks
       .filter((task) => showArchivedTasks ? true : !task.archived)
       .filter((task) => {
@@ -515,8 +517,7 @@ export default function MyTasks() {
                     // Aufgaben müssen den richtigen Status haben
                     if (task.status !== column.id) return false;
 
-                    // Archivierte Aufgaben nur anzeigen wenn showArchivedTasks true ist
-                    if (!showArchivedTasks && task.archived) return false;
+                    // Die Filterung für archivierte Aufgaben erfolgt bereits in filteredTasks
 
                     // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch
                     // Board-gebundene Aufgaben anzeigen
@@ -542,9 +543,9 @@ export default function MyTasks() {
             </DragDropContext>
           ) : (
             <BoardTableView
-              tasks={filteredTasks.filter(task => showArchivedTasks || !task.archived)}
+              tasks={filteredTasks}
               onTaskClick={(task) => {
-                setSelectedTask(task);
+                setSelectedTask(task as TaskWithDetails);
                 setIsTaskDialogOpen(true);
               }}
               showArchivedTasks={showArchivedTasks}
