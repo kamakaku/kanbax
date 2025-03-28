@@ -72,10 +72,6 @@ export function Board() {
   const [path] = useLocation();
   const taskId = new URL(window.location.href).searchParams.get('taskId');
   const [, setLocation] = useLocation();
-  
-  // State für die aktuelle Task-Anzeige
-  const [currentTaskId, setCurrentTaskId] = useState<number | null>(taskId ? parseInt(taskId) : null);
-  const [showTaskDialog, setShowTaskDialog] = useState<boolean>(!!taskId);
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -147,22 +143,6 @@ export function Board() {
     },
     enabled: !!boardId
   });
-
-  // URL-Änderungen überwachen, um den Task-Dialog zu öffnen/schließen
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const taskIdParam = params.get('taskId');
-    
-    if (taskIdParam) {
-      const parsedTaskId = parseInt(taskIdParam);
-      console.log("URL hat taskId:", parsedTaskId);
-      setCurrentTaskId(parsedTaskId);
-      setShowTaskDialog(true);
-    } else {
-      setCurrentTaskId(null);
-      setShowTaskDialog(false);
-    }
-  }, [path]);
 
   useEffect(() => {
     if (board) {
@@ -712,63 +692,57 @@ export function Board() {
         </div>
 
         <div className="flex-1">
-          {/* DragDrop Bereich */}
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-4 mt-3 overflow-x-auto pb-4">
-              {defaultColumns.map(column => {
-                const columnTasks = tasks
+            <div className="flex gap-6 pb-4">
+              {defaultColumns.map((column) => {
+                let filteredTasks = tasks
                   .filter(task => task.status === column.id)
-                  .filter(task => !task.archived || (task.archived && showArchivedTasks))
-                  .filter(task => {
-                    // Suche
-                    if (searchQuery) {
-                      const query = searchQuery.toLowerCase();
-                      if (!task.title.toLowerCase().includes(query) && 
-                          !(task.description && task.description.toLowerCase().includes(query))) {
-                        return false;
-                      }
-                    }
-                    
-                    // Label-Filter
-                    if (selectedLabels.length > 0) {
-                      if (!task.labels || !task.labels.some(label => selectedLabels.includes(label))) {
-                        return false;
-                      }
-                    }
-                    
-                    // Prioritäts-Filter
-                    if (selectedPriorities.length > 0) {
-                      if (!task.priority || !selectedPriorities.includes(task.priority)) {
-                        return false;
-                      }
-                    }
-                    
-                    // Deadline-Filter
-                    if (selectedDate && task.dueDate) {
-                      const targetDate = format(selectedDate, 'yyyy-MM-dd');
-                      const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
-                      if (taskDate !== targetDate) return false;
-                    }
-                    
-                    return true;
-                  })
-                  .sort((a, b) => a.order - b.order);
+                  // Filter out archived tasks unless showArchivedTasks is true
+                  .filter(task => showArchivedTasks || !task.archived);
+
+                // Suche nach Texteingabe
+                if (searchQuery) {
+                  const query = searchQuery.toLowerCase();
+                  filteredTasks = filteredTasks.filter(task => 
+                    task.title.toLowerCase().includes(query) || 
+                    (task.description && task.description.toLowerCase().includes(query))
+                  );
+                }
+
+                // Labels filtern
+                if (selectedLabels.length > 0) {
+                  filteredTasks = filteredTasks.filter(task => 
+                    task.labels && task.labels.some(label => selectedLabels.includes(label))
+                  );
+                }
+
+                // Priorität filtern
+                if (selectedPriorities.length > 0) {
+                  filteredTasks = filteredTasks.filter(task => 
+                    task.priority && selectedPriorities.includes(task.priority)
+                  );
+                }
+
+                // Deadline filtern
+                if (selectedDate) {
+                  const targetDate = format(selectedDate, 'yyyy-MM-dd');
+                  filteredTasks = filteredTasks.filter(task => {
+                    if (!task.dueDate) return false;
+                    const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
+                    return taskDate === targetDate;
+                  });
+                }
+
+                // Nach Order sortieren
+                filteredTasks = filteredTasks.sort((a, b) => a.order - b.order);
 
                 return (
                   <ColumnComponent
                     key={column.id}
-                    id={column.id}
-                    title={column.title}
-                    tasks={columnTasks}
-                    onAddClick={() => {
-                      setInitialColumnId(parseInt(column.id));
-                      setShowNewTaskDialog(true);
-                    }}
-                    onTaskClick={(task) => {
-                      setCurrentTaskId(task.id);
-                      setShowTaskDialog(true);
-                      setLocation(`${path}?taskId=${task.id}`);
-                    }}
+                    column={column}
+                    tasks={filteredTasks}
+                    onUpdate={updateTask.mutate}
+                    showArchivedTasks={showArchivedTasks}
                   />
                 );
               })}
@@ -805,39 +779,6 @@ export function Board() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        
-        {/* Task Details Dialog */}
-        {currentTaskId && (
-          <TaskDialog
-            open={showTaskDialog}
-            onOpenChange={(open) => {
-              if (!open) {
-                setShowTaskDialog(false);
-                setCurrentTaskId(null);
-                setLocation(path); // URL ohne taskId-Parameter
-              }
-            }}
-            task={tasks.find(t => t.id === currentTaskId)}
-            isPersonalTask={false}
-            mode="edit"
-            onUpdate={async (updatedTask) => {
-              try {
-                await apiRequest("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
-                queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "tasks"] });
-                toast({ title: "Task erfolgreich aktualisiert" });
-                return Promise.resolve();
-              } catch (error) {
-                console.error("Error updating task:", error);
-                toast({
-                  title: "Fehler beim Aktualisieren",
-                  description: (error as Error).message,
-                  variant: "destructive",
-                });
-                return Promise.reject(error);
-              }
-            }}
-          />
-        )}
 
         {/* Task Dialog für neue Tasks */}
         <TaskDialog 
@@ -862,7 +803,6 @@ export function Board() {
             boardId: boardId,
             assignedUserIds: [],
             assignedTeamId: null,
-            assignedAt: null,
             dueDate: null,
             attachments: [],
             archived: false,

@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
 interface ColumnProps {
-  id: string | number;
-  title?: string;
+  column: {
+    id: string | number;
+    title?: string;
+  };
   tasks: Task[];
-  onAddClick?: () => void;
-  onTaskClick?: (task: Task) => void;
+  onUpdate: (task: Task) => Promise<void>;
   showArchivedTasks?: boolean;
+  onClick?: (task: Task) => void;
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -48,15 +50,15 @@ const getColumnStyle = (columnId: string | number) => {
   return statusColors[id] || statusColors.backlog;
 };
 
-export function Column({ id, title, tasks, onAddClick, onTaskClick, showArchivedTasks = false }: ColumnProps) {
+export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onClick }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Filtere Aufgaben basierend auf showArchivedTasks
   const filteredTasks = tasks.filter(task => showArchivedTasks || !task.archived);
 
-  const columnStyle = getColumnStyle(id);
-  const displayTitle = title || "Untitled";
+  const columnStyle = getColumnStyle(column.id);
+  const displayTitle = column.title || "Untitled";
 
   return (
     <div className={`
@@ -86,12 +88,8 @@ export function Column({ id, title, tasks, onAddClick, onTaskClick, showArchived
             size="sm"
             className="h-6 px-2 py-1 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
             onClick={() => {
-              if (onAddClick) {
-                onAddClick();
-              } else {
-                setSelectedTask(null);
-                setIsTaskDialogOpen(true);
-              }
+              setSelectedTask(null);
+              setIsTaskDialogOpen(true);
             }}
           >
             <Plus className="h-3 w-3 mr-1" />
@@ -100,7 +98,7 @@ export function Column({ id, title, tasks, onAddClick, onTaskClick, showArchived
         </div>
       </div>
 
-      <Droppable droppableId={id.toString()}>
+      <Droppable droppableId={column.id.toString()}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -120,14 +118,14 @@ export function Column({ id, title, tasks, onAddClick, onTaskClick, showArchived
                 task={task}
                 index={index}
                 onClick={(task) => {
-                  console.log("Task geklickt in Spalte:", task.id);
-                  if (onTaskClick) {
-                    onTaskClick(task);
+                  if (onClick) {
+                    onClick(task);
                   } else {
                     setSelectedTask(task);
                     setIsTaskDialogOpen(true);
                   }
                 }}
+                onUpdate={onUpdate}
               />
             ))}
             {provided.placeholder}
@@ -138,7 +136,8 @@ export function Column({ id, title, tasks, onAddClick, onTaskClick, showArchived
       <TaskDialog
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
-        task={selectedTask as Task | undefined}
+        task={selectedTask}
+        onUpdate={onUpdate}
       />
     </div>
   );
