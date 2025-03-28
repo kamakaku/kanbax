@@ -12,7 +12,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { 
   Pencil, Star, Users, Building2, Calendar as CalendarIcon, Archive, RotateCcw, 
-  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus
+  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus, LayoutGrid, Table
 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
@@ -48,10 +48,9 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
-import { BoardTableView } from "@/components/board/board-table-view"; // Added import
+import { BoardTableView } from "@/components/board/board-table-view";
 
 
-// Define the default columns for the Kanban board
 const defaultColumns = [
   { id: "backlog", title: "Backlog" },
   { id: "todo", title: "To Do" },
@@ -60,7 +59,6 @@ const defaultColumns = [
   { id: "done", title: "Done" }
 ];
 
-// Standard-Labels für neue Boards
 const defaultLabels = [
   "Wichtig", "Dringend", "Dokumentation", "Design", "Entwicklung", 
   "Feedback", "Bug", "Feature", "Verbesserung", "Recherche", "Meeting", 
@@ -80,9 +78,8 @@ export function Board() {
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [initialColumnId, setInitialColumnId] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState('kanban'); // Add view mode state
+  const [viewMode, setViewMode] = useState('kanban');
 
-  // Filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
@@ -90,7 +87,6 @@ export function Board() {
   const [allLabels, setAllLabels] = useState<string[]>([]);
   const [newLabelInput, setNewLabelInput] = useState("");
 
-  // Fetch board data
   const { data: board, isLoading: isBoardLoading, error: boardError } = useQuery<Board>({
     queryKey: ["/api/boards", boardId],
     queryFn: async () => {
@@ -102,7 +98,6 @@ export function Board() {
     },
   });
 
-  // Fetch teams data
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
     queryFn: async () => {
@@ -114,7 +109,6 @@ export function Board() {
     },
   });
 
-  // Fetch users data
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -126,7 +120,6 @@ export function Board() {
     },
   });
 
-  // Get team, user and creator information
   const getTeamAndUserInfo = () => {
     if (!board) return { teams: [], users: [], creator: null };
 
@@ -143,14 +136,13 @@ export function Board() {
       const res = await fetch(`/api/boards/${boardId}/tasks`);
       if (!res.ok) throw new Error("Failed to fetch tasks");
       const data = await res.json();
-      console.log("Geladene Tasks:", data); // Debug-Log
+      console.log("Geladene Tasks:", data); 
       return data;
     },
     enabled: !!boardId,
     retry: 3
   });
 
-  // Debug-Log für gefilterte Tasks
   useEffect(() => {
     console.log("Aktuell angezeigte Tasks:", tasks);
   }, [tasks]);
@@ -160,7 +152,6 @@ export function Board() {
       setCurrentBoard(board);
     }
 
-    // Extrahiere alle Labels aus den Tasks
     if (tasks) {
       const labelSet = new Set<string>();
       tasks.forEach(task => {
@@ -210,7 +201,6 @@ export function Board() {
     },
   });
 
-  // Archivierungsmutation
   const archiveBoard = useMutation({
     mutationFn: async () => {
       if (!boardId) return null;
@@ -225,7 +215,6 @@ export function Board() {
         description: "Das Board wurde erfolgreich archiviert.",
       });
 
-      // Zurück zur Projektseite oder Boards-Übersicht
       setLocation(board?.project_id ? `/projects/${board.project_id}` : '/all-boards');
     },
     onError: (error) => {
@@ -237,7 +226,6 @@ export function Board() {
     }
   });
 
-  // Wiederherstellungsmutation
   const unarchiveBoard = useMutation({
     mutationFn: async () => {
       if (!boardId) return null;
@@ -357,21 +345,17 @@ export function Board() {
   }
 
   const { teams: boardTeams, users: boardUsers, creator } = getTeamAndUserInfo();
-  const boardColumns = defaultColumns; // Using defaultColumns for now
-
+  const boardColumns = defaultColumns; 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
-      {/* Background gradients */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(at_80%_0%,rgb(248,250,252)_0px,transparent_50%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(at_0%_50%,rgb(241,245,249)_0px,transparent_50%)]" />
       </div>
 
       <div className="relative p-8">
-        {/* Header - neue Struktur */}
         <div className="flex flex-col gap-1 mb-2">
-          {/* Erste Zeile: Titel + Fav-Stern / Buttons rechts */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">
@@ -396,7 +380,6 @@ export function Board() {
                 </Badge>
               )}
 
-              {/* Aktionsmenü mit Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
@@ -415,7 +398,7 @@ export function Board() {
 
                   <DropdownMenuItem 
                     onClick={() => {
-                      setInitialColumnId(null); // Kein spezieller Status, Standard ist backlog
+                      setInitialColumnId(null); 
                       setShowNewTaskDialog(true);
                     }}
                   >
@@ -441,7 +424,6 @@ export function Board() {
             </div>
           </div>
 
-          {/* Zweite Zeile: Projekt (falls zugeordnet) */}
           {board.project && (
             <div className="flex items-center mt-0.5">
               <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -451,9 +433,7 @@ export function Board() {
             </div>
           )}
 
-          {/* Dritte Zeile: Ersteller + Benutzer */}
           <div className="flex gap-6 mt-0.5">
-            {/* Creator Section - Jetzt mit blauem Rand ohne Text */}
             {creator && (
               <div className="flex items-center gap-2">
                 <div className="flex items-center">
@@ -467,7 +447,6 @@ export function Board() {
               </div>
             )}
 
-            {/* Teams Section */}
             {boardTeams.length > 0 && (
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -481,13 +460,12 @@ export function Board() {
               </div>
             )}
 
-            {/* Users Section - Neue überlappende Avatar-Darstellung */}
             {boardUsers.length > 0 && (
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <div className="flex -space-x-2 overflow-hidden ml-1">
                   {boardUsers
-                    .filter(user => user.id !== board.creator_id) // Filtere Creator aus, da er bereits angezeigt wird
+                    .filter(user => user.id !== board.creator_id) 
                     .map((user) => (
                       <Avatar key={user.id} className="h-9 w-9 border-2 border-white rounded-full">
                         <AvatarImage src={user.avatarUrl || undefined} alt={user.username} />
@@ -501,12 +479,9 @@ export function Board() {
             )}
           </div>
 
-          {/* Vierte Zeile: Filter und Suche - alles in einer Zeile */}
           <div className="flex flex-col mt-1">
             <div className="flex items-center justify-between py-3 px-0 bg-slate-50 rounded-md">
-              {/* LINKE SEITE: Suchfeld und Filter */}
               <div className="flex flex-1 items-center gap-2">
-                {/* Suchfeld - ausklappbar */}
                 <div className="flex items-center relative">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -552,7 +527,6 @@ export function Board() {
                   )}
                 </div>
 
-                {/* Label Filter - Verbesserte Version */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1">
@@ -591,7 +565,6 @@ export function Board() {
                 </Popover>
 
 
-                {/* Priorität Filter */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1">
@@ -629,7 +602,6 @@ export function Board() {
                   </PopoverContent>
                 </Popover>
 
-                {/* Deadline Filter */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1">
@@ -661,7 +633,6 @@ export function Board() {
                   </PopoverContent>
                 </Popover>
 
-                {/* Reset-Filter Button */}
                 {(selectedLabels.length > 0 || selectedPriorities.length > 0 || selectedDate || searchQuery) && (
                   <Button
                     variant="ghost"
@@ -679,7 +650,6 @@ export function Board() {
                 )}
               </div>
 
-              {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
               <div className="flex items-center">
                 <Switch
                   id="show-archived"
@@ -701,37 +671,35 @@ export function Board() {
                 </label>
               </div>
             </div>
+            {/* View Mode Switcher added here */}
+            <div className="flex items-center justify-center mt-2">
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'outline'}
+                onClick={() => setViewMode('kanban')}
+                size="icon"
+              >
+                <LayoutGrid className="h-5 w-5" />
+              </Button>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                onClick={() => setViewMode('table')}
+                size="icon"
+              >
+                <Table className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
 
         <div className="flex-1">
-          <div className="flex gap-2 mb-4">
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'outline'}
-              onClick={() => setViewMode('kanban')}
-              size="sm"
-            >
-              Kanban
-            </Button>
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'outline'}
-              onClick={() => setViewMode('table')}
-              size="sm"
-            >
-              Tabelle
-            </Button>
-          </div>
-
           {viewMode === 'kanban' ? (
             <DragDropContext onDragEnd={handleDragEnd}>
               <div className="flex gap-6 pb-4">
                 {boardColumns.map((column) => {
                   let filteredTasks = tasks
                     .filter(task => task.status === column.id)
-                    // Filter out archived tasks unless showArchivedTasks is true
                     .filter(task => showArchivedTasks || !task.archived);
 
-                  // Suche nach Texteingabe
                   if (searchQuery) {
                     const query = searchQuery.toLowerCase();
                     filteredTasks = filteredTasks.filter(task => 
@@ -740,21 +708,18 @@ export function Board() {
                     );
                   }
 
-                  // Labels filtern
                   if (selectedLabels.length > 0) {
                     filteredTasks = filteredTasks.filter(task => 
                       task.labels && task.labels.some(label => selectedLabels.includes(label))
                     );
                   }
 
-                  // Priorität filtern
                   if (selectedPriorities.length > 0) {
                     filteredTasks = filteredTasks.filter(task => 
                       task.priority && selectedPriorities.includes(task.priority)
                     );
                   }
 
-                  // Deadline filtern
                   if (selectedDate) {
                     const targetDate = format(selectedDate, 'yyyy-MM-dd');
                     filteredTasks = filteredTasks.filter(task => {
@@ -764,7 +729,6 @@ export function Board() {
                     });
                   }
 
-                  // Nach Order sortieren
                   filteredTasks = filteredTasks.sort((a, b) => a.order - b.order);
 
                   return (
@@ -783,10 +747,8 @@ export function Board() {
             <div>
               <BoardTableView 
                 tasks={tasks.filter(task => {
-                  // Archivierte Tasks filtern
                   if (!showArchivedTasks && task.archived) return false;
-                  
-                  // Textsuche
+
                   if (searchQuery) {
                     const query = searchQuery.toLowerCase();
                     if (!task.title.toLowerCase().includes(query) && 
@@ -795,21 +757,18 @@ export function Board() {
                     }
                   }
 
-                  // Labels filtern
                   if (selectedLabels.length > 0) {
                     if (!task.labels?.some(label => selectedLabels.includes(label))) {
                       return false;
                     }
                   }
 
-                  // Priorität filtern
                   if (selectedPriorities.length > 0) {
                     if (!task.priority || !selectedPriorities.includes(task.priority)) {
                       return false;
                     }
                   }
 
-                  // Deadline filtern
                   if (selectedDate && task.dueDate) {
                     const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
                     const filterDate = format(selectedDate, 'yyyy-MM-dd');
@@ -835,7 +794,6 @@ export function Board() {
           }}
         />
 
-        {/* Archivierungsbestätigung */}
         <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -853,25 +811,22 @@ export function Board() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Task Dialog für neue Tasks */}
         <TaskDialog 
           open={showNewTaskDialog}
           onOpenChange={setShowNewTaskDialog}
           mode="edit"
           initialColumnId={initialColumnId === null ? undefined : initialColumnId}
           task={{
-            id: 0, // Wird von der API überschrieben
+            id: 0, 
             title: "",
             description: "",
             richDescription: "",
-            // Status basierend auf der ausgewählten Spalte, falls vorhanden
             status: initialColumnId 
               ? defaultColumns.find(col => parseInt(col.id.toString()) === initialColumnId)?.id || "backlog" 
               : "backlog",
             priority: "medium",
             labels: [],
             checklist: [],
-            // Spalten-ID, Fallback auf 1 statt 0 (ungültig)
             columnId: initialColumnId || 1,
             boardId: boardId,
             assignedUserIds: [],
