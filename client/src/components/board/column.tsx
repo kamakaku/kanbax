@@ -108,7 +108,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
               min-h-[150px] 
               transition-colors 
               flex flex-col gap-3 
-              ${snapshot.isDraggingOver ? "bg-slate-50" : ""}
+              ${snapshot.isDraggingOver ? "bg-slate-100 border-2 border-dashed border-slate-300" : ""}
             `}
           >
             {filteredTasks.map((task, index) => (

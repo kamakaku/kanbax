@@ -151,14 +151,8 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            `rounded-lg border p-3 cursor-grab active:cursor-grabbing`,
-            "transition-all duration-200",
-            "hover:border-slate-300 hover:shadow-sm hover:-translate-y-[2px]",
-            // Persönliche Aufgaben haben nur einen subtilen Hinweis, keine vollständige Färbung
-            task.isPersonal 
-              ? "bg-white border-slate-200 relative overflow-hidden" 
-              : "bg-white border-slate-200",
-            // Archivierte Aufgaben haben einen roten Rahmen
+            `rounded-lg border p-3 cursor-grab active:cursor-grabbing transition-all duration-200 hover:border-slate-300 hover:shadow-sm hover:-translate-y-[2px]`,
+            "bg-white border-slate-200 relative overflow-hidden",
             task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && [
               "shadow-2xl",
