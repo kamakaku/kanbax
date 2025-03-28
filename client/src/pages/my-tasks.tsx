@@ -54,6 +54,17 @@ export default function MyTasks() {
   const handleNewTaskDialog = () => {
     setSelectedLabels([]); // Labels zurücksetzen
     setIsNewTaskDialogOpen(true);
+    // Form-Werte zurücksetzen
+    form.reset({
+      title: "",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      labels: [], // Labels explizit leeren
+      assignedUserIds: [],
+      dueDate: null,
+      archived: false
+    });
   };
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
