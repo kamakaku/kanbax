@@ -48,6 +48,8 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
+import { BoardTableView } from "@/components/board/board-table-view"; // Added import
+
 
 // Define the default columns for the Kanban board
 const defaultColumns = [

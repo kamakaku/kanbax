@@ -1,102 +1,79 @@
-
 import { useState } from "react";
 import { Task } from "@shared/schema";
-import { Button } from "@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface BoardTableViewProps {
   tasks: Task[];
-  onTaskClick: (task: Task) => void;
 }
 
-export function BoardTableView({ tasks, onTaskClick }: BoardTableViewProps) {
-  const [sortField, setSortField] = useState<keyof Task>('title');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+export function BoardTableView({ tasks }: BoardTableViewProps) {
+  const [sortField, setSortField] = useState<keyof Task>("title");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const sortedTasks = [...tasks].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
-    
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    const aValue = a[sortField] as string;
+    const bValue = b[sortField] as string;
+
+    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
     return 0;
   });
 
-  const handleSort = (field: keyof Task) => {
-    if (field === sortField) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              <Button variant="ghost" onClick={() => handleSort('title')}>
-                Titel <ArrowUpDown className="ml-2 h-4 w-4" />
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button variant="ghost" onClick={() => handleSort('status')}>
-                Status <ArrowUpDown className="ml-2 h-4 w-4" />
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button variant="ghost" onClick={() => handleSort('priority')}>
-                Priorität <ArrowUpDown className="ml-2 h-4 w-4" />
-              </Button>
-            </TableHead>
-            <TableHead>Labels</TableHead>
-            <TableHead>
-              <Button variant="ghost" onClick={() => handleSort('dueDate')}>
-                Fällig <ArrowUpDown className="ml-2 h-4 w-4" />
-              </Button>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+    <div className="rounded-lg border bg-card">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b">
+            <th className="p-4 text-left">Titel</th>
+            <th className="p-4 text-left">Status</th>
+            <th className="p-4 text-left">Priorität</th>
+            <th className="p-4 text-left">Fällig</th>
+            <th className="p-4 text-left">Labels</th>
+            <th className="p-4 text-left">Zugewiesen</th>
+          </tr>
+        </thead>
+        <tbody>
           {sortedTasks.map((task) => (
-            <TableRow 
-              key={task.id}
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => onTaskClick(task)}
-            >
-              <TableCell>{task.title}</TableCell>
-              <TableCell>
-                <Badge variant="secondary">{task.status}</Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">{task.priority}</Badge>
-              </TableCell>
-              <TableCell>
+            <tr key={task.id} className="border-b hover:bg-muted/50">
+              <td className="p-4">{task.title}</td>
+              <td className="p-4">
+                <Badge>{task.status}</Badge>
+              </td>
+              <td className="p-4">
+                <Badge variant={task.priority === "high" ? "destructive" : "secondary"}>
+                  {task.priority}
+                </Badge>
+              </td>
+              <td className="p-4">
+                {task.dueDate && format(new Date(task.dueDate), "dd.MM.yyyy")}
+              </td>
+              <td className="p-4">
                 <div className="flex gap-1 flex-wrap">
-                  {task.labels?.map((label, i) => (
-                    <Badge key={i} variant="secondary">{label}</Badge>
+                  {task.labels?.map((label) => (
+                    <Badge key={label} variant="outline">
+                      {label}
+                    </Badge>
                   ))}
                 </div>
-              </TableCell>
-              <TableCell>
-                {task.dueDate ? formatDate(task.dueDate) : '-'}
-              </TableCell>
-            </TableRow>
+              </td>
+              <td className="p-4">
+                <div className="flex -space-x-2">
+                  {task.assignedUsers?.map((user) => (
+                    <Avatar key={user.id} className="h-8 w-8 border-2 border-background">
+                      <AvatarImage src={user.avatarUrl || ""} />
+                      <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  ))}
+                </div>
+              </td>
+            </tr>
           ))}
-        </TableBody>
-      </Table>
+        </tbody>
+      </table>
     </div>
   );
 }
