@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon, RotateCcw, Archive, Paperclip, File } from "lucide-react";
+import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon, RotateCcw, Archive, Paperclip, File, GripVertical } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -148,7 +148,6 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
             `rounded-lg border p-3 cursor-grab active:cursor-grabbing transition-all duration-200 hover:border-slate-300 hover:shadow-sm hover:-translate-y-[2px]`,
@@ -227,7 +226,12 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
               )}
             </div>
 
-            <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
+            <div className="flex items-center gap-2">
+              <div {...provided.dragHandleProps} className="cursor-grab p-1 hover:bg-slate-100 rounded">
+                <GripVertical className="h-4 w-4 text-slate-400" />
+              </div>
+              <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
+            </div>
 
             {/* Beschreibung */}
             {(task.description || task.richDescription) && (
