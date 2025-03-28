@@ -703,7 +703,7 @@ export function Board() {
         <div className="flex-1">
           {viewMode === 'kanban' ? (
             <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="flex gap-6 pb-4 mt-2">
+              <div className="flex gap-6 pb-4 pt-[56px] -mt-[56px]">
                 {boardColumns.map((column) => {
                   let filteredTasks = tasks
                     .filter(task => task.status === column.id)
