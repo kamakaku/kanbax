@@ -134,6 +134,8 @@ export function Board() {
     return { teams: boardTeams, users: boardUsers, creator };
   };
 
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
+
   useEffect(() => {
     if (board) {
       setCurrentBoard(board);
@@ -156,8 +158,6 @@ export function Board() {
       ));
     }
   }, [board, setCurrentBoard, tasks]);
-
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["/api/boards", boardId, "tasks"],
     queryFn: async () => {
       const res = await fetch(`/api/boards/${boardId}/tasks`);
