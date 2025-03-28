@@ -484,10 +484,11 @@ export default function MyTasks() {
                     id="show-archived"
                     checked={showArchivedTasks}
                     onCheckedChange={setShowArchivedTasks}
+                    className="data-[state=checked]:bg-blue-500"
                   />
                   <label
                     htmlFor="show-archived"
-                    className="flex items-center ml-2 cursor-pointer"
+                    className="flex items-center ml-2 cursor-pointer text-sm text-muted-foreground"
                   >
                     <div className="relative">
                       <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
@@ -509,8 +510,9 @@ export default function MyTasks() {
             <DragDropContext onDragEnd={handleDragEnd}>
               <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
-                // Alle Aufgaben für diese Spalte finden - sowohl persönliche als auch Board-gebundene Aufgaben
+                // Filter tasks based on archive status and column
                 const columnTasks = filteredTasks
+                  .filter(task => showArchivedTasks ? true : !task.archived)
                   .filter(task => {
                     // Aufgaben müssen den richtigen Status haben
                     if (task.status !== column.id) return false;
