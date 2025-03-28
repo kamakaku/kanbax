@@ -547,62 +547,30 @@ export function Board() {
                       <span>Labels {selectedLabels.length > 0 && `(${selectedLabels.length})`}</span>
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3">
-                    <Select
-                      value={selectedLabels[0] || ""}
-                      onValueChange={(value) => {
-                        setSelectedLabels(
-                          selectedLabels.includes(value)
-                            ? selectedLabels.filter((l) => l !== value)
-                            : [...selectedLabels, value]
-                        );
-                      }}
-                      multiple={false}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Label auswählen..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allLabels.map((label) => (
-                          <SelectItem key={label} value={label}>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={selectedLabels.includes(label)}
-                                onCheckedChange={() => {
-                                  setSelectedLabels(
-                                    selectedLabels.includes(label)
-                                      ? selectedLabels.filter((l) => l !== label)
-                                      : [...selectedLabels, label]
-                                  );
-                                }}
-                              />
-                              <span>{label}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {selectedLabels.length > 0 && (
-                      <div className="border-t pt-3 mt-3">
-                        <div className="text-xs font-medium mb-2 text-slate-500">Ausgewählte Labels:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedLabels.map(label => (
-                            <Badge key={label} variant="secondary" className="pl-2 pr-1 py-1 flex items-center">
-                              {label}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-4 w-4 ml-1 hover:bg-slate-300 rounded-full"
-                                onClick={() => setSelectedLabels(prev => prev.filter(l => l !== label))}
-                              >
-                                <X className="h-2 w-2" />
-                              </Button>
-                            </Badge>
-                          ))}
+                  <PopoverContent className="w-64 p-2">
+                    <div className="space-y-1">
+                      {allLabels.map((label) => (
+                        <div key={label} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`label-${label}`}
+                            checked={selectedLabels.includes(label)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedLabels(prev => [...prev, label]);
+                              } else {
+                                setSelectedLabels(prev => prev.filter(l => l !== label));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`label-${label}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {label}
+                          </label>
                         </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </PopoverContent>
                 </Popover>
 
