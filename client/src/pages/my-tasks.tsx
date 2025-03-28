@@ -496,9 +496,47 @@ export default function MyTasks() {
               )}
             </div>
 
-            {/* RECHTE SEITE: Archiv-Toggle ohne Text */}
-            <div className="flex items-center">
-              {/* Moved to the header */}
+            {/* RECHTE SEITE: View-Mode Switcher und Archiv-Toggle */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center border rounded-md">
+                <Button
+                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                  onClick={() => setViewMode('kanban')}
+                  size="icon"
+                  className="rounded-none rounded-l-md"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  onClick={() => setViewMode('table')}
+                  size="icon"
+                  className="rounded-none rounded-r-md"
+                >
+                  <Table className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="flex items-center">
+                <Switch
+                  id="show-archived"
+                  checked={showArchivedTasks}
+                  onCheckedChange={setShowArchivedTasks}
+                />
+                <label
+                  htmlFor="show-archived"
+                  className="flex items-center ml-2 cursor-pointer"
+                >
+                  <div className="relative">
+                    <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
+                    {!showArchivedTasks && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-5 h-px bg-slate-400 rotate-45"></div>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
         </div>
