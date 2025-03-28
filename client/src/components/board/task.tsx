@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon, RotateCcw, Archive, Paperclip, File } from "lucide-react";
+import { CalendarIcon, MessageSquare, KanbanSquare, Folder, User as UserIcon, RotateCcw, Archive } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ const priorityConfig = {
 export function Task({ task, index, onClick, onUpdate }: TaskProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
+  
   const { data: usersResponse = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -73,13 +73,13 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
         description: "Die Aufgabe wurde erfolgreich wiederhergestellt.",
         variant: "success",
       });
-
+      
       // Aktualisiere die verschiedenen Caches
       queryClient.invalidateQueries({ queryKey: ["/api/boards"] });
       queryClient.invalidateQueries({ queryKey: [`/api/boards/${task.boardId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/boards/${task.boardId}/tasks`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}`] });
-
+      
       // Wenn onUpdate bereitgestellt wurde, rufe es mit der aktualisierten Aufgabe auf
       if (onUpdate) {
         onUpdate({
@@ -234,20 +234,9 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             </div>
 
             <h3 className="font-medium text-sm text-slate-900 line-clamp-2">{task.title}</h3>
-
-            {/* Beschreibung */}
-            {(task.description || task.richDescription) && (
-              <div className="mt-1 text-xs text-slate-500 line-clamp-2">
-                {task.richDescription ? (
-                  <div dangerouslySetInnerHTML={{ __html: task.richDescription }} />
-                ) : (
-                  task.description
-                )}
-              </div>
-            )}
-
+            
             {/* Projekt und Board Informationen mit Icons oder "Persönliche Aufgabe" für persönliche Aufgaben */}
-            <div className="flex flex-col gap-1 mt-2 text-xs">
+            <div className="flex flex-col gap-1 mt-2 text-xs border-t pt-2 border-slate-100">
               {task.isPersonal ? (
                 <div className="flex items-center gap-1">
                   <KanbanSquare className="h-3 w-3 text-blue-500" />
@@ -306,7 +295,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                 <div>
                   {task.createdAt && format(new Date(task.createdAt), "dd.MM.yyyy", { locale: de })}
                 </div>
-
+                
                 {/* Fälligkeitsdatum */}
                 {task.dueDate && (
                   <div className="flex items-center gap-1">
@@ -322,22 +311,8 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                     <span>{comments.length}</span>
                   </div>
                 )}
-                {/* Anhänge */}
-                {task.attachments && task.attachments.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    <Paperclip className="h-3.5 w-3.5" />
-                    <span>{task.attachments.length}</span>
-                  </div>
-                )}
-                {/* Dateien */}
-                {task.files && task.files.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    <File className="h-3.5 w-3.5" />
-                    <span>{task.files.length}</span>
-                  </div>
-                )}
               </div>
-
+              
               {/* Zugewiesene Benutzer */}
               {renderAssignedUsers()}
             </div>

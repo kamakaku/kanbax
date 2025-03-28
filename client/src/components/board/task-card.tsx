@@ -168,12 +168,12 @@ export function TaskCard({ task, index }: TaskCardProps) {
                   )}
                   
                   {/* Anzeige der Dateianhänge */}
-                  {task.attachments && Array.isArray(task.attachments) && task.attachments.length > 0 ? (
+                  {task.attachments && Array.isArray(task.attachments) && task.attachments.length > 0 && (
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Paperclip className="h-4 w-4" />
                       <span>{task.attachments.length}</span>
                     </div>
-                  ) : null}
+                  )}
                   
                   {renderAssignedUsers()}
                 </div>

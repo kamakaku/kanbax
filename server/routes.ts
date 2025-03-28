@@ -53,7 +53,7 @@ const fileUpload = multer({
       // Dynamische Zielverzeichnisse basierend auf dem Upload-Typ
       const type = req.body.type || 'general';
       let uploadDir = './uploads/attachments';
-
+      
       switch(type) {
         case 'task':
           uploadDir = './uploads/attachments/tasks';
@@ -70,7 +70,7 @@ const fileUpload = multer({
         default:
           uploadDir = './uploads/attachments';
       }
-
+      
       // Stellen Sie sicher, dass das Verzeichnis existiert
       ensureDirectoryExists(uploadDir);
       cb(null, uploadDir);
@@ -98,7 +98,7 @@ const fileUpload = multer({
       // Archiv
       'application/zip', 'application/x-rar-compressed'
     ];
-
+    
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -874,7 +874,8 @@ export async function registerRoutes(app: Express, db: Knex) {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       console.error("Invalid board ID received:", req.params.id);
-      return res.status(400).json({ message: "Invalid board ID" });}
+      return res.status(400).json({ message: "Invalid board ID" });
+    }
 
     try {
       // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
@@ -1056,7 +1057,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch all tasks" });
     }
   });
-
+  
   // Route für die dem Benutzer zugewiesenen Tasks (persönliches Board)
   app.get("/api/user/tasks/assigned", requireAuth, async (req, res) => {
     try {
@@ -1070,12 +1071,12 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: (error as Error).message });
     }
   });
-
+  
   // Route für die Erstellung persönlicher Tasks (ohne Board)
   app.post("/api/user/tasks", requireAuth, async (req, res) => {
     try {
       const userId = req.userId!;
-
+      
       // Füge den aktuellen Benutzer als Zugewiesenen hinzu, 
       // wenn keine Zuweisung angegeben wurde
       const taskData = {
@@ -1107,7 +1108,7 @@ export async function registerRoutes(app: Express, db: Knex) {
 
       console.log("Creating personal task:", result.data);
       const task = await storage.createTask(userId, result.data);
-
+      
       // Aktivitätslog erstellen
       const activityLog = await storage.createActivityLog({
         action: "create",
@@ -1119,7 +1120,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       });
 
       await notificationService.processActivityLog(activityLog.id);
-
+      
       res.status(201).json(task);
     } catch (error) {
       console.error("Fehler beim Erstellen der persönlichen Aufgabe:", error);
@@ -1136,17 +1137,11 @@ export async function registerRoutes(app: Express, db: Knex) {
     // Benutze die userId aus dem req-Objekt für Berechtigungsprüfung
     const userId = req.userId!;
 
-    // Füge die userId zum Task hinzu und stelle sicher, dass der Creator auch zugewiesen ist
-    const assignedUserIds = Array.isArray(req.body.assignedUserIds) ? req.body.assignedUserIds : [];
-    if (!assignedUserIds.includes(userId)) {
-      assignedUserIds.push(userId);
-    }
-
+    // Füge die userId zum Task hinzu, damit der Ersteller korrekt gesetzt wird
     const result = insertTaskSchema.safeParse({ 
       ...req.body, 
       boardId,
-      creatorId: userId,
-      assignedUserIds
+      creatorId: userId
     });
 
     if (!result.success) {
@@ -1157,18 +1152,7 @@ export async function registerRoutes(app: Express, db: Knex) {
     }
 
     try {
-      const userId = req.userId!;
-
-      // Füge Creator zu assignedUserIds hinzu, falls noch nicht vorhanden
-      const assignedUserIds = result.data.assignedUserIds || [];
-      if (!assignedUserIds.includes(userId)) {
-        assignedUserIds.push(userId);
-      }
-
-      const task = await storage.createTask(userId, {
-        ...result.data,
-        assignedUserIds
-      });
+      const task = await storage.createTask(userId, result.data);
 
       // Log the activity
       await storage.createActivityLog({
@@ -1218,12 +1202,12 @@ export async function registerRoutes(app: Express, db: Knex) {
         requiresNotification: true,  // Benachrichtigung für Zuweisungen und Updates
         notificationType: "task"
       };
-
+      
       // Board-ID nur hinzufügen, wenn vorhanden (für persönliche Tasks ohne Board)
       if (task.boardId) {
         activityLogData.boardId = task.boardId;
       }
-
+      
       const activityLog = await storage.createActivityLog(activityLogData);
 
       // Sofort Benachrichtigung verarbeiten
@@ -2154,7 +2138,7 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: "Failed to fetch team members" });
     }
   });
-
+  
   // Datei-Upload-Endpunkt für allgemeine Uploads (Tasks, Objectives, KeyResults, etc.)
   app.post("/api/upload", requireAuth, fileUpload.single('file'), async (req, res) => {
     try {
@@ -2170,13 +2154,13 @@ export async function registerRoutes(app: Express, db: Knex) {
 
       const userId = req.userId as number;
       const { type = 'general', entityId } = req.body;
-
+      
       // Pfad relativ zum Server-Root
       const filePath = req.file.path.replace(/^\.\//, '');
-
+      
       // Stelle sicher, dass der Pfad korrekt formatiert ist für HTTP-Zugriff
       const urlPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-
+      
       // Protokolliert den Upload für Debugging
       console.log("Datei hochgeladen:", {
         userId,
@@ -2187,7 +2171,7 @@ export async function registerRoutes(app: Express, db: Knex) {
         size: req.file.size,
         path: filePath
       });
-
+      
       // Erstellt einen Aktivitätslog für den Upload, falls ein entityId vorhanden ist
       if (entityId) {
         try {
@@ -2199,7 +2183,7 @@ export async function registerRoutes(app: Express, db: Knex) {
               details: `Datei "${req.file.originalname}" hochgeladen`,
               user_id: userId
             };
-
+            
             // Setze die entsprechenden IDs basierend auf dem Upload-Typ
             switch(type) {
               case 'task':
@@ -2241,10 +2225,10 @@ export async function registerRoutes(app: Express, db: Knex) {
                 logData.comment_id = entityIdNum;
                 break;
             }
-
+            
             // Aktivitätslog erstellen
             const activityLog = await storage.createActivityLog(logData);
-
+            
             // Benachrichtigungen für den Upload verarbeiten
             await notificationService.processActivityLog(activityLog.id);
           }
@@ -2253,7 +2237,7 @@ export async function registerRoutes(app: Express, db: Knex) {
           // Wir brechen hier nicht ab, da der Upload selbst erfolgreich war
         }
       }
-
+      
       // Wenn dies ein Task-Anhang ist, aktualisieren wir direkt die Task
       if (type === 'task' && entityId) {
         try {
@@ -2264,26 +2248,26 @@ export async function registerRoutes(app: Express, db: Knex) {
               'SELECT attachments FROM tasks WHERE id = $1',
               [taskId]
             );
-
+            
             if (taskResult.rows.length > 0) {
               const currentTask = taskResult.rows[0];
               let currentAttachments = currentTask.attachments || [];
-
+              
               // Sicherstellen, dass es ein Array ist
               if (!Array.isArray(currentAttachments)) {
                 currentAttachments = [];
               }
-
+              
               // Neuen Anhang hinzufügen
               // Verwende urlPath für die Speicherung, damit die Datei später richtig zugänglich ist
               currentAttachments.push(urlPath);
-
+              
               // Task aktualisieren mit dem neuen Anhang
               await pool.query(
                 'UPDATE tasks SET attachments = $1 WHERE id = $2',
                 [currentAttachments, taskId]
               );
-
+              
               console.log(`Task ${taskId} mit neuem Anhang ${filePath} aktualisiert.`);
             }
           }
@@ -2292,7 +2276,7 @@ export async function registerRoutes(app: Express, db: Knex) {
           // Wir brechen nicht ab, da der Upload selbst erfolgreich war
         }
       }
-
+      
       // Erfolgreiche Antwort senden
       res.json({
         url: urlPath, // Hier urlPath statt filePath verwenden, damit der Pfad korrekt für den Browser formatiert ist
