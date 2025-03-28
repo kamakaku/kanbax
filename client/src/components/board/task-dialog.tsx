@@ -255,7 +255,7 @@ export function TaskDialog({
       status: (task?.status || "todo") as "backlog" | "todo" | "in-progress" | "review" | "done",
       priority: (task?.priority || "medium") as "low" | "medium" | "high",
       columnId: (task?.columnId && task.columnId > 0) ? task.columnId : (initialColumnId && initialColumnId > 0) ? initialColumnId : 1,
-      labels: task?.labels || [],
+      labels: mode === "edit" && task ? task.labels || [] : [], // Bei neuen Tasks keine Labels vorauswählen
       assignedUserIds: task?.assignedUserIds || [],
       dueDate: task?.dueDate || null,
       archived: task?.archived || false,
@@ -274,7 +274,7 @@ export function TaskDialog({
         status: (task?.status || "todo") as "backlog" | "todo" | "in-progress" | "review" | "done",
         priority: (task?.priority || "medium") as "low" | "medium" | "high",
         columnId: (task?.columnId && task.columnId > 0) ? task.columnId : (initialColumnId && initialColumnId > 0) ? initialColumnId : 1,
-        labels: task?.labels || [],
+        labels: mode === "edit" && task ? task.labels || [] : [], // Bei neuen Tasks keine Labels vorauswählen
         assignedUserIds: task?.assignedUserIds || [],
         dueDate: task?.dueDate || null,
         archived: task?.archived || false,
