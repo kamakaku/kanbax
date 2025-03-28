@@ -650,42 +650,48 @@ export function Board() {
                 )}
               </div>
 
-              <div className="flex items-center">
-                <Switch
-                  id="show-archived"
-                  checked={showArchivedTasks}
-                  onCheckedChange={setShowArchivedTasks}
-                />
-                <label
-                  htmlFor="show-archived"
-                  className="flex items-center ml-2 cursor-pointer"
-                >
-                  <div className="relative">
-                    <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
-                    {!showArchivedTasks && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-5 h-px bg-slate-400 rotate-45"></div>
-                      </div>
-                    )}
-                  </div>
-                </label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center">
+                  <Switch
+                    id="show-archived"
+                    checked={showArchivedTasks}
+                    onCheckedChange={setShowArchivedTasks}
+                  />
+                  <label
+                    htmlFor="show-archived"
+                    className="flex items-center ml-2 cursor-pointer"
+                  >
+                    <div className="relative">
+                      <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
+                      {!showArchivedTasks && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-5 h-px bg-slate-400 rotate-45"></div>
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex items-center border rounded-md">
+                  <Button
+                    variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                    onClick={() => setViewMode('kanban')}
+                    size="icon"
+                    className="rounded-none rounded-l-md"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'ghost'}
+                    onClick={() => setViewMode('table')}
+                    size="icon"
+                    className="rounded-none rounded-r-md"
+                  >
+                    <Table className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-            {/* View Mode Switcher added here */}
-            <div className="flex items-center justify-center mt-2">
-              <Button
-                variant={viewMode === 'kanban' ? 'default' : 'outline'}
-                onClick={() => setViewMode('kanban')}
-                size="icon"
-              >
-                <LayoutGrid className="h-5 w-5" />
-              </Button>
-              <Button
-                variant={viewMode === 'table' ? 'default' : 'outline'}
-                onClick={() => setViewMode('table')}
-                size="icon"
-              >
-                <Table className="h-5 w-5" />
+            </div>-5" />
               </Button>
             </div>
           </div>
