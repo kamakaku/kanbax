@@ -72,6 +72,10 @@ export function Board() {
   const [path] = useLocation();
   const taskId = new URL(window.location.href).searchParams.get('taskId');
   const [, setLocation] = useLocation();
+  
+  // State für die aktuelle Task-Anzeige
+  const [currentTaskId, setCurrentTaskId] = useState<number | null>(taskId ? parseInt(taskId) : null);
+  const [showTaskDialog, setShowTaskDialog] = useState<boolean>(!!taskId);
   const { currentBoard, setCurrentBoard } = useStore();
   const [showEditForm, setShowEditForm] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -143,6 +147,21 @@ export function Board() {
     },
     enabled: !!boardId
   });
+
+  // URL-Änderungen überwachen, um den Task-Dialog zu öffnen/schließen
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const taskIdParam = params.get('taskId');
+    
+    if (taskIdParam) {
+      const parsedTaskId = parseInt(taskIdParam);
+      setCurrentTaskId(parsedTaskId);
+      setShowTaskDialog(true);
+    } else {
+      setCurrentTaskId(null);
+      setShowTaskDialog(false);
+    }
+  }, [path]);
 
   useEffect(() => {
     if (board) {
@@ -783,6 +802,39 @@ export function Board() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        
+        {/* Task Details Dialog */}
+        {currentTaskId && (
+          <TaskDialog
+            open={showTaskDialog}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowTaskDialog(false);
+                setCurrentTaskId(null);
+                setLocation(path); // URL ohne taskId-Parameter
+              }
+            }}
+            task={tasks.find(t => t.id === currentTaskId)}
+            isPersonalTask={false}
+            mode="edit"
+            onUpdate={async (updatedTask) => {
+              try {
+                await apiRequest("PATCH", `/api/tasks/${updatedTask.id}`, updatedTask);
+                queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "tasks"] });
+                toast({ title: "Task erfolgreich aktualisiert" });
+                return Promise.resolve();
+              } catch (error) {
+                console.error("Error updating task:", error);
+                toast({
+                  title: "Fehler beim Aktualisieren",
+                  description: (error as Error).message,
+                  variant: "destructive",
+                });
+                return Promise.reject(error);
+              }
+            }}
+          />
+        )}
 
         {/* Task Dialog für neue Tasks */}
         <TaskDialog 
@@ -807,6 +859,7 @@ export function Board() {
             boardId: boardId,
             assignedUserIds: [],
             assignedTeamId: null,
+            assignedAt: null,
             dueDate: null,
             attachments: [],
             archived: false,

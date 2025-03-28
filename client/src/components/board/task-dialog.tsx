@@ -60,6 +60,7 @@ interface TaskWithDetails extends Task {
 
 interface TaskDialogProps {
   task?: Task | TaskWithDetails;
+  taskId?: number; // ID für das Laden eines Tasks von der API
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: (task: Task) => Promise<void>;
@@ -153,6 +154,7 @@ const LabelSelect = ({ value, onChange }: LabelSelectProps) => {
 
 export function TaskDialog({
   task,
+  taskId,
   open,
   onOpenChange,
   onUpdate,
