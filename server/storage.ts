@@ -760,12 +760,11 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log(`Fetching tasks assigned to user: ${userId}`);
       
-      // Rufe alle Tasks ab, die dem Benutzer zugewiesen sind und nicht archiviert sind
+      // Rufe alle Tasks ab, die dem Benutzer zugewiesen sind (inkl. archivierte Tasks)
       // Verwende den ANY Operator, um einen Integer in einem Integer-Array zu finden
       const result = await pool.query(`
         SELECT * FROM tasks 
-        WHERE $1 = ANY(assigned_user_ids) 
-          AND archived = false
+        WHERE $1 = ANY(assigned_user_ids)
         ORDER BY board_id NULLS FIRST, column_id NULLS FIRST, "order"
       `, [userId]);
       
