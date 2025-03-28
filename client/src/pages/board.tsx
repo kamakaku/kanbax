@@ -140,10 +140,18 @@ export function Board() {
     queryFn: async () => {
       const res = await fetch(`/api/boards/${boardId}/tasks`);
       if (!res.ok) throw new Error("Failed to fetch tasks");
-      return res.json();
+      const data = await res.json();
+      console.log("Geladene Tasks:", data); // Debug-Log
+      return data;
     },
-    enabled: !!boardId
+    enabled: !!boardId,
+    retry: 3
   });
+
+  // Debug-Log für gefilterte Tasks
+  useEffect(() => {
+    console.log("Aktuell angezeigte Tasks:", tasks);
+  }, [tasks]);
 
   useEffect(() => {
     if (board) {
