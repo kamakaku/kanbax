@@ -155,7 +155,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             "bg-white border-slate-200 relative overflow-hidden",
             task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && [
-              "opacity-50"
+              "opacity-50",
               "z-50"
             ]
           )}
