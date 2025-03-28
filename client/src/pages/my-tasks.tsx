@@ -462,10 +462,7 @@ export default function MyTasks() {
                 <div className="flex items-center border rounded-md">
                   <Button
                     variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                    onClick={() => {
-                      setViewMode('kanban');
-                      setShowArchivedTasks(false);
-                    }}
+                    onClick={() => setViewMode('kanban')}
                     size="icon"
                     className="rounded-none rounded-l-md"
                   >
@@ -473,10 +470,7 @@ export default function MyTasks() {
                   </Button>
                   <Button
                     variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    onClick={() => {
-                      setViewMode('table');
-                      setShowArchivedTasks(false);
-                    }}
+                    onClick={() => setViewMode('table')}
                     size="icon"
                     className="rounded-none rounded-r-md"
                   >
@@ -510,8 +504,9 @@ export default function MyTasks() {
         </div>
 
         <div className="flex-1">
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-6 pb-4">
+          {viewMode === 'kanban' ? (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
                 // Alle Aufgaben für diese Spalte finden - sowohl persönliche als auch Board-gebundene Aufgaben
                 const columnTasks = filteredTasks
@@ -543,7 +538,17 @@ export default function MyTasks() {
                 );
               })}
             </div>
-          </DragDropContext>
+            </DragDropContext>
+          ) : (
+            <BoardTableView
+              tasks={filteredTasks}
+              onTaskClick={(task) => {
+                setSelectedTask(task);
+                setIsTaskDialogOpen(true);
+              }}
+              showArchivedTasks={showArchivedTasks}
+            />
+          )}
         </div>
 
         {/* Dialog für Aufgabendetails */}
