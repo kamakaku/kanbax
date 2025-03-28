@@ -183,44 +183,41 @@ export default function MyTasks() {
 
   // Filter und Suchfunktionalität
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
-      // Suche im Titel oder in der Beschreibung
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const titleMatch = task.title?.toLowerCase().includes(query);
-        const descMatch = task.description?.toLowerCase().includes(query);
-        if (!titleMatch && !descMatch) return false;
-      }
+    return tasks
+      .filter((task) => showArchivedTasks ? true : !task.archived)
+      .filter((task) => {
+        // Suche im Titel oder in der Beschreibung
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const titleMatch = task.title?.toLowerCase().includes(query);
+          const descMatch = task.description?.toLowerCase().includes(query);
+          if (!titleMatch && !descMatch) return false;
+        }
 
-      // Filter nach Labels
-      if (selectedLabels.length > 0) {
-        if (!task.labels || !Array.isArray(task.labels)) return false;
-        const hasSelectedLabel = selectedLabels.some(label =>
-          task.labels && task.labels.includes(label)
-        );
-        if (!hasSelectedLabel) return false;
-      }
+        // Filter nach Labels
+        if (selectedLabels.length > 0) {
+          if (!task.labels || !Array.isArray(task.labels)) return false;
+          const hasSelectedLabel = selectedLabels.some(label =>
+            task.labels && task.labels.includes(label)
+          );
+          if (!hasSelectedLabel) return false;
+        }
 
-      // Filter nach Prioritäten
-      if (selectedPriorities.length > 0) {
-        if (!selectedPriorities.includes(task.priority || '')) return false;
-      }
+        // Filter nach Prioritäten
+        if (selectedPriorities.length > 0) {
+          if (!selectedPriorities.includes(task.priority || '')) return false;
+        }
 
-      // Filter nach Fälligkeitsdatum
-      if (selectedDate && task.dueDate) {
-        const taskDate = new Date(task.dueDate);
-        const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
-        const taskDateString = format(taskDate, 'yyyy-MM-dd');
-        if (taskDateString !== selectedDateString) return false;
-      }
+        // Filter nach Fälligkeitsdatum
+        if (selectedDate && task.dueDate) {
+          const taskDate = new Date(task.dueDate);
+          const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
+          const taskDateString = format(taskDate, 'yyyy-MM-dd');
+          if (taskDateString !== selectedDateString) return false;
+        }
 
-      // Filter für archivierte Aufgaben
-      if (!showArchivedTasks && task.archived) {
-        return false;
-      }
-
-      return true;
-    });
+        return true;
+      });
   }, [tasks, searchQuery, selectedLabels, selectedPriorities, selectedDate, showArchivedTasks]);
 
   if (isLoading) {
