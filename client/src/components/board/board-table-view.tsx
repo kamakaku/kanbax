@@ -78,7 +78,7 @@ export function BoardTableView({ tasks }: BoardTableViewProps) {
               onClick={() => handleTaskClick(task)}
             >
               <td className="p-4">{task.title}</td>
-              <td className="p-4">
+              <td className="p-4 w-48"> {/* Added w-48 class here */}
                 <Badge>{task.status}</Badge>
               </td>
               <td className="p-4">
