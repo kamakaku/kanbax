@@ -109,6 +109,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
               h-[calc(100vh-13rem)]
               transition-colors 
               flex flex-col gap-3 
+              w-full
               ${snapshot.isDraggingOver ? "bg-slate-100/50 border-2 border-dashed border-slate-300" : ""}
             `}
           >
