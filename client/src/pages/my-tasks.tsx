@@ -462,7 +462,10 @@ export default function MyTasks() {
                 <div className="flex items-center border rounded-md">
                   <Button
                     variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                    onClick={() => setViewMode('kanban')}
+                    onClick={() => {
+                      setViewMode('kanban');
+                      setShowArchivedTasks(false);
+                    }}
                     size="icon"
                     className="rounded-none rounded-l-md"
                   >
@@ -470,7 +473,10 @@ export default function MyTasks() {
                   </Button>
                   <Button
                     variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    onClick={() => setViewMode('table')}
+                    onClick={() => {
+                      setViewMode('table');
+                      setShowArchivedTasks(false);
+                    }}
                     size="icon"
                     className="rounded-none rounded-r-md"
                   >
