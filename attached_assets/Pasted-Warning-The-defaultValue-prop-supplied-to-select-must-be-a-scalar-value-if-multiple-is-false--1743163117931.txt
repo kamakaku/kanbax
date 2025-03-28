@@ -1,0 +1,82 @@
+Warning: The `defaultValue` prop supplied to <select> must be a scalar value if `multiple` is false.
+
+Check the render method of `SlotClone`. Error Component Stack
+    at select (<anonymous>)
+    at chunk-DKHUMOWT.js?v=92653521:52:11
+    at chunk-DKHUMOWT.js?v=92653521:33:11
+    at chunk-CPFL7ZFD.js?v=92653521:41:13
+    at chunk-DKAYKK4Q.js?v=92653521:37:20
+    at @radix-ui_react-select.js?v=92653521:1128:13
+    at Provider (chunk-JJS7DLG7.js?v=92653521:38:15)
+    at Provider (chunk-PSLAEUKM.js?v=92653521:1915:15)
+    at Popper (chunk-PSLAEUKM.js?v=92653521:1972:11)
+    at Select (@radix-ui_react-select.js?v=92653521:86:5)
+    at div (<anonymous>)
+    at chunk-CPFL7ZFD.js?v=92653521:41:13
+    at Provider (chunk-PSLAEUKM.js?v=92653521:1915:15)
+    at div (<anonymous>)
+    at chunk-PSLAEUKM.js?v=92653521:1997:7
+    at chunk-DKHUMOWT.js?v=92653521:52:11
+    at chunk-DKHUMOWT.js?v=92653521:33:11
+    at chunk-CPFL7ZFD.js?v=92653521:41:13
+    at chunk-VZKNAX3D.js?v=92653521:61:7
+    at chunk-DKHUMOWT.js?v=92653521:52:11
+    at chunk-DKHUMOWT.js?v=92653521:33:11
+    at chunk-CPFL7ZFD.js?v=92653521:41:13
+    at chunk-Q6G2CDYH.js?v=92653521:29:5
+    at @radix-ui_react-popover.js?v=92653521:242:7
+    at @radix-ui_react-popover.js?v=92653521:199:59
+    at Presence (chunk-S7EWQZ7Q.js?v=92653521:24:11)
+    at @radix-ui_react-popover.js?v=92653521:149:64
+    at chunk-DKHUMOWT.js?v=92653521:52:11
+    at chunk-DKHUMOWT.js?v=92653521:33:11
+    at chunk-CPFL7ZFD.js?v=92653521:41:13
+    at chunk-VZKNAX3D.js?v=92653521:260:22
+    at Presence (chunk-S7EWQZ7Q.js?v=92653521:24:11)
+    at Provider (chunk-JJS7DLG7.js?v=92653521:38:15)
+    at PopoverPortal (@radix-ui_react-popover.js?v=92653521:141:11)
+    at _c2 (popover.tsx:32:6)
+    at Provider (chunk-JJS7DLG7.js?v=92653521:38:15)
+    at Provider (chunk-PSLAEUKM.js?v=92653521:1915:15)
+    at Popper (chunk-PSLAEUKM.js?v=92653521:1972:11)
+    at Popover (@radix-ui_react-popover.js?v=92653521:64:5)
+    at PopoverRoot (popover.tsx:8:24)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Board (board.tsx:69:18)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Provider (chunk-JJS7DLG7.js?v=92653521:38:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=92653521:63:5)
+    at sidebar.tsx:85:7
+    at MainLayout (App.tsx:36:23)
+    at ProtectedRoute (App.tsx:150:38)
+    at component (<anonymous>)
+    at Route (wouter.js?v=92653521:206:16)
+    at Switch (wouter.js?v=92653521:262:17)
+    at AuthenticatedApp (App.tsx:167:20)
+    at BoardProvider (board-context.tsx:19:33)
+    at QueryClientProvider (@tanstack_react-query.js?v=92653521:2848:3)
+    at AuthProvider (auth-store.tsx:132:32)
+    at App (<anonymous>)
+overrideMethod @ hook.js:608
+printWarning @ chunk-RPCDYKBN.js?v=92653521:521
+error @ chunk-RPCDYKBN.js?v=92653521:505
+checkSelectPropTypes @ chunk-RPCDYKBN.js?v=92653521:2145
+initWrapperState$1 @ chunk-RPCDYKBN.js?v=92653521:2195
+setInitialProperties @ chunk-RPCDYKBN.js?v=92653521:7582
+finalizeInitialChildren @ chunk-RPCDYKBN.js?v=92653521:8345
+completeWork @ chunk-RPCDYKBN.js?v=92653521:16293
+completeUnitOfWork @ chunk-RPCDYKBN.js?v=92653521:19224
+performUnitOfWork @ chunk-RPCDYKBN.js?v=92653521:19206
+workLoopSync @ chunk-RPCDYKBN.js?v=92653521:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=92653521:19116
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=92653521:18874
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=92653521:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=92653521:18627Understand this errorAI
