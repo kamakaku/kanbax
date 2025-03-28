@@ -152,7 +152,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           onClick={() => onClick?.(task)}
           className={cn(
             "rounded-lg border p-3 pb-4 cursor-grab active:cursor-grabbing transition-all",
-            "bg-white border-slate-200 relative overflow-hidden w-full",
+            "bg-white border-slate-200 relative overflow-hidden w-full self-start",
             task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
           )}

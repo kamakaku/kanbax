@@ -106,7 +106,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
           onClick={() => setIsDialogOpen(true)}
           className={cn(
             "rounded-lg border p-3 pb-4 mb-2 cursor-grab active:cursor-grabbing transition-all",
-            "bg-white border-slate-200 relative overflow-hidden w-full",
+            "bg-white border-slate-200 relative overflow-hidden w-full self-start",
             snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
           )}
           style={{

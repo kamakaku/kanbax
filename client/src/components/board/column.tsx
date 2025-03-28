@@ -106,7 +106,8 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
             className={`
               relative p-3 
               min-h-[150px]
-              h-[calc(100vh-13rem)]
+              max-h-[calc(100vh-13rem)]
+              overflow-y-auto
               transition-colors 
               flex flex-col gap-3 
               w-full
