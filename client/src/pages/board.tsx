@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'wouter';
 import { DragDropContext } from 'react-beautiful-dnd';
 import { Column } from '../components/board/column';
 import { BoardTableView } from '../components/board/board-table-view';
