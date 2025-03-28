@@ -166,9 +166,11 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           )}
           style={{
             ...provided.draggableProps.style,
-            transformOrigin: "50% 50%",
+            transform: snapshot.isDragging 
+              ? `${provided.draggableProps.style?.transform} rotate(3deg) scale(1.02)`
+              : provided.draggableProps.style?.transform,
             transition: snapshot.isDragging 
-              ? undefined 
+              ? "none"
               : "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
             cursor: snapshot.isDragging ? "grabbing" : "grab"
           }}
