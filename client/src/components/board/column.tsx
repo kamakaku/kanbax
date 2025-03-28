@@ -7,14 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
 interface ColumnProps {
-  column: {
-    id: string | number;
-    title?: string;
-  };
+  id: string | number;
+  title?: string;
   tasks: Task[];
-  onUpdate: (task: Task) => Promise<void>;
+  onAddClick?: () => void;
+  onTaskClick?: (task: Task) => void;
   showArchivedTasks?: boolean;
-  onClick?: (task: Task) => void;
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -50,15 +48,15 @@ const getColumnStyle = (columnId: string | number) => {
   return statusColors[id] || statusColors.backlog;
 };
 
-export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onClick }: ColumnProps) {
+export function Column({ id, title, tasks, onAddClick, onTaskClick, showArchivedTasks = false }: ColumnProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Filtere Aufgaben basierend auf showArchivedTasks
   const filteredTasks = tasks.filter(task => showArchivedTasks || !task.archived);
 
-  const columnStyle = getColumnStyle(column.id);
-  const displayTitle = column.title || "Untitled";
+  const columnStyle = getColumnStyle(id);
+  const displayTitle = title || "Untitled";
 
   return (
     <div className={`
@@ -88,8 +86,12 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
             size="sm"
             className="h-6 px-2 py-1 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white shadow-sm transition-all duration-300 hover:shadow-md"
             onClick={() => {
-              setSelectedTask(null);
-              setIsTaskDialogOpen(true);
+              if (onAddClick) {
+                onAddClick();
+              } else {
+                setSelectedTask(null);
+                setIsTaskDialogOpen(true);
+              }
             }}
           >
             <Plus className="h-3 w-3 mr-1" />
@@ -98,7 +100,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
         </div>
       </div>
 
-      <Droppable droppableId={column.id.toString()}>
+      <Droppable droppableId={id.toString()}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -118,14 +120,13 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
                 task={task}
                 index={index}
                 onClick={(task) => {
-                  if (onClick) {
-                    onClick(task);
+                  if (onTaskClick) {
+                    onTaskClick(task);
                   } else {
                     setSelectedTask(task);
                     setIsTaskDialogOpen(true);
                   }
                 }}
-                onUpdate={onUpdate}
               />
             ))}
             {provided.placeholder}
@@ -136,8 +137,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
       <TaskDialog
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
-        task={selectedTask}
-        onUpdate={onUpdate}
+        task={selectedTask as Task | undefined}
       />
     </div>
   );
