@@ -694,7 +694,7 @@ export function Board() {
         <div className="flex-1">
           {/* DragDrop Bereich */}
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-3">
+            <div className="flex gap-4 mt-3 overflow-x-auto pb-4">
               {defaultColumns.map(column => {
                 const columnTasks = tasks
                   .filter(task => task.status === column.id)
