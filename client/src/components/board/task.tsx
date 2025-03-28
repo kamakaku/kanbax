@@ -291,7 +291,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Untere Leiste mit allen Informationen */}
-            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100 w-full">
+            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100 w-full min-h-[36px]">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 {/* Erstelldatum */}
                 <div>
