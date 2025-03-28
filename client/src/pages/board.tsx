@@ -655,7 +655,10 @@ export function Board() {
                   <Switch
                     id="show-archived"
                     checked={showArchivedTasks}
-                    onCheckedChange={setShowArchivedTasks}
+                    onCheckedChange={(value) => {
+                      console.log("Archiv-Toggle geändert:", value);
+                      setShowArchivedTasks(value);
+                    }}
                   />
                   <label
                     htmlFor="show-archived"
@@ -740,7 +743,10 @@ export function Board() {
                       key={column.id}
                       column={column}
                       tasks={filteredTasks}
-                      onUpdate={updateTask.mutate}
+                      onUpdate={async (task) => {
+                        updateTask.mutate(task);
+                        return Promise.resolve();
+                      }}
                       showArchivedTasks={showArchivedTasks}
                     />
                   );
@@ -790,8 +796,14 @@ export function Board() {
           open={showEditForm}
           onClose={() => setShowEditForm(false)}
           defaultValues={{
-            ...board,
+            title: board.title,
+            description: board.description,
+            project_id: board.project_id,
+            creator_id: board.creator_id,
             team_ids: board.team_ids || [],
+            assigned_user_ids: board.assigned_user_ids,
+            is_favorite: board.is_favorite || false,
+            archived: board.archived || false
           }}
           onSubmit={async (data) => {
             await updateBoard.mutateAsync(data);

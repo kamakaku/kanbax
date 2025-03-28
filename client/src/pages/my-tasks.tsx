@@ -484,7 +484,10 @@ export default function MyTasks() {
                   <Switch
                     id="show-archived"
                     checked={showArchivedTasks}
-                    onCheckedChange={setShowArchivedTasks}
+                    onCheckedChange={(value) => {
+                      console.log("My Tasks Archiv-Toggle geändert:", value);
+                      setShowArchivedTasks(value);
+                    }}
                     className="data-[state=checked]:bg-blue-500"
                   />
                   <label
