@@ -14,7 +14,7 @@ interface CommentListProps {
 
 export function CommentList({ taskId }: CommentListProps) {
   const { user } = useAuth();
-  const queryClient = new QueryClient(); // Initialize QueryClient
+  const queryClient = useQueryClient(); // Use global QueryClient instance
 
   // Fetch comments
   const { data: comments = [], isLoading: isLoadingComments } = useQuery<Comment[]>({
@@ -54,10 +54,11 @@ export function CommentList({ taskId }: CommentListProps) {
       if (!response.ok) {
         throw new Error(
           response.status === 404
-            ? "Kommentar bereits gelöscht"
+            ? "Kommentar wurde bereits gelöscht"
             : "Fehler beim Löschen des Kommentars"
         );
       }
+      return commentId;
     },
     onMutate: (commentId) => {
       // Optimistic update - remove comment from UI immediately
