@@ -72,7 +72,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
     const creatorId = currentBoard?.creator_id;
     
     return (
-      <div className="flex -space-x-3">
+      <div className="flex -space-x-2 z-10">
         {assignedUsers.map((user) => {
           const isCreator = user.id === creatorId;
           return (
@@ -191,7 +191,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
           )}
 
           {/* Footer mit Datum, Anhängen und Benutzern */}
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between mt-4 pt-2 border-t border-slate-100">
             <div className="flex items-center gap-2">
               {task.dueDate && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -209,7 +209,9 @@ export function TaskCard({ task, index }: TaskCardProps) {
               )}
             </div>
             
-            {renderAssignedUsers()}
+            <div className="flex-shrink-0">
+              {renderAssignedUsers()}
+            </div>
           </div>
           
           <TaskDialog

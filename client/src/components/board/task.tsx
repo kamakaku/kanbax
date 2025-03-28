@@ -291,7 +291,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Untere Leiste mit allen Informationen */}
-            <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 {/* Erstelldatum */}
                 <div>
@@ -330,7 +330,9 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
               </div>
 
               {/* Zugewiesene Benutzer */}
-              {renderAssignedUsers()}
+              <div className="flex-shrink-0">
+                {renderAssignedUsers()}
+              </div>
             </div>
           </div>
         </div>
