@@ -56,6 +56,7 @@ interface TaskWithDetails extends Task {
     id: number;
     title: string;
   } | null;
+  isPersonal?: boolean; // Flag für persönliche Aufgaben ohne Board-ID
 }
 
 interface TaskDialogProps {

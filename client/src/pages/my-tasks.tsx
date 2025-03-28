@@ -487,6 +487,8 @@ export default function MyTasks() {
                     onCheckedChange={(value) => {
                       console.log("My Tasks Archiv-Toggle geändert:", value);
                       setShowArchivedTasks(value);
+                      // Nach der Statusänderung die Aufgaben neu laden
+                      queryClient.invalidateQueries({ queryKey: ["/api/user/tasks/assigned"] });
                     }}
                     className="data-[state=checked]:bg-blue-500"
                   />

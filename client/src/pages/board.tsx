@@ -656,8 +656,10 @@ export function Board() {
                     id="show-archived"
                     checked={showArchivedTasks}
                     onCheckedChange={(value) => {
-                      console.log("Archiv-Toggle geändert:", value);
+                      console.log("Board Ansicht Archiv-Toggle geändert:", value);
                       setShowArchivedTasks(value);
+                      // Nach der Statusänderung die Aufgaben neu laden
+                      queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "tasks"] });
                     }}
                   />
                   <label
@@ -847,10 +849,26 @@ export function Board() {
             boardId: boardId,
             assignedUserIds: [],
             assignedTeamId: null,
+            assignedAt: null,
             dueDate: null,
             attachments: [],
             archived: false,
-            order: 0
+            order: 0,
+            // TaskWithDetails Eigenschaften
+            board: {
+              id: boardId,
+              title: board?.title || "",
+              projectId: board?.project_id
+            },
+            column: {
+              id: initialColumnId || 1,
+              title: defaultColumns.find(col => parseInt(col.id.toString()) === (initialColumnId || 1))?.title || "Backlog"
+            },
+            project: board?.project ? {
+              id: board.project.id,
+              title: board.project.title
+            } : null,
+            isPersonal: false
           }}
           onUpdate={async (newTask) => {
             try {
