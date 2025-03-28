@@ -105,11 +105,16 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
             {...provided.droppableProps}
             className={`
               relative p-3 
-              min-h-[150px] 
+              min-h-[150px]
+              h-[calc(100vh-13rem)]
+              overflow-y-auto
               transition-colors 
               flex flex-col gap-3 
               ${snapshot.isDraggingOver ? "bg-slate-100 border-2 border-dashed border-slate-300" : ""}
             `}
+            style={{
+              overflow: snapshot.isDraggingOver ? "hidden" : "auto"
+            }}
           >
             {filteredTasks.map((task, index) => (
               <TaskComponent
