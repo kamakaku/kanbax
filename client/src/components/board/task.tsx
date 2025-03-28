@@ -151,7 +151,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            "rounded-lg border p-3 cursor-grab active:cursor-grabbing transition-all",
+            "rounded-lg border p-3 pb-4 cursor-grab active:cursor-grabbing transition-all",
             "bg-white border-slate-200 relative overflow-hidden",
             task.archived && "border-red-200 bg-red-50/30 relative",
             snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
@@ -291,7 +291,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Untere Leiste mit allen Informationen */}
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 {/* Erstelldatum */}
                 <div>
