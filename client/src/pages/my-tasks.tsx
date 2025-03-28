@@ -276,27 +276,6 @@ export default function MyTasks() {
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Neue Aufgabe
               </Button>
-
-              {/* Hier war der doppelte Switch - entfernt */}
-
-              <div className="flex items-center border rounded-md">
-                <Button
-                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('kanban')}
-                  size="icon"
-                  className="rounded-none rounded-l-md"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'table' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('table')}
-                  size="icon"
-                  className="rounded-none rounded-r-md"
-                >
-                  <Table className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
           </div>
 
