@@ -110,7 +110,11 @@ export function TaskCard({ task, index }: TaskCardProps) {
             snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
           )}
           style={{
-            ...provided.draggableProps.style
+            ...provided.draggableProps.style,
+            transform: snapshot.isDragging
+              ? provided.draggableProps.style?.transform
+              : "translate(0, 0)",
+            zIndex: snapshot.isDragging ? 9999 : 1
           }}
         >
           {isPersonalTask && (

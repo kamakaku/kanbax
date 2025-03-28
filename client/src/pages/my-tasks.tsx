@@ -474,7 +474,7 @@ export default function MyTasks() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1">
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 pb-4">
               {defaultColumns.map((column) => {
