@@ -557,6 +557,7 @@ export function Board() {
                             : [...selectedLabels, value]
                         );
                       }}
+                      defaultValue={selectedLabels[0] || ""}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Label auswählen..." />
