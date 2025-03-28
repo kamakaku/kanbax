@@ -151,20 +151,17 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
           {...provided.dragHandleProps}
           onClick={() => onClick?.(task)}
           className={cn(
-            `rounded-lg border p-3 cursor-grab active:cursor-grabbing transition-colors duration-200`,
+            "rounded-lg border p-3 cursor-grab active:cursor-grabbing transition-all",
             "bg-white border-slate-200 relative overflow-hidden",
             task.archived && "border-red-200 bg-red-50/30 relative",
-            snapshot.isDragging && [
-              "shadow-lg",
-              "border-primary/50",
-              "z-[100]"
-            ]
+            snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
           )}
           style={{
             ...provided.draggableProps.style,
-            transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'translate(0,0)',
-            cursor: snapshot.isDragging ? 'grabbing' : 'grab',
-            opacity: snapshot.isDragging ? 0.9 : 1
+            transform: snapshot.isDragging 
+              ? provided.draggableProps.style?.transform 
+              : "translate(0, 0)",
+            zIndex: snapshot.isDragging ? 9999 : 1
           }}
         >
           {/* Farbige Ecke für persönliche Aufgaben */}
