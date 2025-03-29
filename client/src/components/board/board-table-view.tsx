@@ -28,11 +28,10 @@ export function BoardTableView({ tasks, onTaskClick, showArchivedTasks = false }
     }
   };
 
-  // Filter tasks based on archived status
-  const filteredTasks = tasks.filter(task => showArchivedTasks ? task.archived : !task.archived);
+  // Tasks are already filtered by archived status from the parent component
 
-  // Sort filtered tasks
-  const sortedTasks = [...filteredTasks].sort((a, b) => {
+  // Sort tasks
+  const sortedTasks = [...tasks].sort((a, b) => {
     const aValue = a[sortField] || "";
     const bValue = b[sortField] || "";
 
