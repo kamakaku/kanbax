@@ -50,59 +50,59 @@ export function BoardTableView({ tasks, onTaskClick, showArchivedTasks = false }
   };
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg text-sm">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead 
-              className="cursor-pointer" 
+              className="cursor-pointer text-xs font-medium" 
               onClick={() => handleSort("title")}
             >
               Titel
             </TableHead>
             <TableHead 
-              className="cursor-pointer" 
+              className="cursor-pointer text-xs font-medium" 
               onClick={() => handleSort("status")}
             >
               Status
             </TableHead>
             <TableHead 
-              className="cursor-pointer" 
+              className="cursor-pointer text-xs font-medium" 
               onClick={() => handleSort("priority")}
             >
               Priorität
             </TableHead>
-            <TableHead>Labels</TableHead>
+            <TableHead className="text-xs font-medium">Labels</TableHead>
             <TableHead 
-              className="cursor-pointer" 
+              className="cursor-pointer text-xs font-medium" 
               onClick={() => handleSort("dueDate")}
             >
               Fällig
             </TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="text-xs">
           {sortedTasks.map((task) => (
             <TableRow 
               key={task.id} 
               className="border-b hover:bg-muted/50 cursor-pointer" 
               onClick={() => handleTaskClick(task)}
             >
-              <TableCell>{task.title}</TableCell>
-              <TableCell>{task.status}</TableCell>
-              <TableCell>
-                <Badge variant="outline" className={getPriorityColor(task.priority)}>
+              <TableCell className="py-2">{task.title}</TableCell>
+              <TableCell className="py-2">{task.status}</TableCell>
+              <TableCell className="py-2">
+                <Badge variant="outline" className={`${getPriorityColor(task.priority)} text-xs py-0 px-2`}>
                   {task.priority}
                 </Badge>
               </TableCell>
-              <TableCell>
+              <TableCell className="py-2">
                 <div className="flex gap-1 flex-wrap">
                   {task.labels?.map((label, index) => (
-                    <Badge key={index} variant="secondary">{label}</Badge>
+                    <Badge key={index} variant="secondary" className="text-xs py-0 px-1.5">{label}</Badge>
                   ))}
                 </div>
               </TableCell>
-              <TableCell>
+              <TableCell className="py-2 text-xs">
                 {task.dueDate && format(new Date(task.dueDate), "dd.MM.yyyy")}
               </TableCell>
             </TableRow>
