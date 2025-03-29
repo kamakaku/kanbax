@@ -192,25 +192,25 @@ export function TaskCard({ task, index }: TaskCardProps) {
           )}
 
           {/* Footer mit Datum, Anhängen und Benutzern */}
-          <div className="flex items-center justify-between mt-2 pt-3 pb-1 border-t border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 rounded-b-lg">
-            <div className="flex items-center gap-2 px-2">
+          <div className="flex items-center justify-between mt-2 pt-3 pb-1 border-t border-slate-200 bg-gradient-to-r from-blue-100 to-slate-200 rounded-b-lg shadow-inner">
+            <div className="flex items-center gap-2 px-3">
               {task.dueDate && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <CalendarIcon className="h-4 w-4" />
+                <div className="flex items-center gap-1 text-sm text-slate-700">
+                  <CalendarIcon className="h-4 w-4 text-blue-600" />
                   {format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de })}
                 </div>
               )}
               
               {/* Anzeige der Dateianhänge */}
               {task.attachments && Array.isArray(task.attachments) && task.attachments.length > 0 && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Paperclip className="h-4 w-4" />
+                <div className="flex items-center gap-1 text-sm text-slate-700">
+                  <Paperclip className="h-4 w-4 text-blue-600" />
                   <span>{task.attachments.length}</span>
                 </div>
               )}
             </div>
             
-            <div className="flex-shrink-0 pr-2">
+            <div className="flex-shrink-0 pr-3">
               {renderAssignedUsers()}
             </div>
           </div>
