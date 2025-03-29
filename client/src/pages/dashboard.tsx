@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-store";
 import { useLocation } from "wouter";
@@ -7,13 +8,14 @@ import { Plus } from "lucide-react";
 import type { Project, Board, Objective } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { ActivityFeed } from "@/components/activity/activity-feed";
+import { ProductivityDashboard } from "@/components/productivity/productivity-dashboard";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { setCurrentBoard, setCurrentProject } = useStore();
 
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
     queryFn: async () => {
       const res = await fetch("/api/projects");
@@ -26,9 +28,7 @@ export default function Dashboard() {
     queryKey: ['/api/objectives'],
     queryFn: async () => {
       const response = await fetch('/api/objectives');
-      if (!response.ok) {
-        throw new Error('Failed to fetch objectives');
-      }
+      if (!response.ok) throw new Error('Failed to fetch objectives');
       return response.json();
     }
   });
@@ -37,9 +37,7 @@ export default function Dashboard() {
     queryKey: ["dashboard-boards"],
     queryFn: async () => {
       const allBoardsRes = await fetch('/api/boards');
-      if (!allBoardsRes.ok) {
-        throw new Error('Failed to fetch boards');
-      }
+      if (!allBoardsRes.ok) throw new Error('Failed to fetch boards');
       const allBoards = await allBoardsRes.json();
 
       return allBoards.map((board: Board) => {
@@ -71,71 +69,68 @@ export default function Dashboard() {
     : 0;
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Willkommen, {user?.username}!
-          </h1>
-          <p className="text-muted-foreground mt-2">Hier ist eine Übersicht Ihres Arbeitsbereichs</p>
-        </div>
-        <Button onClick={() => setLocation("/projects")} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200">
-          <Plus className="mr-2 h-4 w-4" />
-          Neues Projekt
-        </Button>
+    <div className="container mx-auto p-8 space-y-8">
+      {/* Erste Zeile: Überblick */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+          <CardHeader className="py-4">
+            <CardTitle>Projekte</CardTitle>
+            <CardDescription>Aktive Projekte</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-primary">{projects.length}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+          <CardHeader className="py-4">
+            <CardTitle>Boards</CardTitle>
+            <CardDescription>Aktive Boards</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-primary">{allBoards.length}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+          <CardHeader className="py-4">
+            <CardTitle>OKR Status</CardTitle>
+            <CardDescription>Fortschritt & Ziele</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-2xl font-bold text-primary">{completedObjectives.length}/{activeObjectives.length}</p>
+              <p className="text-sm text-muted-foreground">Durchschnittlicher Fortschritt: {averageProgress}%</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Statistics Cards in 2x2 Grid */}
-        <div className="w-full lg:w-2/3">
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-              <CardHeader className="py-4">
-                <CardTitle>Projekte</CardTitle>
-                <CardDescription>Gesamtzahl Ihrer Projekte</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-primary">{projects?.length || 0}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-              <CardHeader className="py-4">
-                <CardTitle>Boards</CardTitle>
-                <CardDescription>Gesamtzahl Ihrer Boards</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-primary">{allBoards.length}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-              <CardHeader className="py-4">
-                <CardTitle>OKR Progress</CardTitle>
-                <CardDescription>Durchschnittlicher Fortschritt</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-primary">{averageProgress}%</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-              <CardHeader className="py-4">
-                <CardTitle>Erreichte OKRs</CardTitle>
-                <CardDescription>Abgeschlossene Objectives</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-primary">
-                  {completedObjectives.length}/{activeObjectives.length}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Aktivitäten (1/4) */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Aktivitäten</CardTitle>
+              <CardDescription>Letzte Änderungen</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ActivityFeed limit={10} />
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Activity Feed Section */}
-        <div className="w-full lg:w-1/3">
-          <ActivityFeed />
+        {/* Statistiken und Diagramme (3/4) */}
+        <div className="lg:col-span-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>Produktivitäts-Übersicht</CardTitle>
+              <CardDescription>Statistiken und Trends</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProductivityDashboard />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
