@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { 
-  Pencil, Star, Users, Building2, Calendar as CalendarIcon, Archive, RotateCcw, 
+  Pencil, Star, Users, Calendar as CalendarIcon, Archive, RotateCcw, 
   Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus, LayoutGrid, Table as TableIcon
 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
@@ -451,7 +451,7 @@ export function Board() {
 
             {boardTeams.length > 0 && (
               <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-muted-foreground" />
                 <div className="flex flex-wrap gap-1">
                   {boardTeams.map((team) => (
                     <Badge key={team.id} variant="outline" className="bg-white shadow-sm hover:bg-slate-50">
