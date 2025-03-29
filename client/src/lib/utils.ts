@@ -27,3 +27,15 @@ export function getErrorMessage(error: unknown): string {
 
 import { apiRequest as originalApiRequest } from './queryClient';
 export { originalApiRequest as apiRequest };
+export function getPriorityColor(priority: string) {
+  switch (priority.toLowerCase()) {
+    case 'high':
+      return 'text-red-500';
+    case 'medium':
+      return 'text-yellow-500';
+    case 'low':
+      return 'text-blue-500';
+    default:
+      return 'text-gray-500';
+  }
+}
