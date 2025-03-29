@@ -31,7 +31,7 @@ export function BoardTableView({ tasks, onTaskClick, showArchivedTasks = false }
 
   // Filter tasks based on archived status
   const filteredTasks = tasks.filter(task => showArchivedTasks || !task.archived);
-  
+
   // Sort filtered tasks
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     const aValue = a[sortField] || "";
@@ -81,7 +81,7 @@ export function BoardTableView({ tasks, onTaskClick, showArchivedTasks = false }
           </tr>
         </thead>
         <tbody>
-          {sortedTasks.map((task) => (
+          {filteredTasks.map((task) => (
             <tr 
               key={task.id} 
               className="border-b hover:bg-muted/50 cursor-pointer" 
