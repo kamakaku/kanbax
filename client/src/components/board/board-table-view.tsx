@@ -1,12 +1,11 @@
+
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Task } from "@/types/tasks";
 import { useState } from "react";
-import { Task } from "@shared/schema";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { TaskDialog } from "@/components/board/task-dialog";
+import { TaskDialog } from "./task-dialog";
+import { Badge } from "../ui/badge";
+import { getPriorityColor } from "@/lib/utils";
 
 interface BoardTableViewProps {
   tasks: Task[];
@@ -30,7 +29,7 @@ export function BoardTableView({ tasks, onTaskClick, showArchivedTasks = false }
   };
 
   // Filter tasks based on archived status
-  const filteredTasks = tasks.filter(task => showArchivedTasks || !task.archived);
+  const filteredTasks = tasks.filter(task => showArchivedTasks ? task.archived : !task.archived);
 
   // Sort filtered tasks
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -52,79 +51,69 @@ export function BoardTableView({ tasks, onTaskClick, showArchivedTasks = false }
   };
 
   return (
-    <div className="rounded-lg border bg-card">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b">
-            <th className="p-4">
-              <Button variant="ghost" onClick={() => handleSort("title")} className="text-left w-full">
-                Titel {sortField === "title" && (sortDirection === "asc" ? "↑" : "↓")}
-              </Button>
-            </th>
-            <th className="p-4">
-              <Button variant="ghost" onClick={() => handleSort("status")} className="text-left w-full">
-                Status {sortField === "status" && (sortDirection === "asc" ? "↑" : "↓")}
-              </Button>
-            </th>
-            <th className="p-4">
-              <Button variant="ghost" onClick={() => handleSort("priority")} className="text-left w-full">
-                Priorität {sortField === "priority" && (sortDirection === "asc" ? "↑" : "↓")}
-              </Button>
-            </th>
-            <th className="p-4">
-              <Button variant="ghost" onClick={() => handleSort("dueDate")} className="text-left w-full">
-                Fällig {sortField === "dueDate" && (sortDirection === "asc" ? "↑" : "↓")}
-              </Button>
-            </th>
-            <th className="p-4 text-left">Labels</th>
-            <th className="p-4 text-left">Zugewiesen</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredTasks.map((task) => (
-            <tr 
+    <div className="border rounded-lg">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead 
+              className="cursor-pointer" 
+              onClick={() => handleSort("title")}
+            >
+              Titel
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer" 
+              onClick={() => handleSort("status")}
+            >
+              Status
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer" 
+              onClick={() => handleSort("priority")}
+            >
+              Priorität
+            </TableHead>
+            <TableHead>Labels</TableHead>
+            <TableHead 
+              className="cursor-pointer" 
+              onClick={() => handleSort("dueDate")}
+            >
+              Fällig
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sortedTasks.map((task) => (
+            <TableRow 
               key={task.id} 
               className="border-b hover:bg-muted/50 cursor-pointer" 
               onClick={() => handleTaskClick(task)}
             >
-              <td className="p-4">{task.title}</td>
-              <td className="p-4 w-48"> {/* Added w-48 class here */}
-                <Badge>{task.status}</Badge>
-              </td>
-              <td className="p-4">
-                <Badge variant={task.priority === "high" ? "destructive" : "secondary"}>
+              <TableCell>{task.title}</TableCell>
+              <TableCell>{task.status}</TableCell>
+              <TableCell>
+                <Badge variant="outline" className={getPriorityColor(task.priority)}>
                   {task.priority}
                 </Badge>
-              </td>
-              <td className="p-4">
-                {task.dueDate && format(new Date(task.dueDate), "dd.MM.yyyy")}
-              </td>
-              <td className="p-4">
+              </TableCell>
+              <TableCell>
                 <div className="flex gap-1 flex-wrap">
-                  {task.labels?.map((label) => (
-                    <Badge key={label} variant="outline">
-                      {label}
-                    </Badge>
+                  {task.labels?.map((label, index) => (
+                    <Badge key={index} variant="secondary">{label}</Badge>
                   ))}
                 </div>
-              </td>
-              <td className="p-4">
-                <div className="flex -space-x-2">
-                  {Array.isArray(task.assignedUserIds) && task.assignedUserIds.length > 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      {task.assignedUserIds.length} Nutzer
-                    </div>
-                  )}
-                </div>
-              </td>
-            </tr>
+              </TableCell>
+              <TableCell>
+                {task.dueDate && format(new Date(task.dueDate), "dd.MM.yyyy")}
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
 
-      {selectedTask && (
+      {!onTaskClick && (
         <TaskDialog
-          task={selectedTask}
+          task={selectedTask || undefined}
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           mode="details"
