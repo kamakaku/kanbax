@@ -3,10 +3,94 @@ import { useAuth } from "@/lib/auth-store";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus } from "lucide-react";
-import type { Project, Board, Objective } from "@shared/schema";
+import { Plus, ChevronsRight } from "lucide-react";
+import type { Project, Board, Objective, Task } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { ActivityFeed } from "@/components/activity/activity-feed";
+import { 
+  Table, 
+  TableHeader, 
+  TableRow, 
+  TableHead, 
+  TableBody, 
+  TableCell 
+} from "@/components/ui/table";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
+import { getPriorityColor } from "@/lib/utils";
+
+// Dashboard-Tasks-Komponente
+function DashboardTaskRows() {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  const { data: myTasks = [], isLoading } = useQuery<Task[]>({
+    queryKey: ["/api/user-tasks"],
+    queryFn: async () => {
+      const res = await fetch("/api/user-tasks");
+      if (!res.ok) throw new Error("Fehler beim Laden der Aufgaben");
+      return res.json();
+    }
+  });
+
+  // Filtern auf ToDo und In Progress
+  const activeTasks = myTasks
+    .filter(task => ["todo", "in-progress"].includes(task.status) && !task.archived)
+    .slice(0, 5); // Begrenze auf 5 Einträge
+
+  if (isLoading) {
+    return (
+      <TableRow>
+        <TableCell colSpan={4} className="text-center py-4">Lade Aufgaben...</TableCell>
+      </TableRow>
+    );
+  }
+
+  if (activeTasks.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={4} className="text-center py-4">Keine aktiven Aufgaben gefunden</TableCell>
+      </TableRow>
+    );
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "todo": return "Zu erledigen";
+      case "in-progress": return "In Bearbeitung";
+      default: return status;
+    }
+  };
+
+  return (
+    <>
+      {activeTasks.map((task) => (
+        <TableRow 
+          key={task.id} 
+          className="hover:bg-slate-50 cursor-pointer"
+          onClick={() => setLocation(`/board/${task.boardId}?taskId=${task.id}`)}
+        >
+          <TableCell className="font-medium truncate max-w-[200px]">{task.title}</TableCell>
+          <TableCell>
+            <Badge variant="outline" className="bg-slate-100">{getStatusText(task.status)}</Badge>
+          </TableCell>
+          <TableCell>
+            <Badge 
+              variant="outline" 
+              className={`${getPriorityColor(task.priority)}`}
+            >
+              {task.priority === "high" ? "Hoch" : task.priority === "medium" ? "Mittel" : "Niedrig"}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            {task.dueDate ? format(new Date(task.dueDate), "dd.MM.yyyy", { locale: de }) : "-"}
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -88,7 +172,7 @@ export default function Dashboard() {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Statistics Cards in 2x2 Grid */}
         <div className="w-full lg:w-2/3">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mb-8">
             <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
               <CardHeader className="py-4">
                 <CardTitle>Projekte</CardTitle>
@@ -131,6 +215,43 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          
+          {/* Aufgaben in "ToDo" und "In Progress" */}
+          <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+            <CardHeader className="py-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Meine aktuellen Aufgaben</CardTitle>
+                  <CardDescription>Aufgaben in "ToDo" und "In Progress"</CardDescription>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-primary"
+                  onClick={() => setLocation("/my-tasks")}
+                >
+                  Alle ansehen <ChevronsRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Dashboard Tasks Table Component */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Aufgabe</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priorität</TableHead>
+                    <TableHead>Fälligkeit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* Implementieren wir direkt die Logik hier */}
+                  <DashboardTaskRows />
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Activity Feed Section */}
