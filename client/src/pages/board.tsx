@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, Suspense } from "react";
 import { useLocation, useParams } from "wouter";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -12,7 +12,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { 
   Pencil, Star, Users, Building2, Calendar as CalendarIcon, Archive, RotateCcw, 
-  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus, LayoutGrid, Table
+  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus, LayoutGrid, Table as TableIcon
 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +47,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
+// Lazy-laden des Kalenders, um unbeabsichtigtes Rendering zu vermeiden
 import { BoardTableView } from "@/components/board/board-table-view";
+// Lazy-laden des Kalenders mit Suspense zur Vermeidung von unerwünschtem Rendering
+const LazyCalendar = React.lazy(() => import("@/components/ui/calendar").then(mod => ({ default: mod.Calendar })));
 
 
 const defaultColumns = [
@@ -427,7 +429,7 @@ export function Board() {
           {board.project && (
             <div className="flex items-center mt-0.5">
               <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
                 <span className="font-medium">Projekt:</span> {board.project.title}
               </p>
             </div>
@@ -611,13 +613,15 @@ export function Board() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      locale={de}
-                      className="border-0"
-                    />
+                    <Suspense fallback={<div className="p-4">Kalender wird geladen...</div>}>
+                      <LazyCalendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        locale={de}
+                        className="border-0"
+                      />
+                    </Suspense>
                     {selectedDate && (
                       <div className="px-4 py-3 border-t flex justify-end">
                         <Button 
@@ -692,7 +696,7 @@ export function Board() {
                     size="icon"
                     className="rounded-none rounded-r-md"
                   >
-                    <Table className="h-4 w-4" />
+                    <TableIcon className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
