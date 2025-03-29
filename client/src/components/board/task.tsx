@@ -71,7 +71,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
       toast({
         title: "Aufgabe wiederhergestellt",
         description: "Die Aufgabe wurde erfolgreich wiederhergestellt.",
-        variant: "success",
+        variant: "default",
       });
 
       // Aktualisiere die verschiedenen Caches
@@ -292,8 +292,8 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Untere Leiste mit allen Informationen */}
-            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-200 bg-gradient-to-r from-blue-100 to-slate-200 rounded-b-lg shadow-inner w-full min-h-[36px] flex-shrink-0">
-              <div className="flex items-center gap-2 text-xs text-slate-700 px-3">
+            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-200 bg-gradient-to-r from-blue-100 to-slate-200 rounded-b-lg shadow-inner w-full min-h-[36px] flex-shrink-0 -mx-3 -mb-3">
+              <div className="flex items-center gap-2 text-xs text-slate-700 pl-3">
                 {/* Erstelldatum */}
                 <div>
                   {task.createdAt && format(new Date(task.createdAt), "dd.MM.yyyy", { locale: de })}
