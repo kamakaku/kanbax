@@ -70,10 +70,8 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
       shadow-lg
       relative
       flex flex-col
-      max-h-[calc(100vh-7rem)]
-      mt-[4.5rem]
     `}>
-      <div className="p-3 pb-2 bg-gradient-to-b from-white to-white/90 backdrop-blur-sm border-b border-slate-100 shadow-sm sticky top-[4.5rem] z-10">
+      <div className="p-3 pb-2 bg-gradient-to-b from-white to-white/90 backdrop-blur-sm border-b border-slate-100 shadow-sm">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className={`h-2 w-2 rounded-full ${columnStyle.text.replace("text-", "bg-")}`} />
