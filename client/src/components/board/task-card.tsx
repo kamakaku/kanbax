@@ -105,7 +105,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
           {...provided.dragHandleProps}
           onClick={() => setIsDialogOpen(true)}
           className={cn(
-            "rounded-lg border p-3 pb-4 mb-2 cursor-grab active:cursor-grabbing transition-all",
+            "rounded-lg border p-3 pb-0 mb-2 cursor-grab active:cursor-grabbing transition-all",
             "bg-white border-slate-200 relative overflow-hidden w-full self-start",
             snapshot.isDragging && "border-primary shadow-xl scale-[1.02] rotate-3 z-50"
           )}
@@ -192,8 +192,8 @@ export function TaskCard({ task, index }: TaskCardProps) {
           )}
 
           {/* Footer mit Datum, Anhängen und Benutzern */}
-          <div className="flex items-center justify-between mt-2 pt-3 pb-1 border-t border-slate-100">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mt-2 pt-3 pb-1 border-t border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 rounded-b-lg">
+            <div className="flex items-center gap-2 px-2">
               {task.dueDate && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <CalendarIcon className="h-4 w-4" />
@@ -210,7 +210,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
               )}
             </div>
             
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 pr-2">
               {renderAssignedUsers()}
             </div>
           </div>
