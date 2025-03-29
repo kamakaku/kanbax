@@ -192,7 +192,7 @@ export function TaskCard({ task, index }: TaskCardProps) {
           )}
 
           {/* Footer mit Datum, Anhängen und Benutzern */}
-          <div className="flex items-center justify-between mt-2 pt-3 pb-1 border-t border-slate-200 bg-gray-100 rounded-b-lg shadow-inner absolute bottom-0 left-0 right-0">
+          <div className="flex items-center justify-between mt-2 pt-3 pb-1 border-t border-slate-200 bg-gray-50 rounded-b-lg absolute bottom-0 left-0 right-0">
             <div className="flex items-center gap-2 pl-3">
               {task.dueDate && (
                 <div className="flex items-center gap-1 text-sm text-slate-700">
