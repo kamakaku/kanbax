@@ -292,8 +292,8 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
             )}
 
             {/* Untere Leiste mit allen Informationen */}
-            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-100 w-full min-h-[36px] flex-shrink-0">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div className="flex items-center justify-between mt-4 pt-3 pb-1 border-t border-slate-200 bg-gradient-to-r from-blue-100 to-slate-200 rounded-b-lg shadow-inner w-full min-h-[36px] flex-shrink-0">
+              <div className="flex items-center gap-2 text-xs text-slate-700 px-3">
                 {/* Erstelldatum */}
                 <div>
                   {task.createdAt && format(new Date(task.createdAt), "dd.MM.yyyy", { locale: de })}
@@ -302,7 +302,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                 {/* Fälligkeitsdatum */}
                 {task.dueDate && (
                   <div className="flex items-center gap-1">
-                    <CalendarIcon className="h-3 w-3" />
+                    <CalendarIcon className="h-3 w-3 text-blue-600" />
                     <span>{format(new Date(task.dueDate), "dd.MM.", { locale: de })}</span>
                   </div>
                 )}
@@ -310,14 +310,14 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
                 {/* Kommentare */}
                 {comments.length > 0 && (
                   <div className="flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
+                    <MessageSquare className="h-3 w-3 text-blue-600" />
                     <span>{comments.length}</span>
                   </div>
                 )}
                 {/* Anhänge */}
                 {task.attachments && task.attachments.length > 0 && (
                   <div className="flex items-center gap-1">
-                    <Paperclip className="h-3.5 w-3.5" />
+                    <Paperclip className="h-3.5 w-3.5 text-blue-600" />
                     <span>{task.attachments.length}</span>
                   </div>
                 )}
@@ -325,7 +325,7 @@ export function Task({ task, index, onClick, onUpdate }: TaskProps) {
               </div>
 
               {/* Zugewiesene Benutzer */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 pr-3">
                 {renderAssignedUsers()}
               </div>
             </div>
