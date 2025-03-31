@@ -126,59 +126,53 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
 
         {/* Task-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
-          <span className="text-sm font-medium mb-2">Tasks</span>
-          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden flex">
-            {Object.entries(tasksByStatus).map(([status, count]) => {
+          <span className="text-sm font-medium mb-2">Task-Verteilung nach Status</span>
+          <div className="w-full h-8 bg-gray-100 relative rounded-md overflow-hidden flex">
+            {[
+              { status: 'backlog', color: 'bg-slate-300', label: 'Backlog' },
+              { status: 'todo', color: 'bg-blue-300', label: 'To-Do' },
+              { status: 'in-progress', color: 'bg-amber-400', label: 'In Bearbeitung' },
+              { status: 'in-review', color: 'bg-purple-400', label: 'Review' },
+              { status: 'done', color: 'bg-green-400', label: 'Erledigt' }
+            ].map(({ status, color }) => {
+              const count = tasksByStatus[status] || 0;
               const percentage = (count / (myTasks.length || 1)) * 100;
-              let color = 'bg-gray-300';
-              
-              switch(status) {
-                case 'todo':
-                  color = 'bg-blue-400';
-                  break;
-                case 'in-progress':
-                  color = 'bg-amber-400';
-                  break;
-                case 'in-review':
-                  color = 'bg-purple-400';
-                  break;
-                case 'done':
-                  color = 'bg-green-400';
-                  break;
-              }
               
               return (
                 <div 
                   key={status}
-                  className={`h-full ${color} relative group`}
+                  className={`h-full ${color} relative group cursor-pointer`}
                   style={{ width: `${percentage}%` }}
                 >
                   <div className="opacity-0 group-hover:opacity-100 absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
                     <span className="text-xs font-medium text-white">
-                      {count} {status}
+                      {count}
                     </span>
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="w-full h-px bg-gray-200 mt-2" />
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm w-full">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm bg-blue-400" />
-              <span>Zu erledigen ({tasksByStatus.todo || 0})</span>
+          <div className="grid grid-cols-3 gap-x-4 gap-y-2 mt-4 text-xs w-full">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm bg-slate-300" />
+              <span>Backlog ({tasksByStatus.backlog || 0})</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm bg-amber-400" />
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm bg-blue-300" />
+              <span>To-Do ({tasksByStatus.todo || 0})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
               <span>In Bearbeitung ({tasksByStatus['in-progress'] || 0})</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm bg-purple-400" />
-              <span>In Überprüfung ({tasksByStatus['in-review'] || 0})</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm bg-purple-400" />
+              <span>Review ({tasksByStatus['in-review'] || 0})</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm bg-green-400" />
-              <span>Abgeschlossen ({tasksByStatus.done || 0})</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm bg-green-400" />
+              <span>Erledigt ({tasksByStatus.done || 0})</span>
             </div>
           </div>
           <div className="text-xs text-center text-muted-foreground mt-2">
