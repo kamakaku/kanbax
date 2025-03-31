@@ -12,7 +12,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { 
   Pencil, Star, Users, Calendar as CalendarIcon, Archive, RotateCcw, 
-  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus, LayoutGrid, Table as TableIcon
+  Eye, EyeOff, PlusCircle, MoreVertical, Tag, Filter, Clock, Search, X, Plus, LayoutGrid, Table as TableIcon, GanttChart
 } from "lucide-react";
 import { BoardForm } from "@/components/board/board-form";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 // Lazy-laden des Kalenders, um unbeabsichtigtes Rendering zu vermeiden
 import { BoardTableView } from "@/components/board/board-table-view";
+import { BoardGanttView } from "@/components/board/board-gantt-view";
 // Lazy-laden des Kalenders mit Suspense zur Vermeidung von unerwünschtem Rendering
 const LazyCalendar = React.lazy(() => import("@/components/ui/calendar").then(mod => ({ default: mod.Calendar })));
 
@@ -713,9 +714,17 @@ export function Board() {
                     variant={viewMode === 'table' ? 'default' : 'ghost'}
                     onClick={() => setViewMode('table')}
                     size="icon"
-                    className="rounded-none rounded-r-md"
+                    className="rounded-none"
                   >
                     <TableIcon className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'gantt' ? 'default' : 'ghost'}
+                    onClick={() => setViewMode('gantt')}
+                    size="icon"
+                    className="rounded-none rounded-r-md"
+                  >
+                    <GanttChart className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -778,7 +787,7 @@ export function Board() {
                 })}
               </div>
             </DragDropContext>
-          ) : (
+          ) : viewMode === 'table' ? (
             <div>
               <BoardTableView 
                 tasks={tasks.filter(task => {
@@ -812,6 +821,47 @@ export function Board() {
 
                   return true;
                 })} 
+              />
+            </div>
+          ) : (
+            <div>
+              <BoardGanttView 
+                tasks={tasks.filter(task => {
+                  if (!showArchivedTasks && task.archived) return false;
+
+                  if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    if (!task.title.toLowerCase().includes(query) && 
+                        !(task.description && task.description.toLowerCase().includes(query))) {
+                      return false;
+                    }
+                  }
+
+                  if (selectedLabels.length > 0) {
+                    if (!task.labels?.some(label => selectedLabels.includes(label))) {
+                      return false;
+                    }
+                  }
+
+                  if (selectedPriorities.length > 0) {
+                    if (!task.priority || !selectedPriorities.includes(task.priority)) {
+                      return false;
+                    }
+                  }
+
+                  if (selectedDate && task.dueDate) {
+                    const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
+                    const filterDate = format(selectedDate, 'yyyy-MM-dd');
+                    if (taskDate !== filterDate) return false;
+                  }
+
+                  return true;
+                })}
+                onTaskClick={(task) => {
+                  setSelectedTaskId(task.id);
+                  setShowTaskDialog(true);
+                }} 
+                showArchivedTasks={showArchivedTasks}
               />
             </div>
           )}
