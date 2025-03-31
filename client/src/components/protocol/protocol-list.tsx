@@ -314,16 +314,29 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                       // Protokoll duplizieren
                       const now = new Date();
                       setShowCreateForm(true);
-                      // Wir setzen die Werte für das neue Protokoll, ändern aber den Titel
+                      // Deep Copy aller Daten erstellen, um eine komplette Kopie zu haben
                       const duplicateProtocol = {
-                        ...protocol,
+                        ...JSON.parse(JSON.stringify(protocol)), // Deep Copy um alle verschachtelten Objekte zu kopieren
                         title: `${protocol.title} (Kopie)`,
                         date: now, // Aktuelles Datum für die Kopie
+                        // Teilnehmer korrekt kopieren
                         participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
                         teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
+                        // Sicherstellen, dass agendaItems vollständig kopiert werden
+                        agendaItems: protocol.agendaItems?.map((item: any) => ({
+                          ...item,
+                          // Neue ID für jeden Agenda-Punkt generieren
+                          id: Date.now().toString() + Math.random().toString(36).substring(2, 9)
+                        })) || []
                       };
-                      // ID entfernen, damit es als neues Protokoll angelegt wird
+                      // ID und andere Metadaten entfernen, damit es als neues Protokoll angelegt wird
                       delete duplicateProtocol.id;
+                      delete duplicateProtocol.createdAt;
+                      delete duplicateProtocol.updatedAt;
+                      delete duplicateProtocol.participantDetails;
+                      delete duplicateProtocol.teamParticipantDetails;
+                      delete duplicateProtocol.creator;
+                      
                       setDuplicateData(duplicateProtocol);
                     }}
                   >

@@ -110,8 +110,8 @@ export function ProtocolForm({
     append({
       id: generateId(),
       title: "",
-      notes: "",
-      richNotes: "", // Rich-Text-Content initialisieren
+      notes: "", // Legacy-Feld, behalten wir für Abwärtskompatibilität
+      richNotes: "", // Rich-Text-Content für neue Notizen
       assignment: "",
       categories: []
     });
@@ -364,28 +364,10 @@ export function ProtocolForm({
 
                             <FormField
                               control={form.control}
-                              name={`agendaItems.${index}.notes`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Notizen (Einfacher Text)</FormLabel>
-                                  <FormControl>
-                                    <Textarea
-                                      placeholder="Beschreibung und Notizen (einfacher Text)"
-                                      className="min-h-[80px]"
-                                      {...field}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                              
-                            <FormField
-                              control={form.control}
                               name={`agendaItems.${index}.richNotes`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Beschlüsse/Notizen (Rich-Text)</FormLabel>
+                                  <FormLabel>Beschlüsse/Notizen</FormLabel>
                                   <FormControl>
                                     <RichTextEditor
                                       content={field.value}
