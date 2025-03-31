@@ -48,7 +48,7 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const [files, setFiles] = useState<string[]>(attachments);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -65,10 +65,19 @@ export function RichTextEditor({
           }
         },
         // Deaktiviere die integrierte Strike-Extension von StarterKit, da wir unsere eigene verwenden
-        strike: false
+        strike: false,
+        bold: {
+          HTMLAttributes: {
+            style: 'font-weight: bold'
+          }
+        }
       }),
-      TextStyle,
-      Color,
+      TextStyle.configure({
+        types: ['textStyle']
+      }),
+      Color.configure({
+        types: ['textStyle']
+      }),
       Underline,
       Strike,
       Placeholder.configure({
@@ -127,19 +136,19 @@ export function RichTextEditor({
       });
 
       let errorMessage = 'Fehler beim Hochladen der Datei';
-      
+
       try {
         if (response.ok) {
           try {
             const data = await response.json();
             console.log('Server-Antwort beim Datei-Upload:', data);
-            
+
             // Der Server gibt die URL in der Eigenschaft 'url' zurück
             const fileUrl = data.url;
-            
+
             if (fileUrl) {
               console.log('Datei erfolgreich hochgeladen:', fileUrl);
-              
+
               setFiles(prevFiles => {
                 const newFiles = [...prevFiles, fileUrl];
                 if (onAttachmentUpload) {
@@ -147,7 +156,7 @@ export function RichTextEditor({
                 }
                 return newFiles;
               });
-              
+
               // Datei-URL in den Editor einfügen, wenn es ein Bild ist
               if (editor && /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl)) {
                 editor.chain().focus().setImage({ src: fileUrl }).run();
@@ -192,7 +201,7 @@ export function RichTextEditor({
     } catch (error) {
       console.error('Fehler beim Datei-Upload:', error);
     }
-    
+
     // Reset the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -217,11 +226,11 @@ export function RichTextEditor({
       }
     }
   };
-  
+
   // Textfarbe-Funktionalität
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [colorPickerPosition, setColorPickerPosition] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
-  
+
   // Liste der verfügbaren Farben
   const colors = [
     { name: 'Schwarz', value: '#000000' },
@@ -237,7 +246,7 @@ export function RichTextEditor({
     { name: 'Lila', value: '#9900ff' },
     { name: 'Pink', value: '#ff00ff' },
   ];
-  
+
   const handleColorClick = (event: React.MouseEvent) => {
     // Positioniere den Farbpicker relativ zum Button
     const rect = event.currentTarget.getBoundingClientRect();
@@ -247,7 +256,7 @@ export function RichTextEditor({
     });
     setShowColorPicker(!showColorPicker);
   };
-  
+
   const setTextColor = (color: string) => {
     if (editor) {
       editor.chain().focus().setColor(color).run();
@@ -268,14 +277,14 @@ export function RichTextEditor({
       background: transparent !important;
       white-space: pre-wrap !important;
     }
-    
+
     /* Fokus-Umrandung entfernen */
     .ProseMirror:focus, .ProseMirror:focus-visible {
       outline: none !important;
       box-shadow: none !important;
       border-color: transparent !important;
     }
-    
+
     /* Links richtig darstellen */
     .ProseMirror a, .prose a, .prose-sm a {
       color: #3b82f6 !important;
@@ -286,7 +295,7 @@ export function RichTextEditor({
       margin: 0 !important;
       padding: 0 !important;
     }
-    
+
     /* Korrekte Bildanzeige */
     .ProseMirror img, .prose img, .prose-sm img {
       display: block !important;
@@ -373,7 +382,7 @@ export function RichTextEditor({
           >
             <Paintbrush className="h-4 w-4" />
           </Button>
-          
+
           {/* Farbpicker */}
           {showColorPicker && (
             <div 
@@ -397,7 +406,7 @@ export function RichTextEditor({
               </div>
             </div>
           )}
-          
+
           <div className="ml-auto">
             <Button 
               type="button" 
@@ -440,7 +449,7 @@ export function RichTextEditor({
 export function AttachmentThumbnail({ file }: { file: string }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
-  
+
   const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(file);
   const isPdf = /\.pdf$/i.test(file);
   const isDoc = /\.(doc|docx)$/i.test(file);
@@ -448,7 +457,7 @@ export function AttachmentThumbnail({ file }: { file: string }) {
   const isZip = /\.(zip|rar|7z|tar|gz)$/i.test(file);
   const isVideo = /\.(mp4|avi|mov|wmv|flv|mkv)$/i.test(file);
   const isAudio = /\.(mp3|wav|ogg|flac|aac)$/i.test(file);
-  
+
   const fileName = file.split('/').pop() || 'Datei';
 
   // Sorge für eine absolute URL
@@ -461,15 +470,15 @@ export function AttachmentThumbnail({ file }: { file: string }) {
     }
     return url;
   };
-  
+
   const absoluteUrl = getAbsoluteUrl(file);
-  
+
   // Generiere ein größeres Preview-Bild für Bilder
   const handleImageClick = (e: React.MouseEvent) => {
     e.preventDefault();
     setShowFullPreview(true);
   };
-  
+
   // Kleiner Helfer, um ein Icon basierend auf dem Dateityp auszuwählen
   const FileTypeIcon = () => {
     if (isPdf) {
@@ -549,7 +558,7 @@ export function AttachmentThumbnail({ file }: { file: string }) {
       );
     }
   };
-  
+
   // Bild-Thumbnails
   if (isImage) {
     return (
@@ -568,7 +577,7 @@ export function AttachmentThumbnail({ file }: { file: string }) {
             </div>
           </div>
         </div>
-        
+
         {/* Image Viewer Modal */}
         {showFullPreview && (
           <Dialog open={showFullPreview} onOpenChange={setShowFullPreview}>
@@ -594,7 +603,7 @@ export function AttachmentThumbnail({ file }: { file: string }) {
       </>
     );
   }
-  
+
   // PDF und andere Dateitypen
   return (
     <a 
@@ -611,12 +620,12 @@ export function AttachmentThumbnail({ file }: { file: string }) {
     >
       <div className="flex flex-col items-center justify-center h-full">
         <FileTypeIcon />
-        
+
         <div className="p-1 text-[10px] text-center truncate w-full font-medium text-slate-700">
           {fileName.length > 10 ? fileName.substring(0, 7) + '...' : fileName}
         </div>
       </div>
-      
+
       {/* Hover-Overlay */}
       <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
         <div className="text-white text-xs text-center px-1">
@@ -630,13 +639,13 @@ export function AttachmentThumbnail({ file }: { file: string }) {
 // Hilfsfunktion zur Bereinigung von HTML-Tags in Links und Bild-Pfad-Korrektur
 function cleanHtml(htmlContent: string): string {
   if (!htmlContent) return '';
-  
+
   let cleanedHtml = htmlContent;
-  
+
   // Fix Code-Block Styling
   cleanedHtml = cleanedHtml.replace(/<pre>/g, '<pre style="margin: 0 !important; padding: 0 !important; background: transparent !important;">');
   cleanedHtml = cleanedHtml.replace(/<code>/g, '<code style="margin: 0 !important; padding: 0 !important; background: transparent !important;">');
-  
+
   // HTML-Tags in Links bereinigen - Link-Inhalte extrahieren und saubere Links erstellen
   cleanedHtml = cleanedHtml.replace(
     /<a\s+href="([^"]+)"[^>]*>(&lt;a href="[^"]+"[^>]*&gt;|<[^>]+>)?([^<]*)(<\/a>|&lt;\/a&gt;)?<\/a>/g, 
@@ -647,7 +656,7 @@ function cleanHtml(htmlContent: string): string {
                 font-size: inherit !important;">${url}</a>`;
     }
   );
-  
+
   // Standard-Link-Fix für einfache Links
   cleanedHtml = cleanedHtml.replace(
     /<a\s+href="([^"]+)"[^>]*>([^<]+)<\/a>/g, 
@@ -658,7 +667,7 @@ function cleanHtml(htmlContent: string): string {
                 font-size: inherit !important;">${text}</a>`;
     }
   );
-  
+
   // HTML-kodierte Tags in normalen Text umwandeln
   cleanedHtml = cleanedHtml.replace(/&lt;a href="([^"]+)"[^&]*&gt;([^&]*)&lt;\/a&gt;/g, 
     (match, url, text) => {
@@ -667,18 +676,18 @@ function cleanHtml(htmlContent: string): string {
                 background: transparent !important;">${text || url}</a>`;
     }
   );
-  
+
   // Bilder mit relativen Pfaden korrigieren und klickbar machen
   cleanedHtml = cleanedHtml.replace(
     /<img\s+([^>]*)src="(uploads\/[^"]+)"([^>]*)>/g, 
     '<img $1src="/$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;">'
   );
-  
+
   cleanedHtml = cleanedHtml.replace(
     /<img\s+([^>]*)src="(\/uploads\/[^"]+)"([^>]*)>/g, 
     '<img $1src="$2"$3 style="max-width: 250px !important; height: auto !important; cursor: pointer !important; border-radius: 4px !important; display: block !important;">'
   );
-  
+
   // Alle verbleibenden Bilder generell in ihrer Größe beschränken
   cleanedHtml = cleanedHtml.replace(
     /<img\s+([^>]*)>/g, 
@@ -690,11 +699,11 @@ function cleanHtml(htmlContent: string): string {
       return match;
     }
   );
-  
+
   // Selbständige href-Pfade korrigieren
   cleanedHtml = cleanedHtml.replace(/href="uploads\//g, 'href="/uploads/');
   cleanedHtml = cleanedHtml.replace(/href="\/uploads\//g, 'href="/uploads/');
-  
+
   // Direkte Öffnung für PDF-Links hinzufügen
   cleanedHtml = cleanedHtml.replace(
     /<a([^>]*)href="([^"]*\.pdf)"([^>]*)>/g,
@@ -706,11 +715,11 @@ function cleanHtml(htmlContent: string): string {
       } else if (!fullPdfUrl.startsWith('http')) {
         fullPdfUrl = window.location.origin + '/' + fullPdfUrl;
       }
-      
+
       return `<a${before}href="${pdfUrl}"${after} onclick="event.preventDefault(); window.open('${fullPdfUrl}', '_blank', 'noopener,noreferrer');">`;
     }
   );
-  
+
   return cleanedHtml;
 }
 
@@ -729,11 +738,11 @@ function ImageViewerModal({
     const handleEscKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    
+
     if (isOpen) {
       window.addEventListener('keydown', handleEscKey);
     }
-    
+
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
@@ -764,27 +773,27 @@ function ImageViewerModal({
 
 export function RichTextContent({ content }: { content: string }) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  
+
   // Verarbeite den Inhalt, aber benutze eine spezielle Version für die Image-Klick-Handler
   const processedContent = useMemo(() => {
     if (!content) return '';
-    
+
     // Beginne mit der normalen HTML-Bereinigung
     let cleanedHtml = cleanHtml(content);
-    
+
     // Ersetze alle onclick-Handler durch einen speziellen data-attribute, den wir später abfangen können
     cleanedHtml = cleanedHtml.replace(
       /onclick="window\.open\('([^']+)', '_blank'\)"/g,
       'data-lightbox-src="$1"'
     );
-    
+
     return cleanedHtml;
   }, [content]);
 
   // Event-Handler für Klicks auf Bilder im gereinigten HTML
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    
+
     // Prüfe, ob auf ein Bild geklickt wurde
     if (target.tagName === 'IMG') {
       // Wenn das Bild einen Lightbox-src-Attribute hat, öffne es im Modal
@@ -807,7 +816,7 @@ export function RichTextContent({ content }: { content: string }) {
         dangerouslySetInnerHTML={{ __html: processedContent }} 
         onClick={handleContentClick}
       />
-      
+
       {selectedImage && (
         <ImageViewerModal 
           isOpen={!!selectedImage} 
