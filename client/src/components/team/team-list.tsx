@@ -95,16 +95,16 @@ export function TeamList() {
   // Zählt die Anzahl der Projekte für ein Team
   const getTeamProjectCount = (teamId: number) => {
     return projects.filter(project => 
-      project.teams && Array.isArray(project.teams) && 
-      project.teams.some(team => team.id === teamId)
+      (project.teams && Array.isArray(project.teams) && project.teams.some(team => team.id === teamId)) ||
+      (project.teamIds && Array.isArray(project.teamIds) && project.teamIds.includes(teamId))
     ).length;
   };
   
   // Zählt die Anzahl der Boards für ein Team
   const getTeamBoardCount = (teamId: number) => {
     return boards.filter(board => 
-      board.teams && Array.isArray(board.teams) && 
-      board.teams.some(team => team.id === teamId)
+      (board.teams && Array.isArray(board.teams) && board.teams.some(team => team.id === teamId)) ||
+      (board.team_ids && Array.isArray(board.team_ids) && board.team_ids.includes(teamId))
     ).length;
   };
   
