@@ -3,8 +3,8 @@ import { useAuth } from "@/lib/auth-store";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ChevronsRight } from "lucide-react";
-import type { Project, Board, Objective, Task } from "@shared/schema";
+import { Plus, ChevronsRight, CheckCircle, Clock } from "lucide-react";
+import type { Project, Board, Objective, Task, UserProductivityMetrics } from "@shared/schema";
 import { useStore } from "@/lib/store";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { 
@@ -15,10 +15,60 @@ import {
   TableBody, 
   TableCell 
 } from "@/components/ui/table";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { getPriorityColor } from "@/lib/utils";
+
+// Produktivitäts-Metriken-Komponente
+interface ProductivityMetricsCardProps {
+  userId: number;
+}
+
+function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
+  const { data: metrics, isLoading } = useQuery<UserProductivityMetrics[]>({
+    queryKey: [`/api/productivity/metrics/${userId}`, { days: 7 }],
+    queryFn: async () => {
+      if (!userId) return [];
+      const res = await fetch(`/api/productivity/metrics/${userId}?days=7`);
+      if (!res.ok) throw new Error("Fehler beim Laden der Produktivitätsdaten");
+      return res.json();
+    },
+    enabled: !!userId
+  });
+
+  if (isLoading || !metrics) {
+    return <div className="text-sm text-muted-foreground">Lade Produktivitätsdaten...</div>;
+  }
+
+  // Daten für die letzten 7 Tage zusammenfassen
+  const totalTasksCompleted = metrics.reduce((acc, day) => acc + (day.tasksCompleted || 0), 0);
+  const totalTimeSpentHours = Math.round(metrics.reduce((acc, day) => acc + (day.timeSpentMinutes || 0), 0) / 60);
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <CheckCircle className="h-4 w-4 text-green-500" />
+        <div>
+          <span className="font-medium">{totalTasksCompleted}</span>
+          <span className="text-sm text-muted-foreground ml-2">Aufgaben erledigt</span>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <Clock className="h-4 w-4 text-blue-500" />
+        <div>
+          <span className="font-medium">{totalTimeSpentHours}</span>
+          <span className="text-sm text-muted-foreground ml-2">Stunden gearbeitet</span>
+        </div>
+      </div>
+      
+      <div className="text-xs text-muted-foreground mt-2">
+        Erfasst für die letzten 7 Tage
+      </div>
+    </div>
+  );
+}
 
 // Dashboard-Tasks-Komponente
 function DashboardTaskRows() {
@@ -158,8 +208,9 @@ export default function Dashboard() {
   const allBoards = boardQueries.data || [];
   const activeObjectives = objectives.filter(obj => obj.status === "active");
   const completedObjectives = objectives.filter(obj => obj.progress === 100);
-  const averageProgress = activeObjectives.length > 0
-    ? Math.round(activeObjectives.reduce((acc, obj) => acc + (obj.progress || 0), 0) / activeObjectives.length)
+  // Beziehe alle Objectives (aktive und abgeschlossene) in die Berechnung ein
+  const averageProgress = objectives.length > 0
+    ? Math.round(objectives.reduce((acc, obj) => acc + (obj.progress || 0), 0) / objectives.length)
     : 0;
 
   return (
@@ -204,22 +255,25 @@ export default function Dashboard() {
             <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
               <CardHeader className="py-4">
                 <CardTitle>OKR Progress</CardTitle>
-                <CardDescription>Durchschnittlicher Fortschritt</CardDescription>
+                <CardDescription>Alle Objectives ({objectives.length})</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-primary">{averageProgress}%</p>
+                <div className="space-y-2">
+                  <p className="text-2xl font-bold text-primary">{averageProgress}%</p>
+                  <div className="text-sm text-muted-foreground">
+                    Abgeschlossen: {completedObjectives.length}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
             <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
               <CardHeader className="py-4">
-                <CardTitle>Erreichte OKRs</CardTitle>
-                <CardDescription>Abgeschlossene Objectives</CardDescription>
+                <CardTitle>Produktivität</CardTitle>
+                <CardDescription>Ihre Aktivitäten</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-primary">
-                  {completedObjectives.length}/{activeObjectives.length}
-                </p>
+                <ProductivityMetricsCard userId={user?.id || 0} />
               </CardContent>
             </Card>
           </div>
