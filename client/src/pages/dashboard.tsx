@@ -38,7 +38,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     },
     enabled: !!userId
   });
-  
+
   const { data: myTasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["/api/user-tasks"],
     queryFn: async () => {
@@ -76,10 +76,10 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
   // Berechnungen für Fortschrittsbalken
   const completedTasks = myTasks.filter(task => task.status === "done").length;
   const taskProgress = myTasks.length > 0 ? Math.round((completedTasks / myTasks.length) * 100) : 0;
-  
+
   const completedProjects = projects.filter(project => project.archived).length;
   const projectProgress = projects.length > 0 ? Math.round((completedProjects / projects.length) * 100) : 0;
-  
+
   const completedObjectives = objectives.filter(obj => obj.progress === 100).length;
   const keyResultProgress = objectives.length > 0 ? Math.round((completedObjectives / objectives.length) * 100) : 0;
 
@@ -90,7 +90,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
       task: 'bg-green-500',
       okr: 'bg-purple-500'
     };
-    
+
     return baseColors[category];
   };
 
@@ -116,10 +116,10 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
             {completedProjects}/{projects.length}
           </div>
         </div>
-        
+
         {/* Task-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
-          <span className="text-sm font-medium mb-2">Eigene Tasks</span>
+          <span className="text-sm font-medium mb-2">Tasks</span>
           <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
             <div 
               className={`absolute bottom-0 w-full ${getBarColor(taskProgress, 'task')} transition-all`} 
@@ -135,8 +135,17 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           <div className="text-xs text-muted-foreground mt-1">
             {completedTasks}/{myTasks.length}
           </div>
+          <div className="space-y-2 mt-2">
+            <h3 className="font-medium">Tasks ({myTasks.length})</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>Zu erledigen: {myTasks.filter(t => t.status === 'todo').length}</div>
+              <div>In Bearbeitung: {myTasks.filter(t => t.status === 'in-progress').length}</div>
+              <div>In Überprüfung: {myTasks.filter(t => t.status === 'in-review').length}</div>
+              <div>Abgeschlossen: {myTasks.filter(t => t.status === 'done').length}</div>
+            </div>
+          </div>
         </div>
-        
+
         {/* Key-Results-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Key Results</span>
@@ -157,7 +166,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           </div>
         </div>
       </div>
-      
+
       <div className="text-xs text-muted-foreground text-center">
         Prozentuale Vollständigkeit
       </div>
@@ -363,7 +372,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-          
+
           {/* Produktivitäts-Card in voller Breite */}
           <div className="mb-4">
             <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
@@ -376,7 +385,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-          
+
           {/* Aufgaben in "ToDo" und "In Progress" */}
           <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
             <CardHeader className="py-4">
