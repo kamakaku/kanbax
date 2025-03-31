@@ -232,7 +232,7 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClient}>
         <BoardProvider>
-          <TooltipProvider>
+          <TooltipProvider delayDuration={300} skipDelayDuration={100}>
             <AuthenticatedApp />
             <Toaster />
           </TooltipProvider>

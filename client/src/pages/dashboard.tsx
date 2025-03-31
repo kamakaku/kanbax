@@ -192,7 +192,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           <span className="text-sm font-medium mb-2">Projekte</span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+              <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
                 <div 
                   className={`absolute bottom-0 w-full ${getBarColor(projectProgress, 'project')} transition-all`} 
                   style={{ height: `${projectProgress}%` }}
@@ -202,7 +202,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
                     {projectProgress}%
                   </span>
                 </div>
-              </div>
+              </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="bg-white p-2 rounded shadow-lg border border-gray-200">
               <div className="text-xs font-medium mb-1">Projektfortschritt</div>
@@ -230,7 +230,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           <span className="text-sm font-medium mb-2">Key Results</span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+              <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
                 <div 
                   className={`absolute bottom-0 w-full ${getBarColor(keyResultProgress, 'okr')} transition-all`} 
                   style={{ height: `${keyResultProgress}%` }}
@@ -240,7 +240,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
                     {keyResultProgress}%
                   </span>
                 </div>
-              </div>
+              </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="bg-white p-2 rounded shadow-lg border border-gray-200">
               <div className="text-xs font-medium mb-1">OKR-Fortschritt</div>
@@ -276,8 +276,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
             <div className="absolute inset-0 flex flex-col-reverse">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div 
-                    className="bg-slate-300 cursor-help"
+                  <button 
+                    type="button"
+                    className="bg-slate-300 cursor-help w-full border-0 m-0 p-0"
                     style={{ height: `${percentages.backlog}%` }}
                   />
                 </TooltipTrigger>
@@ -299,8 +300,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div 
-                    className="bg-blue-300 cursor-help"
+                  <button 
+                    type="button"
+                    className="bg-blue-300 cursor-help w-full border-0 m-0 p-0"
                     style={{ height: `${percentages.todo}%` }}
                   />
                 </TooltipTrigger>
@@ -322,8 +324,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div 
-                    className="bg-amber-400 cursor-help"
+                  <button 
+                    type="button"
+                    className="bg-amber-400 cursor-help w-full border-0 m-0 p-0"
                     style={{ height: `${percentages.inProgress}%` }}
                   />
                 </TooltipTrigger>
@@ -345,8 +348,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div 
-                    className="bg-purple-400 cursor-help"
+                  <button 
+                    type="button"
+                    className="bg-purple-400 cursor-help w-full border-0 m-0 p-0"
                     style={{ height: `${percentages.review}%` }}
                   />
                 </TooltipTrigger>
@@ -368,8 +372,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div 
-                    className="bg-green-400 cursor-help"
+                  <button 
+                    type="button"
+                    className="bg-green-400 cursor-help w-full border-0 m-0 p-0"
                     style={{ height: `${percentages.done}%` }}
                   />
                 </TooltipTrigger>
