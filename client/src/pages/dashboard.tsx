@@ -83,69 +83,83 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
   const completedObjectives = objectives.filter(obj => obj.progress === 100).length;
   const keyResultProgress = objectives.length > 0 ? Math.round((completedObjectives / objectives.length) * 100) : 0;
 
+  // Hilfsfunktion, um die Balkenfarbe basierend auf dem Fortschritt zu bestimmen
+  const getBarColor = (progress: number, category: 'project' | 'task' | 'okr') => {
+    const baseColors = {
+      project: 'bg-blue-500',
+      task: 'bg-green-500',
+      okr: 'bg-purple-500'
+    };
+    
+    return baseColors[category];
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex justify-between items-end h-48 gap-12 mb-2">
         {/* Projekt-Fortschritt */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-sm">
-            <span className="font-medium">Projekte</span>
-            <span className="font-semibold">{projectProgress}%</span>
-          </div>
-          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+        <div className="flex flex-col items-center flex-1">
+          <span className="text-sm font-medium mb-2">Projekte</span>
+          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
             <div 
-              className="h-full bg-blue-500 transition-all" 
-              style={{ width: `${projectProgress}%` }}
+              className={`absolute bottom-0 w-full ${getBarColor(projectProgress, 'project')} transition-all`} 
+              style={{ height: `${projectProgress}%` }}
             />
+            <div className="absolute inset-0 flex items-end justify-center p-2">
+              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                {projectProgress}%
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0%</span>
-            <span>50%</span>
-            <span>100%</span>
+          <div className="w-full h-px bg-gray-300 mt-1" />
+          <div className="text-xs text-muted-foreground mt-1">
+            {completedProjects}/{projects.length}
           </div>
         </div>
         
         {/* Task-Fortschritt */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-sm">
-            <span className="font-medium">Eigene Tasks</span>
-            <span className="font-semibold">{taskProgress}%</span>
-          </div>
-          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+        <div className="flex flex-col items-center flex-1">
+          <span className="text-sm font-medium mb-2">Eigene Tasks</span>
+          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
             <div 
-              className="h-full bg-green-500 transition-all" 
-              style={{ width: `${taskProgress}%` }}
+              className={`absolute bottom-0 w-full ${getBarColor(taskProgress, 'task')} transition-all`} 
+              style={{ height: `${taskProgress}%` }}
             />
+            <div className="absolute inset-0 flex items-end justify-center p-2">
+              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                {taskProgress}%
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0%</span>
-            <span>50%</span>
-            <span>100%</span>
+          <div className="w-full h-px bg-gray-300 mt-1" />
+          <div className="text-xs text-muted-foreground mt-1">
+            {completedTasks}/{myTasks.length}
           </div>
         </div>
         
         {/* Key-Results-Fortschritt */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-sm">
-            <span className="font-medium">Key Results</span>
-            <span className="font-semibold">{keyResultProgress}%</span>
-          </div>
-          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+        <div className="flex flex-col items-center flex-1">
+          <span className="text-sm font-medium mb-2">Key Results</span>
+          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
             <div 
-              className="h-full bg-purple-500 transition-all" 
-              style={{ width: `${keyResultProgress}%` }}
+              className={`absolute bottom-0 w-full ${getBarColor(keyResultProgress, 'okr')} transition-all`} 
+              style={{ height: `${keyResultProgress}%` }}
             />
+            <div className="absolute inset-0 flex items-end justify-center p-2">
+              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                {keyResultProgress}%
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0%</span>
-            <span>50%</span>
-            <span>100%</span>
+          <div className="w-full h-px bg-gray-300 mt-1" />
+          <div className="text-xs text-muted-foreground mt-1">
+            {completedObjectives}/{objectives.length}
           </div>
         </div>
       </div>
       
       <div className="text-xs text-muted-foreground text-center">
-        Aktueller Fortschritt in %
+        Prozentuale Vollständigkeit
       </div>
     </div>
   );
