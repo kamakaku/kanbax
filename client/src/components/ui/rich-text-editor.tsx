@@ -51,28 +51,16 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
-      TextStyle.configure({
-        types: ['textStyle']
-      }),
-      Color.configure({
-        types: ['textStyle']
-      }),
       StarterKit.configure({
-        codeBlock: {
-          HTMLAttributes: {
-            class: 'my-custom-code-block',
-            style: 'margin: 0 !important; padding: 0 !important; background: transparent;'
-          }
-        },
+        bold: true,
         code: {
           HTMLAttributes: {
-            class: 'my-custom-code',
-            style: 'margin: 0 !important; padding: 0 !important; background: transparent;'
+            class: 'font-mono bg-transparent p-0 text-inherit'
           }
-        },
-        strike: false,
-        bold: true
+        }
       }),
+      TextStyle,
+      Color,
       Underline,
       Strike,
       Placeholder.configure({
