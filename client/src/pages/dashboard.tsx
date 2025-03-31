@@ -73,7 +73,7 @@ function DashboardTaskRows() {
           onClick={() => {
             // Wenn es eine boardId gibt, zum Board mit taskId navigieren, ansonsten zur persönlichen Aufgabenliste
             if (task.boardId) {
-              setLocation(`/board/${task.boardId}?taskId=${task.id}`);
+              setLocation(`/boards/${task.boardId}?taskId=${task.id}`);
             } else {
               setLocation(`/my-tasks?taskId=${task.id}`);
             }
