@@ -207,6 +207,9 @@ export function ProtocolForm({
             <DialogTitle>
               {editMode ? "Protokoll bearbeiten" : "Neues Protokoll erstellen"}
             </DialogTitle>
+            <DialogDescription>
+              Erfassen Sie Details wie Datum, Teilnehmer und Agenda-Punkte.
+            </DialogDescription>
           </DialogHeader>
         </div>
 

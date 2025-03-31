@@ -313,30 +313,37 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                     onClick={() => {
                       // Protokoll duplizieren
                       const now = new Date();
-                      setShowCreateForm(true);
-                      // Deep Copy aller Daten erstellen, um eine komplette Kopie zu haben
+                      
+                      // Vereinfachtes Duplikat erstellen und nur die benötigten Felder kopieren
                       const duplicateProtocol = {
-                        ...JSON.parse(JSON.stringify(protocol)), // Deep Copy um alle verschachtelten Objekte zu kopieren
+                        // Basis-Informationen
                         title: `${protocol.title} (Kopie)`,
-                        date: now, // Aktuelles Datum für die Kopie
-                        // Teilnehmer korrekt kopieren
+                        date: now,
+                        
+                        // IDs der Teilnehmer extrahieren
                         participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
                         teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
-                        // Sicherstellen, dass agendaItems vollständig kopiert werden
+                        
+                        // Team/Projekt/Objective IDs
+                        teamId: protocol.teamId,
+                        projectId: protocol.projectId, 
+                        objectiveId: protocol.objectiveId,
+                        
+                        // Agenda-Punkte direkt kopieren
                         agendaItems: protocol.agendaItems?.map((item: any) => ({
-                          ...item,
-                          // Neue ID für jeden Agenda-Punkt generieren
-                          id: Date.now().toString() + Math.random().toString(36).substring(2, 9)
+                          id: Date.now() + "-" + Math.random().toString(36).substr(2, 9),
+                          title: item.title || "",
+                          richNotes: item.richNotes || "",
+                          notes: "", // Leeres Feld, da wir es nicht mehr verwenden
+                          assignment: item.assignment || "",
+                          categories: [...(item.categories || [])],
                         })) || []
                       };
-                      // ID und andere Metadaten entfernen, damit es als neues Protokoll angelegt wird
-                      delete duplicateProtocol.id;
-                      delete duplicateProtocol.createdAt;
-                      delete duplicateProtocol.updatedAt;
-                      delete duplicateProtocol.participantDetails;
-                      delete duplicateProtocol.teamParticipantDetails;
-                      delete duplicateProtocol.creator;
                       
+                      console.log("Dupliziertes Protokoll:", duplicateProtocol);
+                      
+                      // Dialog öffnen und Daten setzen
+                      setShowCreateForm(true);
                       setDuplicateData(duplicateProtocol);
                     }}
                   >
