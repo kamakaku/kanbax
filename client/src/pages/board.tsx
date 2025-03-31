@@ -81,6 +81,12 @@ export function Board() {
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [initialColumnId, setInitialColumnId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState('kanban');
+  
+  // Für das Öffnen des TaskDialogs bei Klick auf einen Task im Dashboard
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(
+    taskId ? parseInt(taskId) : null
+  );
+  const [showTaskDialog, setShowTaskDialog] = useState<boolean>(!!taskId);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
@@ -170,6 +176,15 @@ export function Board() {
       ));
     }
   }, [board, setCurrentBoard, tasks]);
+  
+  // Öffne den Task-Dialog, wenn eine taskId in der URL ist und Tasks geladen sind
+  useEffect(() => {
+    if (taskId && tasks.length > 0) {
+      const taskIdInt = parseInt(taskId);
+      setSelectedTaskId(taskIdInt);
+      setShowTaskDialog(true);
+    }
+  }, [taskId, tasks]);
 
   const updateBoard = useMutation({
     mutationFn: async (data: InsertBoard) => {
@@ -891,6 +906,20 @@ export function Board() {
             }
           }}
         />
+        
+        {/* Task-Dialog für Aufgaben, die direkt über die URL geöffnet werden sollen */}
+        {selectedTaskId && (
+          <TaskDialog
+            open={showTaskDialog}
+            onOpenChange={setShowTaskDialog}
+            task={tasks.find(task => task.id === selectedTaskId)}
+            mode="details"
+            onUpdate={async (updatedTask) => {
+              updateTask.mutate(updatedTask);
+              return Promise.resolve();
+            }}
+          />
+        )}
       </div>
     </div>
   );
