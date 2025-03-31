@@ -9,9 +9,11 @@ import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UserSelect } from "@/components/user/user-select";
+import { TeamSelect } from "@/components/team/team-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 
 // Validierungsschema für ein Protokoll
@@ -23,7 +25,8 @@ const protocolSchema = z.object({
   objectiveId: z.number().optional().nullable(),
   agenda: z.string().optional().nullable(),
   decisions: z.string().optional().nullable(),
-  participants: z.array(z.string()).min(1, "Mindestens ein Teilnehmer ist erforderlich"),
+  participants: z.array(z.string()).optional().default([]),
+  teamParticipants: z.array(z.number()).optional().default([]),
 });
 
 type ProtocolFormValues = z.infer<typeof protocolSchema>;
@@ -63,6 +66,7 @@ export function ProtocolForm({
     agenda: "",
     decisions: "",
     participants: [],
+    teamParticipants: [],
     ...initialValues,
   };
 
@@ -204,25 +208,49 @@ export function ProtocolForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="participants"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Teilnehmer</FormLabel>
-                    <FormControl>
-                      <UserSelect
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Teilnehmer auswählen"
-                        teamId={teamId}
-                        projectId={projectId}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Teilnehmer</h3>
+                
+                <FormField
+                  control={form.control}
+                  name="participants"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Personen</FormLabel>
+                      <FormControl>
+                        <UserSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Personen auswählen"
+                          teamId={teamId}
+                          projectId={projectId}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {(projectId || objectiveId) && (
+                  <FormField
+                    control={form.control}
+                    name="teamParticipants"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teams</FormLabel>
+                        <FormControl>
+                          <TeamSelect
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Teams auswählen"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+              </div>
 
               <FormField
                 control={form.control}

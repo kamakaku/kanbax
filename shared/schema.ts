@@ -974,6 +974,7 @@ export const meetingProtocols = pgTable("meeting_protocols", {
   agenda: text("agenda"), // Tagesordnung
   decisions: text("decisions"), // Getroffene Entscheidungen
   participants: text("participants").array(), // Teilnehmer als Array von User-IDs
+  teamParticipants: integer("team_participants").array(), // Teilnehmende Teams als Array von Team-IDs
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

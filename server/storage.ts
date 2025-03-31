@@ -2031,11 +2031,25 @@ export class DatabaseStorage implements IStorage {
             .from(users)
             .where(inArray(users.id, participantIds));
         }
+        
+        // Team-Teilnehmer abrufen, wenn vorhanden
+        let teamParticipantDetails = [];
+        if (protocol.teamParticipants && protocol.teamParticipants.length > 0) {
+          teamParticipantDetails = await db
+            .select({
+              id: teams.id,
+              name: teams.name,
+              description: teams.description
+            })
+            .from(teams)
+            .where(inArray(teams.id, protocol.teamParticipants));
+        }
 
         return {
           ...protocol,
           creator,
-          participantDetails: participants
+          participantDetails: participants,
+          teamParticipantDetails
         };
       }));
 
@@ -2089,11 +2103,25 @@ export class DatabaseStorage implements IStorage {
             .from(users)
             .where(inArray(users.id, participantIds));
         }
+        
+        // Team-Teilnehmer abrufen, wenn vorhanden
+        let teamParticipantDetails = [];
+        if (protocol.teamParticipants && protocol.teamParticipants.length > 0) {
+          teamParticipantDetails = await db
+            .select({
+              id: teams.id,
+              name: teams.name,
+              description: teams.description
+            })
+            .from(teams)
+            .where(inArray(teams.id, protocol.teamParticipants));
+        }
 
         return {
           ...protocol,
           creator,
-          participantDetails: participants
+          participantDetails: participants,
+          teamParticipantDetails
         };
       }));
 
@@ -2148,10 +2176,24 @@ export class DatabaseStorage implements IStorage {
             .where(inArray(users.id, participantIds));
         }
 
+        // Team-Teilnehmer abrufen, wenn vorhanden
+        let teamParticipantDetails = [];
+        if (protocol.teamParticipants && protocol.teamParticipants.length > 0) {
+          teamParticipantDetails = await db
+            .select({
+              id: teams.id,
+              name: teams.name,
+              description: teams.description
+            })
+            .from(teams)
+            .where(inArray(teams.id, protocol.teamParticipants));
+        }
+
         return {
           ...protocol,
           creator,
-          participantDetails: participants
+          participantDetails: participants,
+          teamParticipantDetails
         };
       }));
 
@@ -2214,10 +2256,24 @@ export class DatabaseStorage implements IStorage {
           .where(inArray(users.id, participantIds));
       }
       
+      // Team-Teilnehmer abrufen, wenn vorhanden
+      let teamParticipantDetails = [];
+      if (protocol.teamParticipants && protocol.teamParticipants.length > 0) {
+        teamParticipantDetails = await db
+          .select({
+            id: teams.id,
+            name: teams.name,
+            description: teams.description
+          })
+          .from(teams)
+          .where(inArray(teams.id, protocol.teamParticipants));
+      }
+      
       return {
         ...protocol,
         creator,
-        participantDetails: participants
+        participantDetails: participants,
+        teamParticipantDetails
       };
     } catch (error) {
       console.error("Error in getMeetingProtocol:", error);

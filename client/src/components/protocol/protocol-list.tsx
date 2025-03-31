@@ -188,21 +188,41 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                   </div>
                 </div>
 
-                <div>
+                <div className="space-y-3">
                   <h4 className="text-sm font-medium mb-1">Teilnehmer</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {protocol.participantDetails?.map((user: any) => (
-                      <div key={user.id} className="flex items-center gap-1 bg-muted rounded-full px-2 py-1">
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src={user.avatarUrl || ""} />
-                          <AvatarFallback className="text-xs">
-                            {user.username?.charAt(0).toUpperCase() || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs">{user.username}</span>
+                  
+                  {protocol.participantDetails?.length > 0 && (
+                    <div>
+                      <h5 className="text-xs font-medium text-muted-foreground mb-1">Personen</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {protocol.participantDetails?.map((user: any) => (
+                          <div key={user.id} className="flex items-center gap-1 bg-muted rounded-full px-2 py-1">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={user.avatarUrl || ""} />
+                              <AvatarFallback className="text-xs">
+                                {user.username?.charAt(0).toUpperCase() || "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs">{user.username}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+                  
+                  {protocol.teamParticipantDetails?.length > 0 && (
+                    <div>
+                      <h5 className="text-xs font-medium text-muted-foreground mb-1">Teams</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {protocol.teamParticipantDetails?.map((team: any) => (
+                          <div key={team.id} className="flex items-center gap-1 bg-blue-50 text-blue-700 rounded-full px-2 py-1">
+                            <Users className="h-4 w-4" />
+                            <span className="text-xs">{team.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {protocol.agenda && (
@@ -231,7 +251,8 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                       setEditingProtocol({
                         ...protocol,
                         date: new Date(protocol.date),
-                        participants: protocol.participantDetails?.map((u: any) => u.id.toString()),
+                        participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
+                        teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
                       });
                     }}
                   >
