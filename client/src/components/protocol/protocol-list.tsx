@@ -34,6 +34,7 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
   const [editingProtocol, setEditingProtocol] = useState<any>(null);
   const [protocolToDelete, setProtocolToDelete] = useState<number | null>(null);
   const [duplicateData, setDuplicateData] = useState<any>(null);
+  const [editingNotes, setEditingNotes] = useState<{protocolId: number, itemId: string, content: string} | null>(null);
   const queryClient = useQueryClient();
 
   // Abfrage der Protokolle basierend auf Team, Projekt oder Objective
@@ -263,117 +264,112 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                           {(item.notes || item.richNotes) && (
                             <div className="mt-2">
                               <h6 className="text-xs font-medium text-muted-foreground mb-0.5">Beschlüsse/Notizen</h6>
-                              {(() => {
-                                // State für Inline-Bearbeitung
-                                const [isEditing, setIsEditing] = useState(false);
-                                const [editContent, setEditContent] = useState(item.richNotes || item.notes || "");
-                                
-                                // Speichern der bearbeiteten Notizen
-                                const saveInlineEdit = () => {
-                                  // Erstelle eine Kopie des aktuellen Protokolls für die Aktualisierung
-                                  const updatedProtocol = {
-                                    ...protocol,
-                                    date: new Date(protocol.date),
-                                    participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
-                                    teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
-                                    agendaItems: protocol.agendaItems?.map((agendaItem: any) => {
-                                      // Aktualisiere nur das bearbeitete Item
-                                      if (agendaItem.id === item.id) {
-                                        return {
-                                          ...agendaItem,
-                                          richNotes: editContent,
-                                          notes: "" // Wir leeren das alte notes-Feld
-                                        };
-                                      }
-                                      return agendaItem;
-                                    })
-                                  };
-                                  
-                                  // Protokoll aktualisieren
-                                  const updateMutation = apiRequest(
-                                    "PATCH", 
-                                    `/api/protocols/${protocol.id}`, 
-                                    updatedProtocol
-                                  ).then(() => {
-                                    toast({
-                                      title: "Notizen gespeichert",
-                                      description: "Die Änderungen wurden erfolgreich gespeichert."
-                                    });
-                                    
-                                    // Abfragen aktualisieren
-                                    if (teamId) {
-                                      queryClient.invalidateQueries({ queryKey: [`/api/protocols/team/${teamId}`] });
-                                    }
-                                    if (projectId) {
-                                      queryClient.invalidateQueries({ queryKey: [`/api/protocols/project/${projectId}`] });
-                                    }
-                                    if (objectiveId) {
-                                      queryClient.invalidateQueries({ queryKey: [`/api/protocols/objective/${objectiveId}`] });
-                                    }
-                                    
-                                    setIsEditing(false);
-                                  }).catch((error) => {
-                                    console.error("Fehler beim Aktualisieren der Notizen:", error);
-                                    toast({
-                                      title: "Fehler",
-                                      description: "Die Änderungen konnten nicht gespeichert werden.",
-                                      variant: "destructive"
-                                    });
-                                  });
-                                };
-                                
-                                if (isEditing) {
-                                  // Inline-Bearbeitungsmodus
-                                  return (
-                                    <div className="mt-2 border rounded-md p-2">
-                                      <RichTextEditor
-                                        content={editContent}
-                                        onChange={setEditContent}
-                                        placeholder="Beschlüsse und Notizen mit Formatierung"
-                                      />
-                                      <div className="flex justify-end gap-2 mt-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => setIsEditing(false)}
-                                        >
-                                          Abbrechen
-                                        </Button>
-                                        <Button
-                                          variant="default"
-                                          size="sm"
-                                          onClick={saveInlineEdit}
-                                          className="bg-gradient-to-r from-blue-400 to-blue-600 text-white"
-                                        >
-                                          Speichern
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  );
-                                } else {
-                                  // Anzeige-Modus
-                                  return item.richNotes ? (
-                                    <div 
-                                      className="text-sm prose prose-sm max-w-none mt-2 cursor-pointer group relative" 
-                                      dangerouslySetInnerHTML={{ __html: item.richNotes }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsEditing(true);
-                                      }}
-                                    />
-                                  ) : (
-                                    <p 
-                                      className="text-sm whitespace-pre-line mt-2 cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsEditing(true);
-                                      }}
+                              {editingNotes && editingNotes.protocolId === protocol.id && editingNotes.itemId === item.id ? (
+                                <div className="mt-2 border rounded-md p-2">
+                                  <RichTextEditor
+                                    content={editingNotes.content}
+                                    onChange={(content) => setEditingNotes({...editingNotes, content})}
+                                    placeholder="Beschlüsse und Notizen mit Formatierung"
+                                  />
+                                  <div className="flex justify-end gap-2 mt-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setEditingNotes(null)}
                                     >
-                                      {item.notes || "Klicken zum Bearbeiten"}
-                                    </p>
-                                  );
-                                }
-                              })()}
+                                      Abbrechen
+                                    </Button>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => {
+                                        // Erstelle eine Kopie des aktuellen Protokolls für die Aktualisierung
+                                        const updatedProtocol = {
+                                          ...protocol,
+                                          date: new Date(protocol.date),
+                                          participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
+                                          teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
+                                          agendaItems: protocol.agendaItems?.map((agendaItem: any) => {
+                                            // Aktualisiere nur das bearbeitete Item
+                                            if (agendaItem.id === item.id) {
+                                              return {
+                                                ...agendaItem,
+                                                richNotes: editingNotes.content,
+                                                notes: "" // Wir leeren das alte notes-Feld
+                                              };
+                                            }
+                                            return agendaItem;
+                                          })
+                                        };
+
+                                        // Protokoll aktualisieren
+                                        apiRequest(
+                                          "PATCH", 
+                                          `/api/protocols/${protocol.id}`, 
+                                          updatedProtocol
+                                        ).then(() => {
+                                          toast({
+                                            title: "Notizen gespeichert",
+                                            description: "Die Änderungen wurden erfolgreich gespeichert."
+                                          });
+                                          
+                                          // Abfragen aktualisieren
+                                          if (teamId) {
+                                            queryClient.invalidateQueries({ queryKey: [`/api/protocols/team/${teamId}`] });
+                                          }
+                                          if (projectId) {
+                                            queryClient.invalidateQueries({ queryKey: [`/api/protocols/project/${projectId}`] });
+                                          }
+                                          if (objectiveId) {
+                                            queryClient.invalidateQueries({ queryKey: [`/api/protocols/objective/${objectiveId}`] });
+                                          }
+                                          
+                                          setEditingNotes(null);
+                                        }).catch((error) => {
+                                          console.error("Fehler beim Aktualisieren der Notizen:", error);
+                                          toast({
+                                            title: "Fehler",
+                                            description: "Die Änderungen konnten nicht gespeichert werden.",
+                                            variant: "destructive"
+                                          });
+                                        });
+                                      }}
+                                      className="bg-gradient-to-r from-blue-400 to-blue-600 text-white"
+                                    >
+                                      Speichern
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                item.richNotes ? (
+                                  <div 
+                                    className="text-sm prose prose-sm max-w-none mt-2 cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors" 
+                                    dangerouslySetInnerHTML={{ __html: item.richNotes }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingNotes({
+                                        protocolId: protocol.id,
+                                        itemId: item.id,
+                                        content: item.richNotes || ""
+                                      });
+                                    }}
+                                  />
+                                ) : (
+                                  <p 
+                                    className="text-sm whitespace-pre-line mt-2 cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingNotes({
+                                        protocolId: protocol.id,
+                                        itemId: item.id,
+                                        content: item.notes || ""
+                                      });
+                                    }}
+                                  >
+                                    {item.notes || "Klicken zum Bearbeiten"}
+                                  </p>
+                                )
+                              )}
                             </div>
                           )}
                           
