@@ -1070,6 +1070,20 @@ export async function registerRoutes(app: Express, db: Knex) {
       res.status(500).json({ message: (error as Error).message });
     }
   });
+  
+  // Route für die Dashboard-Anzeige der Benutzeraufgaben
+  app.get("/api/user-tasks", requireAuth, async (req, res) => {
+    try {
+      console.log("Fetching dashboard tasks for user", req.userId);
+      const userId = req.userId!;
+      const tasks = await storage.getUserAssignedTasks(userId);
+      console.log(`Found ${tasks.length} tasks for dashboard for user ${userId}`);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching dashboard tasks:", error);
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
 
   // Route für die Erstellung persönlicher Tasks (ohne Board)
   app.post("/api/user/tasks", requireAuth, async (req, res) => {
