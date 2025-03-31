@@ -24,6 +24,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  SimpleTooltip
 } from "@/components/ui/tooltip";
 
 // Produktivitäts-Metriken-Komponente
@@ -187,107 +188,115 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-end h-48 gap-12 mb-4">
-        {/* Projekt-Fortschritt */}
+        {/* Projekt-Fortschritt mit SimpleTooltip */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Projekte</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-                <div 
-                  className={`absolute bottom-0 w-full ${getBarColor(projectProgress, 'project')} transition-all`} 
-                  style={{ height: `${projectProgress}%` }}
-                />
-                <div className="absolute inset-0 flex items-end justify-center p-2">
-                  <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                    {projectProgress}%
-                  </span>
+          <SimpleTooltip 
+            side="top"
+            content={
+              <div>
+                <div className="text-xs font-medium mb-1">Projektfortschritt</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <div className="text-xs">
+                    <span className="font-medium">{completedProjects}</span> von <span className="font-medium">{projects.length}</span> Projekten abgeschlossen
+                  </div>
                 </div>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-              <div className="text-xs font-medium mb-1">Projektfortschritt</div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500" />
-                <div className="text-xs">
-                  <span className="font-medium">{completedProjects}</span> von <span className="font-medium">{projects.length}</span> Projekten abgeschlossen
-                </div>
+                {projects.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {projects.length - completedProjects} Projekte noch in Bearbeitung
+                  </div>
+                )}
               </div>
-              {projects.length > 0 && (
-                <div className="text-xs text-gray-500 mt-1">
-                  {projects.length - completedProjects} Projekte noch in Bearbeitung
-                </div>
-              )}
-            </TooltipContent>
-          </Tooltip>
+            }
+          >
+            <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+              <div 
+                className={`absolute bottom-0 w-full ${getBarColor(projectProgress, 'project')} transition-all`} 
+                style={{ height: `${projectProgress}%` }}
+              />
+              <div className="absolute inset-0 flex items-end justify-center p-2">
+                <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                  {projectProgress}%
+                </span>
+              </div>
+            </button>
+          </SimpleTooltip>
           <div className="w-full h-px bg-gray-300 mt-1" />
           <div className="text-xs text-muted-foreground mt-1">
             {completedProjects}/{projects.length}
           </div>
         </div>
         
-        {/* Key-Results-Fortschritt */}
+        {/* Key-Results-Fortschritt mit SimpleTooltip */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Key Results</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-                <div 
-                  className={`absolute bottom-0 w-full ${getBarColor(keyResultProgress, 'okr')} transition-all`} 
-                  style={{ height: `${keyResultProgress}%` }}
-                />
-                <div className="absolute inset-0 flex items-end justify-center p-2">
-                  <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                    {keyResultProgress}%
-                  </span>
+          <SimpleTooltip 
+            side="top"
+            content={
+              <div>
+                <div className="text-xs font-medium mb-1">OKR-Fortschritt</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-purple-500" />
+                  <div className="text-xs">
+                    <span className="font-medium">{completedObjectives}</span> von <span className="font-medium">{objectives.length}</span> Objectives abgeschlossen
+                  </div>
                 </div>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-              <div className="text-xs font-medium mb-1">OKR-Fortschritt</div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-purple-500" />
-                <div className="text-xs">
-                  <span className="font-medium">{completedObjectives}</span> von <span className="font-medium">{objectives.length}</span> Objectives abgeschlossen
-                </div>
+                {objectives.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Durchschnittlicher Fortschritt: {averageProgress}%
+                  </div>
+                )}
+                {objectives.length > 0 && objectives.length - completedObjectives > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {objectives.length - completedObjectives} Objectives noch in Bearbeitung
+                  </div>
+                )}
               </div>
-              {objectives.length > 0 && (
-                <div className="text-xs text-gray-500 mt-1">
-                  Durchschnittlicher Fortschritt: {averageProgress}%
-                </div>
-              )}
-              {objectives.length > 0 && objectives.length - completedObjectives > 0 && (
-                <div className="text-xs text-gray-500 mt-1">
-                  {objectives.length - completedObjectives} Objectives noch in Bearbeitung
-                </div>
-              )}
-            </TooltipContent>
-          </Tooltip>
+            }
+          >
+            <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+              <div 
+                className={`absolute bottom-0 w-full ${getBarColor(keyResultProgress, 'okr')} transition-all`} 
+                style={{ height: `${keyResultProgress}%` }}
+              />
+              <div className="absolute inset-0 flex items-end justify-center p-2">
+                <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                  {keyResultProgress}%
+                </span>
+              </div>
+            </button>
+          </SimpleTooltip>
           <div className="w-full h-px bg-gray-300 mt-1" />
           <div className="text-xs text-muted-foreground mt-1">
             {completedObjectives}/{objectives.length}
           </div>
         </div>
         
-        {/* Tasks-Fortschritt (im gleichen Stil) */}
+        {/* Tasks-Fortschritt mit SimpleTooltip */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Alle Tasks</span>
-          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-            {/* Statusbalken mit Tooltips */}
-            <div className="absolute inset-0 flex flex-col-reverse">
-              {percentages.backlog > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      type="button"
-                      aria-label="Backlog"
-                      className="bg-slate-300 cursor-help w-full border-0 m-0 p-0"
-                      style={{ height: `${percentages.backlog}%` }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                    <div className="text-xs font-medium">
-                      {statusConfig.backlog.label}
-                    </div>
+          
+          {/* Horizontale Balkendiagramme mit vereinfachtem Tooltip */}
+          <div className="w-full h-36 bg-white rounded-md shadow-sm border border-gray-100 p-2 flex flex-col justify-between">
+            {/* Fortschrittsanzeige oben */}
+            <div className="text-center mb-2">
+              <div className="text-sm font-medium">
+                {percentages.done.toFixed(0)}% erledigt
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {statusCounts.done} von {totalTasks} Tasks abgeschlossen
+              </div>
+            </div>
+            
+            {/* Individuelle Statuszeilen mit SimpleTooltip */}
+            <div className="space-y-2 flex-1 flex flex-col justify-center">
+              {/* Backlog */}
+              <SimpleTooltip 
+                side="right"
+                content={
+                  <div>
+                    <div className="text-xs font-medium">{statusConfig.backlog.label}</div>
                     <div className="flex items-center mt-1">
                       <div className="w-3 h-3 rounded-full bg-slate-300 mr-1.5" />
                       <div className="text-xs text-gray-600">
@@ -297,24 +306,30 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
                     <div className="text-xs text-gray-500 mt-1">
                       {statusConfig.backlog.description}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              {percentages.todo > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      type="button"
-                      aria-label="To-Do"
-                      className="bg-blue-300 cursor-help w-full border-0 m-0 p-0"
-                      style={{ height: `${percentages.todo}%` }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                    <div className="text-xs font-medium">
-                      {statusConfig.todo.label}
-                    </div>
+                  </div>
+                }
+              >
+                <button 
+                  type="button"
+                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
+                >
+                  <span className="w-16 inline-block">Backlog</span>
+                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-slate-300" 
+                      style={{ width: `${percentages.backlog}%` }}
+                    ></div>
+                  </div>
+                  <span className="ml-2 text-muted-foreground">{statusCounts.backlog}</span>
+                </button>
+              </SimpleTooltip>
+
+              {/* To-Do */}
+              <SimpleTooltip 
+                side="right"
+                content={
+                  <div>
+                    <div className="text-xs font-medium">{statusConfig.todo.label}</div>
                     <div className="flex items-center mt-1">
                       <div className="w-3 h-3 rounded-full bg-blue-300 mr-1.5" />
                       <div className="text-xs text-gray-600">
@@ -324,24 +339,30 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
                     <div className="text-xs text-gray-500 mt-1">
                       {statusConfig.todo.description}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              {percentages.inProgress > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      type="button"
-                      aria-label="In Bearbeitung"
-                      className="bg-amber-400 cursor-help w-full border-0 m-0 p-0"
-                      style={{ height: `${percentages.inProgress}%` }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                    <div className="text-xs font-medium">
-                      {statusConfig.inProgress.label}
-                    </div>
+                  </div>
+                }
+              >
+                <button 
+                  type="button"
+                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
+                >
+                  <span className="w-16 inline-block">To-Do</span>
+                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-300" 
+                      style={{ width: `${percentages.todo}%` }}
+                    ></div>
+                  </div>
+                  <span className="ml-2 text-muted-foreground">{statusCounts.todo}</span>
+                </button>
+              </SimpleTooltip>
+
+              {/* In Progress */}
+              <SimpleTooltip 
+                side="right"
+                content={
+                  <div>
+                    <div className="text-xs font-medium">{statusConfig.inProgress.label}</div>
                     <div className="flex items-center mt-1">
                       <div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5" />
                       <div className="text-xs text-gray-600">
@@ -351,24 +372,30 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
                     <div className="text-xs text-gray-500 mt-1">
                       {statusConfig.inProgress.description}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              {percentages.review > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      type="button"
-                      aria-label="Review"
-                      className="bg-purple-400 cursor-help w-full border-0 m-0 p-0"
-                      style={{ height: `${percentages.review}%` }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                    <div className="text-xs font-medium">
-                      {statusConfig.review.label}
-                    </div>
+                  </div>
+                }
+              >
+                <button 
+                  type="button"
+                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
+                >
+                  <span className="w-16 inline-block">In Arbeit</span>
+                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-amber-400" 
+                      style={{ width: `${percentages.inProgress}%` }}
+                    ></div>
+                  </div>
+                  <span className="ml-2 text-muted-foreground">{statusCounts.inProgress}</span>
+                </button>
+              </SimpleTooltip>
+
+              {/* Review */}
+              <SimpleTooltip 
+                side="right"
+                content={
+                  <div>
+                    <div className="text-xs font-medium">{statusConfig.review.label}</div>
                     <div className="flex items-center mt-1">
                       <div className="w-3 h-3 rounded-full bg-purple-400 mr-1.5" />
                       <div className="text-xs text-gray-600">
@@ -378,24 +405,30 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
                     <div className="text-xs text-gray-500 mt-1">
                       {statusConfig.review.description}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              {percentages.done > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      type="button"
-                      aria-label="Erledigt"
-                      className="bg-green-400 cursor-help w-full border-0 m-0 p-0"
-                      style={{ height: `${percentages.done}%` }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                    <div className="text-xs font-medium">
-                      {statusConfig.done.label}
-                    </div>
+                  </div>
+                }
+              >
+                <button 
+                  type="button"
+                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
+                >
+                  <span className="w-16 inline-block">Review</span>
+                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-400" 
+                      style={{ width: `${percentages.review}%` }}
+                    ></div>
+                  </div>
+                  <span className="ml-2 text-muted-foreground">{statusCounts.review}</span>
+                </button>
+              </SimpleTooltip>
+
+              {/* Erledigt */}
+              <SimpleTooltip 
+                side="right"
+                content={
+                  <div>
+                    <div className="text-xs font-medium">{statusConfig.done.label}</div>
                     <div className="flex items-center mt-1">
                       <div className="w-3 h-3 rounded-full bg-green-400 mr-1.5" />
                       <div className="text-xs text-gray-600">
@@ -405,47 +438,23 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
                     <div className="text-xs text-gray-500 mt-1">
                       {statusConfig.done.description}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-
-            {/* Beschriftung */}
-            <div className="absolute inset-0 flex items-end justify-center p-2">
-              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                {percentages.done.toFixed(0)}% erledigt
-              </span>
-            </div>
-          </div>
-          <div className="w-full h-px bg-gray-300 mt-1" />
-          <div className="text-xs text-muted-foreground mt-1">
-            {statusCounts.done}/{totalTasks}
-          </div>
-          {/* Legende */}
-          <div className="flex items-center justify-center flex-wrap gap-1 mt-2 text-[10px] text-gray-500">
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
-              <span>Erledigt</span>
-            </div>
-            <div className="mx-1">•</div>
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-purple-400 rounded-full mr-1"></div>
-              <span>Review</span>
-            </div>
-            <div className="mx-1">•</div>
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-amber-400 rounded-full mr-1"></div>
-              <span>In Bearbeitung</span>
-            </div>
-            <div className="mx-1">•</div>
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-blue-300 rounded-full mr-1"></div>
-              <span>To-Do</span>
-            </div>
-            <div className="mx-1">•</div>
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-slate-300 rounded-full mr-1"></div>
-              <span>Backlog</span>
+                  </div>
+                }
+              >
+                <button 
+                  type="button"
+                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
+                >
+                  <span className="w-16 inline-block">Erledigt</span>
+                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-400" 
+                      style={{ width: `${percentages.done}%` }}
+                    ></div>
+                  </div>
+                  <span className="ml-2 text-muted-foreground">{statusCounts.done}</span>
+                </button>
+              </SimpleTooltip>
             </div>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 const TooltipProvider = ({
   children,
   delayDuration = 300,
-  skipDelayDuration = 300,
+  skipDelayDuration = 0,
   ...props
 }: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Provider>) => (
   <TooltipPrimitive.Provider 
@@ -39,4 +39,26 @@ const TooltipContent = React.forwardRef<
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+// Helper-Komponente für einfachere Tooltip-Nutzung
+const SimpleTooltip = ({ 
+  content,
+  children,
+  side = "top",
+  className = ""
+}: { 
+  content: React.ReactNode; 
+  children: React.ReactNode;
+  side?: "top" | "right" | "bottom" | "left";
+  className?: string;
+}) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      {children}
+    </TooltipTrigger>
+    <TooltipContent side={side} className={cn("bg-white p-2 rounded shadow-lg border border-gray-200", className)}>
+      {content}
+    </TooltipContent>
+  </Tooltip>
+);
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, SimpleTooltip }
