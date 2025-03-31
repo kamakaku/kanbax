@@ -87,12 +87,12 @@ export function UserSelect({ value, onChange, placeholder = "Benutzer auswählen
                       <AvatarFallback className="text-[10px]">{user.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
                     </Avatar>
                     <span className="max-w-[100px] truncate">{user.username}</span>
-                    <button 
-                      className="ml-1 rounded-full hover:bg-muted" 
+                    <span 
+                      className="ml-1 rounded-full hover:bg-muted cursor-pointer" 
                       onClick={(e) => removeUser(user.id.toString(), e)}
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </span>
                   </Badge>
                 ))}
               </div>

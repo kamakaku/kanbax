@@ -117,10 +117,7 @@ export function ProtocolForm({
   // Erstellen eines neuen Protokolls
   const createMutation = useMutation({
     mutationFn: async (values: ProtocolFormValues) => {
-      return apiRequest("/api/protocols", {
-        method: "POST",
-        body: JSON.stringify(values),
-      });
+      return apiRequest("POST", "/api/protocols", values);
     },
     onSuccess: () => {
       toast({
@@ -153,10 +150,7 @@ export function ProtocolForm({
   // Aktualisieren eines vorhandenen Protokolls
   const updateMutation = useMutation({
     mutationFn: async (values: ProtocolFormValues) => {
-      return apiRequest(`/api/protocols/${protocolId}`, {
-        method: "PATCH",
-        body: JSON.stringify(values),
-      });
+      return apiRequest("PATCH", `/api/protocols/${protocolId}`, values);
     },
     onSuccess: () => {
       toast({

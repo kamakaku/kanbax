@@ -93,12 +93,12 @@ export function TeamSelect({
                   <Badge key={team.id} variant="secondary" className="flex items-center gap-1 pl-1 pr-1">
                     <Users className="h-3 w-3 mr-1" />
                     <span className="max-w-[100px] truncate">{team.name}</span>
-                    <button 
-                      className="ml-1 rounded-full hover:bg-muted" 
+                    <span 
+                      className="ml-1 rounded-full hover:bg-muted cursor-pointer" 
                       onClick={(e) => removeTeam(team.id, e)}
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </span>
                   </Badge>
                 ))}
               </div>
