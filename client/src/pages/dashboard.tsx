@@ -34,9 +34,9 @@ function DashboardTaskRows() {
     }
   });
 
-  // Filtern auf ToDo und In Progress
+  // Filtern auf ToDo, In Progress und In Review
   const activeTasks = myTasks
-    .filter(task => ["todo", "in-progress"].includes(task.status) && !task.archived)
+    .filter(task => ["todo", "in-progress", "in-review"].includes(task.status) && !task.archived)
     .slice(0, 5); // Begrenze auf 5 Einträge
 
   if (isLoading) {
@@ -59,6 +59,7 @@ function DashboardTaskRows() {
     switch (status) {
       case "todo": return "Zu erledigen";
       case "in-progress": return "In Bearbeitung";
+      case "in-review": return "In Überprüfung";
       default: return status;
     }
   };
@@ -222,7 +223,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center">
                 <div>
                   <CardTitle>Meine aktuellen Aufgaben</CardTitle>
-                  <CardDescription>Aufgaben in "ToDo" und "In Progress"</CardDescription>
+                  <CardDescription>Aufgaben in "ToDo", "In Progress" und "In Review"</CardDescription>
                 </div>
                 <Button 
                   variant="ghost" 
