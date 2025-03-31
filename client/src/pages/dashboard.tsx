@@ -127,28 +127,62 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
         {/* Task-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Tasks</span>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 p-4 rounded-lg">
-                <div className="text-sm font-medium mb-1">Zu erledigen</div>
-                <div className="text-2xl font-semibold">{tasksByStatus.todo || 0}</div>
-              </div>
-              <div className="bg-slate-50 p-4 rounded-lg">
-                <div className="text-sm font-medium mb-1">In Bearbeitung</div>
-                <div className="text-2xl font-semibold">{tasksByStatus["in-progress"] || 0}</div>
-              </div>
-              <div className="bg-slate-50 p-4 rounded-lg">
-                <div className="text-sm font-medium mb-1">In Überprüfung</div>
-                <div className="text-2xl font-semibold">{tasksByStatus["in-review"] || 0}</div>
-              </div>
-              <div className="bg-slate-50 p-4 rounded-lg">
-                <div className="text-sm font-medium mb-1">Abgeschlossen</div>
-                <div className="text-2xl font-semibold">{tasksByStatus.done || 0}</div>
-              </div>
+          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden flex">
+            {Object.entries(tasksByStatus).map(([status, count]) => {
+              const percentage = (count / (myTasks.length || 1)) * 100;
+              let color = 'bg-gray-300';
+              
+              switch(status) {
+                case 'todo':
+                  color = 'bg-blue-400';
+                  break;
+                case 'in-progress':
+                  color = 'bg-amber-400';
+                  break;
+                case 'in-review':
+                  color = 'bg-purple-400';
+                  break;
+                case 'done':
+                  color = 'bg-green-400';
+                  break;
+              }
+              
+              return (
+                <div 
+                  key={status}
+                  className={`h-full ${color} relative group`}
+                  style={{ width: `${percentage}%` }}
+                >
+                  <div className="opacity-0 group-hover:opacity-100 absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
+                    <span className="text-xs font-medium text-white">
+                      {count} {status}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="w-full h-px bg-gray-200 mt-2" />
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm w-full">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm bg-blue-400" />
+              <span>Zu erledigen ({tasksByStatus.todo || 0})</span>
             </div>
-            <div className="text-xs text-center text-muted-foreground">
-              Gesamt: {myTasks.length} Tasks
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm bg-amber-400" />
+              <span>In Bearbeitung ({tasksByStatus['in-progress'] || 0})</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm bg-purple-400" />
+              <span>In Überprüfung ({tasksByStatus['in-review'] || 0})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm bg-green-400" />
+              <span>Abgeschlossen ({tasksByStatus.done || 0})</span>
+            </div>
+          </div>
+          <div className="text-xs text-center text-muted-foreground mt-2">
+            Gesamt: {myTasks.length} Tasks
           </div>
         </div>
 
