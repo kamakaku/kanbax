@@ -602,25 +602,26 @@ export function TaskDialog({
                   <td className="py-0.5">{format(createdAtDate, "PPP", { locale: de })}</td>
                 </tr>
 
-                {/* Startdatum */}
-                {task?.startDate && (
-                  <tr>
-                    <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Startdatum:</td>
-                    <td className="py-0.5">
-                      {format(new Date(task.startDate), "PPP", { locale: de })}
-                    </td>
-                  </tr>
-                )}
-
-                {/* Deadline */}
-                {task?.dueDate && (
-                  <tr>
-                    <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Deadline:</td>
-                    <td className="py-0.5">
-                      {format(new Date(task.dueDate), "PPP", { locale: de })}
-                    </td>
-                  </tr>
-                )}
+                {/* Zeile mit Start- und Fälligkeitsdatum */}
+                <tr>
+                  <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Zeitraum:</td>
+                  <td className="py-0.5">
+                    {task?.startDate ? (
+                      <>
+                        <span>Von: {format(new Date(task.startDate), "PPP", { locale: de })}</span>
+                        {task?.dueDate && (
+                          <span className="ml-2">
+                            Bis: {format(new Date(task.dueDate), "PPP", { locale: de })}
+                          </span>
+                        )}
+                      </>
+                    ) : task?.dueDate ? (
+                      <span>Deadline: {format(new Date(task.dueDate), "PPP", { locale: de })}</span>
+                    ) : (
+                      <span className="text-muted-foreground italic">Kein Zeitraum definiert</span>
+                    )}
+                  </td>
+                </tr>
 
                 {/* Ersteller */}
                 {creator && (
@@ -1567,77 +1568,78 @@ export function TaskDialog({
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Startdatum</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={`w-full pl-3 text-left font-normal ${
-                                  !field.value && "text-muted-foreground"
-                                }`}
-                              >
-                                {field.value ? (
-                                  format(new Date(field.value), "PPP", { locale: de })
-                                ) : (
-                                  <span>Wählen Sie ein Startdatum</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value ? new Date(field.value) : undefined}
-                              onSelect={(date) => field.onChange(date ? date.toISOString() : null)}
-                              initialFocus
-                              locale={de}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fälligkeitsdatum</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={`w-full pl-3 text-left font-normal ${
-                                  !field.value && "text-muted-foreground"
-                                }`}
-                              >
-                                {field.value ? (
-                                  format(new Date(field.value), "PPP", { locale: de })
-                                ) : (
-                                  <span>Wählen Sie ein Fälligkeitsdatum</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <div className="p-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="startDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Startdatum</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={`w-full pl-3 text-left font-normal ${
+                                    !field.value && "text-muted-foreground"
+                                  }`}
+                                >
+                                  {field.value ? (
+                                    format(new Date(field.value), "PPP", { locale: de })
+                                  ) : (
+                                    <span>Wählen Sie ein Startdatum</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
                               <Calendar
                                 mode="single"
                                 selected={field.value ? new Date(field.value) : undefined}
-                                onSelect={(date) => {
-                                  field.onChange(date ? date.toISOString() : null);
-                                }}
+                                onSelect={(date) => field.onChange(date ? date.toISOString() : null)}
+                                initialFocus
+                                locale={de}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="dueDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fälligkeitsdatum</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={`w-full pl-3 text-left font-normal ${
+                                    !field.value && "text-muted-foreground"
+                                  }`}
+                                >
+                                  {field.value ? (
+                                    format(new Date(field.value), "PPP", { locale: de })
+                                  ) : (
+                                    <span>Wählen Sie ein Fälligkeitsdatum</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <div className="p-3">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value ? new Date(field.value) : undefined}
+                                  onSelect={(date) => {
+                                    field.onChange(date ? date.toISOString() : null);
+                                  }}
                                 disabled={(date) =>
                                   date < new Date(new Date().setHours(0, 0, 0, 0))
                                 }
@@ -1649,6 +1651,7 @@ export function TaskDialog({
                       </FormItem>
                     )}
                   />
+                  </div>
 
                   <FormField
                     control={form.control}
