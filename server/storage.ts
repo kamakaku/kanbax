@@ -57,7 +57,11 @@ export interface IStorage {
   // Activity Log operations
   getActivityLogs(userId: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog | any): Promise<ActivityLog>;
-
+  
+  // Productivity metrics operations
+  getTaskDistribution(userId: number): Promise<{ name: string; value: number; }[]>;
+  getProjectActivities(userId: number): Promise<{ name: string; tasks: number; }[]>;
+  
   // User operations
   getUser(userId: number, id: number): Promise<User>;
   getUserByUsername(userId: number, username: string): Promise<User | null>;
@@ -1238,6 +1242,31 @@ export class DatabaseStorage implements IStorage {
       SELECT status as name, COUNT(*) as value
       FROM user_tasks
       GROUP BY status
+    `);
+
+    return Array.isArray(result) ? result : result.rows || [];
+  }
+  
+  async getProjectActivities(userId: number): Promise<{ name: string; tasks: number; }[]> {
+    const result = await db.execute<{ name: string; tasks: number; }>(sql`
+      WITH user_tasks AS (
+        SELECT 
+          t.id,
+          t.board_id,
+          b.project_id,
+          p.title as project_name
+        FROM tasks t
+        LEFT JOIN boards b ON t.board_id = b.id
+        LEFT JOIN projects p ON b.project_id = p.id
+        WHERE t.assigned_user_ids @> ARRAY[${userId}]::int[]
+      )
+      SELECT 
+        COALESCE(project_name, 'Ohne Projekt') as name, 
+        COUNT(id) as tasks
+      FROM user_tasks
+      GROUP BY project_name
+      ORDER BY tasks DESC
+      LIMIT 5
     `);
 
     return Array.isArray(result) ? result : result.rows || [];

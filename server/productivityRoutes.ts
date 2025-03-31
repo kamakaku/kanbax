@@ -63,6 +63,23 @@ export function registerProductivityRoutes(app: Express) {
       res.status(500).json({ message: "Failed to fetch task distribution" });
     }
   });
+  
+  // Get project activities for a user
+  app.get("/api/productivity/project-activities/:userId", requireAuth, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const activities = await storage.getProjectActivities(userId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Failed to fetch project activities:", error);
+      res.status(500).json({ message: "Failed to fetch project activities" });
+    }
+  });
 
   // Start time tracking for a task
   app.post("/api/productivity/time-entries", requireAuth, async (req, res) => {
