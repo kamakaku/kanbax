@@ -5,6 +5,8 @@ import Image from '@tiptap/extension-image';
 import LinkExtension from '@tiptap/extension-link';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
+import Underline from '@tiptap/extension-underline';
+import Strike from '@tiptap/extension-strike';
 import { Button } from "./button";
 import {
   Upload,
@@ -12,6 +14,8 @@ import {
   Link as LinkIcon,
   Bold,
   Italic,
+  Underline as UnderlineIcon,
+  Strikethrough,
   List,
   ListOrdered,
   Paintbrush,
@@ -63,6 +67,8 @@ export function RichTextEditor({
       }),
       TextStyle,
       Color,
+      Underline,
+      Strike,
       Placeholder.configure({
         placeholder,
       }),
@@ -310,6 +316,24 @@ export function RichTextEditor({
             className={`h-8 w-8 ${editor?.isActive('italic') ? 'bg-muted' : ''}`}
           >
             <Italic className="h-4 w-4" />
+          </Button>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => editor?.chain().focus().toggleUnderline().run()}
+            className={`h-8 w-8 ${editor?.isActive('underline') ? 'bg-muted' : ''}`}
+          >
+            <UnderlineIcon className="h-4 w-4" />
+          </Button>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => editor?.chain().focus().toggleStrike().run()}
+            className={`h-8 w-8 ${editor?.isActive('strike') ? 'bg-muted' : ''}`}
+          >
+            <Strikethrough className="h-4 w-4" />
           </Button>
           <Button 
             type="button" 
