@@ -51,6 +51,12 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
+      TextStyle.configure({
+        types: ['textStyle']
+      }),
+      Color.configure({
+        types: ['textStyle']
+      }),
       StarterKit.configure({
         codeBlock: {
           HTMLAttributes: {
@@ -64,19 +70,8 @@ export function RichTextEditor({
             style: 'margin: 0 !important; padding: 0 !important; background: transparent;'
           }
         },
-        // Deaktiviere die integrierte Strike-Extension von StarterKit, da wir unsere eigene verwenden
         strike: false,
-        bold: {
-          HTMLAttributes: {
-            style: 'font-weight: bold'
-          }
-        }
-      }),
-      TextStyle.configure({
-        types: ['textStyle']
-      }),
-      Color.configure({
-        types: ['textStyle']
+        bold: true
       }),
       Underline,
       Strike,
