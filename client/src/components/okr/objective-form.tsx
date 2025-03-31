@@ -144,6 +144,12 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
         }
 
         // Erstelle das Objective mit dem neuen Zyklus
+        // Stelle sicher, dass der Ersteller in den userIds enthalten ist
+        const userIds = [...(values.userIds || [])];
+        if (user.id && !userIds.includes(user.id)) {
+          userIds.push(user.id);
+        }
+        
         const payload = {
           title: values.title,
           description: values.description,
@@ -151,8 +157,8 @@ export function ObjectiveForm({ onSuccess }: ObjectiveFormProps) {
           projectId: values.projectId ? parseInt(values.projectId) : undefined,
           cycleId: newCycle.id,
           teamIds: values.teamIds || [],
-          userIds: values.userIds || [],
-          creatorId: user.id, // Updated from creator_id to creatorId
+          userIds: userIds,
+          creatorId: user.id, // Ersteller ID
         };
 
         console.log("Creating objective with payload:", payload);

@@ -1595,13 +1595,19 @@ export class DatabaseStorage implements IStorage {
 
   async createObjective(userId: number, insertObj: InsertObjective): Promise<Objective> {
     try {
+      // Stelle sicher, dass der Ersteller auch in den userIds enthalten ist
+      let userIds = insertObj.userIds || [];
+      if (!userIds.includes(userId) && userId) {
+        userIds = [...userIds, userId];
+      }
+      
       const [objective] = await db
         .insert(objectives)
         .values({
           ...insertObj,
           progress: 0,
           creatorId: insertObj.creatorId,
-          userIds: insertObj.userIds || [],
+          userIds: userIds,
           isFavorite: false
         })
         .returning();

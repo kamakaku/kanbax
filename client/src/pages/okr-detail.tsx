@@ -445,15 +445,53 @@ export function OKRDetailPage() {
                 <span className="text-sm text-muted-foreground">{progress}%</span>
               </div>
               <div className="flex items-center gap-4">
-                <div className="flex-1 space-y-1">
-                  <Progress 
-                    value={progress} 
+                <div className="h-3 flex-1 rounded-full overflow-hidden relative">
+                  {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
+                  <div className="absolute inset-0 bg-white">
+                    <svg 
+                      width="100%" 
+                      height="100%" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className="overflow-visible"
+                    >
+                      <defs>
+                        <pattern 
+                          id="diagonalHatchDetail" 
+                          width="4" 
+                          height="4" 
+                          patternUnits="userSpaceOnUse" 
+                          patternTransform="rotate(45)"
+                        >
+                          <line 
+                            x1="0" 
+                            y1="0" 
+                            x2="0" 
+                            y2="4" 
+                            stroke="#888" 
+                            strokeWidth="1.5" 
+                            strokeOpacity="0.65"
+                          />
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#diagonalHatchDetail)" />
+                    </svg>
+                  </div>
+                  
+                  {/* Fortschrittsbalken */}
+                  <div 
+                    role="progressbar" 
                     className={cn(
-                      "h-3 w-full",
-                      progress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
-                    )} 
+                      "h-full rounded-full transition-all relative z-10",
+                      progress === 100 ? 
+                        "bg-green-500" : 
+                        "bg-gradient-to-r from-blue-400 to-blue-600"
+                    )}
+                    style={{ width: `${progress || 0}%` }}
                   />
                 </div>
+                <span className="font-medium text-sm min-w-[40px] text-right">
+                  {progress || 0}%
+                </span>
               </div>
             </div>
           </GlassCard>

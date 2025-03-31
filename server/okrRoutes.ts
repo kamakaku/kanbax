@@ -261,8 +261,23 @@ export function registerOkrRoutes(app: Express) {
     }
 
     try {
+      // Stelle sicher, dass der Ersteller auch in den userIds enthalten ist
+      const userId = req.userId!;
+      const userData = { ...result.data };
+      
+      // Wenn userIds nicht existiert, erstelle einen neuen Array
+      if (!userData.userIds) {
+        userData.userIds = [];
+      }
+      
+      // Wenn Ersteller nicht in userIds enthalten ist, füge ihn hinzu
+      if (!userData.userIds.includes(userId)) {
+        userData.userIds.push(userId);
+      }
+      
+      // Speichere mit den aktualisierten Daten
       const [objective] = await db.insert(objectives)
-        .values(result.data)
+        .values(userData)
         .returning();
 
       // Get key results to calculate progress
