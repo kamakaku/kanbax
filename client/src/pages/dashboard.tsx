@@ -382,9 +382,10 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               </div>
             </button>
           </SimpleTooltip>
-          <span className="text-xs text-muted-foreground mt-2">
-            {totalTasks} Tasks
-          </span>
+          <div className="w-full h-px bg-gray-300 mt-1" />
+          <div className="text-xs text-muted-foreground mt-1">
+            {statusCounts.done}/{totalTasks}
+          </div>
         </div>
       </div>
       
