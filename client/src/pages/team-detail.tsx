@@ -584,39 +584,19 @@ export default function TeamDetail() {
             </TabsContent>
             
             <TabsContent value="activity" className="space-y-4">
-              <div className="bg-card rounded-lg border">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <FileClock className="h-5 w-5 mr-2 text-muted-foreground" />
-                      Aktivitätsprotokoll
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-0">
-                  <ActivityFeed 
-                    teamId={teamId} 
-                    title={`Aktivitäten für Team "${team.name}"`} 
-                  />
-                </div>
+              <div className="bg-white rounded-lg border">
+                <ActivityFeed 
+                  teamId={teamId} 
+                  limit={50}
+                />
               </div>
             </TabsContent>
             
             <TabsContent value="protocols" className="space-y-4">
-              <div className="bg-card rounded-lg border">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
-                      Sitzungsprotokolle
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-0">
-                  <ProtocolList
-                    teamId={teamId}
-                  />
-                </div>
+              <div className="bg-white rounded-lg border">
+                <ProtocolList
+                  teamId={teamId}
+                />
               </div>
             </TabsContent>
           </Tabs>

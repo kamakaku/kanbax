@@ -510,39 +510,19 @@ export function OKRDetailPage() {
             </TabsContent>
             
             <TabsContent value="activity" className="space-y-4">
-              <div className="bg-card rounded-lg border">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <FileClock className="h-5 w-5 mr-2 text-muted-foreground" />
-                      Aktivitätsprotokoll
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-0">
-                  <ActivityFeed 
-                    objectiveId={objectiveId} 
-                    title={`Aktivitäten für Objective "${objective.title}"`} 
-                  />
-                </div>
+              <div className="bg-white rounded-lg border">
+                <ActivityFeed 
+                  objectiveId={objectiveId} 
+                  limit={50}
+                />
               </div>
             </TabsContent>
             
             <TabsContent value="protocols" className="space-y-4">
-              <div className="bg-card rounded-lg border">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
-                      Sitzungsprotokolle
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-0">
-                  <ProtocolList
-                    objectiveId={objectiveId}
-                  />
-                </div>
+              <div className="bg-white rounded-lg border">
+                <ProtocolList
+                  objectiveId={objectiveId}
+                />
               </div>
             </TabsContent>
           </Tabs>
