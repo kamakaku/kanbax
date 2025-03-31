@@ -410,13 +410,6 @@ export function OKRDetailPage() {
                 <h2 className="text-xl font-semibold">OKR-Details</h2>
                 <p className="text-muted-foreground mt-2">{objective.description || "Keine Beschreibung vorhanden"}</p>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Erstellt von</div>
-                <div className="font-medium">{getObjectiveCreatorName()}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
-                </div>
-              </div>
             </div>
             
             <Separator className="my-4" />
@@ -452,13 +445,13 @@ export function OKRDetailPage() {
                 <span className="text-sm text-muted-foreground">{progress}%</span>
               </div>
               <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <CircularProgressIndicator 
+                <div className="flex-1 space-y-1">
+                  <Progress 
                     value={progress} 
-                    size="lg" 
-                    label={`${progress}%`}
-                    useStripedBackground={true}
-                    className="mx-auto"
+                    className={cn(
+                      "h-3 w-full",
+                      progress === 100 && "bg-green-100 [&>[role=progressbar]]:bg-green-500"
+                    )} 
                   />
                 </div>
               </div>
@@ -645,7 +638,7 @@ export function OKRDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Erstellungsdatum</div>
+                  <div className="text-sm text-muted-foreground">Erstellt am</div>
                   <div className="font-medium">
                     {format(new Date(objective.createdAt), "dd.MM.yyyy", { locale: de })}
                   </div>
