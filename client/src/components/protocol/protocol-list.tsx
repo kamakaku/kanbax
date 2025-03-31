@@ -263,12 +263,50 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                             <div className="mt-2">
                               <h6 className="text-xs font-medium text-muted-foreground mb-0.5">Beschlüsse/Notizen</h6>
                               {item.richNotes ? (
-                                <div 
-                                  className="text-sm prose prose-sm max-w-none" 
-                                  dangerouslySetInnerHTML={{ __html: item.richNotes }}
-                                />
+                                <div className="group relative">
+                                  <div 
+                                    className="text-sm prose prose-sm max-w-none" 
+                                    dangerouslySetInnerHTML={{ __html: item.richNotes }}
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingProtocol({
+                                        ...protocol,
+                                        date: new Date(protocol.date),
+                                        participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
+                                        teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
+                                      });
+                                    }}
+                                  >
+                                    <FileEdit className="h-3 w-3 mr-1" /> 
+                                    <span className="text-xs">Bearbeiten</span>
+                                  </Button>
+                                </div>
                               ) : (
-                                <p className="text-sm whitespace-pre-line">{item.notes}</p>
+                                <div className="group relative">
+                                  <p className="text-sm whitespace-pre-line">{item.notes}</p>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingProtocol({
+                                        ...protocol,
+                                        date: new Date(protocol.date),
+                                        participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
+                                        teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
+                                      });
+                                    }}
+                                  >
+                                    <FileEdit className="h-3 w-3 mr-1" />
+                                    <span className="text-xs">Bearbeiten</span>
+                                  </Button>
+                                </div>
                               )}
                             </div>
                           )}
