@@ -225,8 +225,8 @@ export function ActivityFeed({
 
   if (isLoading) {
     return (
-      <Card className="p-4">
-        <h3 className="font-semibold mb-4">{title}</h3>
+      <Card className={title ? "p-4" : "p-0 border-0 shadow-none bg-transparent"}>
+        {title && <h3 className="font-semibold mb-4">{title}</h3>}
         <ScrollArea className="h-[400px] pr-4">
           <div>
             {Array.from({ length: 5 }).map((_, i) => (
@@ -260,8 +260,8 @@ export function ActivityFeed({
   }
 
   return (
-    <Card className="p-4">
-      <h3 className="font-semibold mb-4">{title}</h3>
+    <Card className={title ? "p-4" : "p-0 border-0 shadow-none bg-transparent"}>
+      {title && <h3 className="font-semibold mb-4">{title}</h3>}
       <ScrollArea className="h-[400px] pr-4">
         <div>
           {activities.length === 0 ? (

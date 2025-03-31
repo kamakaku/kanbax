@@ -402,18 +402,9 @@ export default function ProjectDetail() {
             
             <TabsContent value="activity" className="space-y-4">
               <div className="bg-card rounded-lg border">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <FileClock className="h-5 w-5 mr-2 text-muted-foreground" />
-                      Aktivitätsprotokoll
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-0">
+                <div className="p-4">
                   <ActivityFeed 
                     projectId={projectId} 
-                    title={`Aktivitäten für Projekt "${project.title}"`} 
                   />
                 </div>
               </div>
