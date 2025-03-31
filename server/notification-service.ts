@@ -260,7 +260,38 @@ export class NotificationService {
           }
         }
 
-        // 3.5 Bei Teams: Team-Mitglieder benachrichtigen
+        // 3.5 Bei Protokollen: Protokoll-Teilnehmer benachrichtigen
+        else if (activity.protocolId) {
+          // Protokoll-Teilnehmer
+          const protocolParticipantsResult = await pool.query(`
+            SELECT participant_ids, team_participant_ids
+            FROM meeting_protocols 
+            WHERE id = $1
+          `, [activity.protocolId]);
+
+          if (protocolParticipantsResult.rows.length > 0) {
+            const participantIds = protocolParticipantsResult.rows[0].participant_ids || [];
+            participantIds.forEach(userId => {
+              if (userId) recipientUserIds.add(userId);
+            });
+
+            // Team-Teilnehmer
+            const teamIds = protocolParticipantsResult.rows[0].team_participant_ids || [];
+            if (teamIds.length > 0) {
+              const teamMembersResult = await pool.query(`
+                SELECT DISTINCT tm.user_id
+                FROM team_members tm
+                WHERE tm.team_id = ANY($1)
+              `, [teamIds]);
+
+              teamMembersResult.rows.forEach(row => {
+                recipientUserIds.add(row.user_id);
+              });
+            }
+          }
+        }
+        
+        // 3.6 Bei Teams: Team-Mitglieder benachrichtigen
         else if (activity.teamId) {
           // Team-Mitglieder
           const teamMembersResult = await pool.query(`
@@ -565,6 +596,15 @@ export class NotificationService {
       } else if (activity.objectiveId) {
         link = `/all-okrs/${activity.objectiveId}`;
         if (type === "general") type = "okr";
+      } else if (activity.protocolId) {
+        if (activity.projectId) {
+          link = `/projects/${activity.projectId}/protocols/${activity.protocolId}`;
+        } else if (activity.teamId) {
+          link = `/teams/${activity.teamId}/protocols/${activity.protocolId}`;
+        } else {
+          link = `/protocols/${activity.protocolId}`;
+        }
+        if (type === "general") type = "protocol";
       } else {
         // Kein gültiger Link vorhanden, verwenden wir die Startseite
         link = "/";

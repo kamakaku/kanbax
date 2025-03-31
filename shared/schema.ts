@@ -827,7 +827,7 @@ export const projectTeams = pgTable("project_teams", {
 });
 
 // Add schema for the new table
-export const insertProjectTeamSchema = createInsertSchema(projectTeams)
+export const insertProjectTeamSchema= createInsertSchema(projectTeams)
   .pick({
     projectId: true,
     teamId: true,
@@ -874,6 +874,8 @@ export const notificationSettings = pgTable("notification_settings", {
   okrComments: boolean("okr_comments").default(true),
   // Allgemein
   mentions: boolean("mentions").default(true),
+  //Meeting Protokolle
+  protocolUpdates: boolean("protocol_updates").default(true),
 });
 
 // Add schemas for the new tables
@@ -898,7 +900,7 @@ export const insertNotificationSchema = createInsertSchema(notifications)
       // OKRs
       "okr", "okr_update", "okr_delete", "okr_comment",
       // Allgemein
-      "approval", "mention", "assignment", "comment"
+      "approval", "mention", "assignment", "comment", "protocol"
     ]),
   });
 
@@ -923,6 +925,8 @@ export const insertNotificationSettingsSchema = createInsertSchema(notificationS
     okrComments: true,
     // Allgemein
     mentions: true,
+    //Meeting Protokolle
+    protocolUpdates: true,
   });
 
 // Export types for the new tables
@@ -996,3 +1000,14 @@ export type UserFavoriteObjective = typeof userFavoriteObjectives.$inferSelect;
 // Export types for meeting protocols
 export type MeetingProtocol = typeof meetingProtocols.$inferSelect;
 export type InsertMeetingProtocol = z.infer<typeof insertMeetingProtocolSchema>;
+
+type NotificationSetting = {
+  tasks: boolean;
+  boards: boolean;
+  projects: boolean;
+  teams: boolean;
+  okrs: boolean;
+  protocols: boolean;
+  mentions: boolean;
+  assignments: boolean;
+};
