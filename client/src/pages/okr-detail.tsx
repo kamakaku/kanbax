@@ -526,7 +526,11 @@ export function OKRDetailPage() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell onClick={() => toggleRow(kr.id)}>{kr.description}</TableCell>
+                          <TableCell onClick={() => toggleRow(kr.id)}>
+                            {kr.description && kr.description.length > 80 
+                              ? `${kr.description.substring(0, 80)}...` 
+                              : kr.description}
+                          </TableCell>
                           <TableCell onClick={() => toggleRow(kr.id)}>
                             <div className="flex items-center gap-3 justify-between">
                               <CircularProgressIndicator 
@@ -556,6 +560,12 @@ export function OKRDetailPage() {
                           <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
                             <TableCell colSpan={5} className="p-4">
                               <div className="space-y-4">
+                                {kr.description && (
+                                  <div className="mb-4">
+                                    <h4 className="font-medium text-sm text-muted-foreground mb-1">Beschreibung:</h4>
+                                    <p className="text-sm">{kr.description}</p>
+                                  </div>
+                                )}
                                 {kr.type === "percentage" && (
                                   <div className="flex items-center gap-4">
                                     <span className="text-sm font-medium">Prozent:</span>
