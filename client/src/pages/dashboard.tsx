@@ -370,70 +370,15 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               </div>
             }
           >
-            <button type="button" className="w-full h-36 bg-white rounded-md shadow-sm border border-gray-100 cursor-help flex flex-col p-2">
-              {/* Fortschrittsanzeige oben */}
-              <div className="text-center mb-3">
-                <div className="text-sm font-medium">
-                  {percentages.done.toFixed(0)}% erledigt
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {statusCounts.done} von {totalTasks} Tasks abgeschlossen
-                </div>
-              </div>
-              
-              {/* Ein einzelner gestapelter Balken für alle Status */}
-              <div className="flex-1 flex items-center">
-                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
-                  <div 
-                    className="h-full bg-slate-300" 
-                    style={{ width: `${percentages.backlog}%` }}
-                    title="Backlog"
-                  ></div>
-                  <div 
-                    className="h-full bg-blue-300" 
-                    style={{ width: `${percentages.todo}%` }}
-                    title="To-Do"
-                  ></div>
-                  <div 
-                    className="h-full bg-amber-400" 
-                    style={{ width: `${percentages.inProgress}%` }}
-                    title="In Arbeit"
-                  ></div>
-                  <div 
-                    className="h-full bg-purple-400" 
-                    style={{ width: `${percentages.review}%` }}
-                    title="Review"
-                  ></div>
-                  <div 
-                    className="h-full bg-green-400" 
-                    style={{ width: `${percentages.done}%` }}
-                    title="Erledigt"
-                  ></div>
-                </div>
-              </div>
-              
-              {/* Legende unter dem Balken */}
-              <div className="flex justify-between text-[10px] text-gray-500 mt-2">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-slate-300 mr-1"></div>
-                  <span>Backlog</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-blue-300 mr-1"></div>
-                  <span>To-Do</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-amber-400 mr-1"></div>
-                  <span>In Arbeit</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-purple-400 mr-1"></div>
-                  <span>Review</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-green-400 mr-1"></div>
-                  <span>Erledigt</span>
-                </div>
+            <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+              <div 
+                className={`absolute bottom-0 w-full ${getBarColor(percentages.done, 'task')} transition-all`} 
+                style={{ height: `${percentages.done}%` }}
+              />
+              <div className="absolute inset-0 flex items-end justify-center p-2">
+                <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                  {percentages.done.toFixed(0)}%
+                </span>
               </div>
             </button>
           </SimpleTooltip>

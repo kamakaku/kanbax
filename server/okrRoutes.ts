@@ -876,7 +876,7 @@ export function registerOkrRoutes(app: Express) {
 
       // Holen Sie alle Key Results aus der Datenbank mit direktem SQL
       const keyResultsQuery = await pool.query(`
-        SELECT kr.*, o.creator_id, o.company_id 
+        SELECT kr.*, o.creator_id
         FROM key_results kr
         JOIN objectives o ON kr.objective_id = o.id
       `);
