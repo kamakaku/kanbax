@@ -1178,6 +1178,53 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return result;
   }
+  
+  async updateOrCreateDailyProductivityMetrics(userId: number, update: { 
+    tasksCreated?: number, 
+    tasksCompleted?: number 
+  }): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Setze auf Tagesbeginn
+    
+    // Prüfe, ob es bereits einen Eintrag für heute gibt
+    const existingMetrics = await db
+      .select()
+      .from(userProductivityMetrics)
+      .where(
+        and(
+          eq(userProductivityMetrics.userId, userId),
+          sql`DATE(${userProductivityMetrics.date}) = DATE(${today})`
+        )
+      );
+    
+    if (existingMetrics.length > 0) {
+      // Update des vorhandenen Eintrags
+      const current = existingMetrics[0];
+      await db
+        .update(userProductivityMetrics)
+        .set({
+          tasksCreated: update.tasksCreated !== undefined 
+            ? (current.tasksCreated || 0) + update.tasksCreated 
+            : current.tasksCreated,
+          tasksCompleted: update.tasksCompleted !== undefined 
+            ? (current.tasksCompleted || 0) + update.tasksCompleted 
+            : current.tasksCompleted
+        })
+        .where(eq(userProductivityMetrics.id, current.id));
+    } else {
+      // Neuen Eintrag erstellen
+      await db
+        .insert(userProductivityMetrics)
+        .values({
+          userId,
+          date: today.toISOString(),
+          tasksCreated: update.tasksCreated || 0,
+          tasksCompleted: update.tasksCompleted || 0,
+          timeSpentMinutes: 0,
+          objectivesAchieved: 0
+        });
+    }
+  }
 
   async getTaskDistribution(userId: number): Promise<{ name: string; value: number; }[]> {
     const result = await db.execute<{ name: string; value: number; }>(sql`

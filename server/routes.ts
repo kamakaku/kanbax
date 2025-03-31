@@ -1122,6 +1122,11 @@ export async function registerRoutes(app: Express, db: Knex) {
       console.log("Creating personal task:", result.data);
       const task = await storage.createTask(userId, result.data);
 
+      // Produktivitätsmetriken aktualisieren
+      await storage.updateOrCreateDailyProductivityMetrics(userId, {
+        tasksCreated: 1
+      });
+
       // Aktivitätslog erstellen
       const activityLog = await storage.createActivityLog({
         action: "create",
@@ -1184,6 +1189,11 @@ export async function registerRoutes(app: Express, db: Knex) {
         assignedUserIds
       });
 
+      // Produktivitätsmetriken aktualisieren
+      await storage.updateOrCreateDailyProductivityMetrics(userId, {
+        tasksCreated: 1
+      });
+
       // Log the activity
       await storage.createActivityLog({
         action: "create",
@@ -1222,6 +1232,13 @@ export async function registerRoutes(app: Express, db: Knex) {
     try {
       const userId = req.userId!;
       const task = await storage.updateTask(userId, id, result.data);
+
+      // Wenn der Task als erledigt markiert wurde, die Produktivitätsmetriken aktualisieren
+      if (result.data.status === "done") {
+        await storage.updateOrCreateDailyProductivityMetrics(userId, {
+          tasksCompleted: 1
+        });
+      }
 
       // Log the activity
       const activityLogData: any = {
