@@ -553,7 +553,6 @@ export function OKRDetailPage() {
                         <TableRow>
                           <TableHead className="w-[40px]"></TableHead>
                           <TableHead>Titel</TableHead>
-                          <TableHead>Beschreibung</TableHead>
                           <TableHead className="w-[100px]">Fortschritt</TableHead>
                           <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
@@ -589,11 +588,7 @@ export function OKRDetailPage() {
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell onClick={() => toggleRow(kr.id)}>
-                                {kr.description && kr.description.length > 80 
-                                  ? `${kr.description.substring(0, 80)}...` 
-                                  : kr.description}
-                              </TableCell>
+
                               <TableCell onClick={() => toggleRow(kr.id)}>
                                 <div className="flex items-center gap-3 justify-between">
                                   <CircularProgressIndicator 
@@ -621,7 +616,7 @@ export function OKRDetailPage() {
                             // Erweiterte Zeile - nur wenn erweitert
                             isExpanded ? (
                               <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
-                                <TableCell colSpan={5} className="p-4">
+                                <TableCell colSpan={4} className="p-4">
                                   <div className="space-y-4">
                                     {kr.description && (
                                       <div className="mb-4">
