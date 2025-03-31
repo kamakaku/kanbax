@@ -22,6 +22,7 @@ interface ColumnProps {
   onClick?: (task: Task) => void;
   sortable?: boolean;
   showBoardInfo?: boolean;
+  className?: string; // Zusätzliche CSS-Klassen
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -66,7 +67,8 @@ export function Column(props: ColumnProps) {
     onUpdate = async () => {}, 
     showArchivedTasks = false, 
     onClick, 
-    onTaskClick
+    onTaskClick,
+    className = ""
   } = props;
   
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -103,6 +105,7 @@ export function Column(props: ColumnProps) {
       shadow-lg
       relative
       flex flex-col
+      ${className}
     `}>
       <div className="p-3 pb-2 bg-gradient-to-b from-white to-white/90 backdrop-blur-sm border-b border-slate-100 shadow-sm">
         <div className="flex items-center justify-between mb-1">

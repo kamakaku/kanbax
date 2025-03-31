@@ -529,9 +529,10 @@ export default function MyTasks() {
         {/* Haupt-Content - entweder Kanban oder Tabelle */}
         {viewMode === 'kanban' ? (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
+            <div className="flex space-x-4 mt-4 overflow-x-auto min-h-[calc(100vh-200px)] pb-4">
               {defaultColumns.map((column) => (
-                <ColumnComponent
+                <ColumnComponent 
+                  className="flex-shrink-0 w-[280px]"
                   key={column.id}
                   id={column.id}
                   title={column.title}
