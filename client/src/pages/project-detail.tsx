@@ -401,23 +401,15 @@ export default function ProjectDetail() {
             </TabsContent>
             
             <TabsContent value="activity" className="space-y-4">
-              <div className="bg-card rounded-lg border">
-                <div className="p-4">
-                  <ActivityFeed 
-                    projectId={projectId} 
-                  />
-                </div>
-              </div>
+              <ActivityFeed 
+                projectId={projectId} 
+              />
             </TabsContent>
             
             <TabsContent value="protocols" className="space-y-4">
-              <div className="bg-card rounded-lg border">
-                <div className="p-4">
-                  <ProtocolList
-                    projectId={projectId}
-                  />
-                </div>
-              </div>
+              <ProtocolList
+                projectId={projectId}
+              />
             </TabsContent>
           </Tabs>
         </div>
