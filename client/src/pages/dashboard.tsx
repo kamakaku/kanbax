@@ -39,11 +39,12 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     enabled: !!userId
   });
   
-  const { data: myTasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
-    queryKey: ["/api/user-tasks"],
+  // Alle Tasks für alle Boards abrufen
+  const { data: allTasksData, isLoading: tasksLoading } = useQuery<Record<number, Task[]>>({
+    queryKey: ['/api/all-tasks'],
     queryFn: async () => {
-      const res = await fetch("/api/user-tasks");
-      if (!res.ok) throw new Error("Fehler beim Laden der Aufgaben");
+      const res = await fetch("/api/all-tasks");
+      if (!res.ok) throw new Error("Fehler beim Laden der Tasks");
       return res.json();
     }
   });
@@ -73,10 +74,15 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     return <div className="text-sm text-muted-foreground">Lade Produktivitätsdaten...</div>;
   }
 
+  // Alle Tasks über alle Boards hinweg sammeln
+  const allTasks: Task[] = [];
+  if (allTasksData) {
+    Object.values(allTasksData).forEach(boardTasks => {
+      allTasks.push(...boardTasks);
+    });
+  }
+
   // Berechnungen für Fortschrittsbalken
-  const completedTasks = myTasks.filter(task => task.status === "done").length;
-  const taskProgress = myTasks.length > 0 ? Math.round((completedTasks / myTasks.length) * 100) : 0;
-  
   const completedProjects = projects.filter(project => project.archived).length;
   const projectProgress = projects.length > 0 ? Math.round((completedProjects / projects.length) * 100) : 0;
   
@@ -94,9 +100,83 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     return baseColors[category];
   };
 
+  // Berechne die Statusverteilung über alle Tasks
+  const getTaskStatusCounts = () => {
+    // Statusverteilung zählen
+    const counts = {
+      backlog: 0,
+      todo: 0,
+      inProgress: 0,
+      review: 0,
+      done: 0
+    };
+    
+    allTasks.forEach(task => {
+      const taskStatus = task.status ? task.status.toLowerCase().trim() : 'backlog';
+      
+      if (taskStatus === 'backlog') {
+        counts.backlog++;
+      } else if (taskStatus === 'todo') {
+        counts.todo++;
+      } else if (taskStatus === 'in-progress') {
+        counts.inProgress++;
+      } else if (taskStatus === 'review') {
+        counts.review++;
+      } else if (taskStatus === 'done') {
+        counts.done++;
+      } else {
+        // Unbekannter Status - als Backlog zählen
+        counts.backlog++;
+      }
+    });
+    
+    return counts;
+  };
+  
+  const statusCounts = getTaskStatusCounts();
+  const totalTasks = Object.values(statusCounts).reduce((a, b) => a + b, 0);
+  
+  // Farben und Beschreibungen für jeden Status - passend zu den Spaltenfarben im Board
+  const statusConfig = {
+    backlog: {
+      color: "bg-slate-300",
+      label: "Backlog",
+      description: "Noch nicht begonnene Aufgaben"
+    },
+    todo: {
+      color: "bg-blue-300",
+      label: "To-Do",
+      description: "Geplante Aufgaben, die als nächstes bearbeitet werden"
+    },
+    inProgress: {
+      color: "bg-amber-400",
+      label: "In Bearbeitung", 
+      description: "Aufgaben, die aktuell bearbeitet werden"
+    },
+    review: {
+      color: "bg-purple-400",
+      label: "Review",
+      description: "Aufgaben, die auf Überprüfung warten"
+    },
+    done: {
+      color: "bg-green-400",
+      label: "Erledigt",
+      description: "Abgeschlossene Aufgaben"
+    }
+  };
+  
+  // Prozentanteile für die Fortschrittsbalken
+  const percentages = {
+    backlog: (statusCounts.backlog / totalTasks) * 100 || 0,
+    todo: (statusCounts.todo / totalTasks) * 100 || 0, 
+    inProgress: (statusCounts.inProgress / totalTasks) * 100 || 0,
+    review: (statusCounts.review / totalTasks) * 100 || 0,
+    done: (statusCounts.done / totalTasks) * 100 || 0
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-end h-48 gap-12 mb-2">
+      <div className="flex justify-between items-end h-48 gap-12 mb-4">
         {/* Projekt-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Projekte</span>
@@ -114,26 +194,6 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           <div className="w-full h-px bg-gray-300 mt-1" />
           <div className="text-xs text-muted-foreground mt-1">
             {completedProjects}/{projects.length}
-          </div>
-        </div>
-        
-        {/* Task-Fortschritt */}
-        <div className="flex flex-col items-center flex-1">
-          <span className="text-sm font-medium mb-2">Eigene Tasks</span>
-          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-            <div 
-              className={`absolute bottom-0 w-full ${getBarColor(taskProgress, 'task')} transition-all`} 
-              style={{ height: `${taskProgress}%` }}
-            />
-            <div className="absolute inset-0 flex items-end justify-center p-2">
-              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                {taskProgress}%
-              </span>
-            </div>
-          </div>
-          <div className="w-full h-px bg-gray-300 mt-1" />
-          <div className="text-xs text-muted-foreground mt-1">
-            {completedTasks}/{myTasks.length}
           </div>
         </div>
         
@@ -158,8 +218,127 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
         </div>
       </div>
       
-      <div className="text-xs text-muted-foreground text-center">
+      <div className="text-xs text-muted-foreground text-center mb-4">
         Prozentuale Vollständigkeit
+      </div>
+
+      {/* Tasks-Statusbalken für alle Boards */}
+      <div className="border rounded-md p-4 bg-white/90">
+        <div className="mb-4">
+          <h3 className="text-sm font-medium mb-1">Aufgaben nach Status</h3>
+          <p className="text-xs text-muted-foreground">Boardübergreifende Ansicht aller Tasks</p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden mr-2 relative">
+            {/* Schraffur-Hintergrund mit diagonalen Linien */}
+            <div className="absolute inset-0 bg-white">
+              <svg 
+                width="100%" 
+                height="100%" 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="overflow-visible"
+              >
+                <defs>
+                  <pattern 
+                    id="boardDiagonalHatch" 
+                    width="4" 
+                    height="4" 
+                    patternUnits="userSpaceOnUse" 
+                    patternTransform="rotate(45)"
+                  >
+                    <line 
+                      x1="0" 
+                      y1="0" 
+                      x2="0" 
+                      y2="4" 
+                      stroke="#888" 
+                      strokeWidth="1.5" 
+                      strokeOpacity="0.65"
+                    />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#boardDiagonalHatch)" />
+              </svg>
+            </div>
+            
+            {/* Fortschrittsbalken für Aufgaben */}
+            <div className="h-full flex relative z-10">
+              {/* Backlog */}
+              {percentages.backlog > 0 && (
+                <div
+                  className={`${statusConfig.backlog.color} h-full cursor-help`}
+                  style={{ width: `${percentages.backlog}%` }}
+                  title={`${statusConfig.backlog.label}: ${statusCounts.backlog} Aufgaben`}
+                />
+              )}
+              
+              {/* ToDo */}
+              {percentages.todo > 0 && (
+                <div
+                  className={`${statusConfig.todo.color} h-full cursor-help`}
+                  style={{ width: `${percentages.todo}%` }}
+                  title={`${statusConfig.todo.label}: ${statusCounts.todo} Aufgaben`}
+                />
+              )}
+              
+              {/* In Progress */}
+              {percentages.inProgress > 0 && (
+                <div
+                  className={`${statusConfig.inProgress.color} h-full cursor-help`}
+                  style={{ width: `${percentages.inProgress}%` }}
+                  title={`${statusConfig.inProgress.label}: ${statusCounts.inProgress} Aufgaben`}
+                />
+              )}
+              
+              {/* Review */}
+              {percentages.review > 0 && (
+                <div
+                  className={`${statusConfig.review.color} h-full cursor-help`}
+                  style={{ width: `${percentages.review}%` }}
+                  title={`${statusConfig.review.label}: ${statusCounts.review} Aufgaben`}
+                />
+              )}
+              
+              {/* Done */}
+              {percentages.done > 0 && (
+                <div
+                  className={`${statusConfig.done.color} h-full cursor-help`}
+                  style={{ width: `${percentages.done}%` }}
+                  title={`${statusConfig.done.label}: ${statusCounts.done} Aufgaben`}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Legende */}
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-sm ${statusConfig.backlog.color} mr-1`}></div>
+              <span>{statusConfig.backlog.label}: {statusCounts.backlog}</span>
+            </div>
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-sm ${statusConfig.todo.color} mr-1`}></div>
+              <span>{statusConfig.todo.label}: {statusCounts.todo}</span>
+            </div>
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-sm ${statusConfig.inProgress.color} mr-1`}></div>
+              <span>{statusConfig.inProgress.label}: {statusCounts.inProgress}</span>
+            </div>
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-sm ${statusConfig.review.color} mr-1`}></div>
+              <span>{statusConfig.review.label}: {statusCounts.review}</span>
+            </div>
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-sm ${statusConfig.done.color} mr-1`}></div>
+              <span>{statusConfig.done.label}: {statusCounts.done}</span>
+            </div>
+          </div>
+
+          <div className="text-xs text-right text-muted-foreground">
+            Gesamt: {totalTasks} Aufgaben
+          </div>
+        </div>
       </div>
     </div>
   );
