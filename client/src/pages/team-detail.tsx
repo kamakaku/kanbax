@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Team, Board, Objective, Project, User, InsertTeam, Task } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Calendar, Clipboard, Kanban, ChevronRight, ChevronLeft, Edit, ExternalLink, Star, Archive, RotateCcw } from "lucide-react";
+import { Users, Calendar, Clipboard, Kanban, ChevronRight, ChevronLeft, Edit, ExternalLink, Star, Archive, RotateCcw, FileClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Separator } from "@/components/ui/separator";
@@ -20,6 +20,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { ActivityFeed } from "@/components/activity/activity-feed";
 
 export default function TeamDetail() {
   const [, params] = useRoute("/teams/:id");
@@ -490,6 +491,7 @@ export default function TeamDetail() {
               <TabsTrigger value="boards">Boards</TabsTrigger>
               <TabsTrigger value="objectives">OKRs</TabsTrigger>
               <TabsTrigger value="projects">Projekte</TabsTrigger>
+              <TabsTrigger value="activity">Protokoll</TabsTrigger>
             </TabsList>
             
             <TabsContent value="boards" className="space-y-4">
@@ -577,6 +579,25 @@ export default function TeamDetail() {
                   Keine Projekte für dieses Team
                 </div>
               )}
+            </TabsContent>
+            
+            <TabsContent value="activity" className="space-y-4">
+              <div className="bg-card rounded-lg border">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <FileClock className="h-5 w-5 mr-2 text-muted-foreground" />
+                      Aktivitätsprotokoll
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-0">
+                  <ActivityFeed 
+                    teamId={teamId} 
+                    title={`Aktivitäten für Team "${team.name}"`} 
+                  />
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

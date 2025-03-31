@@ -164,22 +164,69 @@ const renderContextLink = (activity: ExtendedActivityLog) => {
   );
 };
 
-export function ActivityFeed() {
+interface ActivityFeedProps {
+  teamId?: number;
+  projectId?: number;
+  objectiveId?: number;
+  limit?: number;
+  title?: string;
+}
+
+export function ActivityFeed({ 
+  teamId, 
+  projectId, 
+  objectiveId, 
+  limit = 50,
+  title = "Aktuelle Aktivitäten" 
+}: ActivityFeedProps = {}) {
   const { data: activities = [], isLoading } = useQuery<ExtendedActivityLog[]>({
-    queryKey: ["/api/activity"],
+    queryKey: ["/api/activity", teamId, projectId, objectiveId],
     queryFn: async () => {
-      const response = await fetch("/api/activity");
+      let url = "/api/activity";
+      const params = new URLSearchParams();
+      
+      if (teamId) params.append("teamId", teamId.toString());
+      if (projectId) params.append("projectId", projectId.toString());
+      if (objectiveId) params.append("objectiveId", objectiveId.toString());
+      if (limit) params.append("limit", limit.toString());
+      
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+      
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch activity logs");
       }
-      return response.json();
+      
+      let data = await response.json();
+      
+      // Filtere client-seitig, falls der Server keine Filter unterstützt
+      if (teamId && !url.includes('teamId')) {
+        data = data.filter((item: ExtendedActivityLog) => 
+          item.teamId === teamId || item.team_id === teamId
+        );
+      }
+      
+      if (projectId && !url.includes('projectId')) {
+        data = data.filter((item: ExtendedActivityLog) => 
+          item.projectId === projectId || item.project_id === projectId
+        );
+      }
+      
+      if (objectiveId && !url.includes('objectiveId')) {
+        data = data.filter((item: ExtendedActivityLog) => 
+          item.objectiveId === objectiveId || item.objective_id === objectiveId
+        );
+      }
+      
+      return data;
     }
   });
 
   if (isLoading) {
     return (
       <Card className="p-4">
-        <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
+        <h3 className="font-semibold mb-4">{title}</h3>
         <ScrollArea className="h-[400px] pr-4">
           <div>
             {Array.from({ length: 5 }).map((_, i) => (
@@ -214,7 +261,7 @@ export function ActivityFeed() {
 
   return (
     <Card className="p-4">
-      <h3 className="font-semibold mb-4">Aktuelle Aktivitäten</h3>
+      <h3 className="font-semibold mb-4">{title}</h3>
       <ScrollArea className="h-[400px] pr-4">
         <div>
           {activities.length === 0 ? (

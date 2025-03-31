@@ -1443,15 +1443,44 @@ export async function registerRoutes(app: Express, db: Knex) {
   // Endpunkt zum Abrufen von Aktivitätslogs
   app.get("/api/activity", requireAuth, async (req, res) => {
     try {
-      console.log("Fetching activity logs...");
+      console.log("Fetching activity logs with filters:", req.query);
 
       // Benutzerdaten für Filterung laden
       const userId = req.userId!;
+      
+      // Filter Parameter aus Query extrahieren
+      const teamId = req.query.teamId ? parseInt(req.query.teamId as string) : undefined;
+      const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
+      const objectiveId = req.query.objectiveId ? parseInt(req.query.objectiveId as string) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
 
       // Verwende die verbesserte Berechtigungslogik
-      const logs = await permissionService.getVisibleActivityLogs(userId);
+      let logs = await permissionService.getVisibleActivityLogs(userId);
 
-      console.log("Activity logs query:", logs.length, "results");
+      // Server-seitige Filterung anwenden
+      if (teamId) {
+        console.log(`Filtering logs by teamId: ${teamId}`);
+        logs = logs.filter(log => log.teamId === teamId || log.team_id === teamId);
+      }
+      
+      if (projectId) {
+        console.log(`Filtering logs by projectId: ${projectId}`);
+        logs = logs.filter(log => log.projectId === projectId || log.project_id === projectId);
+      }
+      
+      if (objectiveId) {
+        console.log(`Filtering logs by objectiveId: ${objectiveId}`);
+        logs = logs.filter(log => log.objectiveId === objectiveId || log.objective_id === objectiveId);
+      }
+
+      // Logs sortieren (neueste zuerst) und limitieren
+      logs = logs.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.createdAt);
+        const dateB = new Date(b.created_at || b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      }).slice(0, limit);
+
+      console.log("Activity logs query:", logs.length, "results after filtering");
       if (logs.length > 0) {
         console.log("Sample activity log:", logs[0]);
       }

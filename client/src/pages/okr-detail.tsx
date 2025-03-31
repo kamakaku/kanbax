@@ -47,6 +47,8 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
+import { ActivityFeed } from "@/components/activity/activity-feed";
+import { FileClock } from "lucide-react";
 
 interface ActivityLog {
   id: number;
@@ -404,97 +406,126 @@ export function OKRDetailPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          <GlassCard className="p-6">
-            <div className="flex justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">OKR-Details</h2>
-                <p className="text-muted-foreground mt-2">{objective.description || "Keine Beschreibung vorhanden"}</p>
-              </div>
-            </div>
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="activity">Protokolle</TabsTrigger>
+            </TabsList>
             
-            <Separator className="my-4" />
-            
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="flex items-center">
-                <Users className="h-3 w-3 mr-1" />
-                {assignedUsers.filter(Boolean).length} Verantwortliche
-              </Badge>
-              <Badge variant="secondary" className="flex items-center">
-                <Clipboard className="h-3 w-3 mr-1" />
-                {keyResults.length} Key Results
-              </Badge>
-              <Badge variant="secondary" className="flex items-center">
-                <Target className="h-3 w-3 mr-1" />
-                {progress}% Fortschritt
-              </Badge>
-              {objective.status === "archived" && (
-                <Badge variant="outline" className="bg-gray-100 text-gray-500">
-                  Archiviert
-                </Badge>
-              )}
-              {objective.status === "completed" && (
-                <Badge variant="outline" className="bg-green-100 text-green-500">
-                  Abgeschlossen
-                </Badge>
-              )}
-            </div>
-            
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center">
-                <span className="text-sm font-medium">Gesamtfortschritt</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="h-3 flex-1 rounded-full overflow-hidden relative">
-                  {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
-                  <div className="absolute inset-0 bg-white">
-                    <svg 
-                      width="100%" 
-                      height="100%" 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className="overflow-visible"
-                    >
-                      <defs>
-                        <pattern 
-                          id="diagonalHatchDetail" 
-                          width="4" 
-                          height="4" 
-                          patternUnits="userSpaceOnUse" 
-                          patternTransform="rotate(45)"
-                        >
-                          <line 
-                            x1="0" 
-                            y1="0" 
-                            x2="0" 
-                            y2="4" 
-                            stroke="#888" 
-                            strokeWidth="1.5" 
-                            strokeOpacity="0.65"
-                          />
-                        </pattern>
-                      </defs>
-                      <rect width="100%" height="100%" fill="url(#diagonalHatchDetail)" />
-                    </svg>
+            <TabsContent value="details" className="space-y-6">
+              <GlassCard className="p-6">
+                <div className="flex justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold">OKR-Details</h2>
+                    <p className="text-muted-foreground mt-2">{objective.description || "Keine Beschreibung vorhanden"}</p>
                   </div>
-                  
-                  {/* Fortschrittsbalken */}
-                  <div 
-                    role="progressbar" 
-                    className={cn(
-                      "h-full rounded-full transition-all relative z-10",
-                      progress === 100 ? 
-                        "bg-green-500" : 
-                        "bg-gradient-to-r from-blue-400 to-blue-600"
-                    )}
-                    style={{ width: `${progress || 0}%` }}
+                </div>
+                
+                <Separator className="my-4" />
+                
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="flex items-center">
+                    <Users className="h-3 w-3 mr-1" />
+                    {assignedUsers.filter(Boolean).length} Verantwortliche
+                  </Badge>
+                  <Badge variant="secondary" className="flex items-center">
+                    <Clipboard className="h-3 w-3 mr-1" />
+                    {keyResults.length} Key Results
+                  </Badge>
+                  <Badge variant="secondary" className="flex items-center">
+                    <Target className="h-3 w-3 mr-1" />
+                    {progress}% Fortschritt
+                  </Badge>
+                  {objective.status === "archived" && (
+                    <Badge variant="outline" className="bg-gray-100 text-gray-500">
+                      Archiviert
+                    </Badge>
+                  )}
+                  {objective.status === "completed" && (
+                    <Badge variant="outline" className="bg-green-100 text-green-500">
+                      Abgeschlossen
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium">Gesamtfortschritt</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="h-3 flex-1 rounded-full overflow-hidden relative">
+                      {/* Schraffur-Hintergrund mit engeren diagonalen Linien */}
+                      <div className="absolute inset-0 bg-white">
+                        <svg 
+                          width="100%" 
+                          height="100%" 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          className="overflow-visible"
+                        >
+                          <defs>
+                            <pattern 
+                              id="diagonalHatchDetail" 
+                              width="4" 
+                              height="4" 
+                              patternUnits="userSpaceOnUse" 
+                              patternTransform="rotate(45)"
+                            >
+                              <line 
+                                x1="0" 
+                                y1="0" 
+                                x2="0" 
+                                y2="4" 
+                                stroke="#888" 
+                                strokeWidth="1.5" 
+                                strokeOpacity="0.65"
+                              />
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#diagonalHatchDetail)" />
+                        </svg>
+                      </div>
+                      
+                      {/* Fortschrittsbalken */}
+                      <div 
+                        role="progressbar" 
+                        className={cn(
+                          "h-full rounded-full transition-all relative z-10",
+                          progress === 100 ? 
+                            "bg-green-500" : 
+                            "bg-gradient-to-r from-blue-400 to-blue-600"
+                        )}
+                        style={{ width: `${progress || 0}%` }}
+                      />
+                    </div>
+                    <span className="font-medium text-sm min-w-[40px] text-right">
+                      {progress || 0}%
+                    </span>
+                  </div>
+                </div>
+              </GlassCard>
+
+            </TabsContent>
+            
+            <TabsContent value="activity" className="space-y-4">
+              <div className="bg-card rounded-lg border">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <FileClock className="h-5 w-5 mr-2 text-muted-foreground" />
+                      Aktivitätsprotokoll
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-0">
+                  <ActivityFeed 
+                    objectiveId={objectiveId} 
+                    title={`Aktivitäten für Objective "${objective.title}"`} 
                   />
                 </div>
-                <span className="font-medium text-sm min-w-[40px] text-right">
-                  {progress || 0}%
-                </span>
               </div>
-            </div>
-          </GlassCard>
-
+            </TabsContent>
+          </Tabs>
+          
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h4 className="text-lg font-semibold">Key Results ({keyResults.length})</h4>
@@ -505,143 +536,144 @@ export function OKRDetailPage() {
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Key Result hinzufügen
               </Button>
-              <KeyResultForm
-                objectiveId={objectiveId}
-                onSuccess={() => setIsKeyResultDialogOpen(false)}
-                open={isKeyResultDialogOpen}
-                onOpenChange={setIsKeyResultDialogOpen}
-              />
             </div>
             
-            {keyResults.length > 0 ? (
-              <Card>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[40px]"></TableHead>
-                      <TableHead>Titel</TableHead>
-                      <TableHead>Beschreibung</TableHead>
-                      <TableHead className="w-[100px]">Fortschritt</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {keyResults.map((kr) => {
-                      const krProgress = kr.currentValue || 0;
-                      const isExpanded = expandedRows.has(kr.id);
+            <KeyResultForm
+              objectiveId={objectiveId}
+              onSuccess={() => setIsKeyResultDialogOpen(false)}
+              open={isKeyResultDialogOpen}
+              onOpenChange={setIsKeyResultDialogOpen}
+            />
+                
+                {keyResults.length > 0 ? (
+                  <Card>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[40px]"></TableHead>
+                          <TableHead>Titel</TableHead>
+                          <TableHead>Beschreibung</TableHead>
+                          <TableHead className="w-[100px]">Fortschritt</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {keyResults.map((kr) => {
+                          const krProgress = kr.currentValue || 0;
+                          const isExpanded = expandedRows.has(kr.id);
 
-                      // Wir verwenden zwei separate Array-Elemente: die Hauptzeile und (wenn erweitert) die Details-Zeile
-                      return [
-                        // Hauptzeile - immer sichtbar
-                        <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => toggleRow(kr.id)}
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </TableCell>
-                          <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
-                            <div className="flex items-center gap-2">
-                              {kr.title}
-                              {krProgress === 100 && (
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell onClick={() => toggleRow(kr.id)}>
-                            {kr.description && kr.description.length > 80 
-                              ? `${kr.description.substring(0, 80)}...` 
-                              : kr.description}
-                          </TableCell>
-                          <TableCell onClick={() => toggleRow(kr.id)}>
-                            <div className="flex items-center gap-3 justify-between">
-                              <CircularProgressIndicator 
-                                value={krProgress} 
-                                size="sm" 
-                                label={`${krProgress}%`}
-                                useStripedBackground={true}
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingKR(kr);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>,
-                        
-                        // Erweiterte Zeile - nur wenn erweitert
-                        isExpanded ? (
-                          <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
-                            <TableCell colSpan={5} className="p-4">
-                              <div className="space-y-4">
-                                {kr.description && (
-                                  <div className="mb-4">
-                                    <h4 className="font-medium text-sm text-muted-foreground mb-1">Beschreibung:</h4>
-                                    <p className="text-sm">{kr.description}</p>
-                                  </div>
-                                )}
-                                {kr.type === "percentage" && (
-                                  <div className="flex items-center gap-4">
-                                    <span className="text-sm font-medium">Prozent:</span>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
-                                      onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
-                                      onBlur={() => handleProgressInputBlur(kr)}
-                                      className="w-24"
-                                    />
-                                  </div>
-                                )}
+                          // Wir verwenden zwei separate Array-Elemente: die Hauptzeile und (wenn erweitert) die Details-Zeile
+                          return [
+                            // Hauptzeile - immer sichtbar
+                            <TableRow key={`kr-main-${kr.id}`} className="cursor-pointer hover:bg-muted/50">
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => toggleRow(kr.id)}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TableCell>
+                              <TableCell className="font-medium" onClick={() => toggleRow(kr.id)}>
+                                <div className="flex items-center gap-2">
+                                  {kr.title}
+                                  {krProgress === 100 && (
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell onClick={() => toggleRow(kr.id)}>
+                                {kr.description && kr.description.length > 80 
+                                  ? `${kr.description.substring(0, 80)}...` 
+                                  : kr.description}
+                              </TableCell>
+                              <TableCell onClick={() => toggleRow(kr.id)}>
+                                <div className="flex items-center gap-3 justify-between">
+                                  <CircularProgressIndicator 
+                                    value={krProgress} 
+                                    size="sm" 
+                                    label={`${krProgress}%`}
+                                    useStripedBackground={true}
+                                  />
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingKR(kr);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>,
+                            
+                            // Erweiterte Zeile - nur wenn erweitert
+                            isExpanded ? (
+                              <TableRow key={`kr-expanded-${kr.id}`} className="bg-muted/30">
+                                <TableCell colSpan={5} className="p-4">
+                                  <div className="space-y-4">
+                                    {kr.description && (
+                                      <div className="mb-4">
+                                        <h4 className="font-medium text-sm text-muted-foreground mb-1">Beschreibung:</h4>
+                                        <p className="text-sm">{kr.description}</p>
+                                      </div>
+                                    )}
+                                    {kr.type === "percentage" && (
+                                      <div className="flex items-center gap-4">
+                                        <span className="text-sm font-medium">Prozent:</span>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          value={editingProgress[kr.id] ?? kr.currentValue ?? 0}
+                                          onChange={(e) => handleProgressInputChange(kr.id, e.target.value)}
+                                          onBlur={() => handleProgressInputBlur(kr)}
+                                          className="w-24"
+                                        />
+                                      </div>
+                                    )}
 
-                                {kr.type === "checkbox" && (
-                                  <div className="flex items-center gap-4">
-                                    <Checkbox
-                                      checked={kr.currentValue === 100}
-                                      onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
-                                    />
-                                    <span className="text-sm">Abgeschlossen</span>
-                                  </div>
-                                )}
+                                    {kr.type === "checkbox" && (
+                                      <div className="flex items-center gap-4">
+                                        <Checkbox
+                                          checked={kr.currentValue === 100}
+                                          onCheckedChange={(checked) => handleProgressUpdate(kr, checked === true)}
+                                        />
+                                        <span className="text-sm">Abgeschlossen</span>
+                                      </div>
+                                    )}
 
-                                {kr.type === "checklist" && kr.checklistItems && (
-                                  <div className="space-y-2">
-                                    {kr.checklistItems.map((item, index) => {
-                                      const checklistItem = typeof item === 'string' 
-                                        ? JSON.parse(item) as ChecklistItem 
-                                        : item;
+                                    {kr.type === "checklist" && kr.checklistItems && (
+                                      <div className="space-y-2">
+                                        {kr.checklistItems.map((item, index) => {
+                                          const checklistItem = typeof item === 'string' 
+                                            ? JSON.parse(item) as ChecklistItem 
+                                            : item;
 
-                                      return (
-                                        <div key={index} className="flex items-center gap-4">
-                                          <Checkbox
-                                            checked={checklistItem.completed}
-                                            onCheckedChange={(checked) => 
-                                              handleChecklistItemUpdate(kr, index, checked === true)
-                                            }
-                                          />
-                                          <span className="text-sm">{checklistItem.title}</span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                          return (
+                                            <div key={index} className="flex items-center gap-4">
+                                              <Checkbox
+                                                checked={checklistItem.completed}
+                                                onCheckedChange={(checked) => 
+                                                  handleChecklistItemUpdate(kr, index, checked === true)
+                                                }
+                                              />
+                                              <span className="text-sm">{checklistItem.title}</span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                               </div>
                             </TableCell>
                           </TableRow>

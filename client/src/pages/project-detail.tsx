@@ -37,6 +37,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-store";
+import { ActivityFeed } from "@/components/activity/activity-feed";
+import { FileClock } from "lucide-react";
 
 export default function ProjectDetail() {
   const [, params] = useRoute("/projects/:id");
@@ -319,6 +321,7 @@ export default function ProjectDetail() {
             <TabsList className="mb-4">
               <TabsTrigger value="boards">Boards</TabsTrigger>
               <TabsTrigger value="objectives">OKRs</TabsTrigger>
+              <TabsTrigger value="activity">Protokoll</TabsTrigger>
             </TabsList>
             
             <TabsContent value="boards" className="space-y-4">
@@ -392,6 +395,25 @@ export default function ProjectDetail() {
                   Keine OKRs für dieses Projekt
                 </div>
               )}
+            </TabsContent>
+            
+            <TabsContent value="activity" className="space-y-4">
+              <div className="bg-card rounded-lg border">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <FileClock className="h-5 w-5 mr-2 text-muted-foreground" />
+                      Aktivitätsprotokoll
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-0">
+                  <ActivityFeed 
+                    projectId={projectId} 
+                    title={`Aktivitäten für Projekt "${project.title}"`} 
+                  />
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
