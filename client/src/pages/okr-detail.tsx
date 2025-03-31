@@ -440,9 +440,8 @@ export function OKRDetailPage() {
             </div>
             
             <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <span className="text-sm font-medium">Gesamtfortschritt</span>
-                <span className="text-sm text-muted-foreground">{progress}%</span>
               </div>
               <div className="flex items-center gap-4">
                 <div className="h-3 flex-1 rounded-full overflow-hidden relative">

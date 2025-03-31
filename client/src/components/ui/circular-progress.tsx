@@ -74,27 +74,18 @@ export function CircularProgressIndicator({
                 strokeOpacity="0.65"
               />
             </pattern>
-            
-            {/* Maske für den Progress-Bereich */}
-            <mask id={maskId}>
-              <circle
-                fill="white"
-                r={radius}
-                cx="50%"
-                cy="50%"
-              />
-            </mask>
           </defs>
         )}
         
         {/* Background circle */}
         {useStripedBackground ? (
           <circle
-            fill={`url(#${patternId})`}
+            stroke={`url(#${patternId})`}
+            strokeWidth={strokeWidth}
+            fill="transparent"
             r={radius}
             cx="50%"
             cy="50%"
-            mask={`url(#${maskId})`}
           />
         ) : (
           <circle
