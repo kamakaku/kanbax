@@ -1,55 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-store";
-import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ChevronsRight, CheckCircle, Clock } from "lucide-react";
-import type { Project, Board, Objective, Task, UserProductivityMetrics } from "@shared/schema";
-import { useStore } from "@/lib/store";
-import { ActivityFeed } from "@/components/activity/activity-feed";
-import { 
-  Table, 
-  TableHeader, 
-  TableRow, 
-  TableHead, 
-  TableBody, 
-  TableCell 
-} from "@/components/ui/table";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { useStore } from "@/lib/store";
+import { useLocation } from "wouter";
+import { Plus, ChevronsRight } from "lucide-react";
+import { CardTitle, CardDescription, CardContent, CardHeader, Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  TableHead, 
+  TableRow, 
+  TableHeader, 
+  TableCell, 
+  TableBody, 
+  Table 
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getPriorityColor } from "@/lib/utils";
-
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-  ReferenceLine,
-  Rectangle
-} from 'recharts';
-
-// Benutzerdefinierter Balken mit Farbverlauf für die Balkendiagramme
-const GradientBar = (props: any) => {
-  const { x, y, width, height, fill } = props;
-  return (
-    <g>
-      <defs>
-        <linearGradient id="projectGradient" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0%" stopColor={fill} stopOpacity={0.6} />
-          <stop offset="100%" stopColor={fill} stopOpacity={1} />
-        </linearGradient>
-      </defs>
-      <Rectangle x={x} y={y} width={width} height={height} fill="url(#projectGradient)" />
-    </g>
-  );
-};
+import { ActivityFeed } from "@/components/activity/activity-feed";
+import { useQuery } from "@tanstack/react-query";
+import { Project, Board, Objective, Task } from "@/types/index";
+import type { UserProductivityMetrics } from "@/types/index";
 
 // Produktivitäts-Metriken-Komponente
 interface ProductivityMetricsCardProps {
@@ -57,7 +27,8 @@ interface ProductivityMetricsCardProps {
 }
 
 function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
-  const { data: metrics, isLoading } = useQuery<UserProductivityMetrics[]>({
+  // API-Abfragen für alle benötigten Daten
+  const { data: metrics, isLoading: metricsLoading } = useQuery<UserProductivityMetrics[]>({
     queryKey: [`/api/productivity/metrics/${userId}`, { days: 7 }],
     queryFn: async () => {
       if (!userId) return [];
@@ -68,8 +39,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     enabled: !!userId
   });
   
-  // Einige simulierte Daten für die Säulendiagramme, da wir die tatsächlichen Daten nicht in der aktuellen API haben
-  const { data: myTasks = [] } = useQuery<Task[]>({
+  const { data: myTasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["/api/user-tasks"],
     queryFn: async () => {
       const res = await fetch("/api/user-tasks");
@@ -78,7 +48,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     }
   });
 
-  const { data: projects = [] } = useQuery<Project[]>({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
     queryFn: async () => {
       const res = await fetch("/api/projects");
@@ -87,7 +57,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     }
   });
 
-  const { data: objectives = [] } = useQuery<Objective[]>({
+  const { data: objectives = [], isLoading: objectivesLoading } = useQuery<Objective[]>({
     queryKey: ['/api/objectives'],
     queryFn: async () => {
       const response = await fetch('/api/objectives');
@@ -98,14 +68,14 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     }
   });
 
-  if (isLoading || !metrics) {
+  // Lade-Status
+  if (metricsLoading || tasksLoading || projectsLoading || objectivesLoading) {
     return <div className="text-sm text-muted-foreground">Lade Produktivitätsdaten...</div>;
   }
 
-  // Berechnen der aktuellen Fortschritte
+  // Berechnungen für Fortschrittsbalken
   const completedTasks = myTasks.filter(task => task.status === "done").length;
-  const totalTasks = myTasks.length;
-  const taskProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const taskProgress = myTasks.length > 0 ? Math.round((completedTasks / myTasks.length) * 100) : 0;
   
   const completedProjects = projects.filter(project => project.archived).length;
   const projectProgress = projects.length > 0 ? Math.round((completedProjects / projects.length) * 100) : 0;
@@ -113,55 +83,65 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
   const completedObjectives = objectives.filter(obj => obj.progress === 100).length;
   const keyResultProgress = objectives.length > 0 ? Math.round((completedObjectives / objectives.length) * 100) : 0;
 
-  // Daten für die Säulendiagramme
-  const barChartData = [
-    { name: "Projekte", value: projectProgress, maxValue: 100, fill: "#3b82f6" },
-    { name: "Eigene Tasks", value: taskProgress, maxValue: 100, fill: "#10b981" },
-    { name: "Key Results", value: keyResultProgress, maxValue: 100, fill: "#8b5cf6" }
-  ];
-
   return (
-    <div className="space-y-4">
-      <div className="h-[140px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={barChartData}
-            layout="vertical"
-            margin={{ top: 5, right: 5, left: 70, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-            <XAxis 
-              type="number" 
-              domain={[0, 100]} 
-              tickCount={6}
-              tick={{ fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
+    <div className="space-y-6">
+      <div className="space-y-6">
+        {/* Projekt-Fortschritt */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="font-medium">Projekte</span>
+            <span className="font-semibold">{projectProgress}%</span>
+          </div>
+          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-blue-500 transition-all" 
+              style={{ width: `${projectProgress}%` }}
             />
-            <YAxis 
-              type="category" 
-              dataKey="name" 
-              tick={{ fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
-              width={70}
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
+        </div>
+        
+        {/* Task-Fortschritt */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="font-medium">Eigene Tasks</span>
+            <span className="font-semibold">{taskProgress}%</span>
+          </div>
+          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-green-500 transition-all" 
+              style={{ width: `${taskProgress}%` }}
             />
-            <Tooltip 
-              formatter={(value) => [`${value}%`, "Fortschritt"]} 
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
+        </div>
+        
+        {/* Key-Results-Fortschritt */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="font-medium">Key Results</span>
+            <span className="font-semibold">{keyResultProgress}%</span>
+          </div>
+          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-purple-500 transition-all" 
+              style={{ width: `${keyResultProgress}%` }}
             />
-            <ReferenceLine x={100} stroke="#f5f5f5" strokeDasharray="3 3" />
-            <Bar 
-              dataKey="value" 
-              background={{ fill: "#f5f5f5", radius: 4 }}
-              radius={4}
-              shape={<GradientBar />}
-            >
-              {barChartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
+        </div>
       </div>
       
       <div className="text-xs text-muted-foreground text-center">
