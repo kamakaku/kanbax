@@ -10,7 +10,7 @@ import {
   TableHead, 
   TableRow, 
   TableHeader, 
-  TableHeaderCell as TableHead,
+  TableHeaderCell,
   TableCell, 
   TableBody, 
   Table 
