@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, primaryKey, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -971,8 +971,9 @@ export const meetingProtocols = pgTable("meeting_protocols", {
   projectId: integer("project_id").references(() => projects.id),
   objectiveId: integer("objective_id").references(() => objectives.id),
   creatorId: integer("creator_id").notNull().references(() => users.id), // Ersteller des Protokolls
-  agenda: text("agenda"), // Tagesordnung
-  decisions: text("decisions"), // Getroffene Entscheidungen
+  agenda: text("agenda"), // Tagesordnung (Legacy-Feld, wird für ältere Protokolle beibehalten)
+  decisions: text("decisions"), // Getroffene Entscheidungen (Legacy-Feld)
+  agendaItems: jsonb("agenda_items"), // Strukturierte Agenda-Punkte mit Beschlüssen/Kategorien/Zuordnungen
   participants: text("participants").array(), // Teilnehmer als Array von User-IDs
   teamParticipants: integer("team_participants").array(), // Teilnehmende Teams als Array von Team-IDs
   createdAt: timestamp("created_at").defaultNow().notNull(),

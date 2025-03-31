@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -15,6 +15,20 @@ import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
+import { Plus, Trash2, ArrowDown, ArrowUp } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+
+// Schema für einen einzelnen Agenda-Punkt
+const agendaItemSchema = z.object({
+  id: z.string(), // Einzigartige ID für jeden Punkt
+  title: z.string().min(1, "Titel ist erforderlich"),
+  notes: z.string().optional().default(""),
+  assignment: z.string().optional().default(""),
+  categories: z.array(z.enum(["information", "task", "decision"])).default([]),
+});
 
 // Validierungsschema für ein Protokoll
 const protocolSchema = z.object({
@@ -23,12 +37,14 @@ const protocolSchema = z.object({
   teamId: z.number().optional().nullable(),
   projectId: z.number().optional().nullable(),
   objectiveId: z.number().optional().nullable(),
-  agenda: z.string().optional().nullable(),
-  decisions: z.string().optional().nullable(),
+  agenda: z.string().optional().nullable(), // Legacy-Feld
+  decisions: z.string().optional().nullable(), // Legacy-Feld
+  agendaItems: z.array(agendaItemSchema).default([]),
   participants: z.array(z.string()).optional().default([]),
   teamParticipants: z.array(z.number()).optional().default([]),
 });
 
+type AgendaItem = z.infer<typeof agendaItemSchema>;
 type ProtocolFormValues = z.infer<typeof protocolSchema>;
 
 interface ProtocolFormProps {
@@ -56,6 +72,11 @@ export function ProtocolForm({
 }: ProtocolFormProps) {
   const queryClient = useQueryClient();
 
+  // Funktion zum Generieren einer eindeutigen ID
+  const generateId = () => {
+    return Date.now().toString() + Math.random().toString(36).substring(2, 9);
+  };
+
   // Default-Werte setzen
   const defaultValues: Partial<ProtocolFormValues> = {
     title: "",
@@ -65,6 +86,7 @@ export function ProtocolForm({
     objectiveId: objectiveId || null,
     agenda: "",
     decisions: "",
+    agendaItems: initialValues?.agendaItems || [],
     participants: [],
     teamParticipants: [],
     ...initialValues,
@@ -74,6 +96,23 @@ export function ProtocolForm({
     resolver: zodResolver(protocolSchema),
     defaultValues,
   });
+
+  // Field-Array für Agenda-Punkte
+  const { fields, append, remove, move } = useFieldArray({
+    control: form.control,
+    name: "agendaItems",
+  });
+
+  // Neuen Agenda-Punkt hinzufügen
+  const addAgendaItem = () => {
+    append({
+      id: generateId(),
+      title: "",
+      notes: "",
+      assignment: "",
+      categories: []
+    });
+  };
 
   // Erstellen eines neuen Protokolls
   const createMutation = useMutation({
@@ -252,43 +291,212 @@ export function ProtocolForm({
                 )}
               </div>
 
-              <FormField
-                control={form.control}
-                name="agenda"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Agenda</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Tagesordnungspunkte"
-                        className="min-h-[100px]"
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-medium">Strukturierte Agenda-Punkte</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addAgendaItem}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Punkt hinzufügen
+                  </Button>
+                </div>
 
-              <FormField
-                control={form.control}
-                name="decisions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beschlüsse</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Getroffene Entscheidungen"
-                        className="min-h-[100px]"
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                {fields.length === 0 ? (
+                  <div className="text-center p-4 border border-dashed rounded-md text-muted-foreground">
+                    Keine Agenda-Punkte vorhanden. Klicken Sie auf "Punkt hinzufügen", um zu beginnen.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {fields.map((field, index) => (
+                      <Card key={field.id} className="relative overflow-hidden">
+                        <div className="absolute right-2 top-2 flex gap-1">
+                          {index > 0 && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => move(index, index - 1)}
+                              className="h-7 w-7"
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {index < fields.length - 1 && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => move(index, index + 1)}
+                              className="h-7 w-7"
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => remove(index)}
+                            className="h-7 w-7 text-red-500 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <CardContent className="pt-4 pb-3">
+                          <div className="space-y-4">
+                            <FormField
+                              control={form.control}
+                              name={`agendaItems.${index}.title`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Titel</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Titel des Agenda-Punkts" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name={`agendaItems.${index}.notes`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Beschlüsse/Notizen</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      placeholder="Beschreibung und Notizen"
+                                      className="min-h-[80px]"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name={`agendaItems.${index}.assignment`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Zuordnung</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Verantwortliche Person/Team" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name={`agendaItems.${index}.categories`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Kategorien</FormLabel>
+                                  <div className="flex flex-wrap gap-3 mt-1.5">
+                                    <div className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`${field.id}-information`}
+                                        checked={field.value.includes("information")}
+                                        onCheckedChange={(checked) => {
+                                          const updatedValue = checked
+                                            ? [...field.value, "information"]
+                                            : field.value.filter((value) => value !== "information");
+                                          field.onChange(updatedValue);
+                                        }}
+                                      />
+                                      <Label htmlFor={`${field.id}-information`}>Information</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`${field.id}-task`}
+                                        checked={field.value.includes("task")}
+                                        onCheckedChange={(checked) => {
+                                          const updatedValue = checked
+                                            ? [...field.value, "task"]
+                                            : field.value.filter((value) => value !== "task");
+                                          field.onChange(updatedValue);
+                                        }}
+                                      />
+                                      <Label htmlFor={`${field.id}-task`}>Aufgabe</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`${field.id}-decision`}
+                                        checked={field.value.includes("decision")}
+                                        onCheckedChange={(checked) => {
+                                          const updatedValue = checked
+                                            ? [...field.value, "decision"]
+                                            : field.value.filter((value) => value !== "decision");
+                                          field.onChange(updatedValue);
+                                        }}
+                                      />
+                                      <Label htmlFor={`${field.id}-decision`}>Beschluss</Label>
+                                    </div>
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 )}
-              />
+              </div>
+
+              {/* Legacy-Felder (können später vollständig entfernt werden) */}
+              <Separator className="my-4" />
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Legacy-Felder (optional)</h3>
+                
+                <FormField
+                  control={form.control}
+                  name="agenda"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Agenda (einfacher Text)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Tagesordnungspunkte"
+                          className="min-h-[100px]"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="decisions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Beschlüsse (einfacher Text)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Getroffene Entscheidungen"
+                          className="min-h-[100px]"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {/* Versteckte Felder für Team-, Projekt- oder Objective-ID */}
               {teamId && (

@@ -225,22 +225,76 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                   )}
                 </div>
 
-                {protocol.agenda && (
+                {protocol.agendaItems && protocol.agendaItems.length > 0 ? (
                   <div>
-                    <h4 className="text-sm font-medium mb-1">Agenda</h4>
-                    <div className="text-sm whitespace-pre-line bg-muted/50 p-2 rounded">
-                      {protocol.agenda}
+                    <h4 className="text-sm font-medium mb-2">Strukturierte Agenda-Punkte</h4>
+                    <div className="space-y-3">
+                      {protocol.agendaItems.map((item, index) => (
+                        <div key={item.id} className="bg-muted/50 p-3 rounded border">
+                          <div className="flex justify-between items-start">
+                            <h5 className="text-sm font-medium">{index + 1}. {item.title}</h5>
+                            <div className="flex gap-1">
+                              {item.categories && item.categories.map(category => {
+                                let color = "";
+                                let text = "";
+                                
+                                if (category === "information") {
+                                  color = "bg-blue-100 text-blue-800";
+                                  text = "Information";
+                                } else if (category === "task") {
+                                  color = "bg-amber-100 text-amber-800";
+                                  text = "Aufgabe";
+                                } else if (category === "decision") {
+                                  color = "bg-green-100 text-green-800";
+                                  text = "Beschluss";
+                                }
+                                
+                                return (
+                                  <span key={category} className={`text-xs px-2 py-0.5 rounded-full ${color}`}>
+                                    {text}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          
+                          {item.notes && (
+                            <div className="mt-2">
+                              <h6 className="text-xs font-medium text-muted-foreground mb-0.5">Beschlüsse/Notizen</h6>
+                              <p className="text-sm whitespace-pre-line">{item.notes}</p>
+                            </div>
+                          )}
+                          
+                          {item.assignment && (
+                            <div className="mt-2">
+                              <h6 className="text-xs font-medium text-muted-foreground mb-0.5">Zuordnung</h6>
+                              <p className="text-sm">{item.assignment}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {protocol.agenda && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-1">Agenda</h4>
+                        <div className="text-sm whitespace-pre-line bg-muted/50 p-2 rounded">
+                          {protocol.agenda}
+                        </div>
+                      </div>
+                    )}
 
-                {protocol.decisions && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Beschlüsse</h4>
-                    <div className="text-sm whitespace-pre-line bg-muted/50 p-2 rounded">
-                      {protocol.decisions}
-                    </div>
-                  </div>
+                    {protocol.decisions && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-1">Beschlüsse</h4>
+                        <div className="text-sm whitespace-pre-line bg-muted/50 p-2 rounded">
+                          {protocol.decisions}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="flex justify-end gap-2 pt-2">
