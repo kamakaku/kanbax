@@ -52,7 +52,11 @@ export function RichTextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        bold: true,
+        bold: {
+          HTMLAttributes: {
+            class: 'font-bold text-inherit'
+          }
+        },
         code: {
           HTMLAttributes: {
             class: 'font-mono bg-transparent p-0 text-inherit'
@@ -60,7 +64,7 @@ export function RichTextEditor({
         }
       }),
       TextStyle,
-      Color,
+      Color.configure({ types: ['textStyle'] }),
       Underline,
       Strike,
       Placeholder.configure({
