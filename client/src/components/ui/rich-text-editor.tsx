@@ -3,8 +3,20 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
 import LinkExtension from '@tiptap/extension-link';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
 import { Button } from "./button";
-import { Upload, Image as ImageIcon, Link as LinkIcon, Bold, Italic, List, ListOrdered, X } from "lucide-react";
+import {
+  Upload,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Paintbrush,
+  X
+} from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 import { Dialog, DialogContent } from "./dialog";
@@ -49,6 +61,8 @@ export function RichTextEditor({
           }
         }
       }),
+      TextStyle,
+      Color,
       Placeholder.configure({
         placeholder,
       }),
@@ -195,6 +209,43 @@ export function RichTextEditor({
       }
     }
   };
+  
+  // Textfarbe-Funktionalität
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [colorPickerPosition, setColorPickerPosition] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
+  
+  // Liste der verfügbaren Farben
+  const colors = [
+    { name: 'Schwarz', value: '#000000' },
+    { name: 'Dunkelgrau', value: '#555555' },
+    { name: 'Rot', value: '#ff0000' },
+    { name: 'Dunkelrot', value: '#990000' },
+    { name: 'Orange', value: '#ff9900' },
+    { name: 'Gelb', value: '#ffff00' },
+    { name: 'Grün', value: '#00ff00' },
+    { name: 'Dunkelgrün', value: '#006600' },
+    { name: 'Blau', value: '#0000ff' },
+    { name: 'Dunkelblau', value: '#000099' },
+    { name: 'Lila', value: '#9900ff' },
+    { name: 'Pink', value: '#ff00ff' },
+  ];
+  
+  const handleColorClick = (event: React.MouseEvent) => {
+    // Positioniere den Farbpicker relativ zum Button
+    const rect = event.currentTarget.getBoundingClientRect();
+    setColorPickerPosition({
+      x: rect.left,
+      y: rect.bottom + window.scrollY,
+    });
+    setShowColorPicker(!showColorPicker);
+  };
+  
+  const setTextColor = (color: string) => {
+    if (editor) {
+      editor.chain().focus().setColor(color).run();
+      setShowColorPicker(false);
+    }
+  };
 
   // Füge einen Stil-Tag hinzu, um sicherzustellen, dass Code-Blöcke korrekt dargestellt werden
   // und der Editor keine ungewollte Fokus-Umrandung hat
@@ -287,6 +338,40 @@ export function RichTextEditor({
           >
             <LinkIcon className="h-4 w-4" />
           </Button>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleColorClick}
+            className="h-8 w-8 relative"
+          >
+            <Paintbrush className="h-4 w-4" />
+          </Button>
+          
+          {/* Farbpicker */}
+          {showColorPicker && (
+            <div 
+              className="absolute z-50 bg-white border rounded-md shadow-lg p-2"
+              style={{ 
+                top: colorPickerPosition.y, 
+                left: colorPickerPosition.x,
+                maxWidth: '220px'
+              }}
+            >
+              <div className="grid grid-cols-4 gap-1">
+                {colors.map((color) => (
+                  <button
+                    key={color.value}
+                    className="w-10 h-10 rounded-md border hover:scale-110 transition-transform"
+                    style={{ backgroundColor: color.value }}
+                    onClick={() => setTextColor(color.value)}
+                    title={color.name}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div className="ml-auto">
             <Button 
               type="button" 
