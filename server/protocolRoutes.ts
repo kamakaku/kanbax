@@ -95,6 +95,22 @@ export function registerProtocolRoutes(app: Express) {
       }
       
       const newProtocol = await storage.createMeetingProtocol(userId, validationResult.data);
+      
+      // Aktivitätslog erstellen
+      const activityLog = await storage.createActivityLog({
+        action: "create",
+        details: "Neues Protokoll erstellt",
+        userId: userId,
+        requiresNotification: true,
+        notificationType: "protocol",
+        teamId: validationResult.data.teamId,
+        projectId: validationResult.data.projectId,
+        objectiveId: validationResult.data.objectiveId
+      });
+
+      // Benachrichtigungen verarbeiten
+      await notificationService.processActivityLog(activityLog.id);
+
       res.status(201).json(newProtocol);
     } catch (error: any) {
       console.error("Error creating protocol:", error);
@@ -129,6 +145,21 @@ export function registerProtocolRoutes(app: Express) {
       }
       
       const updatedProtocol = await storage.updateMeetingProtocol(userId, protocolId, updateData.data);
+      
+      // Aktivitätslog für Update erstellen
+      const activityLog = await storage.createActivityLog({
+        action: "update",
+        details: "Protokoll aktualisiert",
+        userId: userId,
+        requiresNotification: true,
+        notificationType: "protocol_update",
+        teamId: updateData.data.teamId,
+        projectId: updateData.data.projectId,
+        objectiveId: updateData.data.objectiveId
+      });
+
+      await notificationService.processActivityLog(activityLog.id);
+
       res.json(updatedProtocol);
     } catch (error: any) {
       console.error("Error updating protocol:", error);
@@ -142,7 +173,23 @@ export function registerProtocolRoutes(app: Express) {
       const userId = req.userId as number;
       const protocolId = parseInt(req.params.id);
       
+      const protocol = await storage.getMeetingProtocol(userId, protocolId);
       await storage.deleteMeetingProtocol(userId, protocolId);
+
+      // Aktivitätslog für Löschung erstellen
+      const activityLog = await storage.createActivityLog({
+        action: "delete",
+        details: "Protokoll gelöscht",
+        userId: userId,
+        requiresNotification: true,
+        notificationType: "protocol_delete",
+        teamId: protocol.teamId,
+        projectId: protocol.projectId,
+        objectiveId: protocol.objectiveId
+      });
+
+      await notificationService.processActivityLog(activityLog.id);
+
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting protocol:", error);

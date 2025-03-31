@@ -15,6 +15,8 @@ export class NotificationService {
       const validTypes = [
         // Aufgaben
         "task", "task_update", "task_delete", "task_comment",
+        // Protokolle
+        "protocol", "protocol_update", "protocol_delete", "protocol_comment",
         // Boards
         "board", "board_update", 
         // Projekte
@@ -382,6 +384,24 @@ export class NotificationService {
           case "board_update":
             title = "Board-Update";
             message = activity.details || "Ein Board wurde aktualisiert.";
+            break;
+
+          // Protokoll-Benachrichtigungen
+          case "protocol":
+            title = "Neues Protokoll";
+            message = activity.details || "Ein neues Protokoll wurde erstellt.";
+            break;
+          case "protocol_update":
+            title = "Protokoll aktualisiert";
+            message = activity.details || "Ein Protokoll wurde aktualisiert.";
+            break;
+          case "protocol_delete":
+            title = "Protokoll gelöscht";
+            message = activity.details || "Ein Protokoll wurde gelöscht.";
+            break;
+          case "protocol_comment":
+            title = "Neuer Protokoll-Kommentar";
+            message = activity.details || "Es gibt einen neuen Kommentar zu einem Protokoll.";
             break;
 
           // Projekt-Benachrichtigungen
