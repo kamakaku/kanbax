@@ -2,6 +2,7 @@ import { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import { requireAuth } from "./middleware/auth";
 import { insertMeetingProtocolSchema } from "@shared/schema";
+import { notificationService } from "./notification-service";
 
 export function registerProtocolRoutes(app: Express) {
   // Routen für Protokolle
