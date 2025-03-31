@@ -20,6 +20,16 @@ import { de } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { getPriorityColor } from "@/lib/utils";
 
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer 
+} from 'recharts';
+
 // Produktivitäts-Metriken-Komponente
 interface ProductivityMetricsCardProps {
   userId: number;
@@ -41,29 +51,88 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     return <div className="text-sm text-muted-foreground">Lade Produktivitätsdaten...</div>;
   }
 
-  // Daten für die letzten 7 Tage zusammenfassen
+  // Daten für das Diagramm vorbereiten
+  const chartData = metrics.map(day => ({
+    date: format(new Date(day.date), 'dd.MM', { locale: de }),
+    erledigte: day.tasksCompleted || 0,
+    stunden: Math.round((day.timeSpentMinutes || 0) / 60),
+  }));
+
+  // Gesamtwerte für die letzten 7 Tage berechnen
   const totalTasksCompleted = metrics.reduce((acc, day) => acc + (day.tasksCompleted || 0), 0);
   const totalTimeSpentHours = Math.round(metrics.reduce((acc, day) => acc + (day.timeSpentMinutes || 0), 0) / 60);
   
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <CheckCircle className="h-4 w-4 text-green-500" />
-        <div>
-          <span className="font-medium">{totalTasksCompleted}</span>
-          <span className="text-sm text-muted-foreground ml-2">Aufgaben erledigt</span>
+      <div className="flex items-center gap-4 mb-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <div>
+            <span className="font-medium">{totalTasksCompleted}</span>
+            <span className="text-xs text-muted-foreground ml-1">Aufgaben</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-blue-500" />
+          <div>
+            <span className="font-medium">{totalTimeSpentHours}</span>
+            <span className="text-xs text-muted-foreground ml-1">Std.</span>
+          </div>
         </div>
       </div>
       
-      <div className="flex items-center gap-2">
-        <Clock className="h-4 w-4 text-blue-500" />
-        <div>
-          <span className="font-medium">{totalTimeSpentHours}</span>
-          <span className="text-sm text-muted-foreground ml-2">Stunden gearbeitet</span>
-        </div>
+      <div className="h-[100px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chartData}
+            margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+            <XAxis 
+              dataKey="date" 
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis 
+              yAxisId="left"
+              orientation="left"
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => value.toString()}
+              width={20}
+            />
+            <Tooltip 
+              formatter={(value, name) => [value, name === "erledigte" ? "Aufgaben" : "Stunden"]}
+              labelFormatter={(label) => `Datum: ${label}`}
+            />
+            <Line 
+              yAxisId="left"
+              type="monotone" 
+              dataKey="erledigte" 
+              stroke="#10b981" 
+              strokeWidth={2}
+              dot={{ r: 2 }}
+              activeDot={{ r: 4 }}
+              name="Aufgaben"
+            />
+            <Line 
+              yAxisId="left"
+              type="monotone" 
+              dataKey="stunden" 
+              stroke="#3b82f6" 
+              strokeWidth={2}
+              dot={{ r: 2 }}
+              activeDot={{ r: 4 }}
+              name="Stunden"
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
       
-      <div className="text-xs text-muted-foreground mt-2">
+      <div className="text-xs text-muted-foreground text-center">
         Erfasst für die letzten 7 Tage
       </div>
     </div>
