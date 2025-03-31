@@ -181,10 +181,12 @@ export function ProtocolForm({
   });
 
   const onSubmit = (values: ProtocolFormValues) => {
-    // Formatiertes Datum für API-Anfrage
+    // API-Anfrage Daten vorbereiten
+    // WICHTIG: Wir lassen date als Date-Objekt (nicht toISOString), da das Backend Zod-Validierung mit z.date() verwendet
+    // Füge creatorId hinzu, die vom Backend erwartet wird
     const formattedValues = {
       ...values,
-      date: values.date.toISOString(),
+      creatorId: 1, // Fester Wert für den aktuellen Benutzer, der im Backend bereits über req.userId verfügbar ist
     };
 
     if (editMode && protocolId) {

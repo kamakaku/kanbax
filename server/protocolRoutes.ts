@@ -67,6 +67,16 @@ export function registerProtocolRoutes(app: Express) {
     try {
       const userId = req.userId as number;
       
+      // Stellt sicher, dass die creatorId gesetzt ist (entweder aus dem Request oder vom aktuellen Benutzer)
+      if (!req.body.creatorId) {
+        req.body.creatorId = userId;
+      }
+      
+      // Wenn date als String kommt, konvertieren wir es zu einem Date-Objekt
+      if (req.body.date && typeof req.body.date === 'string') {
+        req.body.date = new Date(req.body.date);
+      }
+      
       // Daten validieren
       const validationResult = insertMeetingProtocolSchema.safeParse(req.body);
       
@@ -97,6 +107,16 @@ export function registerProtocolRoutes(app: Express) {
     try {
       const userId = req.userId as number;
       const protocolId = parseInt(req.params.id);
+      
+      // Stellt sicher, dass die creatorId gesetzt ist (entweder aus dem Request oder vom aktuellen Benutzer)
+      if (!req.body.creatorId) {
+        req.body.creatorId = userId;
+      }
+      
+      // Wenn date als String kommt, konvertieren wir es zu einem Date-Objekt
+      if (req.body.date && typeof req.body.date === 'string') {
+        req.body.date = new Date(req.body.date);
+      }
       
       // Nur erlaubte Felder aktualisieren
       const updateData = insertMeetingProtocolSchema.partial().safeParse(req.body);
