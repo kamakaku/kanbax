@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, FileEdit, FileX, Calendar, Users } from "lucide-react";
+import { PlusCircle, FileEdit, FileX, Calendar, Users, Copy } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { ProtocolForm } from "./protocol-form";
@@ -32,6 +32,7 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingProtocol, setEditingProtocol] = useState<any>(null);
   const [protocolToDelete, setProtocolToDelete] = useState<number | null>(null);
+  const [duplicateData, setDuplicateData] = useState<any>(null);
   const queryClient = useQueryClient();
 
   // Abfrage der Protokolle basierend auf Team, Projekt oder Objective
@@ -258,10 +259,17 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                             </div>
                           </div>
                           
-                          {item.notes && (
+                          {(item.notes || item.richNotes) && (
                             <div className="mt-2">
                               <h6 className="text-xs font-medium text-muted-foreground mb-0.5">Beschlüsse/Notizen</h6>
-                              <p className="text-sm whitespace-pre-line">{item.notes}</p>
+                              {item.richNotes ? (
+                                <div 
+                                  className="text-sm prose prose-sm max-w-none" 
+                                  dangerouslySetInnerHTML={{ __html: item.richNotes }}
+                                />
+                              ) : (
+                                <p className="text-sm whitespace-pre-line">{item.notes}</p>
+                              )}
                             </div>
                           )}
                           
@@ -302,6 +310,43 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => {
+                      // Protokoll duplizieren
+                      const now = new Date();
+                      setShowCreateForm(true);
+                      // Wir setzen die Werte für das neue Protokoll, ändern aber den Titel
+                      const duplicateProtocol = {
+                        ...protocol,
+                        title: `${protocol.title} (Kopie)`,
+                        date: now, // Aktuelles Datum für die Kopie
+                        participants: protocol.participantDetails?.map((u: any) => u.id.toString()) || [],
+                        teamParticipants: protocol.teamParticipantDetails?.map((t: any) => t.id) || [],
+                      };
+                      // ID entfernen, damit es als neues Protokoll angelegt wird
+                      delete duplicateProtocol.id;
+                      setDuplicateData(duplicateProtocol);
+                    }}
+                  >
+                    <svg 
+                      className="h-4 w-4 mr-1" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="24" 
+                      height="24" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    >
+                      <rect x="8" y="8" width="12" height="12" rx="2" ry="2"></rect>
+                      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+                    </svg>
+                    Duplizieren
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="text-red-500 hover:text-red-600"
                     onClick={() => handleDelete(protocol.id)}
                   >
@@ -337,10 +382,16 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
       {/* Formular zum Erstellen eines neuen Protokolls */}
       <ProtocolForm
         open={showCreateForm}
-        onOpenChange={setShowCreateForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowCreateForm(false);
+            setDuplicateData(null); // Wenn wir schließen, setzen wir die duplizierten Daten zurück
+          }
+        }}
         teamId={teamId}
         projectId={projectId}
         objectiveId={objectiveId}
+        initialValues={duplicateData} // Verwenden der duplizierten Protokolldaten wenn vorhanden
         onSuccess={() => {
           if (teamId) {
             queryClient.invalidateQueries({ queryKey: [`/api/protocols/team/${teamId}`] });
@@ -351,6 +402,7 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
           if (objectiveId) {
             queryClient.invalidateQueries({ queryKey: [`/api/protocols/objective/${objectiveId}`] });
           }
+          setDuplicateData(null); // Nach dem Speichern zurücksetzen
         }}
       />
 

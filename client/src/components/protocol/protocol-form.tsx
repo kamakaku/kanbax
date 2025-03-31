@@ -20,12 +20,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 // Schema für einen einzelnen Agenda-Punkt
 const agendaItemSchema = z.object({
   id: z.string(), // Einzigartige ID für jeden Punkt
   title: z.string().min(1, "Titel ist erforderlich"),
   notes: z.string().optional().default(""),
+  richNotes: z.string().optional().default(""), // Für Rich-Text-Editor
   assignment: z.string().optional().default(""),
   categories: z.array(z.enum(["information", "task", "decision"])).default([]),
 });
@@ -109,6 +111,7 @@ export function ProtocolForm({
       id: generateId(),
       title: "",
       notes: "",
+      richNotes: "", // Rich-Text-Content initialisieren
       assignment: "",
       categories: []
     });
@@ -364,12 +367,30 @@ export function ProtocolForm({
                               name={`agendaItems.${index}.notes`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Beschlüsse/Notizen</FormLabel>
+                                  <FormLabel>Notizen (Einfacher Text)</FormLabel>
                                   <FormControl>
                                     <Textarea
-                                      placeholder="Beschreibung und Notizen"
+                                      placeholder="Beschreibung und Notizen (einfacher Text)"
                                       className="min-h-[80px]"
                                       {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                              
+                            <FormField
+                              control={form.control}
+                              name={`agendaItems.${index}.richNotes`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Beschlüsse/Notizen (Rich-Text)</FormLabel>
+                                  <FormControl>
+                                    <RichTextEditor
+                                      content={field.value}
+                                      onChange={field.onChange}
+                                      placeholder="Beschlüsse und Notizen mit Formatierung"
                                     />
                                   </FormControl>
                                   <FormMessage />
