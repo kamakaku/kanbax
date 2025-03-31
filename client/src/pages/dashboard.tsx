@@ -10,6 +10,7 @@ import {
   TableHead, 
   TableRow, 
   TableHeader, 
+  TableHeaderCell as TableHead,
   TableCell, 
   TableBody, 
   Table 
@@ -40,9 +41,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
   });
 
   const { data: myTasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
-    queryKey: ["/api/user-tasks"],
+    queryKey: ["/api/assigned-tasks"], // Fetching all assigned tasks.  Needs further refinement.
     queryFn: async () => {
-      const res = await fetch("/api/user-tasks");
+      const res = await fetch("/api/assigned-tasks"); //Endpoint needs to be created to reflect this change.
       if (!res.ok) throw new Error("Fehler beim Laden der Aufgaben");
       return res.json();
     }
@@ -94,6 +95,12 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     return baseColors[category];
   };
 
+  // Calculate task status counts
+  const tasksByStatus = myTasks.reduce((acc, task) => {
+    acc[task.status] = (acc[task.status] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-end h-48 gap-12 mb-2">
@@ -120,28 +127,27 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
         {/* Task-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Tasks</span>
-          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-            <div 
-              className={`absolute bottom-0 w-full ${getBarColor(taskProgress, 'task')} transition-all`} 
-              style={{ height: `${taskProgress}%` }}
-            />
-            <div className="absolute inset-0 flex items-end justify-center p-2">
-              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                {taskProgress}%
-              </span>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-4 rounded-lg">
+                <div className="text-sm font-medium mb-1">Zu erledigen</div>
+                <div className="text-2xl font-semibold">{tasksByStatus.todo || 0}</div>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-lg">
+                <div className="text-sm font-medium mb-1">In Bearbeitung</div>
+                <div className="text-2xl font-semibold">{tasksByStatus["in-progress"] || 0}</div>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-lg">
+                <div className="text-sm font-medium mb-1">In Überprüfung</div>
+                <div className="text-2xl font-semibold">{tasksByStatus["in-review"] || 0}</div>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-lg">
+                <div className="text-sm font-medium mb-1">Abgeschlossen</div>
+                <div className="text-2xl font-semibold">{tasksByStatus.done || 0}</div>
+              </div>
             </div>
-          </div>
-          <div className="w-full h-px bg-gray-300 mt-1" />
-          <div className="text-xs text-muted-foreground mt-1">
-            {completedTasks}/{myTasks.length}
-          </div>
-          <div className="space-y-2 mt-2">
-            <h3 className="font-medium">Tasks ({myTasks.length})</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>Zu erledigen: {myTasks.filter(t => t.status === 'todo').length}</div>
-              <div>In Bearbeitung: {myTasks.filter(t => t.status === 'in-progress').length}</div>
-              <div>In Überprüfung: {myTasks.filter(t => t.status === 'in-review').length}</div>
-              <div>Abgeschlossen: {myTasks.filter(t => t.status === 'done').length}</div>
+            <div className="text-xs text-center text-muted-foreground">
+              Gesamt: {myTasks.length} Tasks
             </div>
           </div>
         </div>
