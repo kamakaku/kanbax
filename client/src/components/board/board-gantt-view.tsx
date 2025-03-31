@@ -13,6 +13,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { apiRequest } from '@/lib/queryClient';
+import { queryClient } from '@/lib/queryClient';
 
 interface BoardGanttViewProps {
   tasks: Task[];
@@ -226,6 +228,91 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
   const toggleExpandView = () => {
     setExpandedView(!expandedView);
   };
+  
+  // Handler für Änderungen am Datum eines Tasks
+  const handleTaskDateChange = async (ganttTask: GanttTask) => {
+    try {
+      // Original-Task finden
+      const taskId = parseInt(ganttTask.id);
+      const originalTask = tasks.find(t => t.id === taskId);
+      if (!originalTask) return;
+      
+      // Formatieren des Start- und Enddatums
+      const startDate = dayjs(ganttTask.start).format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+      const dueDate = dayjs(ganttTask.end).format('YYYY-MM-DD 21:59:59.999');
+      
+      // Aktualisieren des Tasks über die API
+      await apiRequest(`/api/tasks/${taskId}`, 'PATCH', {
+        startDate,
+        dueDate,
+      });
+      
+      // Cache invalidieren, um die Änderungen zu reflektieren
+      queryClient.invalidateQueries({ queryKey: ['/api/boards', originalTask.boardId, 'tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks', taskId] });
+      
+      toast({
+        title: 'Zeitraum aktualisiert',
+        description: `Der Zeitraum für "${originalTask.title}" wurde aktualisiert.`,
+      });
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren des Datums:', error);
+      toast({
+        title: 'Fehler beim Aktualisieren',
+        description: 'Das Datum konnte nicht aktualisiert werden. Bitte versuche es erneut.',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  // Handler für Änderungen am Fortschritt eines Tasks
+  const handleTaskProgressChange = async (ganttTask: GanttTask) => {
+    try {
+      // Original-Task finden
+      const taskId = parseInt(ganttTask.id);
+      const originalTask = tasks.find(t => t.id === taskId);
+      if (!originalTask || !originalTask.checklist || originalTask.checklist.length === 0) return;
+      
+      // Aktuellen Fortschritt berechnen
+      const progress = Math.round(ganttTask.progress);
+      const totalItems = originalTask.checklist.length;
+      const itemsToCheck = Math.ceil((progress / 100) * totalItems);
+      
+      // Checkliste aktualisieren
+      const updatedChecklist = originalTask.checklist.map((item, index) => {
+        try {
+          const parsedItem = typeof item === 'string' ? JSON.parse(item) : item;
+          return JSON.stringify({
+            ...parsedItem,
+            checked: index < itemsToCheck, // Die ersten X Items als erledigt markieren
+          });
+        } catch (e) {
+          return item; // Bei Parsing-Fehler das Original behalten
+        }
+      });
+      
+      // Aktualisieren des Tasks über die API
+      await apiRequest(`/api/tasks/${taskId}`, 'PATCH', {
+        checklist: updatedChecklist,
+      });
+      
+      // Cache invalidieren, um die Änderungen zu reflektieren
+      queryClient.invalidateQueries({ queryKey: ['/api/boards', originalTask.boardId, 'tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks', taskId] });
+      
+      toast({
+        title: 'Fortschritt aktualisiert',
+        description: `Der Fortschritt für "${originalTask.title}" wurde auf ${progress}% gesetzt.`,
+      });
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren des Fortschritts:', error);
+      toast({
+        title: 'Fehler beim Aktualisieren',
+        description: 'Der Fortschritt konnte nicht aktualisiert werden. Bitte versuche es erneut.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
     <div className={cn(
@@ -378,8 +465,8 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
           <Gantt
             tasks={ganttTasks}
             viewMode={viewMode}
-            onDateChange={(task) => console.log("Date changed", task)}
-            onProgressChange={(task) => console.log("Progress changed", task)}
+            onDateChange={handleTaskDateChange}
+            onProgressChange={handleTaskProgressChange}
             onDoubleClick={handleTaskClick}
             onClick={handleTaskClick}
             columnWidth={columnWidth}
