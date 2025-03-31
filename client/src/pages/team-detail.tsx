@@ -117,9 +117,15 @@ export default function TeamDetail() {
   const teamObjectives = allObjectives.filter(obj => obj.teamId === teamId);
 
   // Filtern der Projekte, die mit diesem Team verbunden sind
-  const teamProjects = allProjects.filter(proj => 
-    (proj.teamIds && Array.isArray(proj.teamIds) && proj.teamIds.includes(teamId))
-  );
+  console.log("Team ID für Filterung:", teamId);
+  console.log("Alle Projekte:", allProjects);
+  
+  const teamProjects = allProjects.filter(proj => {
+    console.log("Prüfe Projekt:", proj.id, proj.title, "teamIds:", proj.teamIds);
+    return (proj.teamIds && Array.isArray(proj.teamIds) && proj.teamIds.includes(teamId));
+  });
+  
+  console.log("Gefilterte Team-Projekte:", teamProjects);
 
   // Team-Mitglieder-Liste erstellen
   const getTeamUserIds = () => {
