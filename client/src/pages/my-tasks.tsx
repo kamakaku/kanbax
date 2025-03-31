@@ -50,6 +50,21 @@ export default function MyTasks() {
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
+  const [location, setLocation] = useLocation();
+  
+  // Prüfen, ob ein Task-ID über die URL weitergegeben wurde
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('taskId');
+    
+    if (taskId && tasks) {
+      const task = tasks.find(t => t.id === parseInt(taskId));
+      if (task) {
+        setSelectedTask(task);
+        setIsTaskDialogOpen(true);
+      }
+    }
+  }, [tasks]);
   
   const handleNewTaskDialog = () => {
     setSelectedLabels([]); // Labels zurücksetzen

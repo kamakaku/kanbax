@@ -70,7 +70,14 @@ function DashboardTaskRows() {
         <TableRow 
           key={task.id} 
           className="hover:bg-slate-50 cursor-pointer"
-          onClick={() => setLocation(`/board/${task.boardId}?taskId=${task.id}`)}
+          onClick={() => {
+            // Wenn es eine boardId gibt, zum Board mit taskId navigieren, ansonsten zur persönlichen Aufgabenliste
+            if (task.boardId) {
+              setLocation(`/board/${task.boardId}?taskId=${task.id}`);
+            } else {
+              setLocation(`/my-tasks?taskId=${task.id}`);
+            }
+          }}
         >
           <TableCell className="font-medium truncate max-w-[200px]">{task.title}</TableCell>
           <TableCell>
