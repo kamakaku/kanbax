@@ -179,6 +179,11 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     review: (statusCounts.review / totalTasks) * 100 || 0,
     done: (statusCounts.done / totalTasks) * 100 || 0
   };
+  
+  // Berechne den durchschnittlichen Fortschritt der Objectives
+  const averageProgress = objectives.length > 0
+    ? Math.round(objectives.reduce((acc, obj) => acc + (obj.progress || 0), 0) / objectives.length)
+    : 0;
 
   return (
     <div className="space-y-4">
