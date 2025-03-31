@@ -63,7 +63,9 @@ export function RichTextEditor({
             class: 'my-custom-code',
             style: 'margin: 0 !important; padding: 0 !important; background: transparent;'
           }
-        }
+        },
+        // Deaktiviere die integrierte Strike-Extension von StarterKit, da wir unsere eigene verwenden
+        strike: false
       }),
       TextStyle,
       Color,
