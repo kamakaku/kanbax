@@ -483,7 +483,7 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
   };
 
   return (
-    <div>
+    <div className="bg-card rounded-lg border p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Protokolle</h2>
         <Button
