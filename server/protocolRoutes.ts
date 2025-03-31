@@ -156,7 +156,9 @@ export function registerProtocolRoutes(app: Express) {
         notificationType: "protocol_update",
         teamId: updateData.data.teamId,
         projectId: updateData.data.projectId,
-        objectiveId: updateData.data.objectiveId
+        objectiveId: updateData.data.objectiveId,
+        protocolId: protocolId,
+        visibleToTeams: updateData.data.teamParticipants || []
       });
 
       await notificationService.processActivityLog(activityLog.id);
