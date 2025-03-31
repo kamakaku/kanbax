@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { useStore } from "@/lib/store";
 import { useLocation } from "wouter";
-import { Plus, ChevronsRight } from "lucide-react";
+import { Plus, ChevronsRight, InfoIcon } from "lucide-react";
 import { CardTitle, CardDescription, CardContent, CardHeader, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -20,6 +20,12 @@ import { ActivityFeed } from "@/components/activity/activity-feed";
 import { useQuery } from "@tanstack/react-query";
 import { Project, Board, Objective, Task } from "@/types/index";
 import type { UserProductivityMetrics } from "@/types/index";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Produktivitäts-Metriken-Komponente
 interface ProductivityMetricsCardProps {
@@ -180,17 +186,37 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
         {/* Projekt-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Projekte</span>
-          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-            <div 
-              className={`absolute bottom-0 w-full ${getBarColor(projectProgress, 'project')} transition-all`} 
-              style={{ height: `${projectProgress}%` }}
-            />
-            <div className="absolute inset-0 flex items-end justify-center p-2">
-              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                {projectProgress}%
-              </span>
-            </div>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+                  <div 
+                    className={`absolute bottom-0 w-full ${getBarColor(projectProgress, 'project')} transition-all`} 
+                    style={{ height: `${projectProgress}%` }}
+                  />
+                  <div className="absolute inset-0 flex items-end justify-center p-2">
+                    <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                      {projectProgress}%
+                    </span>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                <div className="text-xs font-medium mb-1">Projektfortschritt</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <div className="text-xs">
+                    <span className="font-medium">{completedProjects}</span> von <span className="font-medium">{projects.length}</span> Projekten abgeschlossen
+                  </div>
+                </div>
+                {projects.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {projects.length - completedProjects} Projekte noch in Bearbeitung
+                  </div>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <div className="w-full h-px bg-gray-300 mt-1" />
           <div className="text-xs text-muted-foreground mt-1">
             {completedProjects}/{projects.length}
@@ -200,17 +226,42 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
         {/* Key-Results-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Key Results</span>
-          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-            <div 
-              className={`absolute bottom-0 w-full ${getBarColor(keyResultProgress, 'okr')} transition-all`} 
-              style={{ height: `${keyResultProgress}%` }}
-            />
-            <div className="absolute inset-0 flex items-end justify-center p-2">
-              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                {keyResultProgress}%
-              </span>
-            </div>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+                  <div 
+                    className={`absolute bottom-0 w-full ${getBarColor(keyResultProgress, 'okr')} transition-all`} 
+                    style={{ height: `${keyResultProgress}%` }}
+                  />
+                  <div className="absolute inset-0 flex items-end justify-center p-2">
+                    <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                      {keyResultProgress}%
+                    </span>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                <div className="text-xs font-medium mb-1">OKR-Fortschritt</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-purple-500" />
+                  <div className="text-xs">
+                    <span className="font-medium">{completedObjectives}</span> von <span className="font-medium">{objectives.length}</span> Objectives abgeschlossen
+                  </div>
+                </div>
+                {objectives.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Durchschnittlicher Fortschritt: {averageProgress}%
+                  </div>
+                )}
+                {objectives.length > 0 && objectives.length - completedObjectives > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {objectives.length - completedObjectives} Objectives noch in Bearbeitung
+                  </div>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <div className="w-full h-px bg-gray-300 mt-1" />
           <div className="text-xs text-muted-foreground mt-1">
             {completedObjectives}/{objectives.length}
@@ -221,34 +272,125 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Alle Tasks</span>
           <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
-            {/* Statusbalken */}
-            <div className="absolute inset-0 flex flex-col-reverse">
-              <div 
-                className="bg-slate-300"
-                style={{ height: `${percentages.backlog}%` }}
-                title={`${statusConfig.backlog.label}: ${statusCounts.backlog} Aufgaben`}
-              />
-              <div 
-                className="bg-blue-300"
-                style={{ height: `${percentages.todo}%` }}
-                title={`${statusConfig.todo.label}: ${statusCounts.todo} Aufgaben`}
-              />
-              <div 
-                className="bg-amber-400"
-                style={{ height: `${percentages.inProgress}%` }}
-                title={`${statusConfig.inProgress.label}: ${statusCounts.inProgress} Aufgaben`}
-              />
-              <div 
-                className="bg-purple-400"
-                style={{ height: `${percentages.review}%` }}
-                title={`${statusConfig.review.label}: ${statusCounts.review} Aufgaben`}
-              />
-              <div 
-                className="bg-green-400"
-                style={{ height: `${percentages.done}%` }}
-                title={`${statusConfig.done.label}: ${statusCounts.done} Aufgaben`}
-              />
-            </div>
+            {/* Statusbalken mit Tooltips */}
+            <TooltipProvider>
+              <div className="absolute inset-0 flex flex-col-reverse">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="bg-slate-300 cursor-help"
+                      style={{ height: `${percentages.backlog}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.backlog.label}
+                    </div>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-slate-300 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.backlog} Aufgaben ({percentages.backlog.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.backlog.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="bg-blue-300 cursor-help"
+                      style={{ height: `${percentages.todo}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.todo.label}
+                    </div>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-blue-300 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.todo} Aufgaben ({percentages.todo.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.todo.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="bg-amber-400 cursor-help"
+                      style={{ height: `${percentages.inProgress}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.inProgress.label}
+                    </div>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.inProgress} Aufgaben ({percentages.inProgress.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.inProgress.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="bg-purple-400 cursor-help"
+                      style={{ height: `${percentages.review}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.review.label}
+                    </div>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-purple-400 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.review} Aufgaben ({percentages.review.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.review.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="bg-green-400 cursor-help"
+                      style={{ height: `${percentages.done}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.done.label}
+                    </div>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-green-400 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.done} Aufgaben ({percentages.done.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.done.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
 
             {/* Beschriftung */}
             <div className="absolute inset-0 flex items-end justify-center p-2">
@@ -260,6 +402,33 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           <div className="w-full h-px bg-gray-300 mt-1" />
           <div className="text-xs text-muted-foreground mt-1">
             {statusCounts.done}/{totalTasks}
+          </div>
+          {/* Legende */}
+          <div className="flex items-center justify-center flex-wrap gap-1 mt-2 text-[10px] text-gray-500">
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
+              <span>Erledigt</span>
+            </div>
+            <div className="mx-1">•</div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-purple-400 rounded-full mr-1"></div>
+              <span>Review</span>
+            </div>
+            <div className="mx-1">•</div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-amber-400 rounded-full mr-1"></div>
+              <span>In Bearbeitung</span>
+            </div>
+            <div className="mx-1">•</div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-blue-300 rounded-full mr-1"></div>
+              <span>To-Do</span>
+            </div>
+            <div className="mx-1">•</div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-slate-300 rounded-full mr-1"></div>
+              <span>Backlog</span>
+            </div>
           </div>
         </div>
       </div>
