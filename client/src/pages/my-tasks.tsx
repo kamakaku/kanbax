@@ -536,10 +536,11 @@ export default function MyTasks() {
                   id={column.id}
                   title={column.title}
                   tasks={filteredTasks.filter(task => task.status === column.id)}
-                  onTaskClick={(task) => {
+                  onTaskClick={(task: Task) => {
                     setSelectedTask(task as TaskWithDetails);
                     setIsTaskDialogOpen(true);
                   }}
+                  onUpdate={handleTaskUpdate}
                   sortable={true}
                   showBoardInfo={true}
                 />
@@ -561,14 +562,8 @@ export default function MyTasks() {
         {/* Task Dialog für Bearbeitung */}
         {selectedTask && (
           <TaskDialog
-            isOpen={isTaskDialogOpen}
-            onClose={() => {
-              setIsTaskDialogOpen(false);
-              // URL-Parameter entfernen
-              const url = new URL(window.location.href);
-              url.searchParams.delete('taskId');
-              window.history.replaceState({}, '', url.toString());
-            }}
+            open={isTaskDialogOpen}
+            onOpenChange={setIsTaskDialogOpen}
             task={selectedTask}
             onUpdate={handleTaskUpdate}
           />
@@ -576,8 +571,8 @@ export default function MyTasks() {
 
         {/* Neuer Task Dialog */}
         <TaskDialog
-          isOpen={isNewTaskDialogOpen}
-          onClose={() => setIsNewTaskDialogOpen(false)}
+          open={isNewTaskDialogOpen}
+          onOpenChange={setIsNewTaskDialogOpen}
           onUpdate={async (newTask) => {
             try {
               await apiRequest("POST", "/api/tasks", {
@@ -598,7 +593,8 @@ export default function MyTasks() {
               });
             }
           }}
-          isNew={true}
+          isPersonalTask={true}
+          task={undefined}
         />
       </div>
     </div>

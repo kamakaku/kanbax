@@ -7,14 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
 interface ColumnProps {
-  column: {
+  // Unterstützung für verschiedene Übergabemöglichkeiten
+  column?: {
     id: string | number;
     title?: string;
   };
+  // Alternative direkte Übergabe
+  id?: string | number;
+  title?: string;
   tasks: Task[];
-  onUpdate: (task: Task) => Promise<void>;
+  onUpdate?: (task: Task) => Promise<void>;
+  onTaskClick?: (task: Task) => void;
   showArchivedTasks?: boolean;
   onClick?: (task: Task) => void;
+  sortable?: boolean;
+  showBoardInfo?: boolean;
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -50,15 +57,41 @@ const getColumnStyle = (columnId: string | number) => {
   return statusColors[id] || statusColors.backlog;
 };
 
-export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onClick }: ColumnProps) {
+export function Column(props: ColumnProps) {
+  const { 
+    column, 
+    id: propId, 
+    title: propTitle, 
+    tasks, 
+    onUpdate = async () => {}, 
+    showArchivedTasks = false, 
+    onClick, 
+    onTaskClick
+  } = props;
+  
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
+
+  // Entweder das column-Objekt oder die direkt übergebenen Props verwenden
+  const columnId = column?.id || propId || "unknown";
+  const columnTitle = column?.title || propTitle || "Untitled";
 
   // Die Filterung erfolgt jetzt in der übergeordneten Komponente
   const filteredTasks = tasks;
 
-  const columnStyle = getColumnStyle(column.id);
-  const displayTitle = column.title || "Untitled";
+  const columnStyle = getColumnStyle(columnId);
+  const displayTitle = columnTitle;
+
+  const handleTaskClick = (task: Task) => {
+    if (onTaskClick) {
+      onTaskClick(task);
+    } else if (onClick) {
+      onClick(task);
+    } else {
+      setSelectedTask(task);
+      setIsTaskDialogOpen(true);
+    }
+  };
 
   return (
     <div className={`
@@ -98,7 +131,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
         </div>
       </div>
 
-      <Droppable droppableId={column.id.toString()}>
+      <Droppable droppableId={columnId.toString()}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -119,14 +152,7 @@ export function Column({ column, tasks, onUpdate, showArchivedTasks = false, onC
                 key={task.id}
                 task={task}
                 index={index}
-                onClick={(task) => {
-                  if (onClick) {
-                    onClick(task);
-                  } else {
-                    setSelectedTask(task);
-                    setIsTaskDialogOpen(true);
-                  }
-                }}
+                onClick={handleTaskClick}
                 onUpdate={onUpdate}
               />
             ))}
