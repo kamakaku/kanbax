@@ -484,24 +484,22 @@ export default function MyTasks() {
 
             {/* RECHTE SEITE: View-Mode Switcher und Archive Toggle */}
             <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-1 bg-slate-100 rounded-md p-1">
+              <div className="flex items-center border rounded-md">
                 <Button
-                  size="sm"
                   variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                  className={`px-2 py-1 h-8 ${viewMode === 'kanban' ? 'bg-white shadow-sm' : ''}`}
                   onClick={() => setViewMode('kanban')}
+                  size="icon"
+                  className="rounded-none rounded-l-md h-8 w-8"
                 >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Kanban
+                  <LayoutGrid className="h-4 w-4" />
                 </Button>
                 <Button
-                  size="sm"
                   variant={viewMode === 'table' ? 'default' : 'ghost'}
-                  className={`px-2 py-1 h-8 ${viewMode === 'table' ? 'bg-white shadow-sm' : ''}`}
                   onClick={() => setViewMode('table')}
+                  size="icon"
+                  className="rounded-none rounded-r-md h-8 w-8"
                 >
-                  <Table className="h-4 w-4 mr-1" />
-                  Liste
+                  <Table className="h-4 w-4" />
                 </Button>
               </div>
               
