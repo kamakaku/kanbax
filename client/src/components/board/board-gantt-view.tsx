@@ -383,7 +383,9 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
             onDoubleClick={handleTaskClick}
             onClick={handleTaskClick}
             columnWidth={columnWidth}
-            listCellWidth="0"
+            ListHeaderComponent={() => null}
+            TaskListHeader={() => null}
+            TaskListTable={() => null}
             rowHeight={40}
             headerHeight={50}
             barCornerRadius={4}
