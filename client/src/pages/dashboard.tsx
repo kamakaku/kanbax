@@ -54,13 +54,13 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
   // Daten für das Diagramm vorbereiten
   const chartData = metrics.map(day => ({
     date: format(new Date(day.date), 'dd.MM', { locale: de }),
-    erledigte: day.tasksCompleted || 0,
-    stunden: Math.round((day.timeSpentMinutes || 0) / 60),
+    erledigt: day.tasksCompleted || 0,
+    erstellt: day.tasksCreated || 0,
   }));
 
   // Gesamtwerte für die letzten 7 Tage berechnen
   const totalTasksCompleted = metrics.reduce((acc, day) => acc + (day.tasksCompleted || 0), 0);
-  const totalTimeSpentHours = Math.round(metrics.reduce((acc, day) => acc + (day.timeSpentMinutes || 0), 0) / 60);
+  const totalTasksCreated = metrics.reduce((acc, day) => acc + (day.tasksCreated || 0), 0);
   
   return (
     <div className="space-y-3">
@@ -69,15 +69,15 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           <CheckCircle className="h-4 w-4 text-green-500" />
           <div>
             <span className="font-medium">{totalTasksCompleted}</span>
-            <span className="text-xs text-muted-foreground ml-1">Aufgaben</span>
+            <span className="text-xs text-muted-foreground ml-1">erledigt</span>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-blue-500" />
+          <Plus className="h-4 w-4 text-blue-500" />
           <div>
-            <span className="font-medium">{totalTimeSpentHours}</span>
-            <span className="text-xs text-muted-foreground ml-1">Std.</span>
+            <span className="font-medium">{totalTasksCreated}</span>
+            <span className="text-xs text-muted-foreground ml-1">erstellt</span>
           </div>
         </div>
       </div>
@@ -105,28 +105,28 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               width={20}
             />
             <Tooltip 
-              formatter={(value, name) => [value, name === "erledigte" ? "Aufgaben" : "Stunden"]}
+              formatter={(value, name) => [value, name === "erledigt" ? "Erledigte Aufgaben" : "Erstellte Aufgaben"]}
               labelFormatter={(label) => `Datum: ${label}`}
             />
             <Line 
               yAxisId="left"
               type="monotone" 
-              dataKey="erledigte" 
+              dataKey="erledigt" 
               stroke="#10b981" 
               strokeWidth={2}
               dot={{ r: 2 }}
               activeDot={{ r: 4 }}
-              name="Aufgaben"
+              name="Erledigte"
             />
             <Line 
               yAxisId="left"
               type="monotone" 
-              dataKey="stunden" 
+              dataKey="erstellt" 
               stroke="#3b82f6" 
               strokeWidth={2}
               dot={{ r: 2 }}
               activeDot={{ r: 4 }}
-              name="Stunden"
+              name="Erstellte"
             />
           </LineChart>
         </ResponsiveContainer>
