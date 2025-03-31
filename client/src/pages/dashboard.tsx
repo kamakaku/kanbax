@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { getPriorityColor } from "@/lib/utils";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { useQuery } from "@tanstack/react-query";
-import { Project, Board, Objective, Task } from "@/types/index";
+import { Project, Board, Objective, Task, KeyResult } from "@/types/index";
 import type { UserProductivityMetrics } from "@/types/index";
 import {
   Tooltip,
@@ -75,8 +75,20 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     }
   });
 
+  // Key Results abfragen
+  const { data: keyResults = [], isLoading: keyResultsLoading } = useQuery<KeyResult[]>({
+    queryKey: ['/api/key-results'],
+    queryFn: async () => {
+      const response = await fetch('/api/key-results');
+      if (!response.ok) {
+        throw new Error('Failed to fetch key results');
+      }
+      return response.json();
+    }
+  });
+
   // Lade-Status
-  if (metricsLoading || tasksLoading || projectsLoading || objectivesLoading) {
+  if (metricsLoading || tasksLoading || projectsLoading || objectivesLoading || keyResultsLoading) {
     return <div className="text-sm text-muted-foreground">Lade Produktivitätsdaten...</div>;
   }
 
@@ -228,28 +240,46 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           </div>
         </div>
         
-        {/* Key-Results-Fortschritt mit SimpleTooltip */}
+        {/* Key-Results-Fortschritt mit SimpleTooltip - individuelle Key Results */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Key Results</span>
           <SimpleTooltip 
             side="top"
             content={
-              <div>
-                <div className="text-xs font-medium mb-1">OKR-Fortschritt</div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500" />
-                  <div className="text-xs">
-                    <span className="font-medium">{completedObjectives}</span> von <span className="font-medium">{objectives.length}</span> Objectives abgeschlossen
-                  </div>
-                </div>
-                {objectives.length > 0 && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Durchschnittlicher Fortschritt: {averageProgress}%
+              <div className="p-1">
+                <div className="text-xs font-medium mb-1">Key Results Fortschritt</div>
+                {keyResults && keyResults.length > 0 ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-purple-500" />
+                      <div className="text-xs">
+                        <span className="font-medium">{keyResults.filter(kr => (kr.currentValue || 0) >= (kr.targetValue || 1)).length}</span> von <span className="font-medium">{keyResults.length}</span> Key Results abgeschlossen
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Durchschnittlicher Fortschritt: {
+                        Math.round(keyResults.reduce((acc, kr) => {
+                          // Berechne den Fortschritt für jedes Key Result als Prozentsatz
+                          const progress = Math.min(Math.round((kr.currentValue / kr.targetValue) * 100), 100);
+                          return acc + progress;
+                        }, 0) / keyResults.length)
+                      }%
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-gray-500">
+                    Keine Key Results gefunden
                   </div>
                 )}
-                {objectives.length > 0 && objectives.length - completedObjectives > 0 && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    {objectives.length - completedObjectives} Objectives noch in Bearbeitung
+                {keyResults.length > 0 && (
+                  <div className="text-xs space-y-1 mt-2 pt-1 border-t border-gray-100">
+                    <div className="font-medium">Objectives mit Key Results:</div>
+                    {objectives.slice(0, 3).map(obj => (
+                      <div key={obj.id} className="text-xs truncate max-w-40">{obj.title}</div>
+                    ))}
+                    {objectives.length > 3 && (
+                      <div className="text-xs text-gray-500">...und {objectives.length - 3} weitere</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -257,206 +287,156 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           >
             <button type="button" className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden cursor-help border-0 m-0 p-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
               <div 
-                className={`absolute bottom-0 w-full ${getBarColor(keyResultProgress, 'okr')} transition-all`} 
-                style={{ height: `${keyResultProgress}%` }}
+                className={`absolute bottom-0 w-full ${getBarColor(0, 'okr')} transition-all`} 
+                style={{ 
+                  height: `${
+                    keyResults && keyResults.length > 0 ? 
+                    Math.round(keyResults.reduce((acc, kr) => {
+                      // Berechne den Fortschritt für jedes Key Result als Prozentsatz
+                      const progress = Math.min(Math.round(((kr.currentValue || 0) / (kr.targetValue || 1)) * 100), 100);
+                      return acc + progress;
+                    }, 0) / (keyResults.length || 1)) : 0
+                  }%` 
+                }}
               />
               <div className="absolute inset-0 flex items-end justify-center p-2">
                 <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
-                  {keyResultProgress}%
+                  {
+                    keyResults && keyResults.length > 0 ? 
+                    Math.round(keyResults.reduce((acc, kr) => {
+                      // Berechne den Fortschritt für jedes Key Result als Prozentsatz
+                      const progress = Math.min(Math.round(((kr.currentValue || 0) / (kr.targetValue || 1)) * 100), 100);
+                      return acc + progress;
+                    }, 0) / (keyResults.length || 1)) : 0
+                  }%
                 </span>
               </div>
             </button>
           </SimpleTooltip>
           <div className="w-full h-px bg-gray-300 mt-1" />
           <div className="text-xs text-muted-foreground mt-1">
-            {completedObjectives}/{objectives.length}
+            {keyResults && keyResults.length > 0 ? 
+              `${keyResults.filter(kr => (kr.currentValue || 0) >= (kr.targetValue || 1)).length}/${keyResults.length}` : 
+              "0/0"
+            }
           </div>
         </div>
         
-        {/* Tasks-Fortschritt mit SimpleTooltip */}
+        {/* Tasks-Fortschritt mit SimpleTooltip - Ein Gesamtdiagramm */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Alle Tasks</span>
           
-          {/* Horizontale Balkendiagramme mit vereinfachtem Tooltip */}
-          <div className="w-full h-36 bg-white rounded-md shadow-sm border border-gray-100 p-2 flex flex-col justify-between">
-            {/* Fortschrittsanzeige oben */}
-            <div className="text-center mb-2">
-              <div className="text-sm font-medium">
-                {percentages.done.toFixed(0)}% erledigt
+          {/* Ein einziges Gesamtdiagramm für Tasks */}
+          <SimpleTooltip 
+            side="top"
+            content={
+              <div className="p-1">
+                <div className="text-xs font-medium mb-1">Verteilung aller Tasks</div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-slate-300" />
+                    <div className="text-xs">
+                      <span className="font-medium">Backlog:</span> {statusCounts.backlog} ({percentages.backlog.toFixed(1)}%)
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-300" />
+                    <div className="text-xs">
+                      <span className="font-medium">To-Do:</span> {statusCounts.todo} ({percentages.todo.toFixed(1)}%)
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-400" />
+                    <div className="text-xs">
+                      <span className="font-medium">In Arbeit:</span> {statusCounts.inProgress} ({percentages.inProgress.toFixed(1)}%)
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-purple-400" />
+                    <div className="text-xs">
+                      <span className="font-medium">Review:</span> {statusCounts.review} ({percentages.review.toFixed(1)}%)
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-400" />
+                    <div className="text-xs">
+                      <span className="font-medium">Erledigt:</span> {statusCounts.done} ({percentages.done.toFixed(1)}%)
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 mt-2 pt-1 border-t border-gray-100">
+                  Gesamt: {totalTasks} Tasks
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {statusCounts.done} von {totalTasks} Tasks abgeschlossen
+            }
+          >
+            <button type="button" className="w-full h-36 bg-white rounded-md shadow-sm border border-gray-100 cursor-help flex flex-col p-2">
+              {/* Fortschrittsanzeige oben */}
+              <div className="text-center mb-3">
+                <div className="text-sm font-medium">
+                  {percentages.done.toFixed(0)}% erledigt
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {statusCounts.done} von {totalTasks} Tasks abgeschlossen
+                </div>
               </div>
-            </div>
-            
-            {/* Individuelle Statuszeilen mit SimpleTooltip */}
-            <div className="space-y-2 flex-1 flex flex-col justify-center">
-              {/* Backlog */}
-              <SimpleTooltip 
-                side="right"
-                content={
-                  <div>
-                    <div className="text-xs font-medium">{statusConfig.backlog.label}</div>
-                    <div className="flex items-center mt-1">
-                      <div className="w-3 h-3 rounded-full bg-slate-300 mr-1.5" />
-                      <div className="text-xs text-gray-600">
-                        {statusCounts.backlog} Aufgaben ({percentages.backlog.toFixed(1)}%)
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {statusConfig.backlog.description}
-                    </div>
-                  </div>
-                }
-              >
-                <button 
-                  type="button"
-                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
-                >
-                  <span className="w-16 inline-block">Backlog</span>
-                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-slate-300" 
-                      style={{ width: `${percentages.backlog}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-muted-foreground">{statusCounts.backlog}</span>
-                </button>
-              </SimpleTooltip>
-
-              {/* To-Do */}
-              <SimpleTooltip 
-                side="right"
-                content={
-                  <div>
-                    <div className="text-xs font-medium">{statusConfig.todo.label}</div>
-                    <div className="flex items-center mt-1">
-                      <div className="w-3 h-3 rounded-full bg-blue-300 mr-1.5" />
-                      <div className="text-xs text-gray-600">
-                        {statusCounts.todo} Aufgaben ({percentages.todo.toFixed(1)}%)
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {statusConfig.todo.description}
-                    </div>
-                  </div>
-                }
-              >
-                <button 
-                  type="button"
-                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
-                >
-                  <span className="w-16 inline-block">To-Do</span>
-                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-blue-300" 
-                      style={{ width: `${percentages.todo}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-muted-foreground">{statusCounts.todo}</span>
-                </button>
-              </SimpleTooltip>
-
-              {/* In Progress */}
-              <SimpleTooltip 
-                side="right"
-                content={
-                  <div>
-                    <div className="text-xs font-medium">{statusConfig.inProgress.label}</div>
-                    <div className="flex items-center mt-1">
-                      <div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5" />
-                      <div className="text-xs text-gray-600">
-                        {statusCounts.inProgress} Aufgaben ({percentages.inProgress.toFixed(1)}%)
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {statusConfig.inProgress.description}
-                    </div>
-                  </div>
-                }
-              >
-                <button 
-                  type="button"
-                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
-                >
-                  <span className="w-16 inline-block">In Arbeit</span>
-                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-amber-400" 
-                      style={{ width: `${percentages.inProgress}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-muted-foreground">{statusCounts.inProgress}</span>
-                </button>
-              </SimpleTooltip>
-
-              {/* Review */}
-              <SimpleTooltip 
-                side="right"
-                content={
-                  <div>
-                    <div className="text-xs font-medium">{statusConfig.review.label}</div>
-                    <div className="flex items-center mt-1">
-                      <div className="w-3 h-3 rounded-full bg-purple-400 mr-1.5" />
-                      <div className="text-xs text-gray-600">
-                        {statusCounts.review} Aufgaben ({percentages.review.toFixed(1)}%)
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {statusConfig.review.description}
-                    </div>
-                  </div>
-                }
-              >
-                <button 
-                  type="button"
-                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
-                >
-                  <span className="w-16 inline-block">Review</span>
-                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-purple-400" 
-                      style={{ width: `${percentages.review}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-muted-foreground">{statusCounts.review}</span>
-                </button>
-              </SimpleTooltip>
-
-              {/* Erledigt */}
-              <SimpleTooltip 
-                side="right"
-                content={
-                  <div>
-                    <div className="text-xs font-medium">{statusConfig.done.label}</div>
-                    <div className="flex items-center mt-1">
-                      <div className="w-3 h-3 rounded-full bg-green-400 mr-1.5" />
-                      <div className="text-xs text-gray-600">
-                        {statusCounts.done} Aufgaben ({percentages.done.toFixed(1)}%)
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {statusConfig.done.description}
-                    </div>
-                  </div>
-                }
-              >
-                <button 
-                  type="button"
-                  className="w-full flex items-center text-xs text-left border-0 bg-transparent p-0 cursor-help"
-                >
-                  <span className="w-16 inline-block">Erledigt</span>
-                  <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-green-400" 
-                      style={{ width: `${percentages.done}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-muted-foreground">{statusCounts.done}</span>
-                </button>
-              </SimpleTooltip>
-            </div>
-          </div>
+              
+              {/* Ein einzelner gestapelter Balken für alle Status */}
+              <div className="flex-1 flex items-center">
+                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
+                  <div 
+                    className="h-full bg-slate-300" 
+                    style={{ width: `${percentages.backlog}%` }}
+                    title="Backlog"
+                  ></div>
+                  <div 
+                    className="h-full bg-blue-300" 
+                    style={{ width: `${percentages.todo}%` }}
+                    title="To-Do"
+                  ></div>
+                  <div 
+                    className="h-full bg-amber-400" 
+                    style={{ width: `${percentages.inProgress}%` }}
+                    title="In Arbeit"
+                  ></div>
+                  <div 
+                    className="h-full bg-purple-400" 
+                    style={{ width: `${percentages.review}%` }}
+                    title="Review"
+                  ></div>
+                  <div 
+                    className="h-full bg-green-400" 
+                    style={{ width: `${percentages.done}%` }}
+                    title="Erledigt"
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Legende unter dem Balken */}
+              <div className="flex justify-between text-[10px] text-gray-500 mt-2">
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-slate-300 mr-1"></div>
+                  <span>Backlog</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-blue-300 mr-1"></div>
+                  <span>To-Do</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-amber-400 mr-1"></div>
+                  <span>In Arbeit</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-purple-400 mr-1"></div>
+                  <span>Review</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-green-400 mr-1"></div>
+                  <span>Erledigt</span>
+                </div>
+              </div>
+            </button>
+          </SimpleTooltip>
         </div>
       </div>
       
