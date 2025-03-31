@@ -242,7 +242,7 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
       const dueDate = dayjs(ganttTask.end).format('YYYY-MM-DD 21:59:59.999');
       
       // Aktualisieren des Tasks über die API
-      await apiRequest(`/api/tasks/${taskId}`, 'PATCH', {
+      await apiRequest('PATCH', `/api/tasks/${taskId}`, {
         startDate,
         dueDate,
       });
@@ -292,7 +292,7 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
       });
       
       // Aktualisieren des Tasks über die API
-      await apiRequest(`/api/tasks/${taskId}`, 'PATCH', {
+      await apiRequest('PATCH', `/api/tasks/${taskId}`, {
         checklist: updatedChecklist,
       });
       
