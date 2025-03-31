@@ -93,7 +93,8 @@ export const tasks = pgTable("tasks", {
   columnId: integer("column_id"),
   priority: text("priority").notNull().default("medium"),
   labels: text("labels").array(),
-  dueDate: text("due_date"), // Store as ISO string
+  startDate: text("start_date"), // Store as ISO string for start date
+  dueDate: text("due_date"), // Store as ISO string for due date
   archived: boolean("archived").default(false),
   assignedUserIds: integer("assigned_user_ids").array(),
   assignedTeamId: integer("assigned_team_id"),
@@ -238,6 +239,7 @@ export const insertTaskSchema = createInsertSchema(tasks)
     columnId: true,
     priority: true,
     labels: true,
+    startDate: true,
     dueDate: true,
     archived: true,
     assignedUserIds: true,
@@ -262,7 +264,8 @@ export const insertTaskSchema = createInsertSchema(tasks)
     ]).optional(),
     priority: z.enum(["low", "medium", "high"]).default("medium"),
     labels: z.array(z.string()).default([]),
-    dueDate: z.string().nullable().optional(), // Accept ISO string or null
+    startDate: z.string().nullable().optional(), // Accept ISO string or null for start date
+    dueDate: z.string().nullable().optional(), // Accept ISO string or null for due date
     checklist: z.array(z.string()).default([]), // Accept stringified objects
     archived: z.boolean().default(false),
     assignedUserIds: z.array(z.number().int().positive()).default([]),

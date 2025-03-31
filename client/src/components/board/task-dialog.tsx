@@ -79,6 +79,7 @@ const taskFormSchema = z.object({
   boardId: z.number().optional(), // Board ist jetzt optional
   labels: z.array(z.string()).default([]),
   assignedUserIds: z.array(z.number()).default([]),
+  startDate: z.string().nullable().optional(), // Startdatum hinzugefügt
   dueDate: z.string().nullable(),
   archived: z.boolean().default(false),
   order: z.number().default(0),
@@ -257,6 +258,7 @@ export function TaskDialog({
       columnId: (task?.columnId && task.columnId > 0) ? task.columnId : (initialColumnId && initialColumnId > 0) ? initialColumnId : 1,
       labels: mode === "edit" && task ? task.labels || [] : [], // Bei neuen Tasks keine Labels vorauswählen
       assignedUserIds: task?.assignedUserIds || [],
+      startDate: task?.startDate || null, // Startdatum hinzugefügt
       dueDate: task?.dueDate || null,
       archived: task?.archived || false,
       order: task?.order || 0,
@@ -276,6 +278,7 @@ export function TaskDialog({
         columnId: (task?.columnId && task.columnId > 0) ? task.columnId : (initialColumnId && initialColumnId > 0) ? initialColumnId : 1,
         labels: mode === "edit" && task ? task.labels || [] : [], // Bei neuen Tasks keine Labels vorauswählen
         assignedUserIds: task?.assignedUserIds || [],
+        startDate: task?.startDate || null, // Startdatum hinzugefügt
         dueDate: task?.dueDate || null,
         archived: task?.archived || false,
         order: task?.order || 0,
@@ -380,7 +383,14 @@ export function TaskDialog({
     try {
       const formattedChecklist = checklist.map(item => JSON.stringify(item));
 
-      // Adjust the due date to end of day in local timezone
+      // Startdatum verarbeiten
+      let adjustedStartDate = null;
+      if (data.startDate) {
+        const startDate = new Date(data.startDate);
+        adjustedStartDate = startOfDay(startDate).toISOString();
+      }
+
+      // Fälligkeitsdatum verarbeiten - Ende des Tages nutzen
       let adjustedDueDate = null;
       if (data.dueDate) {
         const date = new Date(data.dueDate);
@@ -395,6 +405,7 @@ export function TaskDialog({
         const updatedTask: Task = {
           ...task,
           ...data,
+          startDate: adjustedStartDate, // Startdatum hinzugefügt
           dueDate: adjustedDueDate,
           richDescription: richDescription || task.richDescription,
           checklist: formattedChecklist,
@@ -429,6 +440,7 @@ export function TaskDialog({
             columnId: null as unknown as number, // Für persönliche Aufgaben ist columnId null
             priority: data.priority,
             labels: data.labels,
+            startDate: adjustedStartDate, // Startdatum hinzugefügt
             dueDate: adjustedDueDate,
             archived: false,
             assignedUserIds: data.assignedUserIds,
@@ -461,6 +473,7 @@ export function TaskDialog({
             columnId: data.columnId && data.columnId > 0 ? data.columnId : 1, // Fallback zu 1 (erste Spalte) wenn undefined oder 0
             priority: data.priority,
             labels: data.labels,
+            startDate: adjustedStartDate, // Startdatum hinzugefügt
             dueDate: adjustedDueDate,
             archived: false,
             assignedUserIds: data.assignedUserIds,
@@ -588,6 +601,16 @@ export function TaskDialog({
                   <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Erstellt:</td>
                   <td className="py-0.5">{format(createdAtDate, "PPP", { locale: de })}</td>
                 </tr>
+
+                {/* Startdatum */}
+                {task?.startDate && (
+                  <tr>
+                    <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Startdatum:</td>
+                    <td className="py-0.5">
+                      {format(new Date(task.startDate), "PPP", { locale: de })}
+                    </td>
+                  </tr>
+                )}
 
                 {/* Deadline */}
                 {task?.dueDate && (
@@ -1546,6 +1569,45 @@ export function TaskDialog({
 
                   <FormField
                     control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Startdatum</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={`w-full pl-3 text-left font-normal ${
+                                  !field.value && "text-muted-foreground"
+                                }`}
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "PPP", { locale: de })
+                                ) : (
+                                  <span>Wählen Sie ein Startdatum</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value ? new Date(field.value) : undefined}
+                              onSelect={(date) => field.onChange(date ? date.toISOString() : null)}
+                              initialFocus
+                              locale={de}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="dueDate"
                     render={({ field }) => (
                       <FormItem>
@@ -1562,7 +1624,7 @@ export function TaskDialog({
                                 {field.value ? (
                                   format(new Date(field.value), "PPP", { locale: de })
                                 ) : (
-                                  <span>Wählen Sie ein Datum</span>
+                                  <span>Wählen Sie ein Fälligkeitsdatum</span>
                                 )}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
