@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { BoardTableView } from "@/components/board/board-table-view"; // Added import
+import { useLocation } from "wouter"; // Import für useLocation Hook hinzugefügt
 
 // Erweiterte Task-Schnittstelle für die Frontend-Anzeige
 interface TaskWithDetails extends Task {
@@ -54,10 +55,12 @@ export default function MyTasks() {
   
   // Prüfen, ob ein Task-ID über die URL weitergegeben wurde
   useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
+    
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('taskId');
     
-    if (taskId && tasks) {
+    if (taskId) {
       const task = tasks.find(t => t.id === parseInt(taskId));
       if (task) {
         setSelectedTask(task);
@@ -69,17 +72,7 @@ export default function MyTasks() {
   const handleNewTaskDialog = () => {
     setSelectedLabels([]); // Labels zurücksetzen
     setIsNewTaskDialogOpen(true);
-    // Form-Werte zurücksetzen
-    form.reset({
-      title: "",
-      description: "",
-      status: "todo",
-      priority: "medium",
-      labels: [], // Labels explizit leeren
-      assignedUserIds: [],
-      dueDate: null,
-      archived: false
-    });
+    // Form-Werte müssen im TaskDialog zurückgesetzt werden
   };
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
