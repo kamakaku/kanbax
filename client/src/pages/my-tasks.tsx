@@ -52,28 +52,6 @@ export default function MyTasks() {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
   const [location, setLocation] = useLocation();
-  
-  // Prüfen, ob ein Task-ID über die URL weitergegeben wurde
-  useEffect(() => {
-    if (!tasks || tasks.length === 0) return;
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const taskId = urlParams.get('taskId');
-    
-    if (taskId) {
-      const task = tasks.find(t => t.id === parseInt(taskId));
-      if (task) {
-        setSelectedTask(task);
-        setIsTaskDialogOpen(true);
-      }
-    }
-  }, [tasks]);
-  
-  const handleNewTaskDialog = () => {
-    setSelectedLabels([]); // Labels zurücksetzen
-    setIsNewTaskDialogOpen(true);
-    // Form-Werte müssen im TaskDialog zurückgesetzt werden
-  };
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
@@ -82,7 +60,7 @@ export default function MyTasks() {
   const [viewMode, setViewMode] = useState('kanban'); // Add viewMode state
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
+  
   // Laden der zugewiesenen Aufgaben des aktuellen Benutzers
   const { data: tasks = [], isLoading, error } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/user/tasks/assigned"],
@@ -112,6 +90,28 @@ export default function MyTasks() {
     },
     staleTime: 1000 * 60, // 1 Minute
   });
+  
+  // Prüfen, ob ein Task-ID über die URL weitergegeben wurde
+  useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('taskId');
+    
+    if (taskId) {
+      const task = tasks.find(t => t.id === parseInt(taskId));
+      if (task) {
+        setSelectedTask(task);
+        setIsTaskDialogOpen(true);
+      }
+    }
+  }, [tasks]);
+  
+  const handleNewTaskDialog = () => {
+    setSelectedLabels([]); // Labels zurücksetzen
+    setIsNewTaskDialogOpen(true);
+    // Form-Werte müssen im TaskDialog zurückgesetzt werden
+  };
 
   // Extrahiere alle eindeutigen Labels aus den Aufgaben
   const allLabels = useMemo(() => {
@@ -482,123 +482,123 @@ export default function MyTasks() {
               )}
             </div>
 
-            {/* RECHTE SEITE: View-Mode Switcher und Archiv-Toggle */}
+            {/* RECHTE SEITE: View-Mode Switcher und Archive Toggle */}
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center border rounded-md">
-                  <Button
-                    variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                    onClick={() => setViewMode('kanban')}
-                    size="icon"
-                    className="rounded-none rounded-l-md"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    onClick={() => setViewMode('table')}
-                    size="icon"
-                    className="rounded-none rounded-r-md"
-                  >
-                    <Table className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="flex items-center">
-                  <Switch
-                    id="show-archived"
-                    checked={showArchivedTasks}
-                    onCheckedChange={(value) => {
-                      console.log("My Tasks Archiv-Toggle geändert:", value);
-                      setShowArchivedTasks(value);
-                      // Nach der Statusänderung die Aufgaben neu laden
-                      queryClient.invalidateQueries({ queryKey: ["/api/user/tasks/assigned"] });
-                    }}
-                    className="data-[state=checked]:bg-blue-500"
-                  />
-                  <label
-                    htmlFor="show-archived"
-                    className="flex items-center ml-2 cursor-pointer text-sm text-muted-foreground"
-                  >
-                    <div className="relative">
-                      <Archive className={`h-4 w-4 ${!showArchivedTasks ? "text-slate-400" : "text-slate-700"}`} />
-                      {!showArchivedTasks && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-5 h-px bg-slate-400 rotate-45"></div>
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                </div>
+              <div className="flex items-center space-x-1 bg-slate-100 rounded-md p-1">
+                <Button
+                  size="sm"
+                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                  className={`px-2 py-1 h-8 ${viewMode === 'kanban' ? 'bg-white shadow-sm' : ''}`}
+                  onClick={() => setViewMode('kanban')}
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" />
+                  Kanban
+                </Button>
+                <Button
+                  size="sm"
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  className={`px-2 py-1 h-8 ${viewMode === 'table' ? 'bg-white shadow-sm' : ''}`}
+                  onClick={() => setViewMode('table')}
+                >
+                  <Table className="h-4 w-4 mr-1" />
+                  Liste
+                </Button>
+              </div>
+              
+              {/* Archive Toggle - IMMER GANZ RECHTS! */}
+              <div className="flex items-center space-x-1">
+                <Switch
+                  id="archive-view"
+                  checked={showArchivedTasks}
+                  onCheckedChange={setShowArchivedTasks}
+                />
+                <label
+                  htmlFor="archive-view"
+                  className="text-sm font-medium cursor-pointer flex items-center"
+                >
+                  {showArchivedTasks 
+                    ? <Archive className="h-4 w-4 mr-1 text-amber-500" /> 
+                    : <Archive className="h-4 w-4 mr-1" />
+                  }
+                </label>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex-1">
-          {viewMode === 'kanban' ? (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="flex gap-6 pb-4">
-              {defaultColumns.map((column) => {
-                // Filter tasks based on archive status and column
-                const columnTasks = filteredTasks
-                  .filter(task => {
-                    // Aufgaben müssen den richtigen Status haben
-                    if (task.status !== column.id) return false;
-
-                    // Die Filterung für archivierte Aufgaben erfolgt bereits in filteredTasks
-
-                    // Sowohl persönliche Aufgaben (boardId === null oder isPersonal === true) als auch
-                    // Board-gebundene Aufgaben anzeigen
-                    return true;
-                  })
-                  .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-                return (
-                  <ColumnComponent
-                    key={column.id}
-                    column={column}
-                    tasks={columnTasks}
-                    onUpdate={handleTaskUpdate}
-                    showArchivedTasks={showArchivedTasks}
-                    onClick={(task) => {
-                      setSelectedTask(task as TaskWithDetails);
-                      setIsTaskDialogOpen(true);
-                    }}
-                  />
-                );
-              })}
+        {/* Haupt-Content - entweder Kanban oder Tabelle */}
+        {viewMode === 'kanban' ? (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
+              {defaultColumns.map((column) => (
+                <ColumnComponent
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  tasks={filteredTasks.filter(task => task.status === column.id)}
+                  onTaskClick={(task) => {
+                    setSelectedTask(task as TaskWithDetails);
+                    setIsTaskDialogOpen(true);
+                  }}
+                  sortable={true}
+                  showBoardInfo={true}
+                />
+              ))}
             </div>
-            </DragDropContext>
-          ) : (
+          </DragDropContext>
+        ) : (
+          <div className="mt-4">
             <BoardTableView
               tasks={filteredTasks}
               onTaskClick={(task) => {
                 setSelectedTask(task as TaskWithDetails);
                 setIsTaskDialogOpen(true);
               }}
-              showArchivedTasks={showArchivedTasks}
             />
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Dialog für Aufgabendetails */}
-        <TaskDialog
-          task={selectedTask || undefined}
-          open={isTaskDialogOpen}
-          onOpenChange={setIsTaskDialogOpen}
-          onUpdate={handleTaskUpdate}
-          mode="details"
-        />
+        {/* Task Dialog für Bearbeitung */}
+        {selectedTask && (
+          <TaskDialog
+            isOpen={isTaskDialogOpen}
+            onClose={() => {
+              setIsTaskDialogOpen(false);
+              // URL-Parameter entfernen
+              const url = new URL(window.location.href);
+              url.searchParams.delete('taskId');
+              window.history.replaceState({}, '', url.toString());
+            }}
+            task={selectedTask}
+            onUpdate={handleTaskUpdate}
+          />
+        )}
 
-        {/* Dialog für neue Aufgaben - mit isPersonalTask=true für persönliche Aufgabenerstellung */}
+        {/* Neuer Task Dialog */}
         <TaskDialog
-          open={isNewTaskDialogOpen}
-          onOpenChange={setIsNewTaskDialogOpen}
-          onUpdate={handleTaskUpdate}
-          mode="edit"
-          initialColumnId={0}
-          isPersonalTask={true}
+          isOpen={isNewTaskDialogOpen}
+          onClose={() => setIsNewTaskDialogOpen(false)}
+          onUpdate={async (newTask) => {
+            try {
+              await apiRequest("POST", "/api/tasks", {
+                ...newTask,
+                boardId: null, // Persönliche Aufgabe ohne Board
+              });
+              queryClient.invalidateQueries({ queryKey: ["/api/user/tasks/assigned"] });
+              toast({
+                title: "Aufgabe erstellt",
+                description: "Die Aufgabe wurde erfolgreich erstellt.",
+              });
+              setIsNewTaskDialogOpen(false);
+            } catch (error) {
+              toast({
+                title: "Fehler",
+                description: `Fehler beim Erstellen: ${(error as Error).message}`,
+                variant: "destructive",
+              });
+            }
+          }}
+          isNew={true}
         />
       </div>
     </div>
