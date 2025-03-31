@@ -61,12 +61,8 @@ const convertToGanttTasks = (tasks: Task[]): GanttTask[] => {
     // Status als Projekt für gruppierte Darstellung
     const statusLabel = getStatusLabel(task.status);
 
-    // Prioritätsindikator für den Task-Titel erstellen
-    const priorityCircle = `⬤ `; // Unicode-Kreis als Prioritätsmarker
-    const priorityLabel = task.priority === 'high' || task.priority === 'hoch' ? '❗' : 
-                        task.priority === 'medium' || task.priority === 'mittel' ? '⚠️' : '✓';
-    // Titel mit Prioritätsmarker anzeigen
-    const titleWithPriority = `${priorityLabel} ${task.title}`;
+    // Keine Icons im Titel, nur den reinen Titel verwenden
+    const titleWithPriority = task.title;
 
     return {
       id: `${task.id}`,
@@ -515,14 +511,8 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
               
               return (
                 <div className="p-3 bg-white shadow-lg rounded-md border min-w-[220px]">
-                  {/* Titel mit Prioritätsindikator */}
-                  <div className="flex items-center gap-2">
-                    <span 
-                      className="h-3 w-3 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: priorityColor }}
-                    ></span>
-                    <div className="font-medium text-sm">{task.name}</div>
-                  </div>
+                  {/* Titel ohne Prioritätsindikator */}
+                  <div className="font-medium text-sm mb-1">{task.name}</div>
                   
                   {/* Priorität anzeigen */}
                   {originalTask && (
@@ -539,8 +529,7 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
                   )}
                   
                   {/* Datum */}
-                  <div className="text-xs mt-2 text-gray-600 flex gap-1 items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
+                  <div className="text-xs mt-2 text-gray-600">
                     {dayjs(task.start).format('DD.MM.YYYY')} - {dayjs(task.end).format('DD.MM.YYYY')}
                   </div>
                   
