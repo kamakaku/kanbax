@@ -274,125 +274,140 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
             {/* Statusbalken mit Tooltips */}
             <div className="absolute inset-0 flex flex-col-reverse">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button"
-                    className="bg-slate-300 cursor-help w-full border-0 m-0 p-0"
-                    style={{ height: `${percentages.backlog}%` }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                  <div className="text-xs font-medium">
-                    {statusConfig.backlog.label}
-                  </div>
-                  <div className="flex items-center mt-1">
-                    <div className="w-3 h-3 rounded-full bg-slate-300 mr-1.5" />
-                    <div className="text-xs text-gray-600">
-                      {statusCounts.backlog} Aufgaben ({percentages.backlog.toFixed(1)}%)
+              {percentages.backlog > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      aria-label="Backlog"
+                      className="bg-slate-300 cursor-help w-full border-0 m-0 p-0"
+                      style={{ height: `${percentages.backlog}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.backlog.label}
                     </div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {statusConfig.backlog.description}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-slate-300 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.backlog} Aufgaben ({percentages.backlog.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.backlog.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button"
-                    className="bg-blue-300 cursor-help w-full border-0 m-0 p-0"
-                    style={{ height: `${percentages.todo}%` }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                  <div className="text-xs font-medium">
-                    {statusConfig.todo.label}
-                  </div>
-                  <div className="flex items-center mt-1">
-                    <div className="w-3 h-3 rounded-full bg-blue-300 mr-1.5" />
-                    <div className="text-xs text-gray-600">
-                      {statusCounts.todo} Aufgaben ({percentages.todo.toFixed(1)}%)
+              {percentages.todo > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      aria-label="To-Do"
+                      className="bg-blue-300 cursor-help w-full border-0 m-0 p-0"
+                      style={{ height: `${percentages.todo}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.todo.label}
                     </div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {statusConfig.todo.description}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-blue-300 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.todo} Aufgaben ({percentages.todo.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.todo.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button"
-                    className="bg-amber-400 cursor-help w-full border-0 m-0 p-0"
-                    style={{ height: `${percentages.inProgress}%` }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                  <div className="text-xs font-medium">
-                    {statusConfig.inProgress.label}
-                  </div>
-                  <div className="flex items-center mt-1">
-                    <div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5" />
-                    <div className="text-xs text-gray-600">
-                      {statusCounts.inProgress} Aufgaben ({percentages.inProgress.toFixed(1)}%)
+              {percentages.inProgress > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      aria-label="In Bearbeitung"
+                      className="bg-amber-400 cursor-help w-full border-0 m-0 p-0"
+                      style={{ height: `${percentages.inProgress}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.inProgress.label}
                     </div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {statusConfig.inProgress.description}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.inProgress} Aufgaben ({percentages.inProgress.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.inProgress.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button"
-                    className="bg-purple-400 cursor-help w-full border-0 m-0 p-0"
-                    style={{ height: `${percentages.review}%` }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                  <div className="text-xs font-medium">
-                    {statusConfig.review.label}
-                  </div>
-                  <div className="flex items-center mt-1">
-                    <div className="w-3 h-3 rounded-full bg-purple-400 mr-1.5" />
-                    <div className="text-xs text-gray-600">
-                      {statusCounts.review} Aufgaben ({percentages.review.toFixed(1)}%)
+              {percentages.review > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      aria-label="Review"
+                      className="bg-purple-400 cursor-help w-full border-0 m-0 p-0"
+                      style={{ height: `${percentages.review}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.review.label}
                     </div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {statusConfig.review.description}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-purple-400 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.review} Aufgaben ({percentages.review.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.review.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button"
-                    className="bg-green-400 cursor-help w-full border-0 m-0 p-0"
-                    style={{ height: `${percentages.done}%` }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
-                  <div className="text-xs font-medium">
-                    {statusConfig.done.label}
-                  </div>
-                  <div className="flex items-center mt-1">
-                    <div className="w-3 h-3 rounded-full bg-green-400 mr-1.5" />
-                    <div className="text-xs text-gray-600">
-                      {statusCounts.done} Aufgaben ({percentages.done.toFixed(1)}%)
+              {percentages.done > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      aria-label="Erledigt"
+                      className="bg-green-400 cursor-help w-full border-0 m-0 p-0"
+                      style={{ height: `${percentages.done}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-white p-2 rounded shadow-lg border border-gray-200">
+                    <div className="text-xs font-medium">
+                      {statusConfig.done.label}
                     </div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {statusConfig.done.description}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                    <div className="flex items-center mt-1">
+                      <div className="w-3 h-3 rounded-full bg-green-400 mr-1.5" />
+                      <div className="text-xs text-gray-600">
+                        {statusCounts.done} Aufgaben ({percentages.done.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {statusConfig.done.description}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
 
             {/* Beschriftung */}
