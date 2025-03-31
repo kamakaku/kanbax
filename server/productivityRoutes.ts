@@ -16,8 +16,6 @@ export function registerProductivityRoutes(app: Express) {
       }
 
       const metrics = await storage.getUserProductivityMetrics(userId, days);
-      const taskStatuses = await storage.getUserTaskStatuses(userId);
-      metrics[0] = { ...metrics[0], ...taskStatuses };
 
       // Fill in missing dates with zero values
       const filledMetrics = [];

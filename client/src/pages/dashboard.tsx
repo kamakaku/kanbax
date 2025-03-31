@@ -10,7 +10,6 @@ import {
   TableHead, 
   TableRow, 
   TableHeader, 
-  TableHeaderCell,
   TableCell, 
   TableBody, 
   Table 
@@ -39,11 +38,11 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
     },
     enabled: !!userId
   });
-
+  
   const { data: myTasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
-    queryKey: ["/api/assigned-tasks"], // Fetching all assigned tasks.  Needs further refinement.
+    queryKey: ["/api/user-tasks"],
     queryFn: async () => {
-      const res = await fetch("/api/assigned-tasks"); //Endpoint needs to be created to reflect this change.
+      const res = await fetch("/api/user-tasks");
       if (!res.ok) throw new Error("Fehler beim Laden der Aufgaben");
       return res.json();
     }
@@ -77,10 +76,10 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
   // Berechnungen für Fortschrittsbalken
   const completedTasks = myTasks.filter(task => task.status === "done").length;
   const taskProgress = myTasks.length > 0 ? Math.round((completedTasks / myTasks.length) * 100) : 0;
-
+  
   const completedProjects = projects.filter(project => project.archived).length;
   const projectProgress = projects.length > 0 ? Math.round((completedProjects / projects.length) * 100) : 0;
-
+  
   const completedObjectives = objectives.filter(obj => obj.progress === 100).length;
   const keyResultProgress = objectives.length > 0 ? Math.round((completedObjectives / objectives.length) * 100) : 0;
 
@@ -91,15 +90,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
       task: 'bg-green-500',
       okr: 'bg-purple-500'
     };
-
+    
     return baseColors[category];
   };
-
-  // Calculate task status counts
-  const tasksByStatus = myTasks.reduce((acc, task) => {
-    acc[task.status] = (acc[task.status] || 0) + 1;
-    return acc;
-  }, {});
 
   return (
     <div className="space-y-4">
@@ -123,63 +116,27 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
             {completedProjects}/{projects.length}
           </div>
         </div>
-
+        
         {/* Task-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
-          <span className="text-sm font-medium mb-2">Task-Verteilung nach Status</span>
-          <div className="w-full h-8 bg-gray-100 relative rounded-md overflow-hidden flex">
-            {[
-              { status: 'backlog', color: 'bg-slate-300', label: 'Backlog' },
-              { status: 'todo', color: 'bg-blue-300', label: 'To-Do' },
-              { status: 'in-progress', color: 'bg-amber-400', label: 'In Bearbeitung' },
-              { status: 'in-review', color: 'bg-purple-400', label: 'Review' },
-              { status: 'done', color: 'bg-green-400', label: 'Erledigt' }
-            ].map(({ status, color }) => {
-              const count = tasksByStatus[status] || 0;
-              const percentage = (count / (myTasks.length || 1)) * 100;
-              
-              return (
-                <div 
-                  key={status}
-                  className={`h-full ${color} relative group cursor-pointer`}
-                  style={{ width: `${percentage}%` }}
-                >
-                  <div className="opacity-0 group-hover:opacity-100 absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
-                    <span className="text-xs font-medium text-white">
-                      {count}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="grid grid-cols-3 gap-x-4 gap-y-2 mt-4 text-xs w-full">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-slate-300" />
-              <span>Backlog ({tasksByStatus.backlog || 0})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-blue-300" />
-              <span>To-Do ({tasksByStatus.todo || 0})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
-              <span>In Bearbeitung ({tasksByStatus['in-progress'] || 0})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-purple-400" />
-              <span>Review ({tasksByStatus['in-review'] || 0})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-green-400" />
-              <span>Erledigt ({tasksByStatus.done || 0})</span>
+          <span className="text-sm font-medium mb-2">Eigene Tasks</span>
+          <div className="w-full h-36 bg-gray-100 relative rounded-md overflow-hidden" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)' }}>
+            <div 
+              className={`absolute bottom-0 w-full ${getBarColor(taskProgress, 'task')} transition-all`} 
+              style={{ height: `${taskProgress}%` }}
+            />
+            <div className="absolute inset-0 flex items-end justify-center p-2">
+              <span className="text-sm font-bold text-white bg-black/30 px-2 py-0.5 rounded">
+                {taskProgress}%
+              </span>
             </div>
           </div>
-          <div className="text-xs text-center text-muted-foreground mt-2">
-            Gesamt: {myTasks.length} Tasks
+          <div className="w-full h-px bg-gray-300 mt-1" />
+          <div className="text-xs text-muted-foreground mt-1">
+            {completedTasks}/{myTasks.length}
           </div>
         </div>
-
+        
         {/* Key-Results-Fortschritt */}
         <div className="flex flex-col items-center flex-1">
           <span className="text-sm font-medium mb-2">Key Results</span>
@@ -200,7 +157,7 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
           </div>
         </div>
       </div>
-
+      
       <div className="text-xs text-muted-foreground text-center">
         Prozentuale Vollständigkeit
       </div>
@@ -406,7 +363,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-
+          
           {/* Produktivitäts-Card in voller Breite */}
           <div className="mb-4">
             <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
@@ -419,7 +376,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-
+          
           {/* Aufgaben in "ToDo" und "In Progress" */}
           <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
             <CardHeader className="py-4">
