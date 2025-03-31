@@ -602,26 +602,29 @@ export function TaskDialog({
                   <td className="py-0.5">{format(createdAtDate, "PPP", { locale: de })}</td>
                 </tr>
 
-                {/* Zeile mit Start- und Fälligkeitsdatum */}
-                <tr>
-                  <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">Zeitraum:</td>
-                  <td className="py-0.5">
-                    {task?.startDate ? (
-                      <>
-                        <span>Von: {format(new Date(task.startDate), "PPP", { locale: de })}</span>
-                        {task?.dueDate && (
-                          <span className="ml-2">
-                            Bis: {format(new Date(task.dueDate), "PPP", { locale: de })}
-                          </span>
-                        )}
-                      </>
-                    ) : task?.dueDate ? (
-                      <span>Deadline: {format(new Date(task.dueDate), "PPP", { locale: de })}</span>
-                    ) : (
-                      <span className="text-muted-foreground italic">Kein Zeitraum definiert</span>
-                    )}
-                  </td>
-                </tr>
+                {/* Zeile mit Start- und/oder Fälligkeitsdatum */}
+                {(task?.startDate || task?.dueDate) && (
+                  <tr>
+                    <td className="text-muted-foreground font-medium pr-2 py-0.5 w-1/5">
+                      {task?.startDate && task?.dueDate 
+                        ? "Zeitraum:" 
+                        : task?.startDate 
+                          ? "Start:" 
+                          : "Deadline:"}
+                    </td>
+                    <td className="py-0.5">
+                      {task?.startDate && (
+                        <span>{format(new Date(task.startDate), "PPP", { locale: de })}</span>
+                      )}
+                      {task?.startDate && task?.dueDate && (
+                        <span className="mx-2">→</span>
+                      )}
+                      {task?.dueDate && (
+                        <span>{format(new Date(task.dueDate), "PPP", { locale: de })}</span>
+                      )}
+                    </td>
+                  </tr>
+                )}
 
                 {/* Ersteller */}
                 {creator && (
