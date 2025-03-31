@@ -20,6 +20,8 @@ import { ActivityFeed } from "@/components/activity/activity-feed";
 import { useQuery } from "@tanstack/react-query";
 import { Project, Board, Objective, Task } from "@/types/index";
 import type { UserProductivityMetrics } from "@/types/index";
+import { ProductivityDashboard } from "@/components/productivity/productivity-dashboard";
+import { AIProductivityInsights } from "@/components/productivity/ai-productivity-insights";
 
 // Produktivitäts-Metriken-Komponente
 interface ProductivityMetricsCardProps {
@@ -373,6 +375,24 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <ProductivityMetricsCard userId={user?.id || 0} />
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* KI-Produktivitätseinblicke */}
+          <div className="mb-4">
+            <AIProductivityInsights />
+          </div>
+          
+          {/* Erweiterte Produktivitätsvisualisierungen */}
+          <div className="mb-4">
+            <Card className="bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+              <CardHeader className="py-4">
+                <CardTitle>Produktivitäts-Dashboard</CardTitle>
+                <CardDescription>Detaillierte Visualisierungen Ihrer Aktivitäten</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ProductivityDashboard userId={user?.id || 0} />
               </CardContent>
             </Card>
           </div>
