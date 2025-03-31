@@ -155,12 +155,16 @@ export function Board() {
     console.log("Aktuell angezeigte Tasks:", tasks);
   }, [tasks]);
 
+  // Setze das aktuelle Board, wenn sich das Board ändert
   useEffect(() => {
     if (board) {
       setCurrentBoard(board);
     }
+  }, [board, setCurrentBoard]);
 
-    if (tasks) {
+  // Extrahiere Labels aus Tasks in einem separaten useEffect
+  useEffect(() => {
+    if (tasks && Array.isArray(tasks)) {
       const labelSet = new Set<string>();
       tasks.forEach(task => {
         if (task.labels && Array.isArray(task.labels)) {
@@ -175,7 +179,7 @@ export function Board() {
         a.localeCompare(b, 'de', { sensitivity: 'base' })
       ));
     }
-  }, [board, setCurrentBoard, tasks]);
+  }, [tasks]);
   
   // Öffne den Task-Dialog, wenn eine taskId in der URL ist und Tasks geladen sind
   useEffect(() => {
