@@ -454,49 +454,7 @@ export function ProtocolForm({
                 )}
               </div>
 
-              {/* Legacy-Felder (können später vollständig entfernt werden) */}
-              <Separator className="my-4" />
-              <div className="space-y-4">
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">Legacy-Felder (optional)</h3>
-                
-                <FormField
-                  control={form.control}
-                  name="agenda"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Agenda (einfacher Text)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Tagesordnungspunkte"
-                          className="min-h-[100px]"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="decisions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Beschlüsse (einfacher Text)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Getroffene Entscheidungen"
-                          className="min-h-[100px]"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {/* Wir haben keine Legacy-Felder mehr, diese wurden entfernt */}
 
               {/* Versteckte Felder für Team-, Projekt- oder Objective-ID */}
               {teamId && (

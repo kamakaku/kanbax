@@ -227,7 +227,7 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
 
                 {protocol.agendaItems && protocol.agendaItems.length > 0 ? (
                   <div>
-                    <h4 className="text-sm font-medium mb-2">Strukturierte Agenda-Punkte</h4>
+                    <h4 className="text-sm font-medium mb-2">Agenda-Punkte</h4>
                     <div className="space-y-3">
                       {protocol.agendaItems.map((item, index) => (
                         <div key={item.id} className="bg-muted/50 p-3 rounded border">
@@ -276,25 +276,11 @@ export function ProtocolList({ teamId, projectId, objectiveId }: ProtocolListPro
                     </div>
                   </div>
                 ) : (
-                  <>
-                    {protocol.agenda && (
-                      <div>
-                        <h4 className="text-sm font-medium mb-1">Agenda</h4>
-                        <div className="text-sm whitespace-pre-line bg-muted/50 p-2 rounded">
-                          {protocol.agenda}
-                        </div>
-                      </div>
-                    )}
-
-                    {protocol.decisions && (
-                      <div>
-                        <h4 className="text-sm font-medium mb-1">Beschlüsse</h4>
-                        <div className="text-sm whitespace-pre-line bg-muted/50 p-2 rounded">
-                          {protocol.decisions}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  <div className="text-center p-4 bg-muted/20 rounded-md">
+                    <p className="text-sm text-muted-foreground">
+                      Keine Agenda-Punkte vorhanden.
+                    </p>
+                  </div>
                 )}
 
                 <div className="flex justify-end gap-2 pt-2">
