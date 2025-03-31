@@ -61,19 +61,34 @@ const convertToGanttTasks = (tasks: Task[]): GanttTask[] => {
     // Status als Projekt für gruppierte Darstellung
     const statusLabel = getStatusLabel(task.status);
 
+    // Prioritätsindikator für den Task-Titel erstellen
+    const priorityCircle = `⬤ `; // Unicode-Kreis als Prioritätsmarker
+    const priorityLabel = task.priority === 'high' || task.priority === 'hoch' ? '❗' : 
+                        task.priority === 'medium' || task.priority === 'mittel' ? '⚠️' : '✓';
+    // Titel mit Prioritätsmarker anzeigen
+    const titleWithPriority = `${priorityLabel} ${task.title}`;
+
     return {
       id: `${task.id}`,
-      name: task.title,
+      name: titleWithPriority,
       start: start,
       end: actualEnd,
       progress: progress,
       type: 'task',
       isDisabled: false,
       styles: { 
+        // Verbesserte Farben und Verläufe für Balken
         progressColor: getTaskColor(task),
         progressSelectedColor: getTaskColor(task, true),
-        backgroundColor: getBackgroundColor(task),
-        backgroundSelectedColor: getBackgroundColor(task, true),
+        backgroundColor: getGradientBackground(task),
+        backgroundSelectedColor: getGradientBackground(task, true),
+        
+        // Verbesserte Textstile für besseren Kontrast
+        textColor: '#ffffff',  // Weiße Schrift für besseren Kontrast auf farbigem Hintergrund
+        fontFamily: 'Urbanist, sans-serif',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        opacity: task.archived ? 0.6 : 1,
       },
       project: statusLabel,
       dependencies: [],
@@ -108,16 +123,29 @@ const getTaskColor = (task: Task, isSelected: boolean = false): string => {
   
   switch (task.priority) {
     case 'niedrig':
+    case 'low':
       return isSelected ? '#2e7d32' : '#4caf50';
     case 'mittel':
+    case 'medium':
       return isSelected ? '#e65100' : '#ff9800';
     case 'hoch':
+    case 'high':
       return isSelected ? '#c62828' : '#f44336';
     default:
       return isSelected ? '#0277bd' : '#03a9f4';
   }
 };
 
+// Funktion liefert CSS-Verlaufscode für Gantt-Balken
+const getGradientBackground = (task: Task, isSelected: boolean = false): string => {
+  const baseColor = getTaskColor(task, isSelected);
+  const lighterColor = baseColor + (isSelected ? '90' : '60');  // Hellere Variante für den Verlauf
+  
+  // Erzeugt einen schönen Farbverlauf mit besserer Lesbarkeit für Text
+  return `linear-gradient(to right, ${baseColor}, ${lighterColor})`;
+};
+
+// Hintergrundfarbe für Gantt-Balken
 const getBackgroundColor = (task: Task, isSelected: boolean = false): string => {
   if (task.archived) {
     return isSelected ? '#e0e0e0' : '#f5f5f5';
@@ -480,21 +508,58 @@ export function BoardGanttView({ tasks, onTaskClick, showArchivedTasks = false }
             locale="de"
             todayColor="rgba(66, 133, 244, 0.15)"
             projectBackgroundColor="rgba(66, 133, 244, 0.08)"
-            TooltipContent={({ task }) => (
-              <div className="p-2 bg-white shadow-lg rounded border min-w-[200px]">
-                <div className="font-medium text-sm">{task.name}</div>
-                <div className="text-xs mt-1 text-gray-600">
-                  {dayjs(task.start).format('DD.MM.YYYY')} - {dayjs(task.end).format('DD.MM.YYYY')}
+            TooltipContent={({ task }) => {
+              // Original-Task finden, um die Prioritätsfarbe zu bekommen
+              const originalTask = tasks.find(t => t.id.toString() === task.id);
+              const priorityColor = originalTask ? getTaskColor(originalTask) : '#999';
+              
+              return (
+                <div className="p-3 bg-white shadow-lg rounded-md border min-w-[220px]">
+                  {/* Titel mit Prioritätsindikator */}
+                  <div className="flex items-center gap-2">
+                    <span 
+                      className="h-3 w-3 rounded-full flex-shrink-0" 
+                      style={{ backgroundColor: priorityColor }}
+                    ></span>
+                    <div className="font-medium text-sm">{task.name}</div>
+                  </div>
+                  
+                  {/* Priorität anzeigen */}
+                  {originalTask && (
+                    <div className="text-xs mt-1 text-gray-500 flex items-center">
+                      <span>Priorität: </span>
+                      <span 
+                        className="ml-1 px-1.5 py-0.5 rounded text-white text-xs font-semibold"
+                        style={{ backgroundColor: priorityColor }}
+                      >
+                        {originalTask.priority === 'high' || originalTask.priority === 'hoch' ? 'Hoch' : 
+                         originalTask.priority === 'medium' || originalTask.priority === 'mittel' ? 'Mittel' : 'Niedrig'}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Datum */}
+                  <div className="text-xs mt-2 text-gray-600 flex gap-1 items-center">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {dayjs(task.start).format('DD.MM.YYYY')} - {dayjs(task.end).format('DD.MM.YYYY')}
+                  </div>
+                  
+                  {/* Fortschrittsbalken */}
+                  <div className="mt-2">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Fortschritt</span>
+                      <span>{Math.round(task.progress)}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full rounded-full" 
+                        style={{ width: `${task.progress}%`, background: getGradientBackground(originalTask || {} as Task) }}
+                      ></div>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-1 h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-500 rounded-full" 
-                    style={{ width: `${task.progress}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs mt-1 text-right">{Math.round(task.progress)}% abgeschlossen</div>
-              </div>
-            )}
+              );
+            }}
           />
         ) : (
           <div className="flex justify-center items-center h-40 text-muted-foreground">
