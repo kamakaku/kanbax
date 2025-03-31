@@ -26,7 +26,9 @@ import {
   ChevronLeft, 
   Edit,
   Archive,
-  RotateCcw
+  RotateCcw,
+  FileClock,
+  FileText
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ProjectForm } from "@/components/project/project-form";
@@ -38,7 +40,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-store";
 import { ActivityFeed } from "@/components/activity/activity-feed";
-import { FileClock } from "lucide-react";
+import { ProtocolList } from "@/components/protocol/protocol-list";
 
 export default function ProjectDetail() {
   const [, params] = useRoute("/projects/:id");
@@ -321,7 +323,8 @@ export default function ProjectDetail() {
             <TabsList className="mb-4">
               <TabsTrigger value="boards">Boards</TabsTrigger>
               <TabsTrigger value="objectives">OKRs</TabsTrigger>
-              <TabsTrigger value="activity">Protokoll</TabsTrigger>
+              <TabsTrigger value="activity">Aktivitäten</TabsTrigger>
+              <TabsTrigger value="protocols">Protokolle</TabsTrigger>
             </TabsList>
             
             <TabsContent value="boards" className="space-y-4">
@@ -411,6 +414,24 @@ export default function ProjectDetail() {
                   <ActivityFeed 
                     projectId={projectId} 
                     title={`Aktivitäten für Projekt "${project.title}"`} 
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="protocols" className="space-y-4">
+              <div className="bg-card rounded-lg border">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
+                      Sitzungsprotokolle
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-0">
+                  <ProtocolList
+                    projectId={projectId}
                   />
                 </div>
               </div>

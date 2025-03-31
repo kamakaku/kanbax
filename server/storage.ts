@@ -1,17 +1,27 @@
 import { tasks, boards, columns, comments, checklistItems, activityLogs, type Task, type InsertTask, type UpdateTask, type Board, type InsertBoard, type UpdateBoard, type Column, type InsertColumn, type Comment, type InsertComment, type ChecklistItem, type InsertChecklistItem, type ActivityLog, type InsertActivityLog } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, desc, and, gte, inArray, sql, type SQL } from "drizzle-orm";
+import { eq, desc, and, gte, inArray, sql, type SQL, isNull, or } from "drizzle-orm";
 import { teams, teamMembers, type Team, type InsertTeam, type TeamMember, type InsertTeamMember } from "@shared/schema";
 import { projects, type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { userProductivityMetrics, taskStateChanges, taskTimeEntries, type UserProductivityMetrics, type TaskStateChange, type TaskTimeEntry, type InsertUserProductivityMetrics, type InsertTaskStateChange, type InsertTaskTimeEntry } from "@shared/schema";
 import { objectives, type Objective, type InsertObjective } from "@shared/schema";
 import { userFavoriteProjects, userFavoriteBoards, userFavoriteObjectives, type UserFavoriteProject, type UserFavoriteBoard, type UserFavoriteObjective } from "@shared/schema";
 import { companies, type Company, type InsertCompany, type CompanyResponse } from "@shared/schema";
+import { meetingProtocols, type MeetingProtocol, type InsertMeetingProtocol } from "@shared/schema";
 import { permissionService } from "./permissions";
 
 
 export interface IStorage {
+  // Meeting Protocol operations
+  getMeetingProtocolsByTeam(userId: number, teamId: number): Promise<MeetingProtocol[]>;
+  getMeetingProtocolsByProject(userId: number, projectId: number): Promise<MeetingProtocol[]>;
+  getMeetingProtocolsByObjective(userId: number, objectiveId: number): Promise<MeetingProtocol[]>;
+  getMeetingProtocol(userId: number, id: number): Promise<MeetingProtocol>;
+  createMeetingProtocol(userId: number, protocol: InsertMeetingProtocol): Promise<MeetingProtocol>;
+  updateMeetingProtocol(userId: number, id: number, protocol: Partial<InsertMeetingProtocol>): Promise<MeetingProtocol>;
+  deleteMeetingProtocol(userId: number, id: number): Promise<void>;
+
   // Project operations
   getProjects(userId: number): Promise<Project[]>;
   getProject(userId: number, id: number): Promise<Project>;
@@ -1973,6 +1983,416 @@ export class DatabaseStorage implements IStorage {
       return company;
     } catch (error) {
       console.error("Error in createCompany:", error);
+      throw error;
+    }
+  }
+
+  // Meeting Protocol operations
+  async getMeetingProtocolsByTeam(userId: number, teamId: number): Promise<MeetingProtocol[]> {
+    try {
+      console.log(`Fetching meeting protocols for team ${teamId} and user ${userId}`);
+      
+      // Prüfen, ob der Benutzer Zugriff auf das Team hat
+      if (!(await permissionService.canAccessTeam(userId, teamId))) {
+        throw new Error(`Team ${teamId} not found or unauthorized access`);
+      }
+      
+      // Protokolle für dieses Team abrufen
+      const protocolResults = await db
+        .select()
+        .from(meetingProtocols)
+        .where(eq(meetingProtocols.teamId, teamId))
+        .orderBy(desc(meetingProtocols.date));
+
+      // Erweiterte Informationen für jedes Protokoll abrufen (z.B. Ersteller-Details)
+      const processedProtocols = await Promise.all(protocolResults.map(async (protocol) => {
+        // Ersteller-Informationen abrufen
+        const [creator] = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(eq(users.id, protocol.creatorId));
+
+        // Teilnehmer-Informationen abrufen, wenn vorhanden
+        let participants = [];
+        if (protocol.participants && protocol.participants.length > 0) {
+          const participantIds = protocol.participants.map(p => parseInt(p));
+          participants = await db
+            .select({
+              id: users.id,
+              username: users.username,
+              email: users.email,
+              avatarUrl: users.avatarUrl
+            })
+            .from(users)
+            .where(inArray(users.id, participantIds));
+        }
+
+        return {
+          ...protocol,
+          creator,
+          participantDetails: participants
+        };
+      }));
+
+      return processedProtocols;
+    } catch (error) {
+      console.error("Error in getMeetingProtocolsByTeam:", error);
+      throw error;
+    }
+  }
+
+  async getMeetingProtocolsByProject(userId: number, projectId: number): Promise<MeetingProtocol[]> {
+    try {
+      console.log(`Fetching meeting protocols for project ${projectId} and user ${userId}`);
+      
+      // Prüfen, ob der Benutzer Zugriff auf das Projekt hat
+      if (!(await permissionService.canAccessProject(userId, projectId))) {
+        throw new Error(`Project ${projectId} not found or unauthorized access`);
+      }
+      
+      // Protokolle für dieses Projekt abrufen
+      const protocolResults = await db
+        .select()
+        .from(meetingProtocols)
+        .where(eq(meetingProtocols.projectId, projectId))
+        .orderBy(desc(meetingProtocols.date));
+
+      // Erweiterte Informationen für jedes Protokoll abrufen
+      const processedProtocols = await Promise.all(protocolResults.map(async (protocol) => {
+        // Ersteller-Informationen abrufen
+        const [creator] = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(eq(users.id, protocol.creatorId));
+
+        // Teilnehmer-Informationen abrufen, wenn vorhanden
+        let participants = [];
+        if (protocol.participants && protocol.participants.length > 0) {
+          const participantIds = protocol.participants.map(p => parseInt(p));
+          participants = await db
+            .select({
+              id: users.id,
+              username: users.username,
+              email: users.email,
+              avatarUrl: users.avatarUrl
+            })
+            .from(users)
+            .where(inArray(users.id, participantIds));
+        }
+
+        return {
+          ...protocol,
+          creator,
+          participantDetails: participants
+        };
+      }));
+
+      return processedProtocols;
+    } catch (error) {
+      console.error("Error in getMeetingProtocolsByProject:", error);
+      throw error;
+    }
+  }
+
+  async getMeetingProtocolsByObjective(userId: number, objectiveId: number): Promise<MeetingProtocol[]> {
+    try {
+      console.log(`Fetching meeting protocols for objective ${objectiveId} and user ${userId}`);
+      
+      // Prüfen, ob der Benutzer Zugriff auf das Objective hat
+      if (!(await permissionService.canAccessObjective(userId, objectiveId))) {
+        throw new Error(`Objective ${objectiveId} not found or unauthorized access`);
+      }
+      
+      // Protokolle für dieses Objective abrufen
+      const protocolResults = await db
+        .select()
+        .from(meetingProtocols)
+        .where(eq(meetingProtocols.objectiveId, objectiveId))
+        .orderBy(desc(meetingProtocols.date));
+
+      // Erweiterte Informationen für jedes Protokoll abrufen
+      const processedProtocols = await Promise.all(protocolResults.map(async (protocol) => {
+        // Ersteller-Informationen abrufen
+        const [creator] = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(eq(users.id, protocol.creatorId));
+
+        // Teilnehmer-Informationen abrufen, wenn vorhanden
+        let participants = [];
+        if (protocol.participants && protocol.participants.length > 0) {
+          const participantIds = protocol.participants.map(p => parseInt(p));
+          participants = await db
+            .select({
+              id: users.id,
+              username: users.username,
+              email: users.email,
+              avatarUrl: users.avatarUrl
+            })
+            .from(users)
+            .where(inArray(users.id, participantIds));
+        }
+
+        return {
+          ...protocol,
+          creator,
+          participantDetails: participants
+        };
+      }));
+
+      return processedProtocols;
+    } catch (error) {
+      console.error("Error in getMeetingProtocolsByObjective:", error);
+      throw error;
+    }
+  }
+
+  async getMeetingProtocol(userId: number, id: number): Promise<MeetingProtocol> {
+    try {
+      console.log(`Fetching meeting protocol ${id} for user ${userId}`);
+      
+      // Protokoll abrufen
+      const [protocol] = await db.select().from(meetingProtocols).where(eq(meetingProtocols.id, id));
+      
+      if (!protocol) {
+        throw new Error(`Meeting protocol ${id} not found`);
+      }
+      
+      // Berechtigungsprüfung basierend auf Team, Projekt oder Objective
+      let hasAccess = false;
+      
+      if (protocol.teamId) {
+        hasAccess = await permissionService.canAccessTeam(userId, protocol.teamId);
+      } else if (protocol.projectId) {
+        hasAccess = await permissionService.canAccessProject(userId, protocol.projectId);
+      } else if (protocol.objectiveId) {
+        hasAccess = await permissionService.canAccessObjective(userId, protocol.objectiveId);
+      }
+      
+      if (!hasAccess) {
+        throw new Error(`Unauthorized access to meeting protocol ${id}`);
+      }
+      
+      // Ersteller-Informationen abrufen
+      const [creator] = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          avatarUrl: users.avatarUrl
+        })
+        .from(users)
+        .where(eq(users.id, protocol.creatorId));
+      
+      // Teilnehmer-Informationen abrufen, wenn vorhanden
+      let participants = [];
+      if (protocol.participants && protocol.participants.length > 0) {
+        const participantIds = protocol.participants.map(p => parseInt(p));
+        participants = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(inArray(users.id, participantIds));
+      }
+      
+      return {
+        ...protocol,
+        creator,
+        participantDetails: participants
+      };
+    } catch (error) {
+      console.error("Error in getMeetingProtocol:", error);
+      throw error;
+    }
+  }
+
+  async createMeetingProtocol(userId: number, protocol: InsertMeetingProtocol): Promise<MeetingProtocol> {
+    try {
+      console.log(`Creating meeting protocol for user ${userId}`);
+      
+      // Berechtigungsprüfung basierend auf Team, Projekt oder Objective
+      if (protocol.teamId && !(await permissionService.canAccessTeam(userId, protocol.teamId))) {
+        throw new Error(`Team ${protocol.teamId} not found or unauthorized access`);
+      } else if (protocol.projectId && !(await permissionService.canAccessProject(userId, protocol.projectId))) {
+        throw new Error(`Project ${protocol.projectId} not found or unauthorized access`);
+      } else if (protocol.objectiveId && !(await permissionService.canAccessObjective(userId, protocol.objectiveId))) {
+        throw new Error(`Objective ${protocol.objectiveId} not found or unauthorized access`);
+      }
+      
+      // Ersteller hinzufügen
+      const protocolData = {
+        ...protocol,
+        creatorId: userId,
+      };
+      
+      // Neues Protokoll erstellen
+      const [newProtocol] = await db
+        .insert(meetingProtocols)
+        .values(protocolData)
+        .returning();
+      
+      // Erstelles Protokoll mit Zusatzinformationen zurückgeben
+      return this.getMeetingProtocol(userId, newProtocol.id);
+    } catch (error) {
+      console.error("Error in createMeetingProtocol:", error);
+      throw error;
+    }
+  }
+
+  async updateMeetingProtocol(userId: number, id: number, updateData: Partial<InsertMeetingProtocol>): Promise<MeetingProtocol> {
+    try {
+      console.log(`Updating meeting protocol ${id} for user ${userId}`);
+      
+      // Vorhandenes Protokoll abrufen und Berechtigung prüfen
+      const [protocol] = await db.select().from(meetingProtocols).where(eq(meetingProtocols.id, id));
+      
+      if (!protocol) {
+        throw new Error(`Meeting protocol ${id} not found`);
+      }
+      
+      // Berechtigungsprüfung
+      // Nur der Ersteller oder ein Team-/Projektadmin darf ein Protokoll bearbeiten
+      if (protocol.creatorId !== userId) {
+        let hasAdminAccess = false;
+        
+        if (protocol.teamId) {
+          // Team-Admin-Berechtigungen prüfen
+          const [teamMember] = await db
+            .select()
+            .from(teamMembers)
+            .where(and(
+              eq(teamMembers.teamId, protocol.teamId),
+              eq(teamMembers.userId, userId),
+              eq(teamMembers.role, "admin")
+            ));
+          
+          hasAdminAccess = !!teamMember;
+        } else if (protocol.projectId) {
+          // Projekt-Admin-Berechtigungen prüfen (Projektersteller)
+          const [project] = await db
+            .select()
+            .from(projects)
+            .where(and(
+              eq(projects.id, protocol.projectId),
+              eq(projects.creator_id, userId)
+            ));
+          
+          hasAdminAccess = !!project;
+        } else if (protocol.objectiveId) {
+          // Objective-Admin-Berechtigungen prüfen (Objective-Ersteller)
+          const [objective] = await db
+            .select()
+            .from(objectives)
+            .where(and(
+              eq(objectives.id, protocol.objectiveId),
+              eq(objectives.creatorId, userId)
+            ));
+          
+          hasAdminAccess = !!objective;
+        }
+        
+        if (!hasAdminAccess) {
+          throw new Error(`Unauthorized to update meeting protocol ${id}`);
+        }
+      }
+      
+      // Protokoll aktualisieren
+      const [updatedProtocol] = await db
+        .update(meetingProtocols)
+        .set(updateData)
+        .where(eq(meetingProtocols.id, id))
+        .returning();
+      
+      // Aktualisiertes Protokoll mit Zusatzinformationen zurückgeben
+      return this.getMeetingProtocol(userId, updatedProtocol.id);
+    } catch (error) {
+      console.error("Error in updateMeetingProtocol:", error);
+      throw error;
+    }
+  }
+
+  async deleteMeetingProtocol(userId: number, id: number): Promise<void> {
+    try {
+      console.log(`Deleting meeting protocol ${id} for user ${userId}`);
+      
+      // Vorhandenes Protokoll abrufen und Berechtigung prüfen
+      const [protocol] = await db.select().from(meetingProtocols).where(eq(meetingProtocols.id, id));
+      
+      if (!protocol) {
+        throw new Error(`Meeting protocol ${id} not found`);
+      }
+      
+      // Berechtigungsprüfung (ähnlich wie bei updateMeetingProtocol)
+      // Nur der Ersteller oder ein Team-/Projektadmin darf ein Protokoll löschen
+      if (protocol.creatorId !== userId) {
+        let hasAdminAccess = false;
+        
+        if (protocol.teamId) {
+          // Team-Admin-Berechtigungen prüfen
+          const [teamMember] = await db
+            .select()
+            .from(teamMembers)
+            .where(and(
+              eq(teamMembers.teamId, protocol.teamId),
+              eq(teamMembers.userId, userId),
+              eq(teamMembers.role, "admin")
+            ));
+          
+          hasAdminAccess = !!teamMember;
+        } else if (protocol.projectId) {
+          // Projekt-Admin-Berechtigungen prüfen (Projektersteller)
+          const [project] = await db
+            .select()
+            .from(projects)
+            .where(and(
+              eq(projects.id, protocol.projectId),
+              eq(projects.creator_id, userId)
+            ));
+          
+          hasAdminAccess = !!project;
+        } else if (protocol.objectiveId) {
+          // Objective-Admin-Berechtigungen prüfen (Objective-Ersteller)
+          const [objective] = await db
+            .select()
+            .from(objectives)
+            .where(and(
+              eq(objectives.id, protocol.objectiveId),
+              eq(objectives.creatorId, userId)
+            ));
+          
+          hasAdminAccess = !!objective;
+        }
+        
+        if (!hasAdminAccess) {
+          throw new Error(`Unauthorized to delete meeting protocol ${id}`);
+        }
+      }
+      
+      // Protokoll löschen
+      await db
+        .delete(meetingProtocols)
+        .where(eq(meetingProtocols.id, id));
+    } catch (error) {
+      console.error("Error in deleteMeetingProtocol:", error);
       throw error;
     }
   }

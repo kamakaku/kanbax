@@ -962,7 +962,35 @@ export const userFavoriteObjectives = pgTable("user_favorite_objectives", {
   };
 });
 
+// Meeting-Protokoll Tabelle für Teams und Projekte
+export const meetingProtocols = pgTable("meeting_protocols", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  date: timestamp("date").notNull(), // Datum des Meetings
+  teamId: integer("team_id").references(() => teams.id),
+  projectId: integer("project_id").references(() => projects.id),
+  objectiveId: integer("objective_id").references(() => objectives.id),
+  creatorId: integer("creator_id").notNull().references(() => users.id), // Ersteller des Protokolls
+  agenda: text("agenda"), // Tagesordnung
+  decisions: text("decisions"), // Getroffene Entscheidungen
+  participants: text("participants").array(), // Teilnehmer als Array von User-IDs
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Create insert schema for meeting protocols
+export const insertMeetingProtocolSchema = createInsertSchema(meetingProtocols)
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
 // Export types for favorite tables
 export type UserFavoriteProject = typeof userFavoriteProjects.$inferSelect;
 export type UserFavoriteBoard = typeof userFavoriteBoards.$inferSelect;
 export type UserFavoriteObjective = typeof userFavoriteObjectives.$inferSelect;
+
+// Export types for meeting protocols
+export type MeetingProtocol = typeof meetingProtocols.$inferSelect;
+export type InsertMeetingProtocol = z.infer<typeof insertMeetingProtocolSchema>;

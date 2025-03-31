@@ -11,6 +11,7 @@ import { createServer } from "http";
 import { optionalAuth } from './middleware/auth';
 import { storage } from './storage';
 import { notificationService } from './notification-service';
+import { registerProtocolRoutes } from './protocolRoutes';
 
 const app = express();
 
@@ -103,6 +104,10 @@ app.use((req, res, next) => {
     // Register routes
     await registerRoutes(app, db);
     log("Routes registered successfully");
+
+    // Protokoll-Routen registrieren
+    registerProtocolRoutes(app);
+    log("Protocol routes registered successfully");
 
     // Add this after routes are registered but before error handler
     app.get('/api/auth/current-user', optionalAuth, async (req, res) => {
