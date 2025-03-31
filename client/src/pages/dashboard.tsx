@@ -382,6 +382,9 @@ function ProductivityMetricsCard({ userId }: ProductivityMetricsCardProps) {
               </div>
             </button>
           </SimpleTooltip>
+          <span className="text-xs text-muted-foreground mt-2">
+            {totalTasks} Tasks
+          </span>
         </div>
       </div>
       
