@@ -43,8 +43,6 @@ export interface IStorage {
   createTask(userId: number, task: InsertTask): Promise<Task>;
   updateTask(userId: number, id: number, task: UpdateTask): Promise<Task>;
   deleteTask(userId: number, id: number): Promise<void>;
-  getUserRecentCompletedTasks(userId: number, limit: number): Promise<Task[]>;
-  getUserPendingTasks(userId: number): Promise<Task[]>;
 
   // Comment operations
   getComments(userId: number, taskId: number): Promise<Comment[]>;
@@ -63,7 +61,6 @@ export interface IStorage {
   // Productivity metrics operations
   getTaskDistribution(userId: number): Promise<{ name: string; value: number; }[]>;
   getProjectActivities(userId: number): Promise<{ name: string; tasks: number; }[]>;
-  getUserProductivityMetrics(userId: number, days: number): Promise<UserProductivityMetrics[]>;
   
   // User operations
   getUser(userId: number, id: number): Promise<User>;
@@ -1273,96 +1270,6 @@ export class DatabaseStorage implements IStorage {
     `);
 
     return Array.isArray(result) ? result : result.rows || [];
-  }
-  
-  // Methoden für AI-Produktivitätseinblicke
-  async getUserRecentCompletedTasks(userId: number, limit: number): Promise<Task[]> {
-    try {
-      // Suche nach den letzten abgeschlossenen Aufgaben des Benutzers
-      const taskResults = await db
-        .select()
-        .from(tasks)
-        .where(and(
-          eq(tasks.status, "done"),
-          sql`${tasks.assigned_user_ids} @> ARRAY[${userId}]::int[]`
-        ))
-        .orderBy(desc(tasks.updated_at))
-        .limit(limit);
-      
-      const accessibleTasksPromises = taskResults.map(async (task) => {
-        // Berechtigungsprüfung für jede Aufgabe
-        const canAccessBoard = await this.permissionService.canAccessBoard(userId, task.boardId);
-        if (!canAccessBoard) {
-          return null;
-        }
-        
-        // Board-Details für die Aufgabe abrufen
-        const [board] = await db
-          .select({
-            id: boards.id,
-            title: boards.title,
-            projectId: boards.project_id
-          })
-          .from(boards)
-          .where(eq(boards.id, task.boardId));
-        
-        return {
-          ...task,
-          board: board || null,
-          isPersonal: false // Da dies eine Teamaufgabe aus einem Board ist
-        };
-      });
-      
-      const accessibleTasks = (await Promise.all(accessibleTasksPromises)).filter((task): task is Task => task !== null);
-      return accessibleTasks;
-    } catch (error) {
-      console.error("Error in getUserRecentCompletedTasks:", error);
-      throw error;
-    }
-  }
-
-  async getUserPendingTasks(userId: number): Promise<Task[]> {
-    try {
-      // Suche nach ausstehenden Aufgaben des Benutzers (nicht "done")
-      const taskResults = await db
-        .select()
-        .from(tasks)
-        .where(and(
-          ne(tasks.status, "done"),
-          sql`${tasks.assigned_user_ids} @> ARRAY[${userId}]::int[]`
-        ))
-        .orderBy(asc(tasks.due_date));
-      
-      const accessibleTasksPromises = taskResults.map(async (task) => {
-        // Berechtigungsprüfung für jede Aufgabe
-        const canAccessBoard = await this.permissionService.canAccessBoard(userId, task.boardId);
-        if (!canAccessBoard) {
-          return null;
-        }
-        
-        // Board-Details für die Aufgabe abrufen
-        const [board] = await db
-          .select({
-            id: boards.id,
-            title: boards.title,
-            projectId: boards.project_id
-          })
-          .from(boards)
-          .where(eq(boards.id, task.boardId));
-        
-        return {
-          ...task,
-          board: board || null,
-          isPersonal: false // Da dies eine Teamaufgabe aus einem Board ist
-        };
-      });
-      
-      const accessibleTasks = (await Promise.all(accessibleTasksPromises)).filter((task): task is Task => task !== null);
-      return accessibleTasks;
-    } catch (error) {
-      console.error("Error in getUserPendingTasks:", error);
-      throw error;
-    }
   }
 
   // Task time tracking implementations

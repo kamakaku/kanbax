@@ -14,7 +14,6 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { registerProductivityRoutes } from "./productivityRoutes";
-import { registerAIProductivityRoutes } from "./aiProductivityRoutes";
 import { Knex } from 'knex';
 import { queryClient, ensureDirectoryExists, generateSecureFilename } from './utils';
 import { requireAuth, optionalAuth } from './middleware/auth';
@@ -2106,7 +2105,6 @@ export async function registerRoutes(app: Express, db: Knex) {
 
   // Register productivity routes
   registerProductivityRoutes(app);
-  registerAIProductivityRoutes(app);
 
   // Register OKR routes
   const { registerOkrRoutes } = await import("./okrRoutes.js");

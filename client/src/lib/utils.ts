@@ -39,29 +39,3 @@ export function getPriorityColor(priority: string) {
       return 'text-gray-500';
   }
 }
-
-/**
- * Hilfsfunktion zum Anfordern eines API-Schlüssels als Secret
- * @param secrets Liste der Secret-Schlüssel, die angefordert werden sollen
- * @param message Nachricht, die dem Benutzer angezeigt werden soll
- */
-export async function askSecretsHelper(secrets: string[], message: string): Promise<void> {
-  try {
-    const response = await fetch('/api/ask-secrets', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        secrets,
-        message
-      }),
-    });
-    
-    if (!response.ok) {
-      console.error('Fehler beim Anfordern von Secrets:', await response.text());
-    }
-  } catch (error) {
-    console.error('Fehler beim Anfordern von Secrets:', error);
-  }
-}
