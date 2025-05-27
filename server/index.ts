@@ -273,6 +273,64 @@ app.use((req, res, next) => {
       // IMMER Vite für Replit verwenden
       await setupVite(app, server);
       
+      // DEPLOYMENT FIX: Add fallback route for any failed requests
+      app.get('*', (req, res) => {
+        if (req.url.startsWith('/api')) return;
+        
+        // Simple redirect HTML for deployment
+        const redirectHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Kanban Master</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Kanban Master</h1>
+        <p>Ihre Projektmanagement-Plattform</p>
+        <a href="https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/" class="btn">Zur Anwendung</a>
+        <script>
+            setTimeout(() => {
+                window.location.href = 'https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/';
+            }, 2000);
+        </script>
+    </div>
+</body>
+</html>`;
+        res.setHeader('Content-Type', 'text/html');
+        res.send(redirectHtml);
+      });
+      
       // Keep development mode for consistent behavior
       // process.env.NODE_ENV = originalEnv;
       
