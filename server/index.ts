@@ -233,19 +233,9 @@ app.use((req, res, next) => {
     try {
       log("Vite wird jetzt initialisiert...");
       
-      // Spezielle Route für main.tsx BEVOR Vite Setup
-      app.get('/src/main.tsx', (req, res) => {
-        res.setHeader('Content-Type', 'application/javascript');
-        res.send(`
-          import React from 'react';
-          import ReactDOM from 'react-dom/client';
-          import { App } from './App.tsx';
-          import './index.css';
-          
-          ReactDOM.createRoot(document.getElementById('root')).render(
-            React.createElement(App)
-          );
-        `);
+      // Blockiere alle /src/ Requests komplett
+      app.get('/src/*', (req, res) => {
+        res.status(404).send('Module not found');
       });
       
       await setupVite(app, server);
