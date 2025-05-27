@@ -230,12 +230,10 @@ app.use((req, res, next) => {
     // Direkte Vite-Initialisierung - keine Verzögerung mehr
     log("Server ist gestartet, initialisiere Vite direkt...");
 
-    // Serve static files from public directory
-    app.use(express.static(path.join(process.cwd(), 'public')));
-
     try {
       log("Vite wird jetzt initialisiert...");
       
+      // Vite MUSS vor static files konfiguriert werden
       await setupVite(app, server);
       log("Vite-Setup abgeschlossen für Replit Deployment");
 
