@@ -33,8 +33,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Entferne MIME-Type-Fix - lass Vite alles handhaben
-
 // Session configuration
 const MemoryStoreSession = MemoryStore(session);
 app.use(session({
@@ -210,32 +208,72 @@ app.use((req, res, next) => {
       console.error("Server error:", err);
     });
 
-    // Production-Modus für Deployment
-    if (!process.env.NODE_ENV) {
-      process.env.NODE_ENV = "production";
-    }
+    // Minimale Setup-Sequenz für schnellsten Start
+    process.env.NODE_ENV = "development";
 
     // Anstelle von Vite sofort den Server starten (für Port-Registrierung)
     log("🚀 SERVER STARTUP: Minimale Konfiguration für schnellen Start...");
 
-    // Railway-kompatible Port-Konfiguration
-    const port = process.env.PORT || 5000;
-    const host = '0.0.0.0';
-    
-    server.listen(port, host, () => {
-      log(`✅ SERVER gestartet auf ${host}:${port}`);
-      console.log(`IMPORTANT: Server now running on port ${port}`);
-    });
+    // Extremer Ansatz: Zunächst minimalen Server auf Port 5000 öffnen, damit Replit den Workflow erkennt
+    const startServer = async (initialPort: number = 3001) => {
+      const host = '0.0.0.0';
+      let port = initialPort;
+      const maxPortAttempts = 10;
+
+      for (let attempt = 0; attempt < maxPortAttempts; attempt++) {
+        try {
+          // EINFACHER ANSATZ: Nur einen einzigen Server starten
+          log(`EINFACHER ANSATZ: Starte Server auf Port ${port}... (Versuch ${attempt + 1})`);
+
+          // Dynamisch Port verwenden
+          log(`Starte Hauptserver auf Port ${port}...`);
+          await new Promise<void>((resolve, reject) => {
+            // Event-Handler für Fehler hinzufügen
+            server.once('error', (err: any) => {
+              if (err.code === 'EADDRINUSE') {
+                log(`⚠️ Port ${port} ist bereits belegt, versuche Port ${port + 1}`);
+                port++;
+                reject(new Error(`Port ${port-1} ist bereits belegt`));
+              } else {
+                reject(err);
+              }
+            });
+
+            server.listen(port, host, () => {
+              log(`✅ HAUPT-SERVER gestartet auf ${host}:${port}`);
+              log(`App aufrufen: https://${process.env.REPL_ID}.id.replit.app/`);
+              console.log(`PORT INFO - Server läuft auf: ${host}:${port}`);
+              // Für Replit Workflow Erkennung
+              console.log(`IMPORTANT: Server now running on port ${port}`);
+              resolve();
+            });
+          });
+          
+          // Wenn wir hier angekommen sind, war das Binding erfolgreich
+          return;
+        } catch (error) {
+          log(`Port-Bindungsversuch fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
+          // Wir versuchen es mit dem nächsten Port, wenn der aktuelle bereits belegt ist
+          if (attempt === maxPortAttempts - 1) {
+            throw new Error(`Konnte keinen freien Port zwischen ${initialPort} und ${port} finden`);
+          }
+        }
+      }
+    };
+
+    // Replit benötigt einen Server auf Port 5000 für die Erkennung
+    log(`Starting server on port 5000 for Replit workflow detection`);
+    await startServer(5000);
 
     // Direkte Vite-Initialisierung - keine Verzögerung mehr
     log("Server ist gestartet, initialisiere Vite direkt...");
 
     try {
       log("Vite wird jetzt initialisiert...");
-      
-      // Vite MUSS vor static files konfiguriert werden
-      await setupVite(app, server);
-      log("Vite-Setup abgeschlossen für Replit Deployment");
+      if (process.env.NODE_ENV === "development") {
+        await setupVite(app, server);
+        log("Vite-Setup abgeschlossen - HMR-Verbindung sollte jetzt stabil sein");
+      }
 
       // Benachrichtigungsdienst stark verzögern, um Serverstart nicht zu blockieren
       log("Benachrichtigungsdienst wird erst nach 30 Sekunden initialisiert, um den Server-Start zu beschleunigen");
