@@ -33,14 +33,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// MIME-Type-Fix für JavaScript-Module
-app.use((req, res, next) => {
-  if (req.url.includes('/src/') && (req.url.endsWith('.tsx') || req.url.endsWith('.ts') || req.url.endsWith('.jsx') || req.url.endsWith('.js'))) {
-    res.setHeader('Content-Type', 'text/javascript');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-  }
-  next();
-});
+// Entferne MIME-Type-Fix - lass Vite alles handhaben
 
 // Session configuration
 const MemoryStoreSession = MemoryStore(session);
