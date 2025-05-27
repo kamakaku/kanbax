@@ -193,6 +193,7 @@ app.use((req, res, next) => {
     });
 
     // Minimale Setup-Sequenz für schnellsten Start
+    // FORCE development mode for ALL environments (including deployments)
     process.env.NODE_ENV = "development";
 
     // Anstelle von Vite sofort den Server starten (für Port-Registrierung)
