@@ -232,7 +232,22 @@ app.use((req, res, next) => {
 
     try {
       log("Vite wird jetzt initialisiert...");
-      // Für Replit Deployments immer Development-Modus verwenden
+      
+      // Spezielle Route für main.tsx BEVOR Vite Setup
+      app.get('/src/main.tsx', (req, res) => {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.send(`
+          import React from 'react';
+          import ReactDOM from 'react-dom/client';
+          import { App } from './App.tsx';
+          import './index.css';
+          
+          ReactDOM.createRoot(document.getElementById('root')).render(
+            React.createElement(App)
+          );
+        `);
+      });
+      
       await setupVite(app, server);
       log("Vite-Setup abgeschlossen für Replit Deployment");
 
