@@ -230,6 +230,9 @@ app.use((req, res, next) => {
     // Direkte Vite-Initialisierung - keine Verzögerung mehr
     log("Server ist gestartet, initialisiere Vite direkt...");
 
+    // Serve static files from public directory
+    app.use(express.static(path.join(process.cwd(), 'public')));
+    
     // Blockiere alle /src/ Requests komplett - VOR Vite Setup
     app.get('/src/*', (req, res) => {
       res.status(404).send('Module not found');
