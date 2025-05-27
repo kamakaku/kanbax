@@ -273,6 +273,12 @@ app.use((req, res, next) => {
       // IMMER Vite für Replit verwenden
       await setupVite(app, server);
       
+      // Ensure Vite handles all routes, not static files
+      app.use('/', (req, res, next) => {
+        // Let Vite handle everything
+        next();
+      });
+      
 
       
       // Keep development mode for consistent behavior
