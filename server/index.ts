@@ -208,8 +208,10 @@ app.use((req, res, next) => {
       console.error("Server error:", err);
     });
 
-    // Minimale Setup-Sequenz für schnellsten Start
-    process.env.NODE_ENV = "development";
+    // Production-Modus für Deployment
+    if (!process.env.NODE_ENV) {
+      process.env.NODE_ENV = "production";
+    }
 
     // Anstelle von Vite sofort den Server starten (für Port-Registrierung)
     log("🚀 SERVER STARTUP: Minimale Konfiguration für schnellen Start...");
@@ -228,14 +230,9 @@ app.use((req, res, next) => {
 
     try {
       log("Vite wird jetzt initialisiert...");
-      if (process.env.NODE_ENV === "production") {
-        // Production: Serve built files
-        serveStatic(app);
-        log("Production-Modus: Statische Dateien werden ausgeliefert");
-      } else {
-        await setupVite(app, server);
-        log("Development-Modus: Vite-Setup abgeschlossen");
-      }
+      // Für Replit Deployments immer Development-Modus verwenden
+      await setupVite(app, server);
+      log("Vite-Setup abgeschlossen für Replit Deployment");
 
       // Benachrichtigungsdienst stark verzögern, um Serverstart nicht zu blockieren
       log("Benachrichtigungsdienst wird erst nach 30 Sekunden initialisiert, um den Server-Start zu beschleunigen");
