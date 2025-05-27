@@ -228,9 +228,13 @@ app.use((req, res, next) => {
 
     try {
       log("Vite wird jetzt initialisiert...");
-      if (process.env.NODE_ENV === "development") {
+      if (process.env.NODE_ENV === "production") {
+        // Production: Serve built files
+        serveStatic(app);
+        log("Production-Modus: Statische Dateien werden ausgeliefert");
+      } else {
         await setupVite(app, server);
-        log("Vite-Setup abgeschlossen - HMR-Verbindung sollte jetzt stabil sein");
+        log("Development-Modus: Vite-Setup abgeschlossen");
       }
 
       // Benachrichtigungsdienst stark verzögern, um Serverstart nicht zu blockieren
