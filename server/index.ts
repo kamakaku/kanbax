@@ -218,7 +218,7 @@ app.use((req, res, next) => {
     // Anstelle von Vite sofort den Server starten (für Port-Registrierung)
     log("🚀 SERVER STARTUP: Minimale Konfiguration für schnellen Start...");
 
-    // Einfacher Server-Start für Production
+    // Railway-kompatible Port-Konfiguration
     const port = process.env.PORT || 5000;
     const host = '0.0.0.0';
     
