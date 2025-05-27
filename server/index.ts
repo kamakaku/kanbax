@@ -230,13 +230,13 @@ app.use((req, res, next) => {
     // Direkte Vite-Initialisierung - keine Verzögerung mehr
     log("Server ist gestartet, initialisiere Vite direkt...");
 
+    // Blockiere alle /src/ Requests komplett - VOR Vite Setup
+    app.get('/src/*', (req, res) => {
+      res.status(404).send('Module not found');
+    });
+
     try {
       log("Vite wird jetzt initialisiert...");
-      
-      // Blockiere alle /src/ Requests komplett
-      app.get('/src/*', (req, res) => {
-        res.status(404).send('Module not found');
-      });
       
       await setupVite(app, server);
       log("Vite-Setup abgeschlossen für Replit Deployment");
