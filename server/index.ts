@@ -181,34 +181,7 @@ app.use((req, res, next) => {
       }
     });
 
-    app.get('*', (req, res, next) => {
-      // Skip API routes and asset files
-      if (req.url.startsWith('/api') || 
-          req.url.startsWith('/@') ||
-          req.url.startsWith('/src/') ||
-          req.url.startsWith('/node_modules/') ||
-          req.url.includes('.js') ||
-          req.url.includes('.ts') ||
-          req.url.includes('.tsx') ||
-          req.url.includes('.css') ||
-          req.url.includes('.woff') ||
-          req.url.includes('.svg') ||
-          req.url.includes('.png') ||
-          req.url.includes('.ico')) {
-        next();
-        return;
-      }
 
-      console.log(`[${new Date().toISOString()}] Serving client app for route: ${req.url}`);
-
-      if (process.env.NODE_ENV === "development") {
-        // In development, let Vite handle all non-API routes
-        next();
-      } else {
-        // In production, serve the built index.html
-        res.sendFile(path.join(process.cwd(), 'dist', 'client', 'index.html'));
-      }
-    });
 
     // Keep existing error handler
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -285,6 +258,25 @@ app.use((req, res, next) => {
         await setupVite(app, server);
         log("Vite-Setup abgeschlossen - HMR-Verbindung sollte jetzt stabil sein");
       }
+
+      // WICHTIG: Catch-all Route NACH Vite-Setup hinzufügen
+      app.get('*', (req, res, next) => {
+        // Skip API routes 
+        if (req.url.startsWith('/api')) {
+          next();
+          return;
+        }
+
+        console.log(`[${new Date().toISOString()}] Serving client app for route: ${req.url}`);
+
+        if (process.env.NODE_ENV === "development") {
+          // In development, let Vite handle all non-API routes
+          next();
+        } else {
+          // In production, serve the built index.html
+          res.sendFile(path.join(process.cwd(), 'dist', 'client', 'index.html'));
+        }
+      });
 
       // Benachrichtigungsdienst stark verzögern, um Serverstart nicht zu blockieren
       log("Benachrichtigungsdienst wird erst nach 30 Sekunden initialisiert, um den Server-Start zu beschleunigen");
