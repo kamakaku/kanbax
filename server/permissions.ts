@@ -679,47 +679,81 @@ export class PermissionService {
       queryParams.push(companyId);
       const companyIdParamIndex = paramCounter;
       
-      // Erstelle die vollständige WHERE-Klausel
-      const whereClause = `(${queryParts.join(' OR ')})`;
+      // Build WHERE conditions using Drizzle's safe query builder
+      const whereConditions = [];
       
-      // Baue die vollständige Abfrage - aber vermeidet String-Interpolation in kritischen Teilen
-      const query = `
-        SELECT a.*, 
-               b.title as board_title, 
-               p.title as project_title,
-               o.title as objective_title,
-               t.title as task_title,
-               tm.name as team_title,
-               u.username, 
-               u.avatar_url,
-               tu.username as target_username
-        FROM activity_logs a
-        LEFT JOIN boards b ON a.board_id = b.id
-        LEFT JOIN projects p ON a.project_id = p.id
-        LEFT JOIN objectives o ON a.objective_id = o.id
-        LEFT JOIN tasks t ON a.task_id = t.id
-        LEFT JOIN teams tm ON a.team_id = tm.id
-        LEFT JOIN users u ON a.user_id = u.id
-        LEFT JOIN users tu ON a.target_user_id = tu.id
-        WHERE ` + whereClause + `
-        AND (
-          -- Wenn der aktuelle Benutzer keiner Firma zugeordnet ist, dann alle Aktivitäten anzeigen
-          $` + companyIdParamIndex + ` IS NULL
-          OR 
-          -- Sonst nur Aktivitäten aus der gleichen Firma
-          EXISTS (
-            SELECT 1 FROM users WHERE id = a.user_id AND company_id = $` + companyIdParamIndex + `
+      if (accessibleBoardIds.length > 0) {
+        whereConditions.push(inArray(activityLogs.boardId, accessibleBoardIds));
+      }
+      if (accessibleProjectIds.length > 0) {
+        whereConditions.push(inArray(activityLogs.projectId, accessibleProjectIds));
+      }
+      if (accessibleObjectiveIds.length > 0) {
+        whereConditions.push(inArray(activityLogs.objectiveId, accessibleObjectiveIds));
+      }
+      if (accessibleTeamIds.length > 0) {
+        whereConditions.push(inArray(activityLogs.teamId, accessibleTeamIds));
+      }
+      if (accessibleTaskIds.length > 0) {
+        whereConditions.push(inArray(activityLogs.taskId, accessibleTaskIds));
+      }
+      
+      // Use Drizzle's safe query builder
+      const baseCondition = whereConditions.length > 0 ? or(...whereConditions) : sql`FALSE`;
+      
+      const companyCondition = companyId 
+        ? exists(
+            db.select().from(users)
+              .where(and(
+                eq(users.id, activityLogs.userId),
+                eq(users.companyId, companyId)
+              ))
           )
-        )
-        ORDER BY a.created_at DESC
-        LIMIT 100
-      `;
+        : sql`TRUE`;
       
-      console.log(`Executing activity logs query with ${queryParams.length} parameters`);
-      const result = await pool.query(query, queryParams);
+      console.log(`Executing safe activity logs query with Drizzle ORM`);
+      const result = await db
+        .select({
+          id: activityLogs.id,
+          action: activityLogs.action,
+          details: activityLogs.details,
+          userId: activityLogs.userId,
+          boardId: activityLogs.boardId,
+          projectId: activityLogs.projectId,
+          objectiveId: activityLogs.objectiveId,
+          taskId: activityLogs.taskId,
+          commentId: activityLogs.commentId,
+          teamId: activityLogs.teamId,
+          targetUserId: activityLogs.targetUserId,
+          createdAt: activityLogs.createdAt,
+          visibleToTeams: activityLogs.visibleToTeams,
+          visibleToUsers: activityLogs.visibleToUsers,
+          requiresNotification: activityLogs.requiresNotification,
+          notificationSent: activityLogs.notificationSent,
+          notificationType: activityLogs.notificationType,
+          board_title: boards.title,
+          project_title: projects.title,
+          objective_title: objectives.title,
+          task_title: tasks.title,
+          team_title: teams.name,
+          username: users.username,
+          avatar_url: users.avatarUrl,
+          target_username: sql<string>`tu.username`
+        })
+        .from(activityLogs)
+        .leftJoin(boards, eq(activityLogs.boardId, boards.id))
+        .leftJoin(projects, eq(activityLogs.projectId, projects.id))
+        .leftJoin(objectives, eq(activityLogs.objectiveId, objectives.id))
+        .leftJoin(tasks, eq(activityLogs.taskId, tasks.id))
+        .leftJoin(teams, eq(activityLogs.teamId, teams.id))
+        .leftJoin(users, eq(activityLogs.userId, users.id))
+        .leftJoin(sql`users tu`, sql`${activityLogs.targetUserId} = tu.id`)
+        .where(and(baseCondition, companyCondition))
+        .orderBy(desc(activityLogs.createdAt))
+        .limit(100);
 
-      console.log(`Found ${result.rows.length} relevant activity logs for user ${userId}`);
-      return result.rows;
+      console.log(`Found ${result.length} relevant activity logs for user ${userId}`);
+      return result;
     } catch (error) {
       console.error("Error getting visible activity logs:", error);
       return [];
