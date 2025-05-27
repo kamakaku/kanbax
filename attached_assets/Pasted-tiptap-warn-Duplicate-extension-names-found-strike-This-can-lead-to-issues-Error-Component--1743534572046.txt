@@ -1,0 +1,65 @@
+tiptap warn]: Duplicate extension names found: ['strike']. This can lead to issues. Error Component Stack
+    at RichTextEditor (rich-text-editor.tsx:40:3)
+    at div (<anonymous>)
+    at CommentEditor (comment-editor.tsx:14:33)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at chunk-CPFL7ZFD.js?v=8f95a4e7:41:13
+    at chunk-VZKNAX3D.js?v=8f95a4e7:61:7
+    at chunk-DKHUMOWT.js?v=8f95a4e7:52:11
+    at chunk-DKHUMOWT.js?v=8f95a4e7:33:11
+    at chunk-CPFL7ZFD.js?v=8f95a4e7:41:13
+    at chunk-Q6G2CDYH.js?v=8f95a4e7:29:5
+    at chunk-ZJWQY26A.js?v=8f95a4e7:234:13
+    at chunk-ZJWQY26A.js?v=8f95a4e7:157:58
+    at Presence (chunk-S7EWQZ7Q.js?v=8f95a4e7:24:11)
+    at chunk-ZJWQY26A.js?v=8f95a4e7:148:64
+    at chunk-DKHUMOWT.js?v=8f95a4e7:52:11
+    at chunk-DKHUMOWT.js?v=8f95a4e7:33:11
+    at chunk-CPFL7ZFD.js?v=8f95a4e7:41:13
+    at chunk-VZKNAX3D.js?v=8f95a4e7:260:22
+    at Presence (chunk-S7EWQZ7Q.js?v=8f95a4e7:24:11)
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at DialogPortal (chunk-ZJWQY26A.js?v=8f95a4e7:111:11)
+    at dialog.tsx:59:6
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at Dialog (chunk-ZJWQY26A.js?v=8f95a4e7:52:5)
+    at TaskDialog (task-dialog.tsx:241:3)
+    at div (<anonymous>)
+    at Column (column.tsx:63:5)
+    at div (<anonymous>)
+    at Provider (react-beautiful-dnd.js?v=8f95a4e7:945:20)
+    at App (react-beautiful-dnd.js?v=8f95a4e7:7462:25)
+    at ErrorBoundary2 (react-beautiful-dnd.js?v=8f95a4e7:1959:35)
+    at DragDropContext (react-beautiful-dnd.js?v=8f95a4e7:7582:19)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Board (board.tsx:72:18)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=8f95a4e7:63:5)
+    at TooltipProvider (tooltip.tsx:8:3)
+    at sidebar.tsx:85:7
+    at MainLayout (App.tsx:44:23)
+    at ProtectedRoute (App.tsx:192:38)
+    at component (<anonymous>)
+    at Route (wouter.js?v=8f95a4e7:206:16)
+    at Switch (wouter.js?v=8f95a4e7:262:17)
+    at AuthenticatedApp (App.tsx:210:20)
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=8f95a4e7:63:5)
+    at TooltipProvider (tooltip.tsx:8:3)
+    at BoardProvider (board-context.tsx:19:33)
+    at QueryClientProvider (@tanstack_react-query.js?v=8f95a4e7:2848:3)
+    at AuthProvider (auth-store.tsx:185:32)
+    at App (<anonymous>)

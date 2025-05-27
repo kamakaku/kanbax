@@ -1,0 +1,42 @@
+~/workspace$ git push
+Enumerating objects: 3061, done.
+Counting objects: 100% (3061/3061), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (2597/2597), done.
+Writing objects: 100% (2987/2987), 1.25 MiB | 2.43 MiB/s, done.
+Total 2987 (delta 2264), reused 516 (delta 357), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2264/2264), completed with 51 local objects.
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: 
+remote: - GITHUB PUSH PROTECTION
+remote:   —————————————————————————————————————————
+remote:     Resolve the following violations before pushing again
+remote: 
+remote:     - Push cannot contain secrets
+remote: 
+remote:     
+remote:      (?) Learn how to resolve a blocked push
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push
+remote:     
+remote:     
+remote:       —— Stripe Test API Secret Key ————————————————————————
+remote:        locations:
+remote:          - commit: c93c4c646d55ea98794fab6fd74923ab88e083e4
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: 639eb4a980bf00c6e935d9b5b2fa4b1aba0117c0
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: 796a6279854b9c0423cfccae6722990d7b3c691c
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: f3aff94894e5fdf6acf2321a7a7926226ac13ae9
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: 45118d243b1b262d48836d94d6508d3a9f467187
+remote:            path: server/paymentRoutes.ts:10
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/kamakaku/kanbax/security/secret-scanning/unblock-secret/2xfHefPIa6GNZBcZUUyctl0x3PQ
+remote:     
+remote: 
+remote: 
+To https://github.com/kamakaku/kanbax.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/kamakaku/kanbax.git'

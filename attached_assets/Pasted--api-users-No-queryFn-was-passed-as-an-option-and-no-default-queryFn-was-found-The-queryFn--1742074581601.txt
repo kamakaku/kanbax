@@ -1,0 +1,55 @@
+[["/api/users"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function Error Component Stack
+    at ObjectiveEditForm (objective-edit-form.tsx:30:37)
+    at div (<anonymous>)
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-B65VSI42.js?v=6121e3b0:61:7
+    at chunk-DKHUMOWT.js?v=6121e3b0:52:11
+    at chunk-DKHUMOWT.js?v=6121e3b0:33:11
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-MTZFOBND.js?v=6121e3b0:29:5
+    at chunk-DG5QAD26.js?v=6121e3b0:234:13
+    at chunk-DG5QAD26.js?v=6121e3b0:157:58
+    at Presence (chunk-4GDBIILB.js?v=6121e3b0:24:11)
+    at chunk-DG5QAD26.js?v=6121e3b0:148:64
+    at chunk-DKHUMOWT.js?v=6121e3b0:52:11
+    at chunk-DKHUMOWT.js?v=6121e3b0:33:11
+    at chunk-CPFL7ZFD.js?v=6121e3b0:41:13
+    at chunk-B65VSI42.js?v=6121e3b0:260:22
+    at Presence (chunk-4GDBIILB.js?v=6121e3b0:24:11)
+    at Provider (chunk-CGMBMWH4.js?v=6121e3b0:43:15)
+    at DialogPortal (chunk-DG5QAD26.js?v=6121e3b0:111:11)
+    at _c3 (dialog.tsx:33:6)
+    at Provider (chunk-CGMBMWH4.js?v=6121e3b0:43:15)
+    at Dialog (chunk-DG5QAD26.js?v=6121e3b0:52:5)
+    at div (<anonymous>)
+    at OKRDetailPage (okr-detail.tsx:35:18)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Provider (chunk-CGMBMWH4.js?v=6121e3b0:43:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=6121e3b0:63:5)
+    at sidebar.tsx:85:7
+    at MainLayout (App.tsx:28:23)
+    at ProtectedRoute (App.tsx:105:38)
+    at component (<anonymous>)
+    at Route (wouter.js?v=6121e3b0:206:16)
+    at Switch (wouter.js?v=6121e3b0:262:17)
+    at AuthenticatedApp (App.tsx:122:20)
+    at QueryClientProvider (@tanstack_react-query.js?v=6121e3b0:2848:3)
+    at AuthProvider (auth-store.tsx:51:32)
+    at App (<anonymous>)
+overrideMethod @ hook.js:608
+useBaseQuery @ @tanstack_react-query.js?v=6121e3b0:3054
+useQuery @ @tanstack_react-query.js?v=6121e3b0:3122
+ObjectiveEditForm @ objective-edit-form.tsx:43
+renderWithHooks @ chunk-RPCDYKBN.js?v=6121e3b0:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=6121e3b0:14582
+beginWork @ chunk-RPCDYKBN.js?v=6121e3b0:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=6121e3b0:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=6121e3b0:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=6121e3b0:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=6121e3b0:19116
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=6121e3b0:18874
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=6121e3b0:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=6121e3b0:18627Understand this errorAI

@@ -1,0 +1,44 @@
+hook.js:608 The above error occurred in the <Board> component:
+
+    at Board (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/pages/board.tsx?t=1743593630689:109:18)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.d…unner/workspace/node_modules/.vite/deps/chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at TooltipProvider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.d…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=8f95a4e7:63:5)
+    at TooltipProvider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/components/ui/tooltip.tsx:21:3)
+    at https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/components/ui/sidebar.tsx:106:7
+    at MainLayout (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/App.tsx?t=1743593455232&v=Oym0hQcT5jLhpQkfqyhPr:60:23)
+    at ProtectedRoute (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/App.tsx?t=1743593455232&v=Oym0hQcT5jLhpQkfqyhPr:462:38)
+    at component
+    at Route (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.d…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=8f95a4e7:206:16)
+    at Switch (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.d…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=8f95a4e7:262:17)
+    at AuthenticatedApp (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/App.tsx?t=1743593455232&v=Oym0hQcT5jLhpQkfqyhPr:494:20)
+    at Provider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.d…unner/workspace/node_modules/.vite/deps/chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at TooltipProvider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.d…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=8f95a4e7:63:5)
+    at TooltipProvider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/components/ui/tooltip.tsx:21:3)
+    at BoardProvider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/context/board-context.tsx:25:33)
+    at QueryClientProvider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.d…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=8f95a4e7:2848:3)
+    at AuthProvider (https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/src/lib/auth-store.tsx:137:32)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+overrideMethod	@	hook.js:608
+logCapturedError	@	chunk-RPCDYKBN.js?v=8f95a4e7:14032
+update.callback	@	chunk-RPCDYKBN.js?v=8f95a4e7:14052
+callCallback	@	chunk-RPCDYKBN.js?v=8f95a4e7:11248
+commitUpdateQueue	@	chunk-RPCDYKBN.js?v=8f95a4e7:11265
+commitLayoutEffectOnFiber	@	chunk-RPCDYKBN.js?v=8f95a4e7:17093
+commitLayoutMountEffects_complete	@	chunk-RPCDYKBN.js?v=8f95a4e7:17980
+commitLayoutEffects_begin	@	chunk-RPCDYKBN.js?v=8f95a4e7:17969
+commitLayoutEffects	@	chunk-RPCDYKBN.js?v=8f95a4e7:17920
+commitRootImpl	@	chunk-RPCDYKBN.js?v=8f95a4e7:19353
+commitRoot	@	chunk-RPCDYKBN.js?v=8f95a4e7:19277
+performSyncWorkOnRoot	@	chunk-RPCDYKBN.js?v=8f95a4e7:18895
+flushSyncCallbacks	@	chunk-RPCDYKBN.js?v=8f95a4e7:9119
+(anonymous)	@	chunk-RPCDYKBN.js?v=8f95a4e7:18627
+chunk-RPCDYKBN.js?v=8f95a4e7:9129 Uncaught ReferenceError: Cannot access 'refetchTasksRemote' before initialization
+    at Board (board.tsx:154:29)
+Board	@	board.tsx:154

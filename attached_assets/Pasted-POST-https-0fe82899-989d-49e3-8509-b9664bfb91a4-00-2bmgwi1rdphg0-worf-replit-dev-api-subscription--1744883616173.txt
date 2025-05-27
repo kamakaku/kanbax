@@ -1,0 +1,39 @@
+POST https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/api/subscription/update-user 500 (Internal Server Error)
+handleSelectPackage @ subscription-plans.tsx:73
+onClick @ subscription-plans.tsx:332
+callCallback2 @ chunk-RPCDYKBN.js?v=01566434:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=01566434:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=01566434:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=01566434:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=01566434:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=01566434:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=01566434:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=01566434:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=01566434:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=01566434:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=01566434:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=01566434:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=01566434:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=01566434:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=01566434:5449Understand this error
+subscription-plans.tsx:122 Fehler bei der Aktualisierung des Abonnements: Error: API-Fehler: 500 Internal Server Error
+    at handleSelectPackage (subscription-plans.tsx:85:19)
+overrideMethod @ hook.js:608
+handleSelectPackage @ subscription-plans.tsx:122
+await in handleSelectPackage
+onClick @ subscription-plans.tsx:332
+callCallback2 @ chunk-RPCDYKBN.js?v=01566434:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=01566434:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=01566434:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=01566434:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=01566434:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=01566434:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=01566434:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=01566434:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=01566434:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=01566434:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=01566434:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=01566434:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=01566434:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=01566434:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=01566434:5449

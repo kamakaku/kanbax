@@ -1,0 +1,41 @@
+API request to POST failed: TypeError: Failed to execute 'fetch' on 'Window': '/api/tasks/50/comments' is not a valid HTTP method.
+    at apiRequest (queryClient.ts:37:23)
+    at handleSubmit (comment-editor.tsx:24:28)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=8f95a4e7:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=8f95a4e7:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=8f95a4e7:3733:39)
+    at invokeGuardedCallbackAndCatchFirstError (chunk-RPCDYKBN.js?v=8f95a4e7:3736:33)
+    at executeDispatch (chunk-RPCDYKBN.js?v=8f95a4e7:7014:11)
+    at processDispatchQueueItemsInOrder (chunk-RPCDYKBN.js?v=8f95a4e7:7034:15)
+    at processDispatchQueue (chunk-RPCDYKBN.js?v=8f95a4e7:7043:13)
+    at dispatchEventsForPlugins (chunk-RPCDYKBN.js?v=8f95a4e7:7051:11)
+overrideMethod @ hook.js:608
+apiRequest @ queryClient.ts:69
+await in apiRequest
+handleSubmit @ comment-editor.tsx:24
+callCallback2 @ chunk-RPCDYKBN.js?v=8f95a4e7:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=8f95a4e7:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=8f95a4e7:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=8f95a4e7:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=8f95a4e7:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=8f95a4e7:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=8f95a4e7:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=8f95a4e7:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=8f95a4e7:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=8f95a4e7:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=8f95a4e7:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=8f95a4e7:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=8f95a4e7:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5449Understand this errorAI
+comment-editor.tsx:45 Add comment error: TypeError: Failed to execute 'fetch' on 'Window': '/api/tasks/50/comments' is not a valid HTTP method.
+    at apiRequest (queryClient.ts:37:23)
+    at handleSubmit (comment-editor.tsx:24:28)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=8f95a4e7:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=8f95a4e7:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=8f95a4e7:3733:39)
+    at invokeGuardedCallbackAndCatchFirstError (chunk-RPCDYKBN.js?v=8f95a4e7:3736:33)
+    at executeDispatch (chunk-RPCDYKBN.js?v=8f95a4e7:7014:11)
+    at processDispatchQueueItemsInOrder (chunk-RPCDYKBN.js?v=8f95a4e7:7034:15)
+    at processDispatchQueue (chunk-RPCDYKBN.js?v=8f95a4e7:7043:13)
+    at dispatchEventsForPlugins (chunk-RPCDYKBN.js?v=8f95a4e7:7051:11)

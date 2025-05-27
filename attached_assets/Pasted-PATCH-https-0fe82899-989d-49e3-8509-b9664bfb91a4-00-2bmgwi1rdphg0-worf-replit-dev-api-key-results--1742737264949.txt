@@ -1,0 +1,56 @@
+PATCH https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/api/key-results/2 500 (Internal Server Error)
+apiRequest @ queryClient.ts:15
+mutationFn @ key-result-form.tsx:145
+fn @ @tanstack_react-query.js?v=8ee04a5c:1192
+run @ @tanstack_react-query.js?v=8ee04a5c:493
+start @ @tanstack_react-query.js?v=8ee04a5c:535
+execute @ @tanstack_react-query.js?v=8ee04a5c:1228
+await in execute
+mutate @ @tanstack_react-query.js?v=8ee04a5c:2661
+(anonymous) @ @tanstack_react-query.js?v=8ee04a5c:3353
+(anonymous) @ key-result-form.tsx:176
+(anonymous) @ chunk-YABUFNLM.js?v=8ee04a5c:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=8ee04a5c:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=8ee04a5c:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=8ee04a5c:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=8ee04a5c:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=8ee04a5c:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=8ee04a5c:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=8ee04a5c:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=8ee04a5c:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=8ee04a5c:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=8ee04a5c:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=8ee04a5c:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=8ee04a5c:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=8ee04a5c:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=8ee04a5c:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=8ee04a5c:5449Understand this errorAI
+key-result-form.tsx:165 Key result mutation error: Error: 500: {"message":"Fehler beim Aktualisieren des Key Result"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async Object.mutationFn (key-result-form.tsx:145:24)
+overrideMethod @ hook.js:608
+onError @ key-result-form.tsx:165
+execute @ @tanstack_react-query.js?v=8ee04a5c:1257
+await in execute
+mutate @ @tanstack_react-query.js?v=8ee04a5c:2661
+(anonymous) @ @tanstack_react-query.js?v=8ee04a5c:3353
+(anonymous) @ key-result-form.tsx:176
+(anonymous) @ chunk-YABUFNLM.js?v=8ee04a5c:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=8ee04a5c:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=8ee04a5c:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=8ee04a5c:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=8ee04a5c:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=8ee04a5c:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=8ee04a5c:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=8ee04a5c:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=8ee04a5c:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=8ee04a5c:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=8ee04a5c:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=8ee04a5c:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=8ee04a5c:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=8ee04a5c:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=8ee04a5c:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=8ee04a5c:5449Understand this errorAI

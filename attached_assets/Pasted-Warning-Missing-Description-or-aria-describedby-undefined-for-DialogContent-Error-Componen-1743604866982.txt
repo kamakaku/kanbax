@@ -1,0 +1,54 @@
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. Error Component Stack
+    at DescriptionWarning (chunk-ZJWQY26A.js?v=8f95a4e7:330:29)
+    at chunk-ZJWQY26A.js?v=8f95a4e7:234:13
+    at chunk-ZJWQY26A.js?v=8f95a4e7:157:58
+    at Presence (chunk-S7EWQZ7Q.js?v=8f95a4e7:24:11)
+    at chunk-ZJWQY26A.js?v=8f95a4e7:148:64
+    at chunk-DKHUMOWT.js?v=8f95a4e7:52:11
+    at chunk-DKHUMOWT.js?v=8f95a4e7:33:11
+    at chunk-CPFL7ZFD.js?v=8f95a4e7:41:13
+    at chunk-VZKNAX3D.js?v=8f95a4e7:260:22
+    at Presence (chunk-S7EWQZ7Q.js?v=8f95a4e7:24:11)
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at DialogPortal (chunk-ZJWQY26A.js?v=8f95a4e7:111:11)
+    at dialog.tsx:59:6
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at Dialog (chunk-ZJWQY26A.js?v=8f95a4e7:52:5)
+    at BoardForm (board-form.tsx:37:29)
+    at div (<anonymous>)
+    at AllBoards (all-boards.tsx:20:27)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at div (<anonymous>)
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=8f95a4e7:63:5)
+    at TooltipProvider (tooltip.tsx:8:3)
+    at sidebar.tsx:85:7
+    at MainLayout (App.tsx:44:23)
+    at ProtectedRoute (App.tsx:192:38)
+    at component (<anonymous>)
+    at Route (wouter.js?v=8f95a4e7:206:16)
+    at Switch (wouter.js?v=8f95a4e7:262:17)
+    at AuthenticatedApp (App.tsx:210:20)
+    at Provider (chunk-JJS7DLG7.js?v=8f95a4e7:38:15)
+    at TooltipProvider (@radix-ui_react-tooltip.js?v=8f95a4e7:63:5)
+    at TooltipProvider (tooltip.tsx:8:3)
+    at BoardProvider (board-context.tsx:19:33)
+    at QueryClientProvider (@tanstack_react-query.js?v=8f95a4e7:2848:3)
+    at AuthProvider (auth-store.tsx:185:32)
+    at App (<anonymous>)
+overrideMethod @ hook.js:608
+(anonymous) @ chunk-ZJWQY26A.js?v=8f95a4e7:338
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=8f95a4e7:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=8f95a4e7:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=8f95a4e7:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=8f95a4e7:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=8f95a4e7:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=8f95a4e7:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=8f95a4e7:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=8f95a4e7:19416
+commitRoot @ chunk-RPCDYKBN.js?v=8f95a4e7:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=8f95a4e7:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=8f95a4e7:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=8f95a4e7:18627Understand this warningAI

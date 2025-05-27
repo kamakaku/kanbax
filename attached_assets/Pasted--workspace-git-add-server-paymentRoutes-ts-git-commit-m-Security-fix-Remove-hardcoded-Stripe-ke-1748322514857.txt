@@ -1,0 +1,49 @@
+~/workspace$ git add server/paymentRoutes.ts
+git commit -m "Security fix: Remove hardcoded Stripe keys, use environment variables only"
+git push
+On branch main
+Your branch is ahead of 'origin/main' by 492 commits.
+  (use "git push" to publish your local commits)
+
+nothing to commit, working tree clean
+Enumerating objects: 3067, done.
+Counting objects: 100% (3067/3067), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (2603/2603), done.
+Writing objects: 100% (2993/2993), 1.25 MiB | 4.84 MiB/s, done.
+Total 2993 (delta 2269), reused 515 (delta 357), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2269/2269), completed with 51 local objects.
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: 
+remote: - GITHUB PUSH PROTECTION
+remote:   —————————————————————————————————————————
+remote:     Resolve the following violations before pushing again
+remote: 
+remote:     - Push cannot contain secrets
+remote: 
+remote:     
+remote:      (?) Learn how to resolve a blocked push
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push
+remote:     
+remote:     
+remote:       —— Stripe Test API Secret Key ————————————————————————
+remote:        locations:
+remote:          - commit: c93c4c646d55ea98794fab6fd74923ab88e083e4
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: 639eb4a980bf00c6e935d9b5b2fa4b1aba0117c0
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: 796a6279854b9c0423cfccae6722990d7b3c691c
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: f3aff94894e5fdf6acf2321a7a7926226ac13ae9
+remote:            path: server/paymentRoutes.ts:10
+remote:          - commit: 45118d243b1b262d48836d94d6508d3a9f467187
+remote:            path: server/paymentRoutes.ts:10
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/kamakaku/kanbax/security/secret-scanning/unblock-secret/2xfHefPIa6GNZBcZUUyctl0x3PQ
+remote:     
+remote: 
+remote: 
+To https://github.com/kamakaku/kanbax.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/kamakaku/kanbax.git'

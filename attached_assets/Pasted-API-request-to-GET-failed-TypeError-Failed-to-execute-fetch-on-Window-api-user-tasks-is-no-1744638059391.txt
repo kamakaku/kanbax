@@ -1,0 +1,76 @@
+API request to GET failed: TypeError: Failed to execute 'fetch' on 'Window': '/api/user-tasks' is not a valid HTTP method.
+    at apiRequest (queryClient.ts:37:23)
+    at queryFn (my-tasks.tsx:83:28)
+    at Object.fetchFn [as fn] (@tanstack_react-query.js?v=8f95a4e7:842:14)
+    at run (@tanstack_react-query.js?v=8f95a4e7:493:49)
+    at Object.start (@tanstack_react-query.js?v=8f95a4e7:535:9)
+    at _a4.fetch (@tanstack_react-query.js?v=8f95a4e7:929:41)
+    at @tanstack_react-query.js?v=8f95a4e7:1762:29
+    at Array.map (<anonymous>)
+    at @tanstack_react-query.js?v=8f95a4e7:1761:101
+    at Object.batch (@tanstack_react-query.js?v=8f95a4e7:582:18)
+overrideMethod @ hook.js:608
+apiRequest @ queryClient.ts:69
+await in apiRequest
+queryFn @ my-tasks.tsx:83
+fetchFn @ @tanstack_react-query.js?v=8f95a4e7:842
+run @ @tanstack_react-query.js?v=8f95a4e7:493
+start @ @tanstack_react-query.js?v=8f95a4e7:535
+fetch @ @tanstack_react-query.js?v=8f95a4e7:929
+(anonymous) @ @tanstack_react-query.js?v=8f95a4e7:1762
+(anonymous) @ @tanstack_react-query.js?v=8f95a4e7:1761
+batch @ @tanstack_react-query.js?v=8f95a4e7:582
+refetchQueries @ @tanstack_react-query.js?v=8f95a4e7:1760
+(anonymous) @ @tanstack_react-query.js?v=8f95a4e7:1746
+batch @ @tanstack_react-query.js?v=8f95a4e7:582
+invalidateQueries @ @tanstack_react-query.js?v=8f95a4e7:1739
+onError @ my-tasks.tsx:201
+execute @ @tanstack_react-query.js?v=8f95a4e7:1257
+await in execute
+mutate @ @tanstack_react-query.js?v=8f95a4e7:2661
+handleDragEnd @ my-tasks.tsx:274
+execute2 @ react-beautiful-dnd.js?v=8f95a4e7:4719
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4801
+withTimings2 @ react-beautiful-dnd.js?v=8f95a4e7:4696
+drop6 @ react-beautiful-dnd.js?v=8f95a4e7:4800
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4845
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4943
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4604
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4973
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4992
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4894
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4865
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4459
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4290
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4926
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4339
+dispatch @ react-beautiful-dnd.js?v=8f95a4e7:792
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4870
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4459
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4290
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4926
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:4339
+boundActionCreators.<computed> @ react-beautiful-dnd.js?v=8f95a4e7:1224
+(anonymous) @ react-beautiful-dnd.js?v=8f95a4e7:8387
+callCallback2 @ chunk-RPCDYKBN.js?v=8f95a4e7:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=8f95a4e7:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=8f95a4e7:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=8f95a4e7:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=8f95a4e7:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=8f95a4e7:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=8f95a4e7:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=8f95a4e7:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=8f95a4e7:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=8f95a4e7:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=8f95a4e7:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=8f95a4e7:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=8f95a4e7:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5472Understand this error
+my-tasks.tsx:276 Fehler beim Aktualisieren: TypeError: Failed to execute 'fetch' on 'Window': '/api/tasks/62' is not a valid HTTP method.
+    at apiRequest (queryClient.ts:37:23)
+    at Object.mutationFn (my-tasks.tsx:175:16)
+    at Object.fn (@tanstack_react-query.js?v=8f95a4e7:1192:29)
+    at run (@tanstack_react-query.js?v=8f95a4e7:493:49)
+    at Object.start (@tanstack_react-query.js?v=8f95a4e7:535:9)
+    at _a6.execute (@tanstack_react-query.js?v=8f95a4e7:1228:56)
+    at async handleDragEnd (my-tasks.tsx:274:7)

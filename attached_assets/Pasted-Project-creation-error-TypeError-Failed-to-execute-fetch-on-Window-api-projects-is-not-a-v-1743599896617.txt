@@ -1,0 +1,41 @@
+Project creation error: TypeError: Failed to execute 'fetch' on 'Window': '/api/projects' is not a valid HTTP method.
+    at apiRequest (queryClient.ts:15:21)
+    at Object.mutationFn (project-form.tsx:101:20)
+    at Object.fn (@tanstack_react-query.js?v=8f95a4e7:1192:29)
+    at run (@tanstack_react-query.js?v=8f95a4e7:493:49)
+    at Object.start (@tanstack_react-query.js?v=8f95a4e7:535:9)
+    at _a6.execute (@tanstack_react-query.js?v=8f95a4e7:1228:56)
+    at async onSubmit (project-form.tsx:175:9)
+    at async chunk-YABUFNLM.js?v=8f95a4e7:1675:9
+overrideMethod @ hook.js:608
+onError @ project-form.tsx:115
+execute @ @tanstack_react-query.js?v=8f95a4e7:1257
+await in execute
+mutate @ @tanstack_react-query.js?v=8f95a4e7:2661
+onSubmit @ project-form.tsx:175
+(anonymous) @ chunk-YABUFNLM.js?v=8f95a4e7:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=8f95a4e7:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=8f95a4e7:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=8f95a4e7:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=8f95a4e7:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=8f95a4e7:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=8f95a4e7:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=8f95a4e7:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=8f95a4e7:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=8f95a4e7:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=8f95a4e7:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=8f95a4e7:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=8f95a4e7:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=8f95a4e7:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5449Understand this errorAI
+project-form.tsx:178 Fehler beim Speichern des Projekts: TypeError: Failed to execute 'fetch' on 'Window': '/api/projects' is not a valid HTTP method.
+    at apiRequest (queryClient.ts:15:21)
+    at Object.mutationFn (project-form.tsx:101:20)
+    at Object.fn (@tanstack_react-query.js?v=8f95a4e7:1192:29)
+    at run (@tanstack_react-query.js?v=8f95a4e7:493:49)
+    at Object.start (@tanstack_react-query.js?v=8f95a4e7:535:9)
+    at _a6.execute (@tanstack_react-query.js?v=8f95a4e7:1228:56)
+    at async onSubmit (project-form.tsx:175:9)
+    at async chunk-YABUFNLM.js?v=8f95a4e7:1675:9

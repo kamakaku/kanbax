@@ -1,0 +1,48 @@
+PATCH https://0fe82899-989d-49e3-8509-b9664bfb91a4-00-2bmgwi1rdphg0.worf.replit.dev/api/key-results/14 500 (Internal Server Error)
+handleChecklistItemUpdate @ okr-detail.tsx:294
+onCheckedChange @ okr-detail.tsx:773
+(anonymous) @ chunk-JJS7DLG7.js?v=8f95a4e7:104
+(anonymous) @ chunk-HVCSTO5E.js?v=8f95a4e7:28
+(anonymous) @ @radix-ui_react-checkbox.js?v=8f95a4e7:93
+handleEvent @ chunk-OD433RWB.js?v=8f95a4e7:6
+callCallback2 @ chunk-RPCDYKBN.js?v=8f95a4e7:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=8f95a4e7:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=8f95a4e7:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=8f95a4e7:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=8f95a4e7:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=8f95a4e7:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=8f95a4e7:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=8f95a4e7:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=8f95a4e7:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=8f95a4e7:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=8f95a4e7:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=8f95a4e7:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=8f95a4e7:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5449Understand this error
+okr-detail.tsx:309 Fehler beim Aktualisieren (500): {"message":"Fehler beim Aktualisieren des Key Result"}
+overrideMethod @ hook.js:608
+handleChecklistItemUpdate @ okr-detail.tsx:309
+await in handleChecklistItemUpdate
+onCheckedChange @ okr-detail.tsx:773
+(anonymous) @ chunk-JJS7DLG7.js?v=8f95a4e7:104
+(anonymous) @ chunk-HVCSTO5E.js?v=8f95a4e7:28
+(anonymous) @ @radix-ui_react-checkbox.js?v=8f95a4e7:93
+handleEvent @ chunk-OD433RWB.js?v=8f95a4e7:6
+callCallback2 @ chunk-RPCDYKBN.js?v=8f95a4e7:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=8f95a4e7:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=8f95a4e7:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=8f95a4e7:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=8f95a4e7:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=8f95a4e7:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=8f95a4e7:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=8f95a4e7:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=8f95a4e7:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=8f95a4e7:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=8f95a4e7:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=8f95a4e7:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=8f95a4e7:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=8f95a4e7:5449Understand this error
+okr-detail.tsx:323 Fehler beim Aktualisieren der Checkliste: Error: Fehler beim Aktualisieren: 500 {"message":"Fehler beim Aktualisieren des Key Result"}
+    at handleChecklistItemUpdate (okr-detail.tsx:310:15)
