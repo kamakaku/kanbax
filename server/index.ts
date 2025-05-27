@@ -255,8 +255,16 @@ app.use((req, res, next) => {
 
     try {
       log("Vite wird jetzt initialisiert...");
+      // DEPLOYMENT FIX: Force development mode for Vite setup
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "development";
+      
       // IMMER Vite für Replit verwenden
       await setupVite(app, server);
+      
+      // Keep development mode for consistent behavior
+      // process.env.NODE_ENV = originalEnv;
+      
       log("Vite-Setup abgeschlossen - HMR-Verbindung sollte jetzt stabil sein");
 
       // WICHTIG: Catch-all Route NACH Vite-Setup hinzufügen
