@@ -22,6 +22,17 @@ import { registerSimpleAPIRoutes } from './simple-api-routes';
 
 const app = express();
 
+// DEPLOYMENT FIX: Correct MIME types for JavaScript modules FIRST
+app.use((req, res, next) => {
+  if (req.url.endsWith('.js') || req.url.endsWith('.mjs') || 
+      req.url.endsWith('.tsx') || req.url.endsWith('.ts') ||
+      req.url.includes('/src/') || req.url.includes('/@fs/') ||
+      req.url.includes('/@vite/') || req.url.includes('.vite/deps/')) {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  }
+  next();
+});
+
 // CORS configuration - must be before session middleware
 app.use(cors({
   origin: true,

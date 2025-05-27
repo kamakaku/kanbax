@@ -1,0 +1,6 @@
+[deployment]
+run = "npm run dev"
+deploymentTarget = "gce"
+
+[nix]
+channel = "stable-23.05"
