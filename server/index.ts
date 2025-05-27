@@ -182,8 +182,19 @@ app.use((req, res, next) => {
     });
 
     app.get('*', (req, res, next) => {
-      // Skip API routes
-      if (req.url.startsWith('/api')) {
+      // Skip API routes and asset files
+      if (req.url.startsWith('/api') || 
+          req.url.startsWith('/@') ||
+          req.url.startsWith('/src/') ||
+          req.url.startsWith('/node_modules/') ||
+          req.url.includes('.js') ||
+          req.url.includes('.ts') ||
+          req.url.includes('.tsx') ||
+          req.url.includes('.css') ||
+          req.url.includes('.woff') ||
+          req.url.includes('.svg') ||
+          req.url.includes('.png') ||
+          req.url.includes('.ico')) {
         next();
         return;
       }
