@@ -254,10 +254,9 @@ app.use((req, res, next) => {
 
     try {
       log("Vite wird jetzt initialisiert...");
-      if (process.env.NODE_ENV === "development") {
-        await setupVite(app, server);
-        log("Vite-Setup abgeschlossen - HMR-Verbindung sollte jetzt stabil sein");
-      }
+      // IMMER Vite für Replit verwenden
+      await setupVite(app, server);
+      log("Vite-Setup abgeschlossen - HMR-Verbindung sollte jetzt stabil sein");
 
       // WICHTIG: Catch-all Route NACH Vite-Setup hinzufügen
       app.get('*', (req, res, next) => {
@@ -269,13 +268,8 @@ app.use((req, res, next) => {
 
         console.log(`[${new Date().toISOString()}] Serving client app for route: ${req.url}`);
 
-        if (process.env.NODE_ENV === "development") {
-          // In development, let Vite handle all non-API routes
-          next();
-        } else {
-          // In production, serve the built index.html
-          res.sendFile(path.join(process.cwd(), 'dist', 'client', 'index.html'));
-        }
+        // IMMER Development-Modus verwenden für Replit Deployments
+        next();
       });
 
       // Benachrichtigungsdienst stark verzögern, um Serverstart nicht zu blockieren
