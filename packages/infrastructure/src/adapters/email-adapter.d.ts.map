@@ -1,0 +1,1 @@
+{"version":3,"file":"email-adapter.d.ts","sourceRoot":"","sources":["email-adapter.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,kBAAkB,EAAE,aAAa,EAAE,MAAM,gBAAgB,CAAC;AAGnE,qBAAa,yBAA0B,YAAW,kBAAkB;IAC1D,eAAe,CAAC,OAAO,EAAE,GAAG,GAAG,OAAO,CAAC,aAAa,CAAC;CAe9D"}

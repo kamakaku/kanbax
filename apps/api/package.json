@@ -1,0 +1,26 @@
+{
+    "name": "@kanbax/api",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "scripts": {
+        "build": "tsc -b",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@kanbax/audit": "workspace:*",
+        "@kanbax/domain": "workspace:*",
+        "@kanbax/infrastructure": "workspace:*",
+        "@kanbax/policy": "workspace:*",
+        "@prisma/client": "^5.22.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.7",
+        "express": "^5.2.1",
+        "jose": "^5.9.3"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6"
+    }
+}

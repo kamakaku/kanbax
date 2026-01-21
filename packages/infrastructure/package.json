@@ -1,0 +1,23 @@
+{
+    "name": "@kanbax/infrastructure",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "tsc -b"
+    },
+    "dependencies": {
+        "@kanbax/audit": "workspace:*",
+        "@kanbax/domain": "workspace:*"
+    },
+    "devDependencies": {
+        "@prisma/client": "^5.22.0",
+        "prisma": "^5.22.0",
+        "tsx": "^4.7.1"
+    },
+    "prisma": {
+        "seed": "tsx prisma/seed.ts"
+    }
+}

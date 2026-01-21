@@ -1,0 +1,209 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks          Task[]
+  policyContexts PolicyContext[]
+  auditEvents    AuditEvent[]
+  roles          Role[]
+  permissions    Permission[]
+  secrets        Secret[]
+  principals     Principal[]
+  members        TeamMembership[]
+  invites        TeamInvite[]
+}
+
+model User {
+  id            String   @id @default(uuid())
+  authUserId    String   @unique
+  email         String   @unique
+  name          String?
+  avatarUrl     String?
+  preferences   Json?
+  isSuperAdmin  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships   TeamMembership[]
+  invitesSent   TeamInvite[] @relation("InvitesSent")
+}
+
+model TeamMembership {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+}
+
+model TeamInvite {
+  id             String   @id @default(uuid())
+  tenantId       String
+  email          String
+  role           String
+  status         String
+  invitedByUserId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  invitedBy User  @relation("InvitesSent", fields: [invitedByUserId], references: [id])
+
+  @@unique([tenantId, email])
+  @@index([email])
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  title       String
+  description String?
+  kind        String?
+  kinds       Json?
+  status      String
+  priority    String
+  dueDate     DateTime?
+  ownerId     String?
+  assignees   String[]
+  labels      String[]
+  attachments Json?
+  comments    Json?
+  checklist   Json?
+  linkedTaskIds Json?
+  activityLog Json?
+  isFavorite Boolean @default(false)
+  source      Json
+  policyContext Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  version     Int      @default(1)
+
+  @@index([tenantId, createdAt])
+}
+
+model PolicyContext {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  scope     String
+  scopeId   String
+  rules     Json
+  auditLevel String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, scopeId])
+}
+
+model AuditEvent {
+  id             String   @id @default(uuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  timestamp      DateTime @default(now())
+  actorId        String
+  actorType      String
+  actorRole      String?
+  action         String
+  resourceId     String
+  resourceType   String
+  payload        Json
+  policyDecision Json
+  metadata       Json?
+
+  @@index([tenantId, timestamp])
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles       RolePermission[]
+
+  @@unique([tenantId, name])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  principals  PrincipalRole[]
+
+  @@unique([tenantId, name])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model Principal {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  type      String   // USER, SERVICE, INTEGRATION
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles     PrincipalRole[]
+
+  @@index([tenantId])
+}
+
+model PrincipalRole {
+  principalId String
+  roleId      String
+  principal   Principal @relation(fields: [principalId], references: [id])
+  role        Role      @relation(fields: [roleId], references: [id])
+
+  @@id([principalId, roleId])
+}
+
+model Secret {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  key       String
+  value     String   // Encrypted
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+}

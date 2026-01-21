@@ -1,0 +1,21 @@
+{
+  "name": "kanbax",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Policy-driven, bank-grade Todo / Work-Orchestration system",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean"
+  },
+  "devDependencies": {
+    "prisma": "5.22.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
+  }
+}
