@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { TaskView, BoardView, TaskStatus } from '@kanbax/domain';
 import { supabase } from './supabaseClient';
 
 const API_BASE = 'http://localhost:4000';
 
 const App: React.FC = () => {
-    const [view, setView] = useState<'kanban' | 'list' | 'archived' | 'settings'>('kanban');
+    const [view, setView] = useState<'kanban' | 'list' | 'table' | 'archived' | 'settings'>('kanban');
     const [session, setSession] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [memberships, setMemberships] = useState<any[]>([]);
@@ -40,6 +40,17 @@ const App: React.FC = () => {
     const [templateDraft, setTemplateDraft] = useState({ name: '', title: '', priority: 'MEDIUM', status: 'BACKLOG' });
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [notifications, setNotifications] = useState<Array<{ id: string; message: string; huddleName: string; timestamp: string; read: boolean; taskId?: string; tenantId?: string }>>([]);
+    const [pendingTaskOpen, setPendingTaskOpen] = useState<{ taskId: string; tenantId: string } | null>(null);
+    const [taskOrderByColumn, setTaskOrderByColumn] = useState<Record<string, string[]>>({});
+    const [tasksByTenant, setTasksByTenant] = useState<Record<string, TaskView[]>>({});
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const pollInFlightRef = useRef(false);
+    const searchDebounceRef = useRef<number | null>(null);
+    const lastDragTargetRef = useRef<string | null>(null);
+    const pollIntervalRef = useRef<number | null>(null);
+    const dragStartTimeRef = useRef<number>(0);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [tasks, setTasks] = useState<TaskView[]>([]);
     const [board, setBoard] = useState<BoardView | null>(null);
@@ -82,11 +93,17 @@ const App: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const getApiHeaders = (includeTenant = true, tenantOverride?: string | null) => ({
-        'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        ...(includeTenant && (tenantOverride || activeTenantId) ? { 'x-tenant-id': tenantOverride || activeTenantId } : {})
-    });
+    const getApiHeaders = (includeTenant = true, tenantOverride?: string | null) => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (session?.access_token) {
+            headers.Authorization = `Bearer ${session.access_token}`;
+        }
+        const tenant = includeTenant ? (tenantOverride ?? activeTenantId ?? '') : '';
+        if (includeTenant && tenant) {
+            headers['x-tenant-id'] = tenant;
+        }
+        return headers;
+    };
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -117,6 +134,9 @@ const App: React.FC = () => {
             const boardsData = await boardsRes.json();
 
             setTasks(tasksData);
+            if (activeTenantId) {
+                setTasksByTenant((prev) => ({ ...prev, [activeTenantId]: tasksData }));
+            }
             setBoard(boardsData[0] || null);
             const taskKinds = tasksData
                 .flatMap((task: TaskView) => (task.kinds || []).map((kind) => kind.trim()))
@@ -160,7 +180,7 @@ const App: React.FC = () => {
             setUserProfile(data.user);
             setMemberships(data.memberships || []);
             setInvites(data.invites || []);
-            const nextInviteIds = new Set((data.invites || []).map((invite: any) => invite.id));
+            const nextInviteIds = new Set<string>((data.invites || []).map((invite: any) => String(invite.id)));
             const newInvites = (data.invites || []).filter((invite: any) => !inviteSnapshotRef.current.has(invite.id));
             if (inviteSnapshotRef.current.size > 0 && newInvites.length > 0) {
                 newInvites.forEach((invite: any) => {
@@ -387,15 +407,28 @@ const App: React.FC = () => {
         </div>
     );
     const isPersonalMembership = (membership: any) => membership?.tenant?.name?.toLowerCase() === 'personal';
-    const personalMemberships = memberships.filter(isPersonalMembership);
-    const sharedMemberships = memberships.filter((membership) => !isPersonalMembership(membership));
-    const primaryPersonal = personalMemberships.find((m) => m.tenantId === activeTenantId) || personalMemberships[0];
-    const displayMemberships = primaryPersonal ? [primaryPersonal, ...sharedMemberships] : sharedMemberships;
-    const activeMembership = memberships.find((m) => m.tenantId === activeTenantId) || primaryPersonal;
-    const activeHuddleName = getHuddleName(activeMembership?.tenant?.name);
-    const isPersonalActive = activeMembership?.tenant?.name?.toLowerCase() === 'personal';
-    const hasSharedHuddles = sharedMemberships.length > 0;
-    const activeHuddleAccent = getHuddleAccent(activeTenantId, activeMembership?.tenant?.name);
+    const {
+        displayMemberships,
+        activeMembership,
+        activeHuddleName,
+        isPersonalActive,
+        hasSharedHuddles,
+        activeHuddleAccent,
+    } = useMemo(() => {
+        const personalMemberships = memberships.filter(isPersonalMembership);
+        const sharedMemberships = memberships.filter((membership) => !isPersonalMembership(membership));
+        const primaryPersonal = personalMemberships.find((m) => m.tenantId === activeTenantId) || personalMemberships[0];
+        const display = primaryPersonal ? [primaryPersonal, ...sharedMemberships] : sharedMemberships;
+        const active = memberships.find((m) => m.tenantId === activeTenantId) || primaryPersonal;
+        return {
+            displayMemberships: display,
+            activeMembership: active,
+            activeHuddleName: getHuddleName(active?.tenant?.name),
+            isPersonalActive: active?.tenant?.name?.toLowerCase() === 'personal',
+            hasSharedHuddles: sharedMemberships.length > 0,
+            activeHuddleAccent: getHuddleAccent(activeTenantId, active?.tenant?.name),
+        };
+    }, [memberships, activeTenantId]);
     const notificationSnapshotRef = useRef<Record<string, any>>({});
     const initializedHuddlesRef = useRef<Set<string>>(new Set());
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
@@ -575,7 +608,7 @@ const App: React.FC = () => {
     };
 
     const loadMembersForHuddle = async (tenantId: string | null | undefined) => {
-        if (!tenantId || huddleMembersByTenant[tenantId]) return;
+        if (!tenantId || huddleMembersByTenant[tenantId] || !session?.access_token) return;
         try {
             const res = await fetch(`${API_BASE}/teams/${tenantId}/members`, { headers: getApiHeaders(false) });
             if (!res.ok) throw new Error('Failed to load members');
@@ -881,6 +914,8 @@ const App: React.FC = () => {
         if (!session?.access_token || displayMemberships.length === 0) return;
         let cancelled = false;
         const poll = async () => {
+            if (pollInFlightRef.current) return;
+            pollInFlightRef.current = true;
             for (const membership of displayMemberships) {
                 const tenantId = membership.tenantId;
                 const huddleName = getHuddleName(membership.tenant?.name);
@@ -889,20 +924,29 @@ const App: React.FC = () => {
                     if (!res.ok) continue;
                     const data = await res.json();
                     if (!cancelled) {
+                        setTasksByTenant((prev) => ({ ...prev, [tenantId]: data }));
                         handleTaskNotifications(tenantId, huddleName, data);
                     }
                 } catch {
                     // Ignore polling errors
                 }
             }
+            pollInFlightRef.current = false;
         };
         poll();
-        const interval = setInterval(poll, 20000);
+        if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+        }
+        pollIntervalRef.current = window.setInterval(poll, 30000);
         return () => {
             cancelled = true;
-            clearInterval(interval);
+            pollInFlightRef.current = false;
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
         };
-    }, [session, displayMemberships]);
+    }, [session?.access_token, displayMemberships]);
 
     const handleMemberRoleChange = async (memberId: string, role: string) => {
         if (!activeTenantId) return;
@@ -960,6 +1004,112 @@ const App: React.FC = () => {
         ? filteredTasks.filter((task) => task.status === TaskStatus.ARCHIVED)
         : filteredTasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
     const linkedToSet = new Set(tasks.flatMap((task) => task.linkedTaskIds));
+    const normalizedSearch = filterText.trim().toLowerCase();
+    const searchPool = normalizedSearch
+        ? Object.entries(tasksByTenant).flatMap(([tenantId, list]) =>
+            (list || []).map((task) => ({ ...task, tenantId: task.tenantId || tenantId })))
+        : [];
+    const searchTasks = normalizedSearch
+        ? searchPool.filter((task) => {
+            const haystack = [
+                task.title,
+                stripHtml(task.description || ''),
+                task.kinds.join(' ')
+            ]
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(normalizedSearch);
+        })
+        : [];
+    const searchHuddles = normalizedSearch
+        ? displayMemberships.filter((membership) => {
+            const label = getHuddleName(membership.tenant?.name) || membership.tenantId;
+            return label.toLowerCase().includes(normalizedSearch);
+        })
+        : [];
+    const searchColumns = normalizedSearch && board?.columns
+        ? board.columns.filter((column: any) => String(column.status).toLowerCase().includes(normalizedSearch))
+        : [];
+    const searchCacheComplete = displayMemberships.length > 0
+        && displayMemberships.every((membership) => Boolean(tasksByTenant[membership.tenantId]));
+    const getOrderKey = (tenantId: string | null | undefined, status: TaskStatus) =>
+        `${tenantId || 'unknown'}:${status}`;
+    const persistOrder = (tenantId: string | null | undefined, orders: Record<string, string[]>) => {
+        if (!tenantId) return;
+        try {
+            localStorage.setItem(`kanbax-task-order:${tenantId}`, JSON.stringify(orders));
+        } catch {
+            // Ignore storage errors
+        }
+    };
+    const handleSearchSelect = (kind: 'task' | 'huddle' | 'column', payload: any) => {
+        if (kind === 'task') {
+            if (payload.tenantId && payload.tenantId !== activeTenantId) {
+                setPendingTaskOpen({ taskId: payload.id, tenantId: payload.tenantId });
+                updateActiveTenant(payload.tenantId);
+            } else {
+                setSelectedTaskId(payload.id);
+                setIsDetailsModalOpen(true);
+            }
+        }
+        if (kind === 'huddle') {
+            updateActiveTenant(payload.tenantId);
+            setView('kanban');
+        }
+        if (kind === 'column') {
+            setView('kanban');
+        }
+        setFilterText('');
+    };
+
+    useEffect(() => {
+        if (!pendingTaskOpen || pendingTaskOpen.tenantId !== activeTenantId) return;
+        const exists = tasks.some((task) => task.id === pendingTaskOpen.taskId);
+        if (!exists) return;
+        setSelectedTaskId(pendingTaskOpen.taskId);
+        setIsDetailsModalOpen(true);
+        setPendingTaskOpen(null);
+    }, [pendingTaskOpen, activeTenantId, tasks]);
+
+    useEffect(() => {
+        if (!normalizedSearch) {
+            setSearchLoading(false);
+            return;
+        }
+        setSearchLoading(false);
+    }, [normalizedSearch, session, displayMemberships]);
+
+    useEffect(() => {
+        if (!activeTenantId) return;
+        try {
+            const stored = localStorage.getItem(`kanbax-task-order:${activeTenantId}`);
+            if (stored) {
+                const parsed = JSON.parse(stored) as Record<string, string[]>;
+                setTaskOrderByColumn(parsed);
+            } else {
+                setTaskOrderByColumn({});
+            }
+        } catch {
+            setTaskOrderByColumn({});
+        }
+    }, [activeTenantId]);
+
+    useEffect(() => {
+        if (!activeTenantId || tasks.length === 0) return;
+        const nextOrders: Record<string, string[]> = { ...taskOrderByColumn };
+        const statuses = Array.from(new Set(tasks.map((task) => task.status)));
+        statuses.forEach((status) => {
+            const key = getOrderKey(activeTenantId, status);
+            const existing = nextOrders[key] || [];
+            const idsInStatus = tasks.filter((task) => task.status === status).map((task) => task.id);
+            const ordered = existing.filter((id) => idsInStatus.includes(id));
+            const missing = idsInStatus.filter((id) => !ordered.includes(id));
+            nextOrders[key] = ordered.concat(missing);
+        });
+        setTaskOrderByColumn(nextOrders);
+        persistOrder(activeTenantId, nextOrders);
+    }, [activeTenantId, tasks]);
+    const activeTasks = tasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
 
     const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1065,6 +1215,14 @@ const App: React.FC = () => {
         setLinkedDraft(task.linkedTaskIds || []);
         setLinkSelectId('');
         setIsDetailsModalOpen(true);
+    };
+
+    const handleCardClick = (task: TaskView) => {
+        // Prevent opening modal if we just finished dragging
+        if (isDragging || Date.now() - dragStartTimeRef.current < 200) {
+            return;
+        }
+        openDetailsModal(task);
     };
 
     const openEditModal = (task: TaskView) => {
@@ -1396,18 +1554,28 @@ const App: React.FC = () => {
         }
     };
 
+
     // --- Drag & Drop Handlers ---
     const onDragStart = (e: React.DragEvent, taskId: string) => {
-        e.dataTransfer.setData('taskId', taskId);
-        e.currentTarget.classList.add('dragging');
+        dragStartTimeRef.current = Date.now();
+        e.dataTransfer.setData('text/plain', taskId);
+        e.dataTransfer.effectAllowed = 'move';
+        setDraggingTaskId(taskId);
+        setIsDragging(true);
     };
 
     const onDragEnd = (e: React.DragEvent) => {
-        e.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('.task-card.drag-over-card').forEach((el) => {
+            el.classList.remove('drag-over-card');
+        });
+        setDraggingTaskId(null);
+        lastDragTargetRef.current = null;
+        setTimeout(() => setIsDragging(false), 200);
     };
 
     const onDragOver = (e: React.DragEvent) => {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
         e.currentTarget.classList.add('drag-over');
     };
 
@@ -1418,8 +1586,79 @@ const App: React.FC = () => {
     const onDrop = (e: React.DragEvent, status: TaskStatus) => {
         e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
-        const taskId = e.dataTransfer.getData('taskId');
-        handleUpdateStatus(taskId, status);
+        const taskId = e.dataTransfer.getData('text/plain') || draggingTaskId || '';
+
+        if (!taskId || !activeTenantId) return;
+
+        const sourceTask = tasks.find(t => t.id === taskId);
+        const sourceStatus = sourceTask?.status;
+
+        const key = getOrderKey(activeTenantId, status);
+        if (sourceStatus && sourceStatus !== status) {
+            handleUpdateStatus(taskId, status);
+        }
+
+        const hasCardTarget = lastDragTargetRef.current?.startsWith(`${status}:`);
+        lastDragTargetRef.current = null;
+        if (hasCardTarget) {
+            return;
+        }
+
+        setTaskOrderByColumn((prev) => {
+            const next = { ...prev };
+            const list = (next[key] || []).filter((id) => id !== taskId);
+            next[key] = list.concat(taskId);
+            persistOrder(activeTenantId, next);
+            return next;
+        });
+    };
+
+    const moveTaskOrder = (tenantId: string, status: TaskStatus, taskId: string, targetId: string | null) => {
+        const key = getOrderKey(tenantId, status);
+        setTaskOrderByColumn((prev) => {
+            const next = { ...prev };
+            const list = (next[key] || []).filter((id) => id !== taskId);
+            if (targetId) {
+                const targetIndex = list.indexOf(targetId);
+                if (targetIndex === -1) {
+                    list.push(taskId);
+                } else {
+                    list.splice(targetIndex, 0, taskId);
+                }
+            } else {
+                list.push(taskId);
+            }
+            next[key] = list;
+            persistOrder(tenantId, next);
+            return next;
+        });
+    };
+
+    const onCardDragOver = (e: React.DragEvent, status: TaskStatus, targetId: string) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!draggingTaskId || draggingTaskId === targetId || !activeTenantId) return;
+        const sourceTask = tasks.find((task) => task.id === draggingTaskId);
+        if (!sourceTask || sourceTask.status !== status) return;
+        const dragKey = `${status}:${targetId}`;
+        if (lastDragTargetRef.current === dragKey) return;
+        lastDragTargetRef.current = dragKey;
+        moveTaskOrder(activeTenantId, status, draggingTaskId, targetId);
+        e.currentTarget.classList.add('drag-over-card');
+    };
+
+    const onCardDragLeave = (e: React.DragEvent) => {
+        // Only remove class if we're actually leaving the card (not entering a child)
+        const target = e.currentTarget as HTMLElement;
+        const related = e.relatedTarget as HTMLElement;
+        if (!target.contains(related)) {
+            e.currentTarget.classList.remove('drag-over-card');
+        }
+    };
+
+    const onCardDrop = (e: React.DragEvent, status: TaskStatus, targetId: string) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over-card');
     };
 
     if (!session) {
@@ -1554,8 +1793,6 @@ const App: React.FC = () => {
         );
     }
 
-    if (loading && tasks.length === 0) return <div style={{ padding: '2rem' }}>Loading Kanbax...</div>;
-
     return (
         <div className="dashboard">
             <datalist id="kind-suggestions">
@@ -1563,56 +1800,169 @@ const App: React.FC = () => {
                     <option key={kind} value={kind} />
                 ))}
             </datalist>
+            <header className="topbar">
+                <div className="topbar-inner">
+                    <div className="topbar-search">
+                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="M20 20l-3.5-3.5" />
+                        </svg>
+                        <input
+                            type="search"
+                            placeholder="Search tasks, boards, huddles..."
+                            value={filterText}
+                            onChange={(e) => setFilterText(e.target.value)}
+                        />
+                    </div>
+                    {normalizedSearch && (
+                        <div className="topbar-search-panel">
+                            {!searchCacheComplete && (
+                                <div className="empty-state">Indexing huddles...</div>
+                            )}
+                            {searchCacheComplete && searchHuddles.length === 0 && searchTasks.length === 0 && searchColumns.length === 0 && (
+                                <div className="empty-state">No results.</div>
+                            )}
+                            {searchHuddles.length > 0 && (
+                                <div className="search-section">
+                                    <div className="search-title">Huddles</div>
+                                    {searchHuddles.map((membership) => (
+                                        <button
+                                            key={membership.id}
+                                            className="search-item"
+                                            onClick={() => handleSearchSelect('huddle', membership)}
+                                        >
+                                            <span className="huddle-item-dot" style={{ background: getHuddleAccent(membership.tenantId, membership.tenant?.name).solid }} />
+                                            {getHuddleName(membership.tenant?.name) || membership.tenantId}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {searchTasks.length > 0 && (
+                                <div className="search-section">
+                                    <div className="search-title">Tasks</div>
+                                    {searchTasks.slice(0, 6).map((task) => (
+                                        <button
+                                            key={task.id}
+                                            className="search-item"
+                                            onClick={() => handleSearchSelect('task', task)}
+                                        >
+                                            {task.title}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {searchColumns.length > 0 && (
+                                <div className="search-section">
+                                    <div className="search-title">Board columns</div>
+                                    {searchColumns.map((column: any) => (
+                                        <button
+                                            key={column.status}
+                                            className="search-item"
+                                            onClick={() => handleSearchSelect('column', column)}
+                                        >
+                                            {column.status}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <div className="topbar-actions">
+                        <button
+                            className={`icon-btn ${view === 'settings' ? 'active' : ''}`}
+                            onClick={() => setView('settings')}
+                            title="Settings"
+                            aria-label="Settings"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                <path d="M12 2l1.5 3.5 3.7.6-2.6 2.5.7 3.7-3.3-1.8-3.3 1.8.7-3.7-2.6-2.5 3.7-.6L12 2z" />
+                                <circle cx="12" cy="12" r="3.2" />
+                            </svg>
+                        </button>
+                        <button
+                            className="notif-button"
+                            onClick={() => setIsNotificationsOpen((prev) => !prev)}
+                            aria-label="Notifications"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7" />
+                                <path d="M10 21a2 2 0 0 0 4 0" />
+                            </svg>
+                            {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+                        </button>
+                        {view !== 'settings' && (
+                            <button
+                                className="btn btn-primary"
+                                disabled={!activeTenantId}
+                                onClick={() => {
+                                    setNewTask({
+                                        title: '',
+                                        description: '',
+                                        priority: settingsDraft?.defaultPriority || 'MEDIUM',
+                                        dueDate: ''
+                                    });
+                                    setNewTaskStatus((settingsDraft?.defaultStatus as TaskStatus) || TaskStatus.BACKLOG);
+                                    setNewTaskAttachments([]);
+                                    setNewTaskKinds([]);
+                                    setNewKindInput('');
+                                    setNewTaskHuddleId(activeTenantId || displayMemberships[0]?.tenantId || null);
+                                    setNewTaskOwnerId(userProfile?.id || null);
+                                    setNewTaskAssignees([]);
+                                    setSelectedTemplateId('');
+                                    setIsModalOpen(true);
+                                }}
+                            >
+                                + Create Task
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </header>
             <aside className="sidebar">
                 <h2 style={{ marginBottom: '2rem', color: 'var(--accent-primary)' }}>Kanbax</h2>
-                <nav>
-                    <div
-                        style={{ padding: '0.75rem', cursor: 'pointer', color: view === 'kanban' ? 'var(--accent-primary)' : 'inherit' }}
-                        onClick={() => setView('kanban')}
-                    >
-                        Kanban Board
-                    </div>
-                    <div
-                        style={{ padding: '0.75rem', cursor: 'pointer', color: view === 'list' ? 'var(--accent-primary)' : 'inherit' }}
-                        onClick={() => setView('list')}
-                    >
-                        Task List
-                    </div>
-                    <div
-                        style={{ padding: '0.75rem', cursor: 'pointer', color: view === 'archived' ? 'var(--accent-primary)' : 'inherit' }}
-                        onClick={() => setView('archived')}
-                    >
-                        Archived
-                    </div>
-                    <div
-                        style={{ padding: '0.75rem', cursor: 'pointer', color: view === 'settings' ? 'var(--accent-primary)' : 'inherit' }}
-                        onClick={() => setView('settings')}
-                    >
-                        Settings
-                    </div>
-                </nav>
-
                 <div className="sidebar-team">
-                    <div className="sidebar-label">Huddle</div>
-                    <select
-                        className="sidebar-select"
-                        value={activeTenantId || ''}
-                        onChange={(e) => updateActiveTenant(e.target.value)}
-                    >
-                        {displayMemberships.map((membership) => (
-                            <option key={membership.id} value={membership.tenantId}>
-                                {getHuddleName(membership.tenant?.name) || membership.tenantId}
-                            </option>
-                        ))}
-                    </select>
-                    {isPersonalActive && (
-                        <div className="huddle-badge">Private</div>
-                    )}
-                    {hasSharedHuddles && (
-                        <button className="btn btn-ghost btn-compact" onClick={() => setIsTeamModalOpen(true)}>
-                            Manage huddles
-                        </button>
-                    )}
+                    <div className="sidebar-label-row">
+                        <div className="sidebar-label">Huddles</div>
+                        {hasSharedHuddles && (
+                            <button
+                                className="icon-btn sidebar-manage"
+                                onClick={() => setIsTeamModalOpen(true)}
+                                title="Manage huddles"
+                                aria-label="Manage huddles"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                    <path d="M12 15l-3.5 3.5" />
+                                    <path d="M16.5 6.5l1 1a2.1 2.1 0 0 1 0 3l-7.5 7.5-4 1 1-4 7.5-7.5a2.1 2.1 0 0 1 3 0z" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                    <div className="huddle-list">
+                        {displayMemberships.map((membership) => {
+                            const isActive = membership.tenantId === activeTenantId;
+                            return (
+                                <button
+                                    key={membership.id}
+                                    className={`huddle-item ${isActive ? 'active' : ''}`}
+                                    onClick={() => {
+                                        updateActiveTenant(membership.tenantId);
+                                        setView('kanban');
+                                    }}
+                                >
+                                    <span
+                                        className="huddle-item-dot"
+                                        style={{ background: getHuddleAccent(membership.tenantId, membership.tenant?.name).solid }}
+                                    />
+                                    <span className="huddle-item-name">
+                                        {getHuddleName(membership.tenant?.name) || membership.tenantId}
+                                    </span>
+                                    {membership.tenant?.name?.toLowerCase() === 'personal' && (
+                                        <span className="huddle-item-tag">Private</span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="sidebar-user">
@@ -1625,6 +1975,9 @@ const App: React.FC = () => {
             </aside>
 
             <main className="main-content">
+                {loading && (
+                    <div className="loading-strip">Syncing huddle…</div>
+                )}
                 {isPersonalActive && !hasSharedHuddles && !dismissHuddleCta && (
                     <div className="huddle-cta">
                         <div>
@@ -1662,85 +2015,9 @@ const App: React.FC = () => {
                         </button>
                     </div>
                 )}
-                <header className="page-header">
-                    <div className="page-title">
-                        {activeTenantId && (
-                            <div className="huddle-context">
-                                <button
-                                    className="huddle-chip"
-                                    style={{
-                                        background: activeHuddleAccent.soft,
-                                        borderColor: activeHuddleAccent.border,
-                                        color: activeHuddleAccent.text
-                                    }}
-                                    onClick={() => setIsTeamModalOpen(true)}
-                                >
-                                    <span className="huddle-dot" style={{ background: activeHuddleAccent.solid }} />
-                                    {activeHuddleName}
-                                    <span className="huddle-tag">{isPersonalActive ? 'Private' : 'Shared'}</span>
-                                </button>
-                                <span className="huddle-separator">/</span>
-                                <span className="huddle-breadcrumb">
-                                    {view === 'kanban'
-                                        ? 'Kanban Board'
-                                        : view === 'archived'
-                                            ? 'Archived Tasks'
-                                            : view === 'settings'
-                                                ? 'Settings'
-                                                : 'Task List'}
-                                </span>
-                                <button
-                                    className="notif-button"
-                                    onClick={() => setIsNotificationsOpen((prev) => !prev)}
-                                    aria-label="Notifications"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7" />
-                                        <path d="M10 21a2 2 0 0 0 4 0" />
-                                    </svg>
-                                    {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
-                                </button>
-                            </div>
-                        )}
-                        <h1>
-                            {view === 'kanban'
-                                ? 'Kanban Board'
-                                : view === 'archived'
-                                    ? 'Archived Tasks'
-                                    : view === 'settings'
-                                        ? 'Settings'
-                                        : 'Task List'}
-                        </h1>
-                    </div>
-                    <div className="header-actions">
-                        {view !== 'settings' && (
-                            <button
-                                className="btn btn-primary"
-                                disabled={!activeTenantId}
-                                onClick={() => {
-                                    setNewTask({
-                                        title: '',
-                                        description: '',
-                                        priority: settingsDraft?.defaultPriority || 'MEDIUM',
-                                        dueDate: ''
-                                    });
-                                    setNewTaskStatus((settingsDraft?.defaultStatus as TaskStatus) || TaskStatus.BACKLOG);
-                                    setNewTaskAttachments([]);
-                                    setNewTaskKinds([]);
-                                    setNewKindInput('');
-                                    setNewTaskHuddleId(activeTenantId || displayMemberships[0]?.tenantId || null);
-                                    setNewTaskOwnerId(userProfile?.id || null);
-                                    setNewTaskAssignees([]);
-                                    setSelectedTemplateId('');
-                                    setIsModalOpen(true);
-                                }}
-                            >
-                                + Create Task
-                            </button>
-                        )}
-                    </div>
-                </header>
-
+                <div className="page-heading">
+                    <h1>{view === 'settings' ? 'Settings' : (activeHuddleName || 'Huddle')}</h1>
+                </div>
                 {view === 'settings' ? (
                     <div className="settings-panel">
                         {settingsDraft ? (
@@ -2188,32 +2465,53 @@ const App: React.FC = () => {
                 ) : (
                     <>
                         <div className="filter-bar">
-                            <input
-                                type="text"
-                                placeholder="Filter by title, description, or type..."
-                                value={filterText}
-                                onChange={(e) => setFilterText(e.target.value)}
-                                className="filter-input"
-                            />
-                            <select
-                                value={filterPriority}
-                                onChange={(e) => setFilterPriority(e.target.value)}
-                                className="filter-select"
-                            >
-                                <option value="ALL">All priorities</option>
-                                <option value="LOW">Low</option>
-                                <option value="MEDIUM">Medium</option>
-                                <option value="HIGH">High</option>
-                                <option value="CRITICAL">Critical</option>
-                            </select>
-                            <label className="filter-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={filterFavorites}
-                                    onChange={(e) => setFilterFavorites(e.target.checked)}
-                                />
-                                Favorites only
-                            </label>
+                            <div className="view-switch" role="tablist" aria-label="View switcher">
+                                <button
+                                    className={`view-pill ${view === 'kanban' ? 'active' : ''}`}
+                                    onClick={() => setView('kanban')}
+                                    role="tab"
+                                    aria-selected={view === 'kanban'}
+                                >
+                                    Board
+                                </button>
+                                <button
+                                    className={`view-pill ${view === 'table' ? 'active' : ''}`}
+                                    onClick={() => setView('table')}
+                                    role="tab"
+                                    aria-selected={view === 'table'}
+                                >
+                                    Table
+                                </button>
+                                <button
+                                    className={`view-pill ${view === 'list' ? 'active' : ''}`}
+                                    onClick={() => setView('list')}
+                                    role="tab"
+                                    aria-selected={view === 'list'}
+                                >
+                                    List
+                                </button>
+                            </div>
+                            <div className="filter-actions">
+                                <select
+                                    value={filterPriority}
+                                    onChange={(e) => setFilterPriority(e.target.value)}
+                                    className="filter-select"
+                                >
+                                    <option value="ALL">All priorities</option>
+                                    <option value="LOW">Low</option>
+                                    <option value="MEDIUM">Medium</option>
+                                    <option value="HIGH">High</option>
+                                    <option value="CRITICAL">Critical</option>
+                                </select>
+                                <label className={`filter-checkbox ${filterFavorites ? 'active' : ''}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={filterFavorites}
+                                        onChange={(e) => setFilterFavorites(e.target.checked)}
+                                    />
+                                    <span>Favorites only</span>
+                                </label>
+                            </div>
                         </div>
 
                         {error && <div style={{ color: '#f87171', marginBottom: '1rem' }}>Error: {error}</div>}
@@ -2222,6 +2520,12 @@ const App: React.FC = () => {
                             <div className="kanban-board">
                                 {board?.columns.map((column: any) => {
                                     const visibleTasks = column.tasks.filter(matchesFilter);
+                                    const orderKey = getOrderKey(activeTenantId, column.status);
+                                    const orderedIds = taskOrderByColumn[orderKey] || [];
+                                    const tasksById = new Map(visibleTasks.map((task: TaskView) => [task.id, task]));
+                                    const orderedTasks = orderedIds.map((id) => tasksById.get(id)).filter(Boolean) as TaskView[];
+                                    const remainingTasks = visibleTasks.filter((task: TaskView) => !orderedIds.includes(task.id));
+                                    const displayTasks = orderedTasks.concat(remainingTasks);
                                     return (
                                     <div
                                         key={column.status}
@@ -2232,98 +2536,110 @@ const App: React.FC = () => {
                                     >
                                         <div className="column-header">
                                             <span>{column.status}</span>
-                                            <span>{visibleTasks.length}</span>
+                                            <span>{displayTasks.length}</span>
                                         </div>
-                                        {visibleTasks.map((task: TaskView) => {
+                                        {displayTasks.map((task: TaskView) => {
                                             const checklistDone = task.checklist.filter((item) => item.done).length;
                                             const checklistTotal = task.checklist.length;
                                             const linkedCount = task.linkedTaskIds.length;
                                             const isChecklistComplete = checklistTotal > 0 && checklistDone === checklistTotal;
                                             const isLinkedFromOther = linkedToSet.has(task.id);
+                                            const isDraggable = task.sourceType ? task.sourceType === 'MANUAL' : true;
+                                            const taskCardStyle: React.CSSProperties = {
+                                                cursor: isDraggable ? 'grab' : 'default',
+                                                userSelect: 'none',
+                                                WebkitUserDrag: isDraggable ? 'element' : 'auto',
+                                                pointerEvents: 'auto',
+                                            };
                                             return (
-                                                <div
-                                                    key={task.id}
-                                                    className="task-card"
-                                                    draggable={task.sourceType === 'MANUAL'}
-                                                    onDragStart={(e) => onDragStart(e, task.id)}
-                                                    onDragEnd={onDragEnd}
-                                                    onClick={() => openDetailsModal(task)}
-                                                >
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
-                                                        <div className="task-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                            {isLinkedFromOther && (
-                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
-                                                                    <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                    <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                                </svg>
-                                                            )}
-                                                            {task.title}
-                                                        </div>
-                                                        <span
-                                                            className={`priority-dot priority-${task.priority.toLowerCase()}`}
-                                                            aria-label={`Priority ${task.priority}`}
-                                                            title={`Priority: ${task.priority}`}
-                                                        />
-                                                        {task.isFavorite && (
-                                                            <span className="favorite-badge" title="Favorite">
-                                                                ★
-                                                            </span>
+                                                <React.Fragment key={task.id}>
+                                                    <div
+                                                        className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}`}
+                                                        style={taskCardStyle}
+                                                        draggable={isDraggable}
+                                                        onDragStart={(e) => (isDraggable ? onDragStart(e, task.id) : e.preventDefault())}
+                                                        onDragEnd={onDragEnd}
+                                                        onDragOver={(e) => onCardDragOver(e, column.status, task.id)}
+                                                        onDragLeave={onCardDragLeave}
+                                                        onClick={() => handleCardClick(task)}
+                                                    >
+                                                        <div className="task-card-content">
+                                                            <div className="task-card-header">
+                                                                <div className="task-title-row">
+                                                                    {isLinkedFromOther && (
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
+                                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
+                                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
+                                                                        </svg>
+                                                                    )}
+                                                                    {task.title}
+                                                                </div>
+                                                                <span
+                                                                    className={`priority-dot priority-${task.priority.toLowerCase()}`}
+                                                                    title={`Priority: ${task.priority}`}
+                                                                />
+                                                                {task.isFavorite && (
+                                                                    <span className="favorite-badge" title="Favorite">
+                                                                        ★
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        {task.description && (
+                                                            <div className="task-card-description">{stripHtml(task.description)}</div>
                                                         )}
-                                                    </div>
-                                                    {task.description && (
-                                                        <div className="task-card-description">{stripHtml(task.description)}</div>
-                                                    )}
-                                                    <hr className="card-divider" />
-                                                    <div className="task-card-footer">
-                                                        <div className="task-card-kinds">
-                                                            {task.kinds.map((kind) => (
-                                                                <span key={kind} className="badge task-kind-badge">
-                                                                    {kind}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                        <div className="task-card-people">
-                                                            {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
-                                                            {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
-                                                        </div>
-                                                        <div className="task-card-icons">
-                                                            {checklistTotal > 0 && (
-                                                                <span className={isChecklistComplete ? 'icon-badge checklist-complete' : 'icon-badge'}>
-                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                        <path d="M4 6h16M4 12h16M4 18h10" />
-                                                                        <path d="M18 17l2 2 4-4" />
-                                                                    </svg>
-                                                                    {checklistDone}/{checklistTotal}
-                                                                </span>
-                                                            )}
-                                                            {task.comments.length > 0 && (
-                                                                <span className="icon-badge">
-                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-                                                                    </svg>
-                                                                    {task.comments.length}
-                                                                </span>
-                                                            )}
-                                                            {linkedCount > 0 && (
-                                                                <span className="icon-badge">
-                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                        <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                        <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                                    </svg>
-                                                                    {linkedCount}
-                                                                </span>
-                                                            )}
-                                                            {task.attachments.length > 0 && (
-                                                                <span className="icon-badge">
-                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                        <path d="M21.5 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 1 1 5 5l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.9-7.9" />
-                                                                    </svg>
-                                                                    {task.attachments.length}
-                                                                </span>
-                                                            )}
+                                                        <hr className="card-divider" />
+                                                        <div className="task-card-footer">
+                                                            <div className="task-card-kinds">
+                                                                {task.kinds.map((kind) => (
+                                                                    <span key={kind} className="badge task-kind-badge">
+                                                                        {kind}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                            <div className="task-card-people">
+                                                                {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
+                                                                {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
+                                                            </div>
+                                                            <div className="task-card-icons">
+                                                                {checklistTotal > 0 && (
+                                                                    <span className={isChecklistComplete ? 'icon-badge checklist-complete' : 'icon-badge'}>
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <path d="M4 6h16M4 12h16M4 18h10" />
+                                                                            <path d="M18 17l2 2 4-4" />
+                                                                        </svg>
+                                                                        {checklistDone}/{checklistTotal}
+                                                                    </span>
+                                                                )}
+                                                                {task.comments.length > 0 && (
+                                                                    <span className="icon-badge">
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                                                                        </svg>
+                                                                        {task.comments.length}
+                                                                    </span>
+                                                                )}
+                                                                {linkedCount > 0 && (
+                                                                    <span className="icon-badge">
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
+                                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
+                                                                        </svg>
+                                                                        {linkedCount}
+                                                                    </span>
+                                                                )}
+                                                                {task.attachments.length > 0 && (
+                                                                    <span className="icon-badge">
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <path d="M21.5 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 1 1 5 5l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.9-7.9" />
+                                                                        </svg>
+                                                                        {task.attachments.length}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
+                                                </React.Fragment>
                                             );
                                         })}
                                     </div>
@@ -2348,8 +2664,8 @@ const App: React.FC = () => {
                                                 className="task-card"
                                                 onClick={() => openDetailsModal(task)}
                                             >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
-                                                    <div className="task-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <div className="task-card-header">
+                                                    <div className="task-title-row">
                                                         {isLinkedFromOther && (
                                                             <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
                                                                 <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
@@ -2430,46 +2746,128 @@ const App: React.FC = () => {
                                     })}
                                 </div>
                             </div>
-                        ) : (
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        ) : view === 'list' ? (
+                            <div className="task-list">
+                                {visibleTasksForView.map((task: TaskView) => {
+                                    const checklistDone = task.checklist.filter((item) => item.done).length;
+                                    const checklistTotal = task.checklist.length;
+                                    const linkedCount = task.linkedTaskIds.length;
+                                    const isChecklistComplete = checklistTotal > 0 && checklistDone === checklistTotal;
+                                    const isLinkedFromOther = linkedToSet.has(task.id);
+                                    return (
+                                        <div
+                                            key={task.id}
+                                            className="task-row"
+                                            onClick={() => openDetailsModal(task)}
+                                        >
+                                            <div className="task-row-main">
+                                                <div className="task-row-title">
+                                                    {isLinkedFromOther && (
+                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
+                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
+                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
+                                                        </svg>
+                                                    )}
+                                                    {task.title}
+                                                </div>
+                                                <div className="task-row-meta">
+                                                    {task.kinds.map((kind) => (
+                                                        <span key={kind} className="badge task-kind-badge">
+                                                            {kind}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="task-row-side">
+                                                <span
+                                                    className={`priority-dot priority-${task.priority.toLowerCase()}`}
+                                                    aria-label={`Priority ${task.priority}`}
+                                                    title={`Priority: ${task.priority}`}
+                                                />
+                                                <div className="task-card-people">
+                                                    {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
+                                                    {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
+                                                </div>
+                                                <div className="task-row-icons">
+                                                    {checklistTotal > 0 && (
+                                                        <span className={isChecklistComplete ? 'icon-badge checklist-complete' : 'icon-badge'}>
+                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                <path d="M4 6h16M4 12h16M4 18h10" />
+                                                                <path d="M18 17l2 2 4-4" />
+                                                            </svg>
+                                                            {checklistDone}/{checklistTotal}
+                                                        </span>
+                                                    )}
+                                                    {task.comments.length > 0 && (
+                                                        <span className="icon-badge">
+                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                                                            </svg>
+                                                            {task.comments.length}
+                                                        </span>
+                                                    )}
+                                                    {linkedCount > 0 && (
+                                                        <span className="icon-badge">
+                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
+                                                                <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
+                                                            </svg>
+                                                            {linkedCount}
+                                                        </span>
+                                                    )}
+                                                    {task.attachments.length > 0 && (
+                                                        <span className="icon-badge">
+                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                <path d="M21.5 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 1 1 5 5l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.9-7.9" />
+                                                            </svg>
+                                                            {task.attachments.length}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : view === 'table' ? (
+                            <table className="task-table">
                                 <thead>
-                                    <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                                <th style={{ padding: '1rem' }}>Title</th>
-                                <th style={{ padding: '1rem' }}>People</th>
-                                <th style={{ padding: '1rem' }}>Status</th>
-                                <th style={{ padding: '1rem' }}>Art</th>
-                                <th style={{ padding: '1rem' }}>Priority</th>
-                                <th style={{ padding: '1rem' }}>Due</th>
-                                <th style={{ padding: '1rem' }}>Source</th>
-                                <th style={{ padding: '1rem' }}>Actions</th>
+                                    <tr>
+                                <th>Title</th>
+                                <th>People</th>
+                                <th>Status</th>
+                                <th>Art</th>
+                                <th>Priority</th>
+                                <th>Due</th>
+                                <th>Source</th>
+                                <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {visibleTasksForView.map((task: TaskView) => (
                                         <tr
                                             key={task.id}
-                                            style={{ borderBottom: '1px solid var(--border-color)' }}
                                             onClick={() => openDetailsModal(task)}
                                         >
-                                            <td style={{ padding: '1rem' }}>{task.title}</td>
-                                            <td style={{ padding: '1rem' }}>
+                                            <td>{task.title}</td>
+                                            <td>
                                                 <div className="task-card-people">
                                                     {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
                                                     {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '1rem' }}>{task.status}</td>
-                                            <td style={{ padding: '1rem' }}>{task.kinds.length > 0 ? task.kinds.join(', ') : '—'}</td>
-                                            <td style={{ padding: '1rem' }}>
+                                            <td>{task.status}</td>
+                                            <td>{task.kinds.length > 0 ? task.kinds.join(', ') : '—'}</td>
+                                            <td>
                                                 <span className={`badge badge-priority-${task.priority.toLowerCase()}`}>
                                                     {task.priority}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '1rem' }}>
+                                            <td>
                                                 {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
                                             </td>
-                                            <td style={{ padding: '1rem' }}>{task.sourceIndicator}</td>
-                                            <td style={{ padding: '1rem' }}>
+                                            <td>{task.sourceIndicator}</td>
+                                            <td>
                                                 {task.sourceType === 'MANUAL' && (
                                                     <button
                                                         className="delete-btn"
@@ -2488,6 +2886,8 @@ const App: React.FC = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        ) : (
+                            <div className="empty-state">No tasks to display.</div>
                         )}
                     </>
                 )}

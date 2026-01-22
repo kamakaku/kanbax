@@ -15,6 +15,7 @@ import { UpdateTaskDetailsPipeline } from './update-task-details-pipeline.js';
 import { DeleteTaskPipeline } from './delete-task-pipeline.js';
 import { PrincipalType } from '@kanbax/domain';
 import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify } from 'jose';
+import type { JWTVerifyGetKey } from 'jose';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -80,7 +81,7 @@ const resolveJwtSecret = (secret: string) => {
     return new TextEncoder().encode(secret);
 };
 
-const resolveJwtKey = (token: string) => {
+const resolveJwtKey = (token: string): Uint8Array | JWTVerifyGetKey => {
     const header = decodeProtectedHeader(token);
     if (header.alg && header.alg.startsWith('HS')) {
         if (!SUPABASE_JWT_SECRET) {
@@ -128,9 +129,10 @@ app.use(async (req, res, next) => {
 
     try {
         const jwtKey = resolveJwtKey(token);
-        const { payload } = await jwtVerify(token, jwtKey, SUPABASE_ISSUER
-            ? { issuer: SUPABASE_ISSUER }
-            : undefined);
+        const verifyOptions = SUPABASE_ISSUER ? { issuer: SUPABASE_ISSUER } : undefined;
+        const { payload } = typeof jwtKey === 'function'
+            ? await jwtVerify(token, jwtKey, verifyOptions)
+            : await jwtVerify(token, jwtKey, verifyOptions);
 
         const authUserId = String(payload.sub || '');
         const email = String(payload.email || '');
@@ -305,12 +307,14 @@ app.post('/commands/task/assign-huddle', async (req, res) => {
 
         const task = await prisma.task.findFirst({ where: { id: taskId, tenantId } });
         if (!task) return res.status(404).json({ error: 'Task not found' });
-        if (task.source?.type && task.source.type !== 'MANUAL') {
+        const source = (task.source && typeof task.source === 'object') ? (task.source as { type?: string }) : null;
+        if (source?.type && source.type !== 'MANUAL') {
             return res.status(400).json({ error: 'Only manual tasks can be moved' });
         }
 
+        const policyContext = (task.policyContext && typeof task.policyContext === 'object') ? task.policyContext : {};
         const nextPolicyContext = {
-            ...(task.policyContext || {}),
+            ...(policyContext as Record<string, any>),
             tenantId: targetTenantId,
             scopeId: 'default-board',
         };

@@ -106,9 +106,10 @@ app.use(async (req, res, next) => {
     }
     try {
         const jwtKey = resolveJwtKey(token);
-        const { payload } = await jwtVerify(token, jwtKey, SUPABASE_ISSUER
-            ? { issuer: SUPABASE_ISSUER }
-            : undefined);
+        const verifyOptions = SUPABASE_ISSUER ? { issuer: SUPABASE_ISSUER } : undefined;
+        const { payload } = typeof jwtKey === 'function'
+            ? await jwtVerify(token, jwtKey, verifyOptions)
+            : await jwtVerify(token, jwtKey, verifyOptions);
         const authUserId = String(payload.sub || '');
         const email = String(payload.email || '');
         const userMetadata = (payload.user_metadata || {});
@@ -276,11 +277,13 @@ app.post('/commands/task/assign-huddle', async (req, res) => {
         const task = await prisma.task.findFirst({ where: { id: taskId, tenantId } });
         if (!task)
             return res.status(404).json({ error: 'Task not found' });
-        if (task.source?.type && task.source.type !== 'MANUAL') {
+        const source = (task.source && typeof task.source === 'object') ? task.source : null;
+        if (source?.type && source.type !== 'MANUAL') {
             return res.status(400).json({ error: 'Only manual tasks can be moved' });
         }
+        const policyContext = (task.policyContext && typeof task.policyContext === 'object') ? task.policyContext : {};
         const nextPolicyContext = {
-            ...(task.policyContext || {}),
+            ...policyContext,
             tenantId: targetTenantId,
             scopeId: 'default-board',
         };
