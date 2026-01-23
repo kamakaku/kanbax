@@ -49,6 +49,19 @@ Evaluates actions against the `PolicyContext` to ensure compliance and security.
 ### AuditLogger
 Ensures every action is recorded in an append-only, immutable log.
 
+## OKR Hybrid Model UI
+
+Kanbax OKRs are treated as a navigation system rather than a reporting dashboard:
+
+- **Pulse** (`/okr/pulse`): signal-driven view for attention items only.
+- **Objective Focus** (`/okr/objective/:id`): confidence-first view with periphery awareness.
+- **Strategic Review** (`/okr/review/:id`): guided, step-based check-in.
+- **Decision Composer**: slide-over card with governance preview.
+
+Notes:
+- Decisions are currently stored in the UI state (TODO: persist via API).
+- Legacy OKR screen is behind a dev flag: set `localStorage.kanbax-okr-legacy = "1"`.
+
 ## Getting Started
 
 1. Install dependencies: `npm install`

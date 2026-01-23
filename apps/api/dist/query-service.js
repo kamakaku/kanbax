@@ -6,10 +6,10 @@ export class QueryService {
         this.taskRepository = taskRepository;
         this.auditRepository = auditRepository;
     }
-    async getTasks(principal) {
+    async getTasks(principal, boardId = 'default-board') {
         // In a real app, this would use a specialized query repository.
         // Here we use the existing repository and map to views.
-        const tasks = await this.taskRepository.findAllByBoardId('default-board', principal.tenantId);
+        const tasks = await this.taskRepository.findAllByBoardId(boardId, principal.tenantId);
         return tasks.map(t => this.mapToTaskView(t));
     }
     async getTaskById(id, principal) {
@@ -18,7 +18,6 @@ export class QueryService {
     }
     async getBoards(principal) {
         const tasks = await this.taskRepository.findAllByBoardId('default-board', principal.tenantId);
-        // Group tasks by status for a default board view
         const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
         const columns = statuses.map(status => ({
             status,

@@ -17,6 +17,8 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   tasks          Task[]
+  boards         Board[]
+  objectives     Objective[]
   policyContexts PolicyContext[]
   auditEvents    AuditEvent[]
   roles          Role[]
@@ -25,6 +27,21 @@ model Tenant {
   principals     Principal[]
   members        TeamMembership[]
   invites        TeamInvite[]
+}
+
+model Board {
+  id        String
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  objectives Objective[]
+
+  @@id([tenantId, id])
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 model User {
@@ -101,6 +118,41 @@ model Task {
   version     Int      @default(1)
 
   @@index([tenantId, createdAt])
+}
+
+model Objective {
+  id        String   @id @default(uuid())
+  tenantId  String
+  boardId   String   @default("default-board")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  board     Board    @relation(fields: [tenantId, boardId], references: [tenantId, id])
+  title     String
+  ownerId   String?
+  startDate DateTime?
+  endDate   DateTime?
+  status    String
+  confidence Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  keyResults KeyResult[]
+
+  @@index([tenantId, createdAt])
+}
+
+model KeyResult {
+  id           String   @id @default(uuid())
+  objectiveId  String
+  objective    Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  title        String
+  startValue   Float
+  targetValue  Float
+  currentValue Float
+  status       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([objectiveId])
 }
 
 model PolicyContext {

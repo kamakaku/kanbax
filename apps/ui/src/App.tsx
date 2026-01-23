@@ -4,8 +4,64 @@ import { supabase } from './supabaseClient';
 
 const API_BASE = 'http://localhost:4000';
 
+interface OkrKeyResult {
+    id: string;
+    objectiveId: string;
+    title: string;
+    startValue: number;
+    targetValue: number;
+    currentValue: number;
+    status: string;
+    progress: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+interface OkrObjective {
+    id: string;
+    tenantId: string;
+    title: string;
+    ownerId?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    status: string;
+    confidence?: number | null;
+    progress: number;
+    keyResults: OkrKeyResult[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+type KrStatus = 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK';
+
+interface KeyResultView {
+    id: string;
+    objectiveId: string;
+    title: string;
+    metricType: string;
+    startValue: number;
+    targetValue: number;
+    currentValue: number;
+    status: KrStatus;
+    progress: number;
+    lastUpdatedAt: string;
+}
+
+interface ObjectiveView {
+    id: string;
+    title: string;
+    ownerId?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    status: string;
+    confidence: number;
+    progress: number;
+    keyResults: KeyResultView[];
+    readOnly: boolean;
+}
+
 const App: React.FC = () => {
-    const [view, setView] = useState<'kanban' | 'list' | 'table' | 'archived' | 'settings'>('kanban');
+    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'archived' | 'settings' | 'okr'>('dashboard');
     const [session, setSession] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [memberships, setMemberships] = useState<any[]>([]);
@@ -52,8 +108,65 @@ const App: React.FC = () => {
     const pollIntervalRef = useRef<number | null>(null);
     const dragStartTimeRef = useRef<number>(0);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isHuddleMenuOpen, setIsHuddleMenuOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+        try {
+            return localStorage.getItem('kanbax-sidebar-collapsed') === 'true';
+        } catch {
+            return false;
+        }
+    });
     const [tasks, setTasks] = useState<TaskView[]>([]);
     const [board, setBoard] = useState<BoardView | null>(null);
+    const [boards, setBoards] = useState<BoardView[]>([]);
+    const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+    const [okrObjectives, setOkrObjectives] = useState<OkrObjective[]>([]);
+    const [okrLoading, setOkrLoading] = useState(false);
+    const [okrError, setOkrError] = useState<string | null>(null);
+    const [okrNotice, setOkrNotice] = useState<{ code: 'permission' | 'policy' | 'unknown'; safeReason: string; correlationId?: string } | null>(null);
+    const [okrPinned, setOkrPinned] = useState<string[]>(() => {
+        try {
+            return JSON.parse(localStorage.getItem('kanbax-okr-pinned') || '[]');
+        } catch {
+            return [];
+        }
+    });
+    const [okrRecent, setOkrRecent] = useState<string[]>(() => {
+        try {
+            return JSON.parse(localStorage.getItem('kanbax-okr-recent') || '[]');
+        } catch {
+            return [];
+        }
+    });
+    const [okrRoute, setOkrRoute] = useState<{ screen: 'library' | 'objective' | 'review'; objectiveId?: string } | null>(null);
+    const [reviewStep, setReviewStep] = useState(0);
+    const [isBoardSettingsOpen, setIsBoardSettingsOpen] = useState(false);
+    const [isObjectiveSettingsOpen, setIsObjectiveSettingsOpen] = useState(false);
+    const [objectiveComposerOpen, setObjectiveComposerOpen] = useState(false);
+    const [objectiveEditId, setObjectiveEditId] = useState<string | null>(null);
+    const [objectiveDraft, setObjectiveDraft] = useState({
+        title: '',
+        ownerId: '',
+        startDate: '',
+        endDate: '',
+        status: 'ACTIVE',
+    });
+    const [expandedObjectives, setExpandedObjectives] = useState<string[]>([]);
+    const [newObjective, setNewObjective] = useState({
+        title: '',
+        ownerId: '',
+        startDate: '',
+        endDate: '',
+        status: 'ACTIVE',
+    });
+    const [krDrafts, setKrDrafts] = useState<Record<string, {
+        title: string;
+        startValue: string;
+        targetValue: string;
+        currentValue: string;
+        status: string;
+    }>>({});
     const [filterText, setFilterText] = useState('');
     const [filterPriority, setFilterPriority] = useState('ALL');
     const [filterFavorites, setFilterFavorites] = useState(false);
@@ -102,6 +215,9 @@ const App: React.FC = () => {
         if (includeTenant && tenant) {
             headers['x-tenant-id'] = tenant;
         }
+        if (userProfile?.id) {
+            headers['x-user-id'] = userProfile.id;
+        }
         return headers;
     };
 
@@ -113,6 +229,26 @@ const App: React.FC = () => {
         return () => subscription.unsubscribe();
     }, []);
 
+    useEffect(() => {
+        const syncRoute = () => {
+            const parsed = parseOkrPath(window.location.pathname);
+            setOkrRoute(parsed);
+            if (parsed) {
+                setView('okr');
+            }
+        };
+        syncRoute();
+        const handlePop = () => syncRoute();
+        window.addEventListener('popstate', handlePop);
+        return () => window.removeEventListener('popstate', handlePop);
+    }, []);
+
+    useEffect(() => {
+        if (view !== 'okr' && window.location.pathname.startsWith('/okr')) {
+            window.history.replaceState({}, '', '/');
+        }
+    }, [view]);
+
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -123,21 +259,40 @@ const App: React.FC = () => {
                 setLoading(false);
                 return;
             }
-            const [tasksRes, boardsRes] = await Promise.all([
-                fetch(`${API_BASE}/tasks`, { headers: getApiHeaders() }),
-                fetch(`${API_BASE}/boards`, { headers: getApiHeaders() })
-            ]);
-
-            if (!tasksRes.ok || !boardsRes.ok) throw new Error('Failed to fetch data');
-
-            const tasksData = await tasksRes.json();
+            const boardsRes = await fetch(`${API_BASE}/boards`, { headers: getApiHeaders() });
+            if (!boardsRes.ok) throw new Error('Failed to fetch boards');
             const boardsData = await boardsRes.json();
+            setBoards(boardsData);
+
+            const storedBoardId = (() => {
+                try {
+                    return localStorage.getItem(`kanbax-active-board:${activeTenantId}`);
+                } catch {
+                    return null;
+                }
+            })();
+            const fallbackBoardId = boardsData[0]?.id || null;
+            const nextBoardId = (storedBoardId && boardsData.some((b: BoardView) => b.id === storedBoardId))
+                ? storedBoardId
+                : fallbackBoardId;
+            setActiveBoardId(nextBoardId);
+            if (nextBoardId) {
+                try {
+                    localStorage.setItem(`kanbax-active-board:${activeTenantId}`, nextBoardId);
+                } catch {
+                    // ignore
+                }
+            }
+
+            const tasksRes = await fetch(`${API_BASE}/tasks?boardId=${encodeURIComponent(nextBoardId || '')}`, { headers: getApiHeaders() });
+            if (!tasksRes.ok) throw new Error('Failed to fetch tasks');
+            const tasksData = await tasksRes.json();
 
             setTasks(tasksData);
             if (activeTenantId) {
                 setTasksByTenant((prev) => ({ ...prev, [activeTenantId]: tasksData }));
             }
-            setBoard(boardsData[0] || null);
+            setBoard(boardsData.find((b: BoardView) => b.id === nextBoardId) || boardsData[0] || null);
             const taskKinds = tasksData
                 .flatMap((task: TaskView) => (task.kinds || []).map((kind) => kind.trim()))
                 .filter((kind: string) => kind.length > 0);
@@ -164,11 +319,458 @@ const App: React.FC = () => {
         }
     };
 
+    const parsePolicyNotice = (err: any) => {
+        const message = typeof err === 'string' ? err : (err?.error || err?.message || 'Unknown error');
+        const lowered = message.toLowerCase();
+        if (lowered.includes('permission')) {
+            return { code: 'permission' as const, safeReason: 'Blocked by permission.' };
+        }
+        if (lowered.includes('policy') || lowered.includes('denied')) {
+            return { code: 'policy' as const, safeReason: 'Blocked by policy.' };
+        }
+        return { code: 'unknown' as const, safeReason: message };
+    };
+
+    const loadOkrs = async () => {
+        if (!session || !activeTenantId) {
+            setOkrObjectives([]);
+            setOkrError(null);
+            setOkrNotice(null);
+            return;
+        }
+        try {
+            setOkrLoading(true);
+            const boardId = activeBoardId || 'default-board';
+            const res = await fetch(`${API_BASE}/okrs?boardId=${encodeURIComponent(boardId)}`, { headers: getApiHeaders() });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to load OKRs');
+            }
+            const data = await res.json();
+            setOkrObjectives(data || []);
+            setOkrError(null);
+            setOkrNotice(null);
+        } catch (e: any) {
+            setOkrError(e.message);
+            setOkrNotice(parsePolicyNotice(e));
+        } finally {
+            setOkrLoading(false);
+        }
+    };
+
+    const submitObjective = async (draft: { title: string; ownerId: string; startDate: string; endDate: string; status: string }, onSuccess?: () => void) => {
+        if (!activeTenantId) return;
+        try {
+            const payload = {
+                title: draft.title.trim(),
+                ownerId: draft.ownerId || null,
+                startDate: draft.startDate || null,
+                endDate: draft.endDate || null,
+                status: draft.status || 'ACTIVE',
+                boardId: activeBoardId || 'default-board',
+            };
+            if (!payload.title) {
+                alert('Objective title is required');
+                return;
+            }
+            const isEdit = Boolean(objectiveEditId);
+            const res = await fetch(
+                isEdit ? `${API_BASE}/okrs/objectives/${objectiveEditId}` : `${API_BASE}/okrs/objectives`,
+                {
+                    method: isEdit ? 'PATCH' : 'POST',
+                    headers: getApiHeaders(),
+                    body: JSON.stringify(payload),
+                }
+            );
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || `Failed to ${isEdit ? 'update' : 'create'} objective`);
+            }
+            const created = await res.json();
+            setOkrObjectives((prev) => (isEdit ? prev.map((item) => (item.id === created.id ? created : item)) : [created, ...prev]));
+            setOkrNotice(null);
+            if (onSuccess) onSuccess();
+        } catch (e: any) {
+            alert(e.message);
+            setOkrNotice(parsePolicyNotice(e));
+        }
+    };
+
+    const handleCreateObjective = async () => {
+        await submitObjective(newObjective, () => {
+            setNewObjective({
+                title: '',
+                ownerId: '',
+                startDate: '',
+                endDate: '',
+                status: 'ACTIVE',
+            });
+        });
+    };
+
+    const handleObjectiveComposerSubmit = async () => {
+        await submitObjective(objectiveDraft, () => {
+            setObjectiveComposerOpen(false);
+            setObjectiveEditId(null);
+            setObjectiveDraft({
+                title: '',
+                ownerId: '',
+                startDate: '',
+                endDate: '',
+                status: 'ACTIVE',
+            });
+        });
+    };
+
+    const handleEditObjective = (objective: ObjectiveView) => {
+        setObjectiveEditId(objective.id);
+        setObjectiveDraft({
+            title: objective.title,
+            ownerId: objective.ownerId || '',
+            startDate: toDateInput(objective.startDate),
+            endDate: toDateInput(objective.endDate),
+            status: objective.status || 'ACTIVE',
+        });
+        setIsObjectiveSettingsOpen(true);
+    };
+
+    const handleDeleteObjective = async (objectiveId: string) => {
+        if (!confirm('Delete this objective and its key results?')) return;
+        try {
+            const res = await fetch(`${API_BASE}/okrs/objectives/${objectiveId}`, {
+                method: 'DELETE',
+                headers: getApiHeaders(),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to delete objective');
+            }
+            setOkrObjectives((prev) => prev.filter((objective) => objective.id !== objectiveId));
+            navigateOkr('/okr');
+        } catch (e: any) {
+            alert(e.message);
+            setOkrNotice(parsePolicyNotice(e));
+        }
+    };
+
+    const handleDeleteKeyResult = async (keyResultId: string, objectiveId: string) => {
+        if (!confirm('Delete this key result?')) return;
+        try {
+            const res = await fetch(`${API_BASE}/okrs/key-results/${keyResultId}`, {
+                method: 'DELETE',
+                headers: getApiHeaders(),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to delete key result');
+            }
+            setOkrObjectives((prev) =>
+                prev.map((objective) =>
+                    objective.id === objectiveId
+                        ? { ...objective, keyResults: objective.keyResults.filter((kr) => kr.id !== keyResultId) }
+                        : objective
+                )
+            );
+        } catch (e: any) {
+            alert(e.message);
+            setOkrNotice(parsePolicyNotice(e));
+        }
+    };
+
+    const handleDeleteBoard = async () => {
+        if (!activeTenantId || !activeBoardId) return;
+        if (!confirm('Delete this board and all its data? This cannot be undone.')) return;
+        try {
+            const res = await fetch(`${API_BASE}/boards/${activeBoardId}`, {
+                method: 'DELETE',
+                headers: getApiHeaders(),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to delete board');
+            }
+            const nextBoards = boards.filter((item) => item.id !== activeBoardId);
+            setBoards(nextBoards);
+            const nextBoard = nextBoards[0] || null;
+            setActiveBoardId(nextBoard?.id || null);
+            setBoard(nextBoard);
+            setIsBoardSettingsOpen(false);
+            try {
+                if (nextBoard?.id) {
+                    localStorage.setItem(`kanbax-active-board:${activeTenantId}`, nextBoard.id);
+                } else {
+                    localStorage.removeItem(`kanbax-active-board:${activeTenantId}`);
+                }
+            } catch {
+                // ignore
+            }
+            fetchData();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const getKrDraft = (objectiveId: string) =>
+        krDrafts[objectiveId] || {
+            title: '',
+            startValue: '0',
+            targetValue: '100',
+            currentValue: '0',
+            status: 'ACTIVE',
+        };
+
+    const updateKrDraft = (objectiveId: string, next: Partial<{ title: string; startValue: string; targetValue: string; currentValue: string; status: string; }>) => {
+        setKrDrafts((prev) => ({
+            ...prev,
+            [objectiveId]: { ...getKrDraft(objectiveId), ...next },
+        }));
+    };
+
+    const handleCreateKeyResult = async (objectiveId: string) => {
+        const draft = getKrDraft(objectiveId);
+        if (!draft.title.trim()) {
+            alert('Key result title is required');
+            return;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/okrs/objectives/${objectiveId}/key-results`, {
+                method: 'POST',
+                headers: getApiHeaders(),
+                body: JSON.stringify({
+                    title: draft.title.trim(),
+                    startValue: Number(draft.startValue),
+                    targetValue: Number(draft.targetValue),
+                    currentValue: Number(draft.currentValue),
+                    status: draft.status || 'ACTIVE',
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to create key result');
+            }
+            const created = await res.json();
+            setOkrObjectives((prev) =>
+                prev.map((objective) =>
+                    objective.id === objectiveId
+                        ? {
+                            ...objective,
+                            keyResults: [...objective.keyResults, created],
+                            progress: objective.keyResults.length
+                                ? (objective.keyResults.reduce((sum, kr) => sum + kr.progress, 0) + created.progress) / (objective.keyResults.length + 1)
+                                : created.progress,
+                        }
+                        : objective
+                )
+            );
+            setKrDrafts((prev) => ({
+                ...prev,
+                [objectiveId]: {
+                    title: '',
+                    startValue: draft.startValue,
+                    targetValue: draft.targetValue,
+                    currentValue: draft.startValue,
+                    status: 'ACTIVE',
+                },
+            }));
+            setOkrNotice(null);
+        } catch (e: any) {
+            alert(e.message);
+            setOkrNotice(parsePolicyNotice(e));
+        }
+    };
+
+    const handleUpdateKeyResult = async (keyResultId: string, objectiveId: string, next: Partial<OkrKeyResult>) => {
+        try {
+            const res = await fetch(`${API_BASE}/okrs/key-results/${keyResultId}`, {
+                method: 'PATCH',
+                headers: getApiHeaders(),
+                body: JSON.stringify(next),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to update key result');
+            }
+            const updated = await res.json();
+            setOkrObjectives((prev) =>
+                prev.map((objective) => {
+                    if (objective.id !== objectiveId) return objective;
+                    const nextKeyResults = objective.keyResults.map((kr) => (kr.id === keyResultId ? { ...kr, ...updated } : kr));
+                    const progress = nextKeyResults.length
+                        ? nextKeyResults.reduce((sum, kr) => sum + kr.progress, 0) / nextKeyResults.length
+                        : 0;
+                    return { ...objective, keyResults: nextKeyResults, progress };
+                })
+            );
+            setOkrNotice(null);
+        } catch (e: any) {
+            alert(e.message);
+            setOkrNotice(parsePolicyNotice(e));
+        }
+    };
+
+    const normalizeKrStatus = (status: string): KrStatus => {
+        const normalized = status?.toUpperCase?.() || 'ON_TRACK';
+        if (normalized === 'AT_RISK') return 'AT_RISK';
+        if (normalized === 'OFF_TRACK') return 'OFF_TRACK';
+        return 'ON_TRACK';
+    };
+
+    const computeProgressFromKrs = (krs: KeyResultView[]) => {
+        if (krs.length === 0) return 0;
+        const total = krs.reduce((sum, kr) => sum + kr.progress, 0);
+        return Math.round(total / krs.length);
+    };
+
+    const objectiveViews = useMemo<ObjectiveView[]>(() => {
+        return okrObjectives.map((objective) => {
+            const keyResults: KeyResultView[] = (objective.keyResults || []).map((kr) => ({
+                id: kr.id,
+                objectiveId: kr.objectiveId,
+                title: kr.title,
+                metricType: 'NUMERIC',
+                startValue: kr.startValue,
+                targetValue: kr.targetValue,
+                currentValue: kr.currentValue,
+                status: normalizeKrStatus(kr.status),
+                progress: Math.round(kr.progress ?? 0),
+                lastUpdatedAt: kr.updatedAt || kr.createdAt,
+            }));
+            const progress = computeProgressFromKrs(keyResults);
+            const sourceType = (objective as any).sourceType;
+            const base: ObjectiveView = {
+                id: objective.id,
+                title: objective.title,
+                ownerId: objective.ownerId ?? null,
+                startDate: objective.startDate ?? null,
+                endDate: objective.endDate ?? null,
+                status: objective.status,
+                confidence: typeof objective.confidence === 'number' ? objective.confidence : 0,
+                progress,
+                keyResults,
+                readOnly: Boolean(sourceType && sourceType !== 'MANUAL'),
+            };
+            return base;
+        });
+    }, [okrObjectives]);
+
+    const showLegacyOkr = useMemo(() => {
+        try {
+            return localStorage.getItem('kanbax-okr-legacy') === '1';
+        } catch {
+            return false;
+        }
+    }, []);
+
+    const openObjectiveFocus = (objectiveId: string) => {
+        navigateOkr(`/okr/objective/${objectiveId}`);
+        setOkrRecent((prev) => {
+            const next = [objectiveId, ...prev.filter((id) => id !== objectiveId)].slice(0, 8);
+            return next;
+        });
+    };
+
+    const togglePinObjective = (objectiveId: string) => {
+        setOkrPinned((prev) => {
+            if (prev.includes(objectiveId)) {
+                return prev.filter((id) => id !== objectiveId);
+            }
+            return [objectiveId, ...prev].slice(0, 6);
+        });
+    };
+
+    const okrActiveObjective = useMemo(
+        () => objectiveViews.find((objective) => objective.id === okrRoute?.objectiveId),
+        [objectiveViews, okrRoute]
+    );
+    const okrScreen = okrRoute?.screen || 'library';
+    useEffect(() => {
+        if (okrScreen === 'review') {
+            setReviewStep(0);
+        }
+    }, [okrScreen, okrRoute?.objectiveId]);
+
+    const okrPeriphery = useMemo(() => {
+        const pinned = okrPinned.map((id) => objectiveViews.find((obj) => obj.id === id)).filter(Boolean) as ObjectiveView[];
+        const recent = okrRecent.map((id) => objectiveViews.find((obj) => obj.id === id)).filter(Boolean) as ObjectiveView[];
+        const suggested = objectiveViews
+            .filter((obj) => !okrPinned.includes(obj.id) && !okrRecent.includes(obj.id))
+            .sort((a, b) => b.progress - a.progress)
+            .slice(0, 5);
+        return { pinned, recent, suggested };
+    }, [okrPinned, okrRecent, objectiveViews]);
+
+    const reviewSteps = useMemo(() => {
+        if (!okrActiveObjective) return [];
+        return [
+            {
+                title: 'Relevance check',
+                content: 'Is this objective still aligned with the current quarter?',
+            },
+            {
+                title: 'KR validity check',
+                content: 'Do the metrics still represent success?',
+            },
+            {
+                title: 'Update KR values',
+                content: okrActiveObjective.readOnly ? (
+                    <div className="okr-empty">This objective is read-only due to its source.</div>
+                ) : (
+                    <div className="okr-review-kr">
+                        {okrActiveObjective.keyResults.map((kr) => (
+                            <label key={kr.id}>
+                                {kr.title}
+                                <input
+                                    type="number"
+                                    defaultValue={kr.currentValue}
+                                    onBlur={(e) => handleUpdateKeyResult(kr.id, okrActiveObjective.id, { currentValue: Number(e.target.value) })}
+                                />
+                            </label>
+                        ))}
+                    </div>
+                ),
+            },
+            {
+                title: 'Review summary',
+                content: `Progress ${okrActiveObjective.progress}% · ${okrActiveObjective.keyResults.length} key results`,
+            },
+        ];
+    }, [okrActiveObjective]);
+
     useEffect(() => {
         if (session && activeTenantId) {
             fetchData();
         }
     }, [session, activeTenantId]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('kanbax-okr-pinned', JSON.stringify(okrPinned));
+        } catch {
+            // ignore
+        }
+    }, [okrPinned]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('kanbax-okr-recent', JSON.stringify(okrRecent));
+        } catch {
+            // ignore
+        }
+    }, [okrRecent]);
+
+    useEffect(() => {
+        if (view === 'okr') {
+            loadOkrs();
+        }
+    }, [view, session, activeTenantId, activeBoardId]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('kanbax-sidebar-collapsed', String(isSidebarCollapsed));
+        } catch {
+            // ignore
+        }
+    }, [isSidebarCollapsed]);
 
     const loadProfile = async () => {
         if (!session?.access_token) return;
@@ -286,6 +888,26 @@ const App: React.FC = () => {
     const taskById = new Map(tasks.map((task) => [task.id, task]));
     const currentUserLabel = String(userProfile?.email || session?.user?.email || 'U');
     const currentUserInitial = currentUserLabel.charAt(0).toUpperCase() || 'U';
+    const currentUserAvatar = settingsDraft?.avatarUrl || userProfile?.avatarUrl || '';
+    const toDateInput = (value?: string | null) => (value ? new Date(value).toISOString().slice(0, 10) : '');
+    const activeBoard = boards.find((item) => item.id === activeBoardId) || board;
+    const openCreateTask = () => {
+        setNewTask({
+            title: '',
+            description: '',
+            priority: settingsDraft?.defaultPriority || 'MEDIUM',
+            dueDate: ''
+        });
+        setNewTaskStatus((settingsDraft?.defaultStatus as TaskStatus) || TaskStatus.BACKLOG);
+        setNewTaskAttachments([]);
+        setNewTaskKinds([]);
+        setNewKindInput('');
+        setNewTaskHuddleId(activeTenantId || displayMemberships[0]?.tenantId || null);
+        setNewTaskOwnerId(userProfile?.id || null);
+        setNewTaskAssignees([]);
+        setSelectedTemplateId('');
+        setIsModalOpen(true);
+    };
     const getHuddleName = (name?: string | null) => {
         if (!name) return 'Huddle';
         return name.toLowerCase() === 'personal' ? 'Private Huddle' : name;
@@ -344,6 +966,25 @@ const App: React.FC = () => {
                 }
             }
         ];
+    };
+    const parseOkrPath = (path: string) => {
+        if (!path.startsWith('/okr')) return null;
+        const parts = path.split('/').filter(Boolean);
+        if (parts.length === 1 || parts[1] === 'objectives') {
+            return { screen: 'library' as const };
+        }
+        if (parts[1] === 'objective' && parts[2]) {
+            return { screen: 'objective' as const, objectiveId: parts[2] };
+        }
+        if (parts[1] === 'review' && parts[2]) {
+            return { screen: 'review' as const, objectiveId: parts[2] };
+        }
+        return { screen: 'library' as const };
+    };
+    const navigateOkr = (path: string) => {
+        window.history.pushState({}, '', path);
+        setView('okr');
+        setOkrRoute(parseOkrPath(path));
     };
     const buildSettingsDraft = (user: any) => {
         const prefs = user?.preferences || {};
@@ -429,6 +1070,32 @@ const App: React.FC = () => {
             activeHuddleAccent: getHuddleAccent(activeTenantId, active?.tenant?.name),
         };
     }, [memberships, activeTenantId]);
+    const isActiveHuddleOwner = activeMembership?.role === 'OWNER' || activeMembership?.role === 'ADMIN';
+    const breadcrumbItems = useMemo(() => {
+        if (view === 'settings') {
+            return [{ label: 'Settings' }];
+        }
+        const huddleLabel = activeHuddleName || 'Huddle';
+        const items: Array<{ label: string; onClick?: () => void }> = [
+            { label: huddleLabel, onClick: () => setView('dashboard') },
+        ];
+        if (view === 'okr') {
+            items.push({ label: 'OKRs', onClick: () => navigateOkr('/okr') });
+            if (okrScreen === 'objective' && okrActiveObjective) {
+                items.push({ label: okrActiveObjective.title, onClick: () => openObjectiveFocus(okrActiveObjective.id) });
+            }
+            if (okrScreen === 'review' && okrActiveObjective) {
+                items.push({ label: 'Review' });
+            }
+            return items;
+        }
+        if (view === 'dashboard') items.push({ label: 'Dashboard', onClick: () => setView('dashboard') });
+        if (view === 'table') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
+        if (view === 'list') items.push({ label: activeBoard?.name ? `List · ${activeBoard.name}` : 'List', onClick: () => setView('list') });
+        if (view === 'archived') items.push({ label: 'Archived', onClick: () => setView('archived') });
+        if (view === 'kanban') items.push({ label: activeBoard?.name || 'Board', onClick: () => setView('kanban') });
+        return items;
+    }, [view, activeHuddleName, okrScreen, okrActiveObjective, activeBoard?.name]);
     const notificationSnapshotRef = useRef<Record<string, any>>({});
     const initializedHuddlesRef = useRef<Set<string>>(new Set());
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
@@ -1032,12 +1699,12 @@ const App: React.FC = () => {
         : [];
     const searchCacheComplete = displayMemberships.length > 0
         && displayMemberships.every((membership) => Boolean(tasksByTenant[membership.tenantId]));
-    const getOrderKey = (tenantId: string | null | undefined, status: TaskStatus) =>
-        `${tenantId || 'unknown'}:${status}`;
-    const persistOrder = (tenantId: string | null | undefined, orders: Record<string, string[]>) => {
-        if (!tenantId) return;
+    const getOrderKey = (tenantId: string | null | undefined, boardId: string | null | undefined, status: TaskStatus) =>
+        `${tenantId || 'unknown'}:${boardId || 'unknown'}:${status}`;
+    const persistOrder = (tenantId: string | null | undefined, boardId: string | null | undefined, orders: Record<string, string[]>) => {
+        if (!tenantId || !boardId) return;
         try {
-            localStorage.setItem(`kanbax-task-order:${tenantId}`, JSON.stringify(orders));
+            localStorage.setItem(`kanbax-task-order:${tenantId}:${boardId}`, JSON.stringify(orders));
         } catch {
             // Ignore storage errors
         }
@@ -1080,9 +1747,9 @@ const App: React.FC = () => {
     }, [normalizedSearch, session, displayMemberships]);
 
     useEffect(() => {
-        if (!activeTenantId) return;
+        if (!activeTenantId || !activeBoardId) return;
         try {
-            const stored = localStorage.getItem(`kanbax-task-order:${activeTenantId}`);
+            const stored = localStorage.getItem(`kanbax-task-order:${activeTenantId}:${activeBoardId}`);
             if (stored) {
                 const parsed = JSON.parse(stored) as Record<string, string[]>;
                 setTaskOrderByColumn(parsed);
@@ -1092,14 +1759,14 @@ const App: React.FC = () => {
         } catch {
             setTaskOrderByColumn({});
         }
-    }, [activeTenantId]);
+    }, [activeTenantId, activeBoardId]);
 
     useEffect(() => {
         if (!activeTenantId || tasks.length === 0) return;
         const nextOrders: Record<string, string[]> = { ...taskOrderByColumn };
         const statuses = Array.from(new Set(tasks.map((task) => task.status)));
         statuses.forEach((status) => {
-            const key = getOrderKey(activeTenantId, status);
+            const key = getOrderKey(activeTenantId, activeBoardId, status);
             const existing = nextOrders[key] || [];
             const idsInStatus = tasks.filter((task) => task.status === status).map((task) => task.id);
             const ordered = existing.filter((id) => idsInStatus.includes(id));
@@ -1107,8 +1774,8 @@ const App: React.FC = () => {
             nextOrders[key] = ordered.concat(missing);
         });
         setTaskOrderByColumn(nextOrders);
-        persistOrder(activeTenantId, nextOrders);
-    }, [activeTenantId, tasks]);
+        persistOrder(activeTenantId, activeBoardId, nextOrders);
+    }, [activeTenantId, activeBoardId, tasks]);
     const activeTasks = tasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
 
     const handleCreateTask = async (e: React.FormEvent) => {
@@ -1127,7 +1794,7 @@ const App: React.FC = () => {
                     attachments: newTaskAttachments,
                     ownerId: newTaskOwnerId || undefined,
                     assignees: newTaskAssignees,
-                    boardId: 'default-board',
+                    boardId: activeBoardId || 'default-board',
                     source: { type: 'MANUAL', createdBy: 'admin-user-1' }
                 })
             });
@@ -1577,6 +2244,9 @@ const App: React.FC = () => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         e.currentTarget.classList.add('drag-over');
+        if (e.target === e.currentTarget) {
+            lastDragTargetRef.current = null;
+        }
     };
 
     const onDragLeave = (e: React.DragEvent) => {
@@ -1593,14 +2263,17 @@ const App: React.FC = () => {
         const sourceTask = tasks.find(t => t.id === taskId);
         const sourceStatus = sourceTask?.status;
 
-        const key = getOrderKey(activeTenantId, status);
+        const key = getOrderKey(activeTenantId, activeBoardId, status);
+        const targetRef = lastDragTargetRef.current;
+        lastDragTargetRef.current = null;
         if (sourceStatus && sourceStatus !== status) {
             handleUpdateStatus(taskId, status);
         }
-
-        const hasCardTarget = lastDragTargetRef.current?.startsWith(`${status}:`);
-        lastDragTargetRef.current = null;
-        if (hasCardTarget) {
+        if (targetRef?.startsWith(`${status}:`)) {
+            const targetId = targetRef.split(':')[1] || null;
+            if (targetId) {
+                moveTaskOrder(activeTenantId, activeBoardId, status, taskId, targetId);
+            }
             return;
         }
 
@@ -1608,13 +2281,13 @@ const App: React.FC = () => {
             const next = { ...prev };
             const list = (next[key] || []).filter((id) => id !== taskId);
             next[key] = list.concat(taskId);
-            persistOrder(activeTenantId, next);
+            persistOrder(activeTenantId, activeBoardId, next);
             return next;
         });
     };
 
-    const moveTaskOrder = (tenantId: string, status: TaskStatus, taskId: string, targetId: string | null) => {
-        const key = getOrderKey(tenantId, status);
+    const moveTaskOrder = (tenantId: string, boardId: string | null, status: TaskStatus, taskId: string, targetId: string | null) => {
+        const key = getOrderKey(tenantId, boardId, status);
         setTaskOrderByColumn((prev) => {
             const next = { ...prev };
             const list = (next[key] || []).filter((id) => id !== taskId);
@@ -1629,7 +2302,7 @@ const App: React.FC = () => {
                 list.push(taskId);
             }
             next[key] = list;
-            persistOrder(tenantId, next);
+            persistOrder(tenantId, boardId, next);
             return next;
         });
     };
@@ -1643,7 +2316,7 @@ const App: React.FC = () => {
         const dragKey = `${status}:${targetId}`;
         if (lastDragTargetRef.current === dragKey) return;
         lastDragTargetRef.current = dragKey;
-        moveTaskOrder(activeTenantId, status, draggingTaskId, targetId);
+        moveTaskOrder(activeTenantId, activeBoardId, status, draggingTaskId, targetId);
         e.currentTarget.classList.add('drag-over-card');
     };
 
@@ -1794,7 +2467,7 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="dashboard">
+        <div className={`dashboard${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
             <datalist id="kind-suggestions">
                 {knownKinds.map((kind) => (
                     <option key={kind} value={kind} />
@@ -1802,7 +2475,7 @@ const App: React.FC = () => {
             </datalist>
             <header className="topbar">
                 <div className="topbar-inner">
-                    <div className="topbar-search">
+                    <div className="topbar-search" tabIndex={-1}>
                         <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
                             <circle cx="11" cy="11" r="7" />
                             <path d="M20 20l-3.5-3.5" />
@@ -1869,17 +2542,6 @@ const App: React.FC = () => {
                     )}
                     <div className="topbar-actions">
                         <button
-                            className={`icon-btn ${view === 'settings' ? 'active' : ''}`}
-                            onClick={() => setView('settings')}
-                            title="Settings"
-                            aria-label="Settings"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                <path d="M12 2l1.5 3.5 3.7.6-2.6 2.5.7 3.7-3.3-1.8-3.3 1.8.7-3.7-2.6-2.5 3.7-.6L12 2z" />
-                                <circle cx="12" cy="12" r="3.2" />
-                            </svg>
-                        </button>
-                        <button
                             className="notif-button"
                             onClick={() => setIsNotificationsOpen((prev) => !prev)}
                             aria-label="Notifications"
@@ -1890,87 +2552,184 @@ const App: React.FC = () => {
                             </svg>
                             {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
                         </button>
-                        {view !== 'settings' && (
+                        <div className="user-menu">
                             <button
-                                className="btn btn-primary"
-                                disabled={!activeTenantId}
-                                onClick={() => {
-                                    setNewTask({
-                                        title: '',
-                                        description: '',
-                                        priority: settingsDraft?.defaultPriority || 'MEDIUM',
-                                        dueDate: ''
-                                    });
-                                    setNewTaskStatus((settingsDraft?.defaultStatus as TaskStatus) || TaskStatus.BACKLOG);
-                                    setNewTaskAttachments([]);
-                                    setNewTaskKinds([]);
-                                    setNewKindInput('');
-                                    setNewTaskHuddleId(activeTenantId || displayMemberships[0]?.tenantId || null);
-                                    setNewTaskOwnerId(userProfile?.id || null);
-                                    setNewTaskAssignees([]);
-                                    setSelectedTemplateId('');
-                                    setIsModalOpen(true);
-                                }}
+                                className="user-menu-button"
+                                onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                                aria-label="User menu"
                             >
-                                + Create Task
+                                {currentUserAvatar ? (
+                                    <img src={currentUserAvatar} alt="User avatar" />
+                                ) : (
+                                    <span>{getInitials(currentUserLabel)}</span>
+                                )}
                             </button>
-                        )}
+                            {isUserMenuOpen && (
+                                <div className="user-menu-dropdown">
+                                    <div className="user-menu-header">
+                                        <div className="user-menu-name">{settingsDraft?.name || currentUserLabel}</div>
+                                        <div className="user-menu-email">{currentUserLabel}</div>
+                                    </div>
+                                    <button
+                                        className="user-menu-item"
+                                        onClick={() => {
+                                            setView('dashboard');
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                    >
+                                        Dashboard
+                                    </button>
+                                    <button
+                                        className="user-menu-item"
+                                        onClick={() => {
+                                            setView('kanban');
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                    >
+                                        Board
+                                    </button>
+                                    <button
+                                        className="user-menu-item"
+                                        onClick={() => {
+                                            navigateOkr('/okr');
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                    >
+                                        OKRs
+                                    </button>
+                                    <button
+                                        className="user-menu-item"
+                                        onClick={() => {
+                                            setIsNotificationsOpen(true);
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                    >
+                                        Notifications {unreadCount > 0 ? `(${unreadCount})` : ''}
+                                    </button>
+                                    <button
+                                        className="user-menu-item"
+                                        onClick={() => {
+                                            setView('settings');
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                    >
+                                        Settings
+                                    </button>
+                                    <button
+                                        className="user-menu-item danger"
+                                        onClick={() => {
+                                            setIsUserMenuOpen(false);
+                                            handleSignOut();
+                                        }}
+                                    >
+                                        Sign out
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </header>
             <aside className="sidebar">
-                <h2 style={{ marginBottom: '2rem', color: 'var(--accent-primary)' }}>Kanbax</h2>
-                <div className="sidebar-team">
-                    <div className="sidebar-label-row">
-                        <div className="sidebar-label">Huddles</div>
-                        {hasSharedHuddles && (
-                            <button
-                                className="icon-btn sidebar-manage"
-                                onClick={() => setIsTeamModalOpen(true)}
-                                title="Manage huddles"
-                                aria-label="Manage huddles"
-                            >
-                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                    <path d="M12 15l-3.5 3.5" />
-                                    <path d="M16.5 6.5l1 1a2.1 2.1 0 0 1 0 3l-7.5 7.5-4 1 1-4 7.5-7.5a2.1 2.1 0 0 1 3 0z" />
-                                </svg>
-                            </button>
-                        )}
-                    </div>
-                    <div className="huddle-list">
-                        {displayMemberships.map((membership) => {
-                            const isActive = membership.tenantId === activeTenantId;
-                            return (
-                                <button
-                                    key={membership.id}
-                                    className={`huddle-item ${isActive ? 'active' : ''}`}
-                                    onClick={() => {
-                                        updateActiveTenant(membership.tenantId);
-                                        setView('kanban');
-                                    }}
-                                >
-                                    <span
-                                        className="huddle-item-dot"
-                                        style={{ background: getHuddleAccent(membership.tenantId, membership.tenant?.name).solid }}
-                                    />
-                                    <span className="huddle-item-name">
-                                        {getHuddleName(membership.tenant?.name) || membership.tenantId}
-                                    </span>
-                                    {membership.tenant?.name?.toLowerCase() === 'personal' && (
-                                        <span className="huddle-item-tag">Private</span>
-                                    )}
-                                </button>
-                            );
-                        })}
+                <div className="sidebar-header">
+                    <div className="sidebar-brand">
+                        <img className="sidebar-logo" src="/sqirch_logo.svg" alt="sqirch" />
+                        <img className="sidebar-logo-mark" src="/sqirch_mark.svg" alt="" aria-hidden="true" />
                     </div>
                 </div>
-
-                <div className="sidebar-user">
-                    <div className="sidebar-label">Signed in as</div>
-                    <div className="sidebar-user-email">{currentUserLabel}</div>
-                    <button className="btn btn-ghost btn-compact" onClick={handleSignOut}>
-                        Sign out
-                    </button>
+                <div className="sidebar-content">
+                    <div className="sidebar-huddle">
+                        <button
+                            className="sidebar-nav-item sidebar-huddle-toggle"
+                            onClick={() => setIsHuddleMenuOpen((prev) => !prev)}
+                            data-tooltip="Huddles"
+                            aria-label="Select huddle"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" aria-hidden="true">
+                                <circle cx="8" cy="8" r="3.2" />
+                                <circle cx="16" cy="8" r="3.2" />
+                                <path d="M3.5 19c0-2.8 2.7-5 4.5-5h0c1.9 0 4.5 2.2 4.5 5" />
+                                <path d="M11.5 19c0-2.8 2.7-5 4.5-5h0c1.9 0 4.5 2.2 4.5 5" />
+                            </svg>
+                            <span className="sidebar-huddle-initial">
+                                {getHuddleName(displayMemberships.find((membership) => membership.tenantId === activeTenantId)?.tenant?.name || 'H').charAt(0)}
+                            </span>
+                            <span className="sidebar-huddle-label">
+                                {getHuddleName(displayMemberships.find((membership) => membership.tenantId === activeTenantId)?.tenant?.name) || 'Huddle'}
+                            </span>
+                        </button>
+                        {isHuddleMenuOpen && (
+                            <div className="sidebar-huddle-menu">
+                                {displayMemberships.map((membership) => {
+                                    const isActive = membership.tenantId === activeTenantId;
+                                    return (
+                                        <button
+                                            key={membership.id}
+                                            className={`sidebar-huddle-item ${isActive ? 'active' : ''}`}
+                                            onClick={() => {
+                                                updateActiveTenant(membership.tenantId);
+                                                setIsHuddleMenuOpen(false);
+                                            }}
+                                        >
+                                            <span
+                                                className="huddle-item-dot"
+                                                style={{ background: getHuddleAccent(membership.tenantId, membership.tenant?.name).solid }}
+                                            />
+                                            <span className="sidebar-huddle-name">
+                                                {getHuddleName(membership.tenant?.name) || membership.tenantId}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    <div className="sidebar-team">
+                        <div className="sidebar-nav">
+                            <button
+                                className={`sidebar-nav-item ${view === 'kanban' ? 'active' : ''}`}
+                                onClick={() => setView('kanban')}
+                                data-tooltip="Board"
+                            >
+                                <span className="sidebar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                        <rect x="3.5" y="4" width="7" height="16" rx="2" />
+                                        <rect x="13.5" y="4" width="7" height="9" rx="2" />
+                                        <path d="M13.5 16h7" />
+                                    </svg>
+                                </span>
+                                <span className="sidebar-nav-label">Board</span>
+                            </button>
+                            <button
+                                className={`sidebar-nav-item ${view === 'okr' ? 'active' : ''}`}
+                                onClick={() => navigateOkr('/okr')}
+                                data-tooltip="OKRs"
+                            >
+                                <span className="sidebar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                        <path d="M4 19V5" />
+                                        <path d="M9 19V9" />
+                                        <path d="M14 19V7" />
+                                        <path d="M19 19V12" />
+                                    </svg>
+                                </span>
+                                <span className="sidebar-nav-label">OKRs</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="sidebar-footer">
+                        <button
+                            className="sidebar-toggle"
+                            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+                            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                <path d="M6 12h12" />
+                                <path d="M12 6l6 6-6 6" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </aside>
 
@@ -2016,9 +2775,34 @@ const App: React.FC = () => {
                     </div>
                 )}
                 <div className="page-heading">
-                    <h1>{view === 'settings' ? 'Settings' : (activeHuddleName || 'Huddle')}</h1>
+                    <h1>
+                        {view === 'settings'
+                            ? 'Settings'
+                            : view === 'okr'
+                                ? 'OKRs'
+                                : (activeBoard?.name || activeHuddleName || 'Board')}
+                    </h1>
+                    <div className="page-breadcrumbs">
+                        {breadcrumbItems.map((item, index) => (
+                            <span key={`${item.label}-${index}`} className="page-breadcrumb-item">
+                                {item.onClick ? (
+                                    <button type="button" className="page-breadcrumb-link" onClick={item.onClick}>
+                                        {item.label}
+                                    </button>
+                                ) : (
+                                    <span>{item.label}</span>
+                                )}
+                                {index < breadcrumbItems.length - 1 && <span className="page-breadcrumb-sep">/</span>}
+                            </span>
+                        ))}
+                    </div>
                 </div>
-                {view === 'settings' ? (
+                {loading ? (
+                    <div className="content-loader">
+                        <div className="content-loader-title">Loading huddle…</div>
+                        <div className="content-loader-text">Fetching tasks and status.</div>
+                    </div>
+                ) : view === 'settings' ? (
                     <div className="settings-panel">
                         {settingsDraft ? (
                             <>
@@ -2462,6 +3246,625 @@ const App: React.FC = () => {
                             <div className="empty-state">Loading settings...</div>
                         )}
                     </div>
+                ) : view === 'okr' ? (
+                    showLegacyOkr ? (
+                    <div className="okr-panel">
+                        <div className="okr-create">
+                            <div className="okr-card-title">Create objective</div>
+                            <div className="okr-grid">
+                                <label>
+                                    Title
+                                    <input
+                                        type="text"
+                                        value={newObjective.title}
+                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, title: e.target.value }))}
+                                        placeholder="Ship a new onboarding"
+                                    />
+                                </label>
+                                <label>
+                                    Owner
+                                    <select
+                                        value={newObjective.ownerId}
+                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, ownerId: e.target.value }))}
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {getMembersForTenant(activeTenantId).map((member) => (
+                                            <option key={member.userId} value={member.userId}>
+                                                {member.user?.name || member.user?.email || member.userId}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <label>
+                                    Start date
+                                    <input
+                                        type="date"
+                                        value={newObjective.startDate}
+                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, startDate: e.target.value }))}
+                                    />
+                                </label>
+                                <label>
+                                    End date
+                                    <input
+                                        type="date"
+                                        value={newObjective.endDate}
+                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, endDate: e.target.value }))}
+                                    />
+                                </label>
+                                <label>
+                                    Status
+                                    <select
+                                        value={newObjective.status}
+                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, status: e.target.value }))}
+                                    >
+                                        <option value="ACTIVE">Active</option>
+                                        <option value="AT_RISK">At risk</option>
+                                        <option value="PAUSED">Paused</option>
+                                        <option value="DONE">Done</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div className="okr-actions">
+                                <button
+                                    className="icon-action create"
+                                    onClick={handleCreateObjective}
+                                    data-tooltip="Objective erstellen"
+                                    aria-label="Objective erstellen"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                        <path d="M12 5v14" />
+                                        <path d="M5 12h14" />
+                                    </svg>
+                                </button>
+                                <button className="btn btn-ghost btn-compact" onClick={loadOkrs}>
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+                        {okrError && <div className="okr-error">Error: {okrError}</div>}
+                        {okrLoading ? (
+                            <div className="empty-state">Loading OKRs...</div>
+                        ) : (
+                            <div className="okr-list">
+                                {okrObjectives.length === 0 && (
+                                    <div className="empty-state">No objectives yet.</div>
+                                )}
+                                {okrObjectives.map((objective) => {
+                                    const ownerLabel = objective.ownerId
+                                        ? getMemberLabel(activeTenantId, objective.ownerId)
+                                        : 'Unassigned';
+                                    const draft = getKrDraft(objective.id);
+                                    return (
+                                        <div key={objective.id} className="okr-card">
+                                            <div className="okr-header">
+                                                <div>
+                                                    <div className="okr-title">{objective.title}</div>
+                                                    <div className="okr-meta">
+                                                        <span>{objective.status}</span>
+                                                        <span>Owner: {ownerLabel}</span>
+                                                        {objective.startDate && <span>{new Date(objective.startDate).toLocaleDateString()}</span>}
+                                                        {objective.endDate && <span>{new Date(objective.endDate).toLocaleDateString()}</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="okr-progress">
+                                                    <div className="okr-progress-label">{Math.round(objective.progress)}%</div>
+                                                    <div className="okr-progress-bar">
+                                                        <div className="okr-progress-fill" style={{ width: `${Math.round(objective.progress)}%` }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="okr-keyresults">
+                                                {objective.keyResults.map((kr) => (
+                                                    <div key={kr.id} className="okr-kr-row">
+                                                        <div className="okr-kr-main">
+                                                            <div className="okr-kr-title">{kr.title}</div>
+                                                            <div className="okr-kr-meta">
+                                                                <span>{kr.status}</span>
+                                                                <span>{kr.currentValue} / {kr.targetValue}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="okr-kr-progress">
+                                                            <div className="okr-progress-label">{Math.round(kr.progress)}%</div>
+                                                            <div className="okr-progress-bar">
+                                                                <div className="okr-progress-fill" style={{ width: `${Math.round(kr.progress)}%` }} />
+                                                            </div>
+                                                        </div>
+                                                        <div className="okr-kr-edit">
+                                                            <input
+                                                                type="number"
+                                                                defaultValue={kr.currentValue}
+                                                                onBlur={(e) => handleUpdateKeyResult(kr.id, objective.id, { currentValue: Number(e.target.value) })}
+                                                            />
+                                                            <select
+                                                                value={kr.status}
+                                                                onChange={(e) => handleUpdateKeyResult(kr.id, objective.id, { status: e.target.value })}
+                                                            >
+                                                                <option value="ACTIVE">Active</option>
+                                                                <option value="AT_RISK">At risk</option>
+                                                                <option value="PAUSED">Paused</option>
+                                                                <option value="DONE">Done</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <div className="okr-kr-create">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="New key result"
+                                                        value={draft.title}
+                                                        onChange={(e) => updateKrDraft(objective.id, { title: e.target.value })}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Start"
+                                                        value={draft.startValue}
+                                                        onChange={(e) => updateKrDraft(objective.id, { startValue: e.target.value })}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Target"
+                                                        value={draft.targetValue}
+                                                        onChange={(e) => updateKrDraft(objective.id, { targetValue: e.target.value })}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Current"
+                                                        value={draft.currentValue}
+                                                        onChange={(e) => updateKrDraft(objective.id, { currentValue: e.target.value })}
+                                                    />
+                                                    <select
+                                                        value={draft.status}
+                                                        onChange={(e) => updateKrDraft(objective.id, { status: e.target.value })}
+                                                    >
+                                                        <option value="ACTIVE">Active</option>
+                                                        <option value="AT_RISK">At risk</option>
+                                                        <option value="PAUSED">Paused</option>
+                                                        <option value="DONE">Done</option>
+                                                    </select>
+                                                    <button
+                                                        className="icon-action create"
+                                                        onClick={() => handleCreateKeyResult(objective.id)}
+                                                        data-tooltip="KR erstellen"
+                                                        aria-label="KR erstellen"
+                                                    >
+                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                            <path d="M12 5v14" />
+                                                            <path d="M5 12h14" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    ) : (
+                    <div className="okr-shell">
+                        {okrNotice && (
+                            <div className="okr-notice">
+                                <div className="okr-notice-title">
+                                    {okrNotice.code === 'permission' ? 'Blocked by permission' : okrNotice.code === 'policy' ? 'Blocked by policy' : 'Request blocked'}
+                                </div>
+                                <div className="okr-notice-text">{okrNotice.safeReason}</div>
+                                {okrNotice.correlationId && <div className="okr-notice-meta">Ref: {okrNotice.correlationId}</div>}
+                            </div>
+                        )}
+                        {okrLoading && (
+                            <div className="okr-loading">Syncing OKRs…</div>
+                        )}
+
+                        {okrScreen === 'objective' && okrActiveObjective && (
+                            <div className="okr-focus">
+                                <div className="okr-focus-main">
+                                    <div className="okr-focus-header">
+                                        <div>
+                                            <div className="okr-focus-title">{okrActiveObjective.title}</div>
+                                            <div className="okr-focus-meta">
+                                                <span>{okrActiveObjective.status}</span>
+                                                <span>Owner: {okrActiveObjective.ownerId ? getMemberLabel(activeTenantId, okrActiveObjective.ownerId) : 'Unassigned'}</span>
+                                                {okrActiveObjective.startDate && <span>{new Date(okrActiveObjective.startDate).toLocaleDateString()}</span>}
+                                                {okrActiveObjective.endDate && <span>{new Date(okrActiveObjective.endDate).toLocaleDateString()}</span>}
+                                            </div>
+                                        </div>
+                                        <div className="okr-focus-actions">
+                                            {(okrActiveObjective.ownerId === userProfile?.id || isActiveHuddleOwner) && (
+                                                <button
+                                                    className="icon-action settings"
+                                                    onClick={() => handleEditObjective(okrActiveObjective)}
+                                                    data-tooltip="Einstellungen zum Objective"
+                                                    aria-label="Einstellungen zum Objective"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                        <circle cx="12" cy="12" r="3.5" />
+                                                        <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                            <button
+                                                className={`pin-button ${okrPinned.includes(okrActiveObjective.id) ? 'active' : ''}`}
+                                                onClick={() => togglePinObjective(okrActiveObjective.id)}
+                                            >
+                                                {okrPinned.includes(okrActiveObjective.id) ? 'Pinned' : 'Pin'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="okr-focus-progress">
+                                        <div className="okr-progress-label">Progress</div>
+                                        <div className="okr-progress-bar">
+                                            <div className="okr-progress-fill" style={{ width: `${okrActiveObjective.progress}%` }} />
+                                        </div>
+                                        <div className="okr-progress-foot">{okrActiveObjective.progress}% of key results</div>
+                                    </div>
+
+                                    <div className="okr-focus-section">
+                                        <div className="okr-section-title">Summary</div>
+                                        <div className="okr-strategic-summary">
+                                            Progress {okrActiveObjective.progress}% · {okrActiveObjective.keyResults.length} key results
+                                        </div>
+                                    </div>
+
+                                    <div className="okr-focus-section">
+                                        <div className="okr-section-title">Key results</div>
+                                        <div className="okr-kr-list">
+                                            {okrActiveObjective.keyResults.length === 0 && <div className="okr-empty">No key results yet.</div>}
+                                            {okrActiveObjective.keyResults.map((kr) => (
+                                                <div key={kr.id} className="okr-kr-card">
+                                                    <div>
+                                                        <div className="okr-kr-title">{kr.title}</div>
+                                                        <div className="okr-kr-meta">
+                                                            <span>{kr.status.replace('_', ' ')}</span>
+                                                            <span>{kr.currentValue} / {kr.targetValue}</span>
+                                                            <span>Updated {new Date(kr.lastUpdatedAt).toLocaleDateString()}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="okr-kr-progress">
+                                                        <div className="okr-progress-bar">
+                                                            <div className="okr-progress-fill" style={{ width: `${kr.progress}%` }} />
+                                                        </div>
+                                                        <div className="okr-progress-foot">{kr.progress}%</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {!okrActiveObjective.readOnly && (
+                                            <div className="okr-kr-create">
+                                                <input
+                                                    type="text"
+                                                    placeholder="New key result"
+                                                    value={getKrDraft(okrActiveObjective.id).title}
+                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { title: e.target.value })}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Start"
+                                                    value={getKrDraft(okrActiveObjective.id).startValue}
+                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { startValue: e.target.value })}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Target"
+                                                    value={getKrDraft(okrActiveObjective.id).targetValue}
+                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { targetValue: e.target.value })}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Current"
+                                                    value={getKrDraft(okrActiveObjective.id).currentValue}
+                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { currentValue: e.target.value })}
+                                                />
+                                                <select
+                                                    value={getKrDraft(okrActiveObjective.id).status}
+                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { status: e.target.value })}
+                                                >
+                                                    <option value="ACTIVE">Active</option>
+                                                    <option value="AT_RISK">At risk</option>
+                                                    <option value="PAUSED">Paused</option>
+                                                    <option value="DONE">Done</option>
+                                                </select>
+                                                <button
+                                                    className="icon-action create"
+                                                    onClick={() => handleCreateKeyResult(okrActiveObjective.id)}
+                                                    data-tooltip="KR erstellen"
+                                                    aria-label="KR erstellen"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                        <path d="M12 5v14" />
+                                                        <path d="M5 12h14" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        )}
+                                        <button className="btn btn-ghost btn-compact" onClick={() => navigateOkr(`/okr/review/${okrActiveObjective.id}`)}>
+                                            Start strategic review
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="okr-periphery">
+                                    <div className="okr-section-title">Periphery</div>
+                                    <div className="okr-periphery-section">
+                                        <div className="okr-periphery-title">Pinned</div>
+                                        {okrPeriphery.pinned.length === 0 && <div className="okr-empty">Pin objectives for quick access.</div>}
+                                        {okrPeriphery.pinned.map((objective) => (
+                                            <button key={objective.id} className="okr-periphery-item" onClick={() => openObjectiveFocus(objective.id)}>
+                                                <span>{objective.title}</span>
+                                                <span>{objective.progress}%</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="okr-periphery-section">
+                                        <div className="okr-periphery-title">Recently visited</div>
+                                        {okrPeriphery.recent.length === 0 && <div className="okr-empty">No recent objectives.</div>}
+                                        {okrPeriphery.recent.map((objective) => (
+                                            <button key={objective.id} className="okr-periphery-item" onClick={() => openObjectiveFocus(objective.id)}>
+                                                <span>{objective.title}</span>
+                                                <span>{objective.progress}%</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="okr-periphery-section">
+                                        <div className="okr-periphery-title">Next relevant</div>
+                                        {okrPeriphery.suggested.length === 0 && <div className="okr-empty">Nothing else to review.</div>}
+                                        {okrPeriphery.suggested.map((objective) => (
+                                            <button key={objective.id} className="okr-periphery-item" onClick={() => openObjectiveFocus(objective.id)}>
+                                                <span>{objective.title}</span>
+                                                <span>{objective.progress}%</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {okrScreen === 'objective' && !okrActiveObjective && (
+                            <div className="okr-empty">Select an objective from Pulse to focus.</div>
+                        )}
+
+                        {okrScreen === 'review' && okrActiveObjective && (
+                            <div className="okr-review">
+                                <div className="okr-review-header">
+                                    <div>
+                                        <div className="okr-review-title">Strategic review</div>
+                                        <div className="okr-review-subtitle">6-minute guided check-in</div>
+                                    </div>
+                                    <button className="btn btn-ghost btn-compact" onClick={() => openObjectiveFocus(okrActiveObjective.id)}>
+                                        Back to focus
+                                    </button>
+                                </div>
+                                {reviewSteps.length > 0 && (
+                                    <div className="okr-review-steps">
+                                        <div className="okr-review-step">
+                                            <div className="okr-step-title">{reviewSteps[reviewStep]?.title}</div>
+                                            <div className="okr-step-text">{reviewSteps[reviewStep]?.content}</div>
+                                        </div>
+                                        <div className="okr-review-nav">
+                                            <button
+                                                className="btn btn-ghost btn-compact"
+                                                onClick={() => setReviewStep((prev) => Math.max(prev - 1, 0))}
+                                                disabled={reviewStep === 0}
+                                            >
+                                                Back
+                                            </button>
+                                            <div className="okr-review-progress">
+                                                Step {reviewStep + 1} / {reviewSteps.length}
+                                            </div>
+                                            <button
+                                                className="btn btn-secondary btn-compact"
+                                                onClick={() => setReviewStep((prev) => Math.min(prev + 1, reviewSteps.length - 1))}
+                                                disabled={reviewStep === reviewSteps.length - 1}
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {okrScreen === 'review' && !okrActiveObjective && (
+                            <div className="okr-empty">Select an objective to start a review.</div>
+                        )}
+
+                        {okrScreen === 'library' && (
+                            <div className="okr-pulse">
+                                <div className="okr-pulse-header">
+                                    <div>
+                                        <div className="okr-pulse-title">Objectives</div>
+                                        <div className="okr-pulse-subtitle">Create objectives and track key results.</div>
+                                    </div>
+                                    <div className="okr-pulse-actions">
+                                        <button className="btn btn-secondary btn-compact" onClick={loadOkrs}>
+                                            Refresh
+                                        </button>
+                                        <button className="btn btn-primary btn-compact" onClick={() => setObjectiveComposerOpen(true)}>
+                                            New objective
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="okr-pulse-grid">
+                                    <div className="okr-pulse-section okr-pulse-objectives">
+                                        <div className="okr-section-title">Objectives</div>
+                                        {objectiveViews.length === 0 ? (
+                                            <div className="okr-empty">No objectives yet.</div>
+                                        ) : (
+                                            <div className="task-list">
+                                                {objectiveViews.map((objective) => {
+                                                    const isExpanded = expandedObjectives.includes(objective.id);
+                                                    const ownerLabel = objective.ownerId
+                                                        ? getMemberLabel(activeTenantId, objective.ownerId)
+                                                        : 'Unassigned';
+                                                    return (
+                                                        <div key={objective.id} className={`okr-objective-item ${isExpanded ? 'expanded' : ''}`}>
+                                                            <div
+                                                                className="task-row okr-objective-row"
+                                                                onClick={() =>
+                                                                    setExpandedObjectives((prev) =>
+                                                                        prev.includes(objective.id)
+                                                                            ? prev.filter((id) => id !== objective.id)
+                                                                            : [...prev, objective.id]
+                                                                    )
+                                                                }
+                                                            >
+                                                                <div className="task-row-main">
+                                                                    <div className="task-row-title">
+                                                                        <button
+                                                                            className="okr-objective-title-btn"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                openObjectiveFocus(objective.id);
+                                                                            }}
+                                                                        >
+                                                                            {objective.title}
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="task-row-meta">
+                                                                        <span className="badge task-kind-badge">{objective.status}</span>
+                                                                        <span className="badge task-kind-badge">Progress {objective.progress}%</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="task-row-side">
+                                                                    <div className="okr-objective-side">
+                                                                        <span className="okr-objective-owner">{ownerLabel}</span>
+                                                                        <span className="okr-objective-progress">{Math.round(objective.progress)}%</span>
+                                                                    </div>
+                                                                    <button
+                                                                        className={`okr-objective-toggle ${isExpanded ? 'active' : ''}`}
+                                                                        onClick={(event) => {
+                                                                            event.stopPropagation();
+                                                                            setExpandedObjectives((prev) =>
+                                                                                prev.includes(objective.id)
+                                                                                    ? prev.filter((id) => id !== objective.id)
+                                                                                    : [...prev, objective.id]
+                                                                            );
+                                                                        }}
+                                                                        aria-expanded={isExpanded}
+                                                                    >
+                                                                        {isExpanded ? 'Hide KRs' : 'Show KRs'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            {isExpanded && (
+                                                                <div className="okr-kr-inline">
+                                                                    {objective.keyResults.length === 0 ? (
+                                                                        <div className="okr-empty">No key results yet.</div>
+                                                                    ) : (
+                                                                        objective.keyResults.map((kr) => (
+                                                                            <div key={kr.id} className="okr-kr-inline-row">
+                                                                                <div>
+                                                                                    <div className="okr-kr-title">{kr.title}</div>
+                                                                                    <div className="okr-kr-meta">
+                                                                                        <span>{kr.status.replace('_', ' ')}</span>
+                                                                                        <span>{kr.currentValue} / {kr.targetValue}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="okr-kr-progress">
+                                                                                    <div className="okr-progress-bar">
+                                                                                        <div className="okr-progress-fill" style={{ width: `${kr.progress}%` }} />
+                                                                                    </div>
+                                                                                    <div className="okr-progress-foot">{kr.progress}%</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {objectiveComposerOpen && (
+                            <div className="objective-overlay">
+                                <div className="objective-panel">
+                                    <div className="objective-header">
+                                        <div>
+                                            <div className="objective-title">{objectiveEditId ? 'Edit objective' : 'Objective composer'}</div>
+                                            <div className="objective-subtitle">Create the objective details.</div>
+                                        </div>
+                                        <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
+                                            Close
+                                        </button>
+                                    </div>
+                                    <div className="objective-body">
+                                        <label>
+                                            Objective title
+                                            <input
+                                                type="text"
+                                                value={objectiveDraft.title}
+                                                onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                                placeholder="Deliver a calmer onboarding experience"
+                                            />
+                                        </label>
+                                        <label>
+                                            Owner
+                                            <select
+                                                value={objectiveDraft.ownerId}
+                                                onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, ownerId: e.target.value }))}
+                                            >
+                                                <option value="">Unassigned</option>
+                                                {getMembersForTenant(activeTenantId).map((member) => (
+                                                    <option key={member.userId} value={member.userId}>
+                                                        {member.user?.name || member.user?.email || member.userId}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                        <div className="objective-row">
+                                            <label>
+                                                Start date
+                                                <input
+                                                    type="date"
+                                                    value={objectiveDraft.startDate}
+                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, startDate: e.target.value }))}
+                                                />
+                                            </label>
+                                            <label>
+                                                End date
+                                                <input
+                                                    type="date"
+                                                    value={objectiveDraft.endDate}
+                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, endDate: e.target.value }))}
+                                                />
+                                            </label>
+                                        </div>
+                                        <div className="objective-row">
+                                            <label>
+                                                Status
+                                                <select
+                                                    value={objectiveDraft.status}
+                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, status: e.target.value }))}
+                                                >
+                                                    <option value="ACTIVE">Active</option>
+                                                    <option value="AT_RISK">At risk</option>
+                                                    <option value="PAUSED">Paused</option>
+                                                    <option value="DONE">Done</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="objective-actions">
+                                        <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
+                                            {objectiveEditId ? 'Save changes' : 'Create objective'}
+                                        </button>
+                                        <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    )
+                ) : view === 'dashboard' ? (
+                    <div className="dashboard-panel">
+                        <div className="empty-state">Dashboard view coming soon.</div>
+                    </div>
                 ) : (
                     <>
                         <div className="filter-bar">
@@ -2492,6 +3895,33 @@ const App: React.FC = () => {
                                 </button>
                             </div>
                             <div className="filter-actions">
+                                <button
+                                    className="icon-action create"
+                                    disabled={!activeTenantId}
+                                    onClick={openCreateTask}
+                                    data-tooltip="Task erstellen"
+                                    aria-label="Task erstellen"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                        <path d="M12 5v14" />
+                                        <path d="M5 12h14" />
+                                    </svg>
+                                </button>
+                                {isActiveHuddleOwner && (
+                                    <>
+                                        <button
+                                            className="icon-action settings"
+                                            onClick={() => setIsBoardSettingsOpen(true)}
+                                            data-tooltip="Einstellungen zum Board"
+                                            aria-label="Einstellungen zum Board"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                <circle cx="12" cy="12" r="3.5" />
+                                                <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
+                                            </svg>
+                                        </button>
+                                    </>
+                                )}
                                 <select
                                     value={filterPriority}
                                     onChange={(e) => setFilterPriority(e.target.value)}
@@ -2520,7 +3950,7 @@ const App: React.FC = () => {
                             <div className="kanban-board">
                                 {board?.columns.map((column: any) => {
                                     const visibleTasks = column.tasks.filter(matchesFilter);
-                                    const orderKey = getOrderKey(activeTenantId, column.status);
+                                    const orderKey = getOrderKey(activeTenantId, activeBoardId, column.status);
                                     const orderedIds = taskOrderByColumn[orderKey] || [];
                                     const tasksById = new Map(visibleTasks.map((task: TaskView) => [task.id, task]));
                                     const orderedTasks = orderedIds.map((id) => tasksById.get(id)).filter(Boolean) as TaskView[];
@@ -2548,7 +3978,7 @@ const App: React.FC = () => {
                                             const taskCardStyle: React.CSSProperties = {
                                                 cursor: isDraggable ? 'grab' : 'default',
                                                 userSelect: 'none',
-                                                WebkitUserDrag: isDraggable ? 'element' : 'auto',
+                                                ['WebkitUserDrag' as any]: isDraggable ? 'element' : 'auto',
                                                 pointerEvents: 'auto',
                                             };
                                             return (
@@ -2925,6 +4355,177 @@ const App: React.FC = () => {
                     </div>
                 )}
             </main>
+
+            {isBoardSettingsOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content settings-modal">
+                        <div className="panel-header">
+                            <div>
+                                <div className="panel-title">Board settings</div>
+                                <div className="panel-subtitle">Manage this huddle board</div>
+                            </div>
+                            <button className="icon-btn" onClick={() => setIsBoardSettingsOpen(false)}>✕</button>
+                        </div>
+                        <div className="panel-body">
+                            <div className="panel-section">
+                                <div className="section-title">Board</div>
+                                <div className="member-name">{activeBoard?.name || activeBoardId || 'Board'}</div>
+                                <div className="member-meta">Role: {activeMembership?.role || 'Member'}</div>
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Danger zone</div>
+                                <div className="panel-text">Delete this board and all tasks, objectives, and key results.</div>
+                                <button
+                                    className="icon-action delete"
+                                    onClick={handleDeleteBoard}
+                                    data-tooltip="Board löschen"
+                                    aria-label="Board löschen"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                        <path d="M6 6l12 12" />
+                                        <path d="M18 6L6 18" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isObjectiveSettingsOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content settings-modal">
+                        <div className="panel-header">
+                            <div>
+                                <div className="panel-title">Objective settings</div>
+                                <div className="panel-subtitle">Edit or delete this objective</div>
+                            </div>
+                            <button className="icon-btn" onClick={() => {
+                                setIsObjectiveSettingsOpen(false);
+                                setObjectiveEditId(null);
+                            }}>✕</button>
+                        </div>
+                        <div className="panel-body">
+                            <div className="panel-section">
+                                <div className="section-title">Details</div>
+                                <div className="okr-grid">
+                                    <label>
+                                        Title
+                                        <input
+                                            type="text"
+                                            value={objectiveDraft.title}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        Owner
+                                        <select
+                                            value={objectiveDraft.ownerId}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, ownerId: e.target.value }))}
+                                        >
+                                            <option value="">Unassigned</option>
+                                            {getMembersForTenant(activeTenantId).map((member) => (
+                                                <option key={member.userId} value={member.userId}>
+                                                    {member.user?.name || member.user?.email || member.userId}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label>
+                                        Start date
+                                        <input
+                                            type="date"
+                                            value={objectiveDraft.startDate}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, startDate: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        End date
+                                        <input
+                                            type="date"
+                                            value={objectiveDraft.endDate}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, endDate: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        Status
+                                        <select
+                                            value={objectiveDraft.status}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, status: e.target.value }))}
+                                        >
+                                            <option value="ACTIVE">Active</option>
+                                            <option value="AT_RISK">At risk</option>
+                                            <option value="PAUSED">Paused</option>
+                                            <option value="DONE">Done</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div className="okr-actions">
+                                    <button
+                                        className="btn btn-secondary btn-compact"
+                                        onClick={() => {
+                                            handleObjectiveComposerSubmit();
+                                            setIsObjectiveSettingsOpen(false);
+                                            setObjectiveEditId(null);
+                                        }}
+                                    >
+                                        Save changes
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Key results</div>
+                                {okrActiveObjective?.keyResults?.length ? (
+                                    <div className="template-list">
+                                        {okrActiveObjective.keyResults.map((kr) => (
+                                            <div key={kr.id} className="template-row">
+                                                <div>
+                                                    <div className="member-name">{kr.title}</div>
+                                                    <div className="member-meta">{kr.currentValue} / {kr.targetValue}</div>
+                                                </div>
+                                                <button
+                                                    className="icon-action delete"
+                                                    onClick={() => handleDeleteKeyResult(kr.id, okrActiveObjective.id)}
+                                                    data-tooltip="KR löschen"
+                                                    aria-label="KR löschen"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                        <path d="M6 6l12 12" />
+                                                        <path d="M18 6L6 18" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="empty-state">No key results yet.</div>
+                                )}
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Danger zone</div>
+                                <div className="panel-text">Delete this objective and its key results.</div>
+                                {objectiveEditId && (
+                                    <button
+                                        className="icon-action delete"
+                                        onClick={() => {
+                                            handleDeleteObjective(objectiveEditId);
+                                            setIsObjectiveSettingsOpen(false);
+                                            setObjectiveEditId(null);
+                                        }}
+                                        data-tooltip="Objective löschen"
+                                        aria-label="Objective löschen"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M6 6l12 12" />
+                                            <path d="M18 6L6 18" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isTeamModalOpen && (
                 <div className="modal-overlay">
@@ -3327,8 +4928,17 @@ const App: React.FC = () => {
                                         onChange={(e) => setChecklistInput(e.target.value)}
                                         placeholder="Add checklist item"
                                     />
-                                    <button type="button" className="btn btn-secondary btn-compact" onClick={handleChecklistAdd}>
-                                        Add
+                                    <button
+                                        type="button"
+                                        className="icon-action create"
+                                        onClick={handleChecklistAdd}
+                                        data-tooltip="Checklist erstellen"
+                                        aria-label="Checklist erstellen"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M12 5v14" />
+                                            <path d="M5 12h14" />
+                                        </svg>
                                     </button>
                                 </div>
                                 <div className="checklist-list">
@@ -3374,8 +4984,17 @@ const App: React.FC = () => {
                                                 </option>
                                             ))}
                                     </select>
-                                    <button type="button" className="btn btn-secondary btn-compact" onClick={handleAddLink}>
-                                        Link
+                                    <button
+                                        type="button"
+                                        className="icon-action create"
+                                        onClick={handleAddLink}
+                                        data-tooltip="Link erstellen"
+                                        aria-label="Link erstellen"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M12 5v14" />
+                                            <path d="M5 12h14" />
+                                        </svg>
                                     </button>
                                 </div>
                                 <div className="link-list">
@@ -3412,8 +5031,16 @@ const App: React.FC = () => {
                                     >
                                         Cancel
                                     </button>
-                                    <button type="submit" className="btn btn-primary">
-                                        Create Task
+                                    <button
+                                        type="submit"
+                                        className="icon-action create"
+                                        data-tooltip="Task erstellen"
+                                        aria-label="Task erstellen"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M12 5v14" />
+                                            <path d="M5 12h14" />
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
@@ -3468,15 +5095,14 @@ const App: React.FC = () => {
                                                 </svg>
                                             </button>
                                             <button
-                                                className="icon-btn"
+                                                className="icon-action delete"
                                                 onClick={() => handleDeleteTask(selectedTask.id)}
-                                                title="Delete"
-                                                aria-label="Delete task"
+                                                data-tooltip="Task löschen"
+                                                aria-label="Task löschen"
                                             >
-                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                    <path d="M3 6h18" />
-                                                    <path d="M8 6V4h8v2" />
-                                                    <path d="M6 6l1 14h10l1-14" />
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                    <path d="M6 6l12 12" />
+                                                    <path d="M18 6L6 18" />
                                                 </svg>
                                             </button>
                                         </>
@@ -3553,8 +5179,17 @@ const App: React.FC = () => {
                                             </option>
                                         ))}
                                 </select>
-                                <button type="button" className="btn btn-secondary btn-compact" onClick={handleAddLink}>
-                                    Link
+                                <button
+                                    type="button"
+                                    className="icon-action create"
+                                    onClick={handleAddLink}
+                                    data-tooltip="Link erstellen"
+                                    aria-label="Link erstellen"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                        <path d="M12 5v14" />
+                                        <path d="M5 12h14" />
+                                    </svg>
                                 </button>
                             </div>
                             <div className="link-list">
@@ -3587,8 +5222,17 @@ const App: React.FC = () => {
                                     onChange={(e) => setChecklistInput(e.target.value)}
                                     placeholder="Add checklist item"
                                 />
-                                <button type="button" className="btn btn-secondary btn-compact" onClick={handleChecklistAdd}>
-                                    Add
+                                <button
+                                    type="button"
+                                    className="icon-action create"
+                                    onClick={handleChecklistAdd}
+                                    data-tooltip="Checklist erstellen"
+                                    aria-label="Checklist erstellen"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                        <path d="M12 5v14" />
+                                        <path d="M5 12h14" />
+                                    </svg>
                                 </button>
                             </div>
                             <div className="checklist-list">
@@ -3629,8 +5273,17 @@ const App: React.FC = () => {
                                     onChange={(e) => setCommentInput(e.target.value)}
                                     placeholder="Write a comment"
                                 />
-                                <button type="button" className="btn btn-primary btn-compact" onClick={handleAddComment}>
-                                    Post
+                                <button
+                                    type="button"
+                                    className="icon-action create"
+                                    onClick={handleAddComment}
+                                    data-tooltip="Kommentar erstellen"
+                                    aria-label="Kommentar erstellen"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                        <path d="M12 5v14" />
+                                        <path d="M5 12h14" />
+                                    </svg>
                                 </button>
                             </div>
                             <div className="comment-list">

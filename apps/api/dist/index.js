@@ -9,7 +9,7 @@ import { CreateTaskPipeline } from './create-task-pipeline.js';
 import { UpdateTaskStatusPipeline } from './update-task-status-pipeline.js';
 import { UpdateTaskDetailsPipeline } from './update-task-details-pipeline.js';
 import { DeleteTaskPipeline } from './delete-task-pipeline.js';
-import { PrincipalType } from '@kanbax/domain';
+import { PrincipalType, TaskStatus } from '@kanbax/domain';
 import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify } from 'jose';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,13 +25,26 @@ app.get('/', (_req, res) => {
 });
 // Optional: serve the UI build (if you run `pnpm --filter @kanbax/ui build`)
 const uiDistPath = path.join(__dirname, '../../ui/dist');
-app.use(express.static(uiDistPath));
 const prisma = new PrismaClient();
 const taskRepo = new TaskRepositoryPostgres(prisma);
 const auditRepo = new AuditEventRepositoryPostgres(prisma);
 const policyRepo = new PolicyContextRepositoryPostgres(prisma);
 const policyEngine = new HardenedPolicyEngine();
 const queryService = new QueryService(taskRepo, auditRepo);
+const ensureDefaultBoard = async (tenantId) => {
+    const existing = await prisma.board.findFirst({
+        where: { tenantId, id: 'default-board' },
+    });
+    if (existing)
+        return existing;
+    return prisma.board.create({
+        data: {
+            id: 'default-board',
+            tenantId,
+            name: 'Main Board',
+        },
+    });
+};
 // Pipelines
 const createPipeline = new CreateTaskPipeline(policyEngine, auditRepo, taskRepo);
 const updateStatusPipeline = new UpdateTaskStatusPipeline(policyEngine, auditRepo, taskRepo);
@@ -50,6 +63,7 @@ const ROLE_PERMISSIONS = {
 const isApiRoute = (pathName) => pathName.startsWith('/commands') ||
     pathName.startsWith('/tasks') ||
     pathName.startsWith('/boards') ||
+    pathName.startsWith('/okrs') ||
     pathName.startsWith('/me') ||
     pathName.startsWith('/teams') ||
     pathName.startsWith('/invites');
@@ -186,7 +200,10 @@ app.get('/tasks', async (req, res) => {
     try {
         if (!req.principal)
             return res.status(403).json({ error: 'No tenant selected' });
-        const tasks = await queryService.getTasks(req.principal);
+        const tenantId = req.tenantId;
+        const boardId = typeof req.query.boardId === 'string' && req.query.boardId ? req.query.boardId : 'default-board';
+        await ensureDefaultBoard(tenantId);
+        const tasks = await queryService.getTasks(req.principal, boardId);
         res.json(tasks);
     }
     catch (e) {
@@ -197,11 +214,297 @@ app.get('/boards', async (req, res) => {
     try {
         if (!req.principal)
             return res.status(403).json({ error: 'No tenant selected' });
-        const boards = await queryService.getBoards(req.principal);
-        res.json(boards);
+        const tenantId = req.tenantId;
+        const boards = await prisma.board.findMany({
+            where: { tenantId },
+            orderBy: { createdAt: 'asc' },
+        });
+        const boardList = boards.length ? boards : [await ensureDefaultBoard(tenantId)];
+        const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
+        const principal = req.principal;
+        const result = await Promise.all(boardList.map(async (board) => {
+            const tasks = await queryService.getTasks(principal, board.id);
+            const columns = statuses.map(status => ({
+                status,
+                tasks: tasks.filter(t => t.status === status),
+            }));
+            return { id: board.id, name: board.name, columns };
+        }));
+        res.json(result);
     }
     catch (e) {
         res.status(403).json({ error: e?.message ?? 'Forbidden' });
+    }
+});
+app.delete('/boards/:boardId', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const boardId = String(req.params.boardId);
+        const boardCount = await prisma.board.count({ where: { tenantId } });
+        if (boardCount <= 1) {
+            return res.status(400).json({ error: 'At least one board must remain' });
+        }
+        const board = await prisma.board.findUnique({
+            where: { tenantId_id: { tenantId, id: boardId } },
+        });
+        if (!board)
+            return res.status(404).json({ error: 'Board not found' });
+        await prisma.$transaction([
+            prisma.keyResult.deleteMany({
+                where: { objective: { tenantId, boardId } },
+            }),
+            prisma.objective.deleteMany({ where: { tenantId, boardId } }),
+            prisma.task.deleteMany({
+                where: {
+                    tenantId,
+                    policyContext: {
+                        path: ['scopeId'],
+                        equals: boardId,
+                    },
+                },
+            }),
+            prisma.board.delete({ where: { tenantId_id: { tenantId, id: boardId } } }),
+        ]);
+        res.json({ ok: true });
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+const clamp = (value, min = 0, max = 100) => Math.min(Math.max(value, min), max);
+const computeKeyResultProgress = (startValue, targetValue, currentValue) => {
+    const range = targetValue - startValue;
+    if (range === 0) {
+        return currentValue >= targetValue ? 100 : 0;
+    }
+    const progress = ((currentValue - startValue) / range) * 100;
+    return clamp(Number.isFinite(progress) ? progress : 0);
+};
+const formatObjective = (objective) => {
+    const keyResults = (objective.keyResults || []).map((kr) => ({
+        id: kr.id,
+        objectiveId: kr.objectiveId,
+        title: kr.title,
+        startValue: kr.startValue,
+        targetValue: kr.targetValue,
+        currentValue: kr.currentValue,
+        status: kr.status,
+        progress: computeKeyResultProgress(kr.startValue, kr.targetValue, kr.currentValue),
+        createdAt: kr.createdAt,
+        updatedAt: kr.updatedAt,
+    }));
+    const progress = keyResults.length
+        ? keyResults.reduce((sum, kr) => sum + kr.progress, 0) / keyResults.length
+        : 0;
+    return {
+        id: objective.id,
+        tenantId: objective.tenantId,
+        boardId: objective.boardId,
+        title: objective.title,
+        ownerId: objective.ownerId ?? null,
+        startDate: objective.startDate,
+        endDate: objective.endDate,
+        status: objective.status,
+        confidence: typeof objective.confidence === 'number' ? objective.confidence : null,
+        progress: clamp(Number.isFinite(progress) ? progress : 0),
+        keyResults,
+        createdAt: objective.createdAt,
+        updatedAt: objective.updatedAt,
+    };
+};
+// --- OKR Endpoints ---
+app.get('/okrs', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const boardId = typeof req.query.boardId === 'string' && req.query.boardId ? req.query.boardId : 'default-board';
+        await ensureDefaultBoard(tenantId);
+        const objectives = await prisma.objective.findMany({
+            where: { tenantId, boardId },
+            include: { keyResults: true },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(objectives.map(formatObjective));
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+app.post('/okrs/objectives', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const { title, ownerId, startDate, endDate, status, confidence, boardId: rawBoardId, } = req.body || {};
+        if (!title || !status)
+            return res.status(400).json({ error: 'Title and status are required' });
+        const boardId = rawBoardId ? String(rawBoardId) : 'default-board';
+        await ensureDefaultBoard(tenantId);
+        const board = await prisma.board.findUnique({
+            where: { tenantId_id: { tenantId, id: boardId } },
+        });
+        if (!board)
+            return res.status(400).json({ error: 'Board not found' });
+        const created = await prisma.objective.create({
+            data: {
+                tenantId,
+                boardId,
+                title: String(title),
+                ownerId: ownerId ? String(ownerId) : null,
+                startDate: startDate ? new Date(startDate) : null,
+                endDate: endDate ? new Date(endDate) : null,
+                status: String(status),
+                confidence: confidence !== undefined && confidence !== null ? Number(confidence) : null,
+            },
+            include: { keyResults: true },
+        });
+        res.json(formatObjective(created));
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+app.patch('/okrs/objectives/:id', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const objectiveId = String(req.params.id);
+        const { title, ownerId, startDate, endDate, status, confidence, boardId: rawBoardId, } = req.body || {};
+        const existing = await prisma.objective.findUnique({ where: { id: objectiveId } });
+        if (!existing || existing.tenantId !== tenantId) {
+            return res.status(404).json({ error: 'Objective not found' });
+        }
+        if (rawBoardId) {
+            const board = await prisma.board.findUnique({
+                where: { tenantId_id: { tenantId, id: String(rawBoardId) } },
+            });
+            if (!board)
+                return res.status(400).json({ error: 'Board not found' });
+        }
+        const updated = await prisma.objective.update({
+            where: { id: objectiveId },
+            data: {
+                title: title !== undefined ? String(title) : undefined,
+                ownerId: ownerId === null ? null : (ownerId ? String(ownerId) : undefined),
+                startDate: startDate === null ? null : (startDate ? new Date(startDate) : undefined),
+                endDate: endDate === null ? null : (endDate ? new Date(endDate) : undefined),
+                status: status !== undefined ? String(status) : undefined,
+                confidence: confidence === null ? null : (confidence !== undefined ? Number(confidence) : undefined),
+                boardId: rawBoardId ? String(rawBoardId) : undefined,
+            },
+            include: { keyResults: true },
+        });
+        res.json(formatObjective(updated));
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+app.delete('/okrs/objectives/:id', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const objectiveId = String(req.params.id);
+        const existing = await prisma.objective.findUnique({ where: { id: objectiveId } });
+        if (!existing || existing.tenantId !== tenantId) {
+            return res.status(404).json({ error: 'Objective not found' });
+        }
+        await prisma.objective.delete({ where: { id: objectiveId } });
+        res.json({ ok: true });
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+app.post('/okrs/objectives/:id/key-results', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const objectiveId = String(req.params.id);
+        const objective = await prisma.objective.findUnique({ where: { id: objectiveId } });
+        if (!objective || objective.tenantId !== tenantId) {
+            return res.status(404).json({ error: 'Objective not found' });
+        }
+        const { title, startValue, targetValue, currentValue, status, } = req.body || {};
+        if (!title || status === undefined || targetValue === undefined || startValue === undefined) {
+            return res.status(400).json({ error: 'Title, startValue, targetValue, and status are required' });
+        }
+        const created = await prisma.keyResult.create({
+            data: {
+                objectiveId,
+                title: String(title),
+                startValue: Number(startValue),
+                targetValue: Number(targetValue),
+                currentValue: currentValue !== undefined ? Number(currentValue) : Number(startValue),
+                status: String(status),
+            },
+        });
+        res.json({
+            ...created,
+            progress: computeKeyResultProgress(created.startValue, created.targetValue, created.currentValue),
+        });
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+app.patch('/okrs/key-results/:id', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const keyResultId = String(req.params.id);
+        const existing = await prisma.keyResult.findUnique({
+            where: { id: keyResultId },
+            include: { objective: true },
+        });
+        if (!existing || existing.objective.tenantId !== tenantId) {
+            return res.status(404).json({ error: 'Key result not found' });
+        }
+        const { title, startValue, targetValue, currentValue, status, } = req.body || {};
+        const updated = await prisma.keyResult.update({
+            where: { id: keyResultId },
+            data: {
+                title: title !== undefined ? String(title) : undefined,
+                startValue: startValue !== undefined ? Number(startValue) : undefined,
+                targetValue: targetValue !== undefined ? Number(targetValue) : undefined,
+                currentValue: currentValue !== undefined ? Number(currentValue) : undefined,
+                status: status !== undefined ? String(status) : undefined,
+            },
+        });
+        res.json({
+            ...updated,
+            progress: computeKeyResultProgress(updated.startValue, updated.targetValue, updated.currentValue),
+        });
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+app.delete('/okrs/key-results/:id', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const keyResultId = String(req.params.id);
+        const existing = await prisma.keyResult.findUnique({
+            where: { id: keyResultId },
+            include: { objective: true },
+        });
+        if (!existing || existing.objective.tenantId !== tenantId) {
+            return res.status(404).json({ error: 'Key result not found' });
+        }
+        await prisma.keyResult.delete({ where: { id: keyResultId } });
+        res.json({ ok: true });
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
     }
 });
 // --- Command Endpoints ---
@@ -531,11 +834,56 @@ app.delete('/teams/:tenantId/members/:memberId', async (req, res) => {
     await prisma.teamMembership.delete({ where: { id: memberId } });
     res.status(204).send();
 });
+app.delete('/teams/:tenantId', async (req, res) => {
+    const user = req.user;
+    const tenantId = req.params.tenantId;
+    if (!user)
+        return res.status(401).json({ error: 'Unauthorized' });
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant)
+        return res.status(404).json({ error: 'Huddle not found' });
+    if (tenant.name === 'Personal') {
+        return res.status(400).json({ error: 'Private huddles cannot be deleted' });
+    }
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin)
+        return res.status(403).json({ error: 'Forbidden' });
+    if (membership?.role !== 'ADMIN' && membership?.role !== 'OWNER' && !user.isSuperAdmin) {
+        return res.status(403).json({ error: 'Admin required' });
+    }
+    await prisma.$transaction([
+        prisma.keyResult.deleteMany({
+            where: { objective: { tenantId } },
+        }),
+        prisma.objective.deleteMany({ where: { tenantId } }),
+        prisma.task.deleteMany({ where: { tenantId } }),
+        prisma.policyContext.deleteMany({ where: { tenantId } }),
+        prisma.auditEvent.deleteMany({ where: { tenantId } }),
+        prisma.permission.deleteMany({ where: { tenantId } }),
+        prisma.role.deleteMany({ where: { tenantId } }),
+        prisma.secret.deleteMany({ where: { tenantId } }),
+        prisma.principal.deleteMany({ where: { tenantId } }),
+        prisma.teamInvite.deleteMany({ where: { tenantId } }),
+        prisma.teamMembership.deleteMany({ where: { tenantId } }),
+        prisma.tenant.delete({ where: { id: tenantId } }),
+    ]);
+    res.json({ ok: true });
+});
 // SPA fallback MUST be after API routes (Express 5 safe)
 // Only send index.html if the file exists; otherwise return 404 JSON.
+// Serve static UI build after API routes
+app.use(express.static(uiDistPath));
 app.use((req, res) => {
     // If the request looks like an API route, return 404 JSON.
-    if (req.path.startsWith('/commands') || req.path.startsWith('/tasks') || req.path.startsWith('/boards')) {
+    if (req.path.startsWith('/commands') ||
+        req.path.startsWith('/tasks') ||
+        req.path.startsWith('/boards') ||
+        req.path.startsWith('/okrs') ||
+        req.path.startsWith('/me') ||
+        req.path.startsWith('/teams') ||
+        req.path.startsWith('/invites')) {
         return res.status(404).json({ error: 'Not Found' });
     }
     return res.sendFile(path.join(uiDistPath, 'index.html'), (err) => {

@@ -14,10 +14,10 @@ export class QueryService {
         private auditRepository: AuditEventRepository
     ) { }
 
-    async getTasks(principal: Principal): Promise<TaskView[]> {
+    async getTasks(principal: Principal, boardId = 'default-board'): Promise<TaskView[]> {
         // In a real app, this would use a specialized query repository.
         // Here we use the existing repository and map to views.
-        const tasks = await this.taskRepository.findAllByBoardId('default-board', principal.tenantId);
+        const tasks = await this.taskRepository.findAllByBoardId(boardId, principal.tenantId);
         return tasks.map(t => this.mapToTaskView(t));
     }
 
@@ -29,7 +29,6 @@ export class QueryService {
     async getBoards(principal: Principal): Promise<BoardView[]> {
         const tasks = await this.taskRepository.findAllByBoardId('default-board', principal.tenantId);
 
-        // Group tasks by status for a default board view
         const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
         const columns = statuses.map(status => ({
             status,
