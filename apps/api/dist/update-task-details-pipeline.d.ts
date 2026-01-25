@@ -16,6 +16,7 @@ export interface UpdateTaskDetailsCommand extends Command<{
     checklist?: TaskChecklistItem[];
     linkedTaskIds?: TaskId[];
     isFavorite?: boolean;
+    excludeFromAll?: boolean;
 }> {
     type: 'TASK_UPDATE_DETAILS';
 }

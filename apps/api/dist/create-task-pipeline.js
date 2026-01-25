@@ -6,6 +6,8 @@ export class CreateTaskPipeline extends CommandPipeline {
             throw new Error('Title is required');
         if (!command.payload.boardId)
             throw new Error('Board ID is required');
+        if (command.payload.boardId === 'all')
+            throw new Error('All board is read-only');
         if (!command.payload.source)
             throw new Error('Source is required');
     }
@@ -35,6 +37,7 @@ export class CreateTaskPipeline extends CommandPipeline {
             priority: command.payload.priority ?? TaskPriority.MEDIUM,
             dueDate: command.payload.dueDate ? new Date(command.payload.dueDate) : undefined,
             ownerId: command.payload.ownerId ?? command.principal.id,
+            excludeFromAll: command.payload.excludeFromAll ?? false,
             assignees: command.payload.assignees ?? [],
             labels: [],
             attachments: command.payload.attachments ?? [],

@@ -17,6 +17,7 @@ export interface CreateTaskCommand extends Command<{
     linkedTaskIds?: TaskId[];
     source: TaskSource;
     isFavorite?: boolean;
+    excludeFromAll?: boolean;
 }> {
     type: 'TASK_CREATE';
 }

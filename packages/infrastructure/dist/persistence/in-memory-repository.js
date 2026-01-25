@@ -23,5 +23,8 @@ export class InMemoryTaskRepository {
     async findAllByBoardId(boardId, tenantId) {
         return Array.from(this.tasks.values()).filter((task) => task.policyContext.scopeId === boardId && task.tenantId === tenantId);
     }
+    async findAllByTenant(tenantId) {
+        return Array.from(this.tasks.values()).filter((task) => task.tenantId === tenantId);
+    }
 }
 //# sourceMappingURL=in-memory-repository.js.map

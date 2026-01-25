@@ -1,10 +1,23 @@
-import { AuditAction, PolicyContext, Task, TaskSource } from '@kanbax/domain';
+import { AuditAction, PolicyContext, Task, TaskSource, TaskPriority, TaskStatus, TaskAttachment, TaskChecklistItem, TaskComment } from '@kanbax/domain';
 import { Command, CommandPipeline } from './command-pipeline';
 export interface CreateTaskCommand extends Command<{
     title: string;
     description?: string;
+    kind?: string;
+    kinds?: string[];
     boardId: string;
+    status?: TaskStatus;
+    priority?: TaskPriority;
+    dueDate?: string;
+    ownerId?: string | null;
+    assignees?: string[];
+    attachments?: TaskAttachment[];
+    comments?: TaskComment[];
+    checklist?: TaskChecklistItem[];
+    linkedTaskIds?: string[];
     source: TaskSource;
+    isFavorite?: boolean;
+    excludeFromAll?: boolean;
 }> {
     type: 'TASK_CREATE';
 }

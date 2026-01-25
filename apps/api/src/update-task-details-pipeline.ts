@@ -28,6 +28,7 @@ export interface UpdateTaskDetailsCommand extends Command<{
     checklist?: TaskChecklistItem[];
     linkedTaskIds?: TaskId[];
     isFavorite?: boolean;
+    excludeFromAll?: boolean;
 }> {
     type: 'TASK_UPDATE_DETAILS';
 }
@@ -149,6 +150,7 @@ export class UpdateTaskDetailsPipeline extends CommandPipeline<UpdateTaskDetails
             linkedTaskIds: command.payload.linkedTaskIds ?? task.linkedTaskIds,
             activityLog: nextActivityLog,
             isFavorite: command.payload.isFavorite ?? task.isFavorite,
+            excludeFromAll: command.payload.excludeFromAll ?? task.excludeFromAll,
             updatedAt: new Date(),
             version: task.version + 1,
         };

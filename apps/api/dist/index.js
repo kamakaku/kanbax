@@ -222,6 +222,11 @@ app.get('/boards', async (req, res) => {
         const boardList = boards.length ? boards : [await ensureDefaultBoard(tenantId)];
         const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
         const principal = req.principal;
+        const allTasks = await queryService.getTasks(principal, 'all');
+        const allColumns = statuses.map(status => ({
+            status,
+            tasks: allTasks.filter(t => t.status === status),
+        }));
         const result = await Promise.all(boardList.map(async (board) => {
             const tasks = await queryService.getTasks(principal, board.id);
             const columns = statuses.map(status => ({
@@ -230,10 +235,33 @@ app.get('/boards', async (req, res) => {
             }));
             return { id: board.id, name: board.name, columns };
         }));
-        res.json(result);
+        res.json([{ id: 'all', name: 'All', columns: allColumns }, ...result]);
     }
     catch (e) {
         res.status(403).json({ error: e?.message ?? 'Forbidden' });
+    }
+});
+app.post('/boards', async (req, res) => {
+    try {
+        if (!req.principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const name = String(req.body?.name || '').trim();
+        if (!name)
+            return res.status(400).json({ error: 'Board name is required' });
+        const board = await prisma.board.create({
+            data: {
+                tenantId,
+                id: `board-${Math.random().toString(36).slice(2, 10)}`,
+                name,
+            },
+        });
+        const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
+        const columns = statuses.map(status => ({ status, tasks: [] }));
+        res.json({ id: board.id, name: board.name, columns });
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
     }
 });
 app.delete('/boards/:boardId', async (req, res) => {
@@ -242,6 +270,8 @@ app.delete('/boards/:boardId', async (req, res) => {
             return res.status(403).json({ error: 'No tenant selected' });
         const tenantId = req.tenantId;
         const boardId = String(req.params.boardId);
+        if (boardId === 'all')
+            return res.status(400).json({ error: 'All board cannot be deleted' });
         const boardCount = await prisma.board.count({ where: { tenantId } });
         if (boardCount <= 1) {
             return res.status(400).json({ error: 'At least one board must remain' });
@@ -600,6 +630,53 @@ app.post('/commands/task/assign-huddle', async (req, res) => {
             },
         });
         res.json(updated);
+    }
+    catch (e) {
+        res.status(400).json({ error: e?.message ?? 'Bad Request' });
+    }
+});
+app.post('/commands/task/assign-board', async (req, res) => {
+    try {
+        const user = req.user;
+        const tenantId = req.tenantId;
+        if (!user)
+            return res.status(401).json({ error: 'Unauthorized' });
+        if (!tenantId)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const taskId = String(req.body?.taskId || '');
+        const boardId = String(req.body?.boardId || '');
+        if (!taskId || !boardId)
+            return res.status(400).json({ error: 'Task ID and board are required' });
+        if (boardId === 'all')
+            return res.status(400).json({ error: 'All board is read-only' });
+        const board = await prisma.board.findUnique({
+            where: { tenantId_id: { tenantId, id: boardId } },
+        });
+        if (!board)
+            return res.status(404).json({ error: 'Board not found' });
+        const task = await taskRepo.findById(taskId, tenantId);
+        if (!task)
+            return res.status(404).json({ error: 'Task not found' });
+        if (task.source.type !== 'MANUAL')
+            return res.status(400).json({ error: 'Only manual tasks can be moved' });
+        const nextPolicyContext = {
+            ...task.policyContext,
+            scopeId: boardId,
+        };
+        const nextActivityLog = [...(task.activityLog ?? []), {
+                id: Math.random().toString(36).substring(2, 15),
+                type: 'DETAILS',
+                message: 'Board updated',
+                timestamp: new Date(),
+                actorId: user.id,
+            }];
+        await taskRepo.save({
+            ...task,
+            policyContext: nextPolicyContext,
+            activityLog: nextActivityLog,
+            updatedAt: new Date(),
+        });
+        res.json({ ok: true });
     }
     catch (e) {
         res.status(400).json({ error: e?.message ?? 'Bad Request' });

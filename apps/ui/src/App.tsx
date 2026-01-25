@@ -62,6 +62,13 @@ interface ObjectiveView {
 
 const App: React.FC = () => {
     const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'archived' | 'settings' | 'okr'>('dashboard');
+    const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
+    const [detailTab, setDetailTab] = useState<'comments' | 'attachments' | 'activity'>('comments');
+    useEffect(() => {
+        if (view === 'list') {
+            setView('table');
+        }
+    }, [view]);
     const [session, setSession] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [memberships, setMemberships] = useState<any[]>([]);
@@ -120,6 +127,9 @@ const App: React.FC = () => {
     const [tasks, setTasks] = useState<TaskView[]>([]);
     const [board, setBoard] = useState<BoardView | null>(null);
     const [boards, setBoards] = useState<BoardView[]>([]);
+    const [boardsByTenant, setBoardsByTenant] = useState<Record<string, BoardView[]>>({});
+    const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+    const [okrMenuOpen, setOkrMenuOpen] = useState(false);
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
     const [okrObjectives, setOkrObjectives] = useState<OkrObjective[]>([]);
     const [okrLoading, setOkrLoading] = useState(false);
@@ -145,6 +155,14 @@ const App: React.FC = () => {
     const [isObjectiveSettingsOpen, setIsObjectiveSettingsOpen] = useState(false);
     const [objectiveComposerOpen, setObjectiveComposerOpen] = useState(false);
     const [objectiveEditId, setObjectiveEditId] = useState<string | null>(null);
+    const [krComposerOpen, setKrComposerOpen] = useState(false);
+    const [krComposerObjectiveId, setKrComposerObjectiveId] = useState<string | null>(null);
+    const [krComposerDraft, setKrComposerDraft] = useState({
+        title: '',
+        startValue: '0',
+        targetValue: '100',
+        status: 'ACTIVE',
+    });
     const [objectiveDraft, setObjectiveDraft] = useState({
         title: '',
         ownerId: '',
@@ -164,18 +182,19 @@ const App: React.FC = () => {
         title: string;
         startValue: string;
         targetValue: string;
-        currentValue: string;
         status: string;
     }>>({});
     const [filterText, setFilterText] = useState('');
     const [filterPriority, setFilterPriority] = useState('ALL');
     const [filterFavorites, setFilterFavorites] = useState(false);
+    const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
     const [newTaskAttachments, setNewTaskAttachments] = useState<TaskView['attachments']>([]);
     const [newTaskKinds, setNewTaskKinds] = useState<string[]>([]);
     const [newKindInput, setNewKindInput] = useState('');
     const [newTaskHuddleId, setNewTaskHuddleId] = useState<string | null>(null);
+    const [newTaskBoardId, setNewTaskBoardId] = useState<string | null>(null);
     const [newTaskOwnerId, setNewTaskOwnerId] = useState<string | null>(null);
     const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
     const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>(TaskStatus.BACKLOG);
@@ -186,6 +205,8 @@ const App: React.FC = () => {
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
     const [editTask, setEditTask] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
     const [editTaskHuddleId, setEditTaskHuddleId] = useState<string | null>(null);
+    const [editTaskBoardId, setEditTaskBoardId] = useState<string | null>(null);
+    const [editTaskBoardOriginal, setEditTaskBoardOriginal] = useState<string | null>(null);
     const [editTaskTenantOriginal, setEditTaskTenantOriginal] = useState<string | null>(null);
     const [editTaskOwnerId, setEditTaskOwnerId] = useState<string | null>(null);
     const [editTaskAssignees, setEditTaskAssignees] = useState<string[]>([]);
@@ -263,6 +284,9 @@ const App: React.FC = () => {
             if (!boardsRes.ok) throw new Error('Failed to fetch boards');
             const boardsData = await boardsRes.json();
             setBoards(boardsData);
+            if (activeTenantId) {
+                setBoardsByTenant((prev) => ({ ...prev, [activeTenantId]: boardsData }));
+            }
 
             const storedBoardId = (() => {
                 try {
@@ -340,7 +364,9 @@ const App: React.FC = () => {
         }
         try {
             setOkrLoading(true);
-            const boardId = activeBoardId || 'default-board';
+            const boardId = activeBoardId === 'all'
+                ? resolveWritableBoardId(activeTenantId)
+                : (activeBoardId || 'default-board');
             const res = await fetch(`${API_BASE}/okrs?boardId=${encodeURIComponent(boardId)}`, { headers: getApiHeaders() });
             if (!res.ok) {
                 const err = await res.json();
@@ -367,7 +393,9 @@ const App: React.FC = () => {
                 startDate: draft.startDate || null,
                 endDate: draft.endDate || null,
                 status: draft.status || 'ACTIVE',
-                boardId: activeBoardId || 'default-board',
+                boardId: activeBoardId === 'all'
+                    ? resolveWritableBoardId(activeTenantId)
+                    : (activeBoardId || 'default-board'),
             };
             if (!payload.title) {
                 alert('Objective title is required');
@@ -406,6 +434,59 @@ const App: React.FC = () => {
                 status: 'ACTIVE',
             });
         });
+    };
+
+    const handleCreateBoard = async () => {
+        if (!activeTenantId) return;
+        const name = prompt('Board name');
+        if (!name) return;
+        try {
+            const res = await fetch(`${API_BASE}/boards`, {
+                method: 'POST',
+                headers: getApiHeaders(),
+                body: JSON.stringify({ name: name.trim() }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to create board');
+            }
+            const created = await res.json();
+            setBoards((prev) => prev.concat(created));
+            setActiveBoardId(created.id);
+            setBoard(created);
+            try {
+                localStorage.setItem(`kanbax-active-board:${activeTenantId}`, created.id);
+            } catch {
+                // ignore
+            }
+            fetchData();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleBoardChange = (boardId: string) => {
+        if (!boardId) return;
+        setActiveBoardId(boardId);
+        try {
+            localStorage.setItem(`kanbax-active-board:${activeTenantId}`, boardId);
+        } catch {
+            // ignore
+        }
+        fetchData();
+    };
+
+    const loadBoardsForHuddle = async (tenantId: string) => {
+        if (!tenantId) return;
+        if (boardsByTenant[tenantId]) return;
+        try {
+            const res = await fetch(`${API_BASE}/boards`, { headers: getApiHeaders(true, tenantId) });
+            if (!res.ok) return;
+            const data = await res.json();
+            setBoardsByTenant((prev) => ({ ...prev, [tenantId]: data }));
+        } catch {
+            // ignore
+        }
     };
 
     const handleObjectiveComposerSubmit = async () => {
@@ -515,11 +596,10 @@ const App: React.FC = () => {
             title: '',
             startValue: '0',
             targetValue: '100',
-            currentValue: '0',
             status: 'ACTIVE',
         };
 
-    const updateKrDraft = (objectiveId: string, next: Partial<{ title: string; startValue: string; targetValue: string; currentValue: string; status: string; }>) => {
+    const updateKrDraft = (objectiveId: string, next: Partial<{ title: string; startValue: string; targetValue: string; status: string; }>) => {
         setKrDrafts((prev) => ({
             ...prev,
             [objectiveId]: { ...getKrDraft(objectiveId), ...next },
@@ -540,7 +620,7 @@ const App: React.FC = () => {
                     title: draft.title.trim(),
                     startValue: Number(draft.startValue),
                     targetValue: Number(draft.targetValue),
-                    currentValue: Number(draft.currentValue),
+                    currentValue: Number(draft.startValue),
                     status: draft.status || 'ACTIVE',
                 }),
             });
@@ -568,10 +648,71 @@ const App: React.FC = () => {
                     title: '',
                     startValue: draft.startValue,
                     targetValue: draft.targetValue,
-                    currentValue: draft.startValue,
                     status: 'ACTIVE',
                 },
             }));
+            setOkrNotice(null);
+        } catch (e: any) {
+            alert(e.message);
+            setOkrNotice(parsePolicyNotice(e));
+        }
+    };
+
+    const openKrComposer = (objectiveId: string) => {
+        setKrComposerObjectiveId(objectiveId);
+        setKrComposerDraft({
+            title: '',
+            startValue: '0',
+            targetValue: '100',
+            status: 'ACTIVE',
+        });
+        setKrComposerOpen(true);
+    };
+
+    const handleKrComposerSubmit = async () => {
+        if (!krComposerObjectiveId) return;
+        if (!krComposerDraft.title.trim()) {
+            alert('Key result title is required');
+            return;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/okrs/objectives/${krComposerObjectiveId}/key-results`, {
+                method: 'POST',
+                headers: getApiHeaders(),
+                body: JSON.stringify({
+                    title: krComposerDraft.title.trim(),
+                    startValue: Number(krComposerDraft.startValue),
+                    targetValue: Number(krComposerDraft.targetValue),
+                    currentValue: Number(krComposerDraft.startValue),
+                    status: krComposerDraft.status || 'ACTIVE',
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to create key result');
+            }
+            const created = await res.json();
+            setOkrObjectives((prev) =>
+                prev.map((objective) =>
+                    objective.id === krComposerObjectiveId
+                        ? {
+                            ...objective,
+                            keyResults: [...objective.keyResults, created],
+                            progress: objective.keyResults.length
+                                ? (objective.keyResults.reduce((sum, kr) => sum + kr.progress, 0) + created.progress) / (objective.keyResults.length + 1)
+                                : created.progress,
+                        }
+                        : objective
+                )
+            );
+            setKrComposerOpen(false);
+            setKrComposerObjectiveId(null);
+            setKrComposerDraft({
+                title: '',
+                startValue: '0',
+                targetValue: '100',
+                status: 'ACTIVE',
+            });
             setOkrNotice(null);
         } catch (e: any) {
             alert(e.message);
@@ -852,7 +993,10 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (!newTaskHuddleId) return;
-        const allowedIds = new Set(getMembersForTenant(newTaskHuddleId).map((member) => member.userId));
+        loadBoardsForHuddle(newTaskHuddleId);
+        const members = getMembersForTenant(newTaskHuddleId);
+        if (members.length === 0) return;
+        const allowedIds = new Set(members.map((member) => member.userId));
         if (newTaskOwnerId && !allowedIds.has(newTaskOwnerId)) {
             setNewTaskOwnerId(null);
         }
@@ -862,8 +1006,20 @@ const App: React.FC = () => {
     }, [newTaskHuddleId, huddleMembersByTenant]);
 
     useEffect(() => {
+        if (!newTaskHuddleId) return;
+        const availableBoards = getWritableBoards(newTaskHuddleId);
+        if (availableBoards.length === 0) return;
+        if (!newTaskBoardId || !availableBoards.some((item) => item.id === newTaskBoardId)) {
+            setNewTaskBoardId(availableBoards[0].id);
+        }
+    }, [newTaskHuddleId, newTaskBoardId, boardsByTenant, boards]);
+
+    useEffect(() => {
         if (!editTaskHuddleId) return;
-        const allowedIds = new Set(getMembersForTenant(editTaskHuddleId).map((member) => member.userId));
+        loadBoardsForHuddle(editTaskHuddleId);
+        const members = getMembersForTenant(editTaskHuddleId);
+        if (members.length === 0) return;
+        const allowedIds = new Set(members.map((member) => member.userId));
         if (editTaskOwnerId && !allowedIds.has(editTaskOwnerId)) {
             setEditTaskOwnerId(null);
         }
@@ -873,24 +1029,49 @@ const App: React.FC = () => {
     }, [editTaskHuddleId, huddleMembersByTenant]);
 
     useEffect(() => {
+        if (!editTaskHuddleId) return;
+        const availableBoards = getWritableBoards(editTaskHuddleId);
+        if (!availableBoards || availableBoards.length === 0) return;
+        if (!editTaskBoardId || !availableBoards.some((item) => item.id === editTaskBoardId)) {
+            setEditTaskBoardId(availableBoards[0].id);
+        }
+    }, [editTaskHuddleId, boardsByTenant, editTaskBoardId]);
+
+    useEffect(() => {
         if (isModalOpen && newDescriptionRef.current) {
             newDescriptionRef.current.innerHTML = newTask.description || '';
         }
-    }, [isModalOpen, newTask.description]);
+    }, [isModalOpen]);
 
     useEffect(() => {
         if (isEditModalOpen && editDescriptionRef.current) {
             editDescriptionRef.current.innerHTML = editTask.description || '';
         }
-    }, [isEditModalOpen, editTask.description]);
+    }, [isEditModalOpen]);
 
     const selectedTask = selectedTaskId ? tasks.find((task) => task.id === selectedTaskId) ?? null : null;
+    const incomingLinkedTasks = selectedTask
+        ? tasks.filter((task) => (task.linkedTaskIds || []).includes(selectedTask.id))
+        : [];
     const taskById = new Map(tasks.map((task) => [task.id, task]));
     const currentUserLabel = String(userProfile?.email || session?.user?.email || 'U');
     const currentUserInitial = currentUserLabel.charAt(0).toUpperCase() || 'U';
     const currentUserAvatar = settingsDraft?.avatarUrl || userProfile?.avatarUrl || '';
     const toDateInput = (value?: string | null) => (value ? new Date(value).toISOString().slice(0, 10) : '');
     const activeBoard = boards.find((item) => item.id === activeBoardId) || board;
+    const getWritableBoards = (tenantId?: string | null) => {
+        const list = tenantId
+            ? (boardsByTenant[tenantId] || (tenantId === activeTenantId ? boards : []))
+            : boards;
+        return (list || []).filter((item) => item.id !== 'all');
+    };
+    const resolveWritableBoardId = (tenantId?: string | null) => {
+        const list = getWritableBoards(tenantId);
+        if (tenantId === activeTenantId && activeBoardId && activeBoardId !== 'all') {
+            if (list.some((item) => item.id === activeBoardId)) return activeBoardId;
+        }
+        return list[0]?.id || 'default-board';
+    };
     const openCreateTask = () => {
         setNewTask({
             title: '',
@@ -902,7 +1083,9 @@ const App: React.FC = () => {
         setNewTaskAttachments([]);
         setNewTaskKinds([]);
         setNewKindInput('');
-        setNewTaskHuddleId(activeTenantId || displayMemberships[0]?.tenantId || null);
+        const nextHuddleId = activeTenantId || displayMemberships[0]?.tenantId || null;
+        setNewTaskHuddleId(nextHuddleId);
+        setNewTaskBoardId(resolveWritableBoardId(nextHuddleId));
         setNewTaskOwnerId(userProfile?.id || null);
         setNewTaskAssignees([]);
         setSelectedTemplateId('');
@@ -1091,7 +1274,7 @@ const App: React.FC = () => {
         }
         if (view === 'dashboard') items.push({ label: 'Dashboard', onClick: () => setView('dashboard') });
         if (view === 'table') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
-        if (view === 'list') items.push({ label: activeBoard?.name ? `List · ${activeBoard.name}` : 'List', onClick: () => setView('list') });
+        if (view === 'list') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'archived') items.push({ label: 'Archived', onClick: () => setView('archived') });
         if (view === 'kanban') items.push({ label: activeBoard?.name || 'Board', onClick: () => setView('kanban') });
         return items;
@@ -1120,6 +1303,12 @@ const App: React.FC = () => {
     }, [selectedTask?.tenantId]);
 
     useEffect(() => {
+        if (isDetailsModalOpen) {
+            setDetailTab('comments');
+        }
+    }, [isDetailsModalOpen, selectedTaskId]);
+
+    useEffect(() => {
         const tenantIds = Array.from(new Set(tasks.map((task) => task.tenantId).filter(Boolean)));
         tenantIds.forEach((tenantId) => loadMembersForHuddle(tenantId));
     }, [tasks]);
@@ -1134,6 +1323,38 @@ const App: React.FC = () => {
     };
 
     const stripHtml = (value: string) => value.replace(/<[^>]+>/g, '');
+    const renderPriorityIcon = (priority: string) => {
+        switch (priority.toUpperCase()) {
+            case 'LOW':
+                return (
+                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                        <path d="M12 5v14" />
+                        <path d="M8 15l4 4 4-4" />
+                    </svg>
+                );
+            case 'HIGH':
+                return (
+                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                        <path d="M12 19V5" />
+                        <path d="M8 9l4-4 4 4" />
+                    </svg>
+                );
+            case 'CRITICAL':
+                return (
+                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                        <path d="M12 2s4 4.5 4 8a4 4 0 1 1-8 0c0-3.5 4-8 4-8z" />
+                        <path d="M10.5 12.5c0 1.5 1.2 2.7 2.7 2.7 1.2 0 2.2-.7 2.6-1.8" />
+                    </svg>
+                );
+            default:
+                return (
+                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                        <path d="M12 7v10" />
+                        <path d="M8 12h8" />
+                    </svg>
+                );
+        }
+    };
 
     const handlePastePlain = (e: React.ClipboardEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -1781,6 +2002,7 @@ const App: React.FC = () => {
     const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const resolvedBoardId = newTaskBoardId || resolveWritableBoardId(newTaskHuddleId);
             const res = await fetch(`${API_BASE}/commands/task/create`, {
                 method: 'POST',
                 headers: getApiHeaders(true, newTaskHuddleId),
@@ -1792,9 +2014,9 @@ const App: React.FC = () => {
                     priority: newTask.priority,
                     dueDate: newTask.dueDate || undefined,
                     attachments: newTaskAttachments,
-                    ownerId: newTaskOwnerId || undefined,
+                    ownerId: newTaskOwnerId ?? userProfile?.id ?? undefined,
                     assignees: newTaskAssignees,
-                    boardId: activeBoardId || 'default-board',
+                    boardId: resolvedBoardId,
                     source: { type: 'MANUAL', createdBy: 'admin-user-1' }
                 })
             });
@@ -1809,6 +2031,7 @@ const App: React.FC = () => {
             setNewTaskAttachments([]);
             setNewTaskKinds([]);
             setNewKindInput('');
+            setNewTaskBoardId(null);
             if (newTaskKinds.length > 0) {
                 setKnownKinds((prev) => {
                     const merged = new Set(prev);
@@ -1897,6 +2120,8 @@ const App: React.FC = () => {
         setEditingTaskId(task.id);
         setEditTaskTenantOriginal(task.tenantId);
         setEditTaskHuddleId(task.tenantId);
+        setEditTaskBoardId(task.boardId || resolveWritableBoardId(task.tenantId));
+        setEditTaskBoardOriginal(task.boardId || resolveWritableBoardId(task.tenantId));
         setEditTaskOwnerId(task.ownerId ?? null);
         setEditTaskAssignees(task.assignees ?? []);
         const dueDateValue = task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '';
@@ -2192,8 +2417,26 @@ const App: React.FC = () => {
                 }
             }
 
+            const targetTenantId = editTaskHuddleId || editTaskTenantOriginal;
+            if (editTaskBoardId && targetTenantId && editTaskBoardId !== editTaskBoardOriginal) {
+                const boardRes = await fetch(`${API_BASE}/commands/task/assign-board`, {
+                    method: 'POST',
+                    headers: getApiHeaders(true, targetTenantId),
+                    body: JSON.stringify({
+                        taskId: editingTaskId,
+                        boardId: editTaskBoardId,
+                    }),
+                });
+                if (!boardRes.ok) {
+                    const boardErr = await boardRes.json();
+                    throw new Error(boardErr.error || 'Failed to move task to board');
+                }
+            }
+
             setIsEditModalOpen(false);
             setEditingTaskId(null);
+            setEditTaskBoardId(null);
+            setEditTaskBoardOriginal(null);
             setIsDetailsModalOpen(false);
             setSelectedTaskId(null);
             setNewAttachments([]);
@@ -2775,13 +3018,29 @@ const App: React.FC = () => {
                     </div>
                 )}
                 <div className="page-heading">
-                    <h1>
-                        {view === 'settings'
-                            ? 'Settings'
-                            : view === 'okr'
-                                ? 'OKRs'
-                                : (activeBoard?.name || activeHuddleName || 'Board')}
-                    </h1>
+                    <div className="page-heading-row">
+                        <h1>
+                            {view === 'settings'
+                                ? 'Settings'
+                                : view === 'okr'
+                                    ? 'OKRs'
+                                    : (activeBoard?.name || activeHuddleName || 'Board')}
+                        </h1>
+                        {(view === 'kanban' || view === 'table') && (
+                            <button
+                                className="icon-action create"
+                                disabled={!activeTenantId}
+                                onClick={openCreateTask}
+                                data-tooltip="Task erstellen"
+                                aria-label="Task erstellen"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                    <path d="M12 5v14" />
+                                    <path d="M5 12h14" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
                     <div className="page-breadcrumbs">
                         {breadcrumbItems.map((item, index) => (
                             <span key={`${item.label}-${index}`} className="page-breadcrumb-item">
@@ -2793,6 +3052,86 @@ const App: React.FC = () => {
                                     <span>{item.label}</span>
                                 )}
                                 {index < breadcrumbItems.length - 1 && <span className="page-breadcrumb-sep">/</span>}
+                                {index === breadcrumbItems.length - 1 && view === 'okr' && (
+                                    <span className="board-switch-inline">
+                                        <button
+                                            type="button"
+                                            className="board-switch-trigger-icon"
+                                            onClick={() => setOkrMenuOpen((prev) => !prev)}
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                <path d="M6 9l6 6 6-6" />
+                                            </svg>
+                                        </button>
+                                        {okrMenuOpen && (
+                                            <div className="board-switch-menu">
+                                                <button
+                                                    type="button"
+                                                    className="board-switch-item create"
+                                                    onClick={() => {
+                                                        setOkrMenuOpen(false);
+                                                        setObjectiveComposerOpen(true);
+                                                    }}
+                                                >
+                                                    + Objective erstellen
+                                                </button>
+                                                {objectiveViews.map((objective) => (
+                                                    <button
+                                                        key={objective.id}
+                                                        type="button"
+                                                        className={`board-switch-item ${objective.id === okrActiveObjective?.id ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setOkrMenuOpen(false);
+                                                            openObjectiveFocus(objective.id);
+                                                        }}
+                                                    >
+                                                        {objective.title}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </span>
+                                )}
+                                {index === breadcrumbItems.length - 1 && (view === 'kanban' || view === 'table') && (
+                                    <span className="board-switch-inline">
+                                        <button
+                                            type="button"
+                                            className="board-switch-trigger-icon"
+                                            onClick={() => setBoardMenuOpen((prev) => !prev)}
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                <path d="M6 9l6 6 6-6" />
+                                            </svg>
+                                        </button>
+                                        {boardMenuOpen && (
+                                            <div className="board-switch-menu">
+                                                <button
+                                                    type="button"
+                                                    className="board-switch-item create"
+                                                    onClick={() => {
+                                                        setBoardMenuOpen(false);
+                                                        handleCreateBoard();
+                                                    }}
+                                                >
+                                                    + Board erstellen
+                                                </button>
+                                                {boards.map((boardItem) => (
+                                                    <button
+                                                        key={boardItem.id}
+                                                        type="button"
+                                                        className={`board-switch-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setBoardMenuOpen(false);
+                                                            handleBoardChange(boardItem.id);
+                                                        }}
+                                                    >
+                                                        {boardItem.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </span>
+                                )}
                             </span>
                         ))}
                     </div>
@@ -3387,50 +3726,12 @@ const App: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 ))}
-                                                <div className="okr-kr-create">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="New key result"
-                                                        value={draft.title}
-                                                        onChange={(e) => updateKrDraft(objective.id, { title: e.target.value })}
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Start"
-                                                        value={draft.startValue}
-                                                        onChange={(e) => updateKrDraft(objective.id, { startValue: e.target.value })}
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Target"
-                                                        value={draft.targetValue}
-                                                        onChange={(e) => updateKrDraft(objective.id, { targetValue: e.target.value })}
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Current"
-                                                        value={draft.currentValue}
-                                                        onChange={(e) => updateKrDraft(objective.id, { currentValue: e.target.value })}
-                                                    />
-                                                    <select
-                                                        value={draft.status}
-                                                        onChange={(e) => updateKrDraft(objective.id, { status: e.target.value })}
-                                                    >
-                                                        <option value="ACTIVE">Active</option>
-                                                        <option value="AT_RISK">At risk</option>
-                                                        <option value="PAUSED">Paused</option>
-                                                        <option value="DONE">Done</option>
-                                                    </select>
+                                                <div className="okr-kr-panel-trigger">
                                                     <button
-                                                        className="icon-action create"
-                                                        onClick={() => handleCreateKeyResult(objective.id)}
-                                                        data-tooltip="KR erstellen"
-                                                        aria-label="KR erstellen"
+                                                        className="btn btn-secondary btn-compact"
+                                                        onClick={() => openKrComposer(objective.id)}
                                                     >
-                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                                            <path d="M12 5v14" />
-                                                            <path d="M5 12h14" />
-                                                        </svg>
+                                                        KR erstellen
                                                     </button>
                                                 </div>
                                             </div>
@@ -3464,7 +3765,7 @@ const App: React.FC = () => {
                                             <div className="okr-focus-meta">
                                                 <span>{okrActiveObjective.status}</span>
                                                 <span>Owner: {okrActiveObjective.ownerId ? getMemberLabel(activeTenantId, okrActiveObjective.ownerId) : 'Unassigned'}</span>
-                                                {okrActiveObjective.startDate && <span>{new Date(okrActiveObjective.startDate).toLocaleDateString()}</span>}
+                                                {okrActiveObjective.startDate && <span>{new Date(okrActiveObjective.startDate).toLocaleDateString()}</span>} –
                                                 {okrActiveObjective.endDate && <span>{new Date(okrActiveObjective.endDate).toLocaleDateString()}</span>}
                                             </div>
                                         </div>
@@ -3482,12 +3783,6 @@ const App: React.FC = () => {
                                                     </svg>
                                                 </button>
                                             )}
-                                            <button
-                                                className={`pin-button ${okrPinned.includes(okrActiveObjective.id) ? 'active' : ''}`}
-                                                onClick={() => togglePinObjective(okrActiveObjective.id)}
-                                            >
-                                                {okrPinned.includes(okrActiveObjective.id) ? 'Pinned' : 'Pin'}
-                                            </button>
                                         </div>
                                     </div>
 
@@ -3496,14 +3791,7 @@ const App: React.FC = () => {
                                         <div className="okr-progress-bar">
                                             <div className="okr-progress-fill" style={{ width: `${okrActiveObjective.progress}%` }} />
                                         </div>
-                                        <div className="okr-progress-foot">{okrActiveObjective.progress}% of key results</div>
-                                    </div>
-
-                                    <div className="okr-focus-section">
-                                        <div className="okr-section-title">Summary</div>
-                                        <div className="okr-strategic-summary">
-                                            Progress {okrActiveObjective.progress}% · {okrActiveObjective.keyResults.length} key results
-                                        </div>
+                                        <div className="okr-progress-foot">{okrActiveObjective.progress}% of {okrActiveObjective.keyResults.length} key results</div>
                                     </div>
 
                                     <div className="okr-focus-section">
@@ -3530,90 +3818,18 @@ const App: React.FC = () => {
                                             ))}
                                         </div>
                                         {!okrActiveObjective.readOnly && (
-                                            <div className="okr-kr-create">
-                                                <input
-                                                    type="text"
-                                                    placeholder="New key result"
-                                                    value={getKrDraft(okrActiveObjective.id).title}
-                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { title: e.target.value })}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Start"
-                                                    value={getKrDraft(okrActiveObjective.id).startValue}
-                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { startValue: e.target.value })}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Target"
-                                                    value={getKrDraft(okrActiveObjective.id).targetValue}
-                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { targetValue: e.target.value })}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Current"
-                                                    value={getKrDraft(okrActiveObjective.id).currentValue}
-                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { currentValue: e.target.value })}
-                                                />
-                                                <select
-                                                    value={getKrDraft(okrActiveObjective.id).status}
-                                                    onChange={(e) => updateKrDraft(okrActiveObjective.id, { status: e.target.value })}
-                                                >
-                                                    <option value="ACTIVE">Active</option>
-                                                    <option value="AT_RISK">At risk</option>
-                                                    <option value="PAUSED">Paused</option>
-                                                    <option value="DONE">Done</option>
-                                                </select>
+                                            <div className="okr-kr-panel-trigger">
                                                 <button
-                                                    className="icon-action create"
-                                                    onClick={() => handleCreateKeyResult(okrActiveObjective.id)}
-                                                    data-tooltip="KR erstellen"
-                                                    aria-label="KR erstellen"
+                                                    className="btn btn-secondary btn-compact"
+                                                    onClick={() => openKrComposer(okrActiveObjective.id)}
                                                 >
-                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                                        <path d="M12 5v14" />
-                                                        <path d="M5 12h14" />
-                                                    </svg>
+                                                    KR erstellen
                                                 </button>
                                             </div>
                                         )}
                                         <button className="btn btn-ghost btn-compact" onClick={() => navigateOkr(`/okr/review/${okrActiveObjective.id}`)}>
                                             Start strategic review
                                         </button>
-                                    </div>
-                                </div>
-
-                                <div className="okr-periphery">
-                                    <div className="okr-section-title">Periphery</div>
-                                    <div className="okr-periphery-section">
-                                        <div className="okr-periphery-title">Pinned</div>
-                                        {okrPeriphery.pinned.length === 0 && <div className="okr-empty">Pin objectives for quick access.</div>}
-                                        {okrPeriphery.pinned.map((objective) => (
-                                            <button key={objective.id} className="okr-periphery-item" onClick={() => openObjectiveFocus(objective.id)}>
-                                                <span>{objective.title}</span>
-                                                <span>{objective.progress}%</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="okr-periphery-section">
-                                        <div className="okr-periphery-title">Recently visited</div>
-                                        {okrPeriphery.recent.length === 0 && <div className="okr-empty">No recent objectives.</div>}
-                                        {okrPeriphery.recent.map((objective) => (
-                                            <button key={objective.id} className="okr-periphery-item" onClick={() => openObjectiveFocus(objective.id)}>
-                                                <span>{objective.title}</span>
-                                                <span>{objective.progress}%</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="okr-periphery-section">
-                                        <div className="okr-periphery-title">Next relevant</div>
-                                        {okrPeriphery.suggested.length === 0 && <div className="okr-empty">Nothing else to review.</div>}
-                                        {okrPeriphery.suggested.map((objective) => (
-                                            <button key={objective.id} className="okr-periphery-item" onClick={() => openObjectiveFocus(objective.id)}>
-                                                <span>{objective.title}</span>
-                                                <span>{objective.progress}%</span>
-                                            </button>
-                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -3779,9 +3995,9 @@ const App: React.FC = () => {
                             </div>
                         )}
 
-                        {objectiveComposerOpen && (
-                            <div className="objective-overlay">
-                                <div className="objective-panel">
+            {objectiveComposerOpen && (
+                <div className="objective-overlay">
+                    <div className="objective-panel">
                                     <div className="objective-header">
                                         <div>
                                             <div className="objective-title">{objectiveEditId ? 'Edit objective' : 'Objective composer'}</div>
@@ -3868,7 +4084,12 @@ const App: React.FC = () => {
                 ) : (
                     <>
                         <div className="filter-bar">
-                            <div className="view-switch" role="tablist" aria-label="View switcher">
+                            <div
+                                className="view-switch"
+                                role="tablist"
+                                aria-label="View switcher"
+                                style={{ ['--active-index' as any]: view === 'kanban' ? 0 : 1 }}
+                            >
                                 <button
                                     className={`view-pill ${view === 'kanban' ? 'active' : ''}`}
                                     onClick={() => setView('kanban')}
@@ -3885,28 +4106,8 @@ const App: React.FC = () => {
                                 >
                                     Table
                                 </button>
-                                <button
-                                    className={`view-pill ${view === 'list' ? 'active' : ''}`}
-                                    onClick={() => setView('list')}
-                                    role="tab"
-                                    aria-selected={view === 'list'}
-                                >
-                                    List
-                                </button>
                             </div>
                             <div className="filter-actions">
-                                <button
-                                    className="icon-action create"
-                                    disabled={!activeTenantId}
-                                    onClick={openCreateTask}
-                                    data-tooltip="Task erstellen"
-                                    aria-label="Task erstellen"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                        <path d="M12 5v14" />
-                                        <path d="M5 12h14" />
-                                    </svg>
-                                </button>
                                 {isActiveHuddleOwner && (
                                     <>
                                         <button
@@ -3922,24 +4123,43 @@ const App: React.FC = () => {
                                         </button>
                                     </>
                                 )}
-                                <select
-                                    value={filterPriority}
-                                    onChange={(e) => setFilterPriority(e.target.value)}
-                                    className="filter-select"
-                                >
-                                    <option value="ALL">All priorities</option>
-                                    <option value="LOW">Low</option>
-                                    <option value="MEDIUM">Medium</option>
-                                    <option value="HIGH">High</option>
-                                    <option value="CRITICAL">Critical</option>
-                                </select>
-                                <label className={`filter-checkbox ${filterFavorites ? 'active' : ''}`}>
+                                <div className="filter-dropdown">
+                                    <button
+                                        type="button"
+                                        className="filter-select"
+                                        onClick={() => setPriorityFilterOpen((prev) => !prev)}
+                                        aria-haspopup="listbox"
+                                        aria-expanded={priorityFilterOpen}
+                                    >
+                                        {filterPriority === 'ALL' ? 'All priorities' : filterPriority}
+                                    </button>
+                                    {priorityFilterOpen && (
+                                        <div className="filter-options" role="listbox">
+                                            {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => (
+                                                <button
+                                                    key={value}
+                                                    type="button"
+                                                    className={`filter-option ${filterPriority === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
+                                                    onClick={() => {
+                                                        setFilterPriority(value);
+                                                        setPriorityFilterOpen(false);
+                                                    }}
+                                                    role="option"
+                                                    aria-selected={filterPriority === value}
+                                                >
+                                                    {value === 'ALL' ? 'All priorities' : value}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <label className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`} title="Favorites only">
                                     <input
                                         type="checkbox"
                                         checked={filterFavorites}
                                         onChange={(e) => setFilterFavorites(e.target.checked)}
                                     />
-                                    <span>Favorites only</span>
+                                    <span className="filter-favorites-icon" aria-hidden="true">★</span>
                                 </label>
                             </div>
                         </div>
@@ -3968,6 +4188,7 @@ const App: React.FC = () => {
                                             <span>{column.status}</span>
                                             <span>{displayTasks.length}</span>
                                         </div>
+                                        <div className="column-content">
                                         {displayTasks.map((task: TaskView) => {
                                             const checklistDone = task.checklist.filter((item) => item.done).length;
                                             const checklistTotal = task.checklist.length;
@@ -3994,6 +4215,24 @@ const App: React.FC = () => {
                                                         onClick={() => handleCardClick(task)}
                                                     >
                                                         <div className="task-card-content">
+                                                            <div className="task-card-topbar">
+                                                            <div className="task-card-due">
+                                                                <span className="task-card-due-icon" aria-hidden="true">
+                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                        <path d="M5 4v16" />
+                                                                        <path d="M5 4h11l-2 4 2 4H5" />
+                                                                    </svg>
+                                                                </span>
+                                                                <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}</span>
+                                                            </div>
+                                                                <div className={`priority-bubble priority-${task.priority.toLowerCase()}`}>
+                                                            <span
+                                                                className={`priority-line tooltip-target ${task.priority === 'CRITICAL' ? 'priority-line-critical' : ''}`}
+                                                                aria-hidden="true"
+                                                                data-tooltip={`Priority: ${task.priority}`}
+                                                            />
+                                                                </div>
+                                                            </div>
                                                             <div className="task-card-header">
                                                                 <div className="task-title-row">
                                                                     {isLinkedFromOther && (
@@ -4004,10 +4243,6 @@ const App: React.FC = () => {
                                                                     )}
                                                                     {task.title}
                                                                 </div>
-                                                                <span
-                                                                    className={`priority-dot priority-${task.priority.toLowerCase()}`}
-                                                                    title={`Priority: ${task.priority}`}
-                                                                />
                                                                 {task.isFavorite && (
                                                                     <span className="favorite-badge" title="Favorite">
                                                                         ★
@@ -4028,7 +4263,11 @@ const App: React.FC = () => {
                                                             </div>
                                                             <div className="task-card-people">
                                                                 {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
-                                                                {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
+                                                                {task.assignees.length > 0 &&
+                                                                    renderAvatarStack(
+                                                                        task.tenantId,
+                                                                        task.assignees.filter((id) => id !== task.ownerId)
+                                                                    )}
                                                             </div>
                                                             <div className="task-card-icons">
                                                                 {checklistTotal > 0 && (
@@ -4068,10 +4307,11 @@ const App: React.FC = () => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                    </div>
                                                 </React.Fragment>
                                             );
                                         })}
+                                        </div>
                                     </div>
                                 );
                                 })}
@@ -4083,6 +4323,7 @@ const App: React.FC = () => {
                                         <span>ARCHIVED</span>
                                         <span>{visibleTasksForView.length}</span>
                                     </div>
+                                    <div className="column-content">
                                     {visibleTasksForView.map((task: TaskView) => {
                                         const checklistDone = task.checklist.filter((item) => item.done).length;
                                         const checklistTotal = task.checklist.length;
@@ -4094,6 +4335,24 @@ const App: React.FC = () => {
                                                 className="task-card"
                                                 onClick={() => openDetailsModal(task)}
                                             >
+                                                <div className="task-card-topbar">
+                                                <div className="task-card-due">
+                                                    <span className="task-card-due-icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                            <path d="M5 4v16" />
+                                                            <path d="M5 4h11l-2 4 2 4H5" />
+                                                        </svg>
+                                                    </span>
+                                                    <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}</span>
+                                                </div>
+                                                    <div className={`priority-bubble priority-${task.priority.toLowerCase()}`}>
+                                                        <span
+                                                            className={`priority-line tooltip-target ${task.priority === 'CRITICAL' ? 'priority-line-critical' : ''}`}
+                                                            aria-hidden="true"
+                                                            data-tooltip={`Priority: ${task.priority}`}
+                                                        />
+                                                    </div>
+                                                </div>
                                                 <div className="task-card-header">
                                                     <div className="task-title-row">
                                                         {isLinkedFromOther && (
@@ -4104,11 +4363,6 @@ const App: React.FC = () => {
                                                         )}
                                                         {task.title}
                                                     </div>
-                                                    <span
-                                                        className={`priority-dot priority-${task.priority.toLowerCase()}`}
-                                                        aria-label={`Priority ${task.priority}`}
-                                                        title={`Priority: ${task.priority}`}
-                                                    />
                                                     {task.isFavorite && (
                                                         <span className="favorite-badge" title="Favorite">
                                                             ★
@@ -4126,13 +4380,14 @@ const App: React.FC = () => {
                                                                 {kind}
                                                             </span>
                                                         ))}
-                                                        <span className={`badge badge-priority-${task.priority.toLowerCase()}`}>
-                                                            {task.priority}
-                                                        </span>
                                                     </div>
                                                     <div className="task-card-people">
                                                         {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
-                                                        {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
+                                                        {task.assignees.length > 0 &&
+                                                            renderAvatarStack(
+                                                                task.tenantId,
+                                                                task.assignees.filter((id) => id !== task.ownerId)
+                                                            )}
                                                     </div>
                                                     <div className="task-card-icons">
                                                         {checklistTotal > 0 && (
@@ -4174,148 +4429,131 @@ const App: React.FC = () => {
                                             </div>
                                         );
                                     })}
+                                    </div>
                                 </div>
                             </div>
-                        ) : view === 'list' ? (
-                            <div className="task-list">
-                                {visibleTasksForView.map((task: TaskView) => {
-                                    const checklistDone = task.checklist.filter((item) => item.done).length;
-                                    const checklistTotal = task.checklist.length;
-                                    const linkedCount = task.linkedTaskIds.length;
-                                    const isChecklistComplete = checklistTotal > 0 && checklistDone === checklistTotal;
-                                    const isLinkedFromOther = linkedToSet.has(task.id);
-                                    return (
-                                        <div
-                                            key={task.id}
-                                            className="task-row"
-                                            onClick={() => openDetailsModal(task)}
-                                        >
-                                            <div className="task-row-main">
-                                                <div className="task-row-title">
-                                                    {isLinkedFromOther && (
-                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
-                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                        </svg>
-                                                    )}
-                                                    {task.title}
-                                                </div>
-                                                <div className="task-row-meta">
-                                                    {task.kinds.map((kind) => (
-                                                        <span key={kind} className="badge task-kind-badge">
-                                                            {kind}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="task-row-side">
-                                                <span
-                                                    className={`priority-dot priority-${task.priority.toLowerCase()}`}
-                                                    aria-label={`Priority ${task.priority}`}
-                                                    title={`Priority: ${task.priority}`}
-                                                />
-                                                <div className="task-card-people">
-                                                    {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
-                                                    {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
-                                                </div>
-                                                <div className="task-row-icons">
-                                                    {checklistTotal > 0 && (
-                                                        <span className={isChecklistComplete ? 'icon-badge checklist-complete' : 'icon-badge'}>
-                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                <path d="M4 6h16M4 12h16M4 18h10" />
-                                                                <path d="M18 17l2 2 4-4" />
-                                                            </svg>
-                                                            {checklistDone}/{checklistTotal}
-                                                        </span>
-                                                    )}
-                                                    {task.comments.length > 0 && (
-                                                        <span className="icon-badge">
-                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-                                                            </svg>
-                                                            {task.comments.length}
-                                                        </span>
-                                                    )}
-                                                    {linkedCount > 0 && (
-                                                        <span className="icon-badge">
-                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                            </svg>
-                                                            {linkedCount}
-                                                        </span>
-                                                    )}
-                                                    {task.attachments.length > 0 && (
-                                                        <span className="icon-badge">
-                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                <path d="M21.5 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 1 1 5 5l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.9-7.9" />
-                                                            </svg>
-                                                            {task.attachments.length}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
                         ) : view === 'table' ? (
-                            <table className="task-table">
-                                <thead>
-                                    <tr>
-                                <th>Title</th>
-                                <th>People</th>
-                                <th>Status</th>
-                                <th>Art</th>
-                                <th>Priority</th>
-                                <th>Due</th>
-                                <th>Source</th>
-                                <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {visibleTasksForView.map((task: TaskView) => (
-                                        <tr
-                                            key={task.id}
-                                            onClick={() => openDetailsModal(task)}
-                                        >
-                                            <td>{task.title}</td>
-                                            <td>
-                                                <div className="task-card-people">
-                                                    {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
-                                                    {task.assignees.length > 0 && renderAvatarStack(task.tenantId, task.assignees)}
-                                                </div>
-                                            </td>
-                                            <td>{task.status}</td>
-                                            <td>{task.kinds.length > 0 ? task.kinds.join(', ') : '—'}</td>
-                                            <td>
-                                                <span className={`badge badge-priority-${task.priority.toLowerCase()}`}>
-                                                    {task.priority}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
-                                            </td>
-                                            <td>{task.sourceIndicator}</td>
-                                            <td>
-                                                {task.sourceType === 'MANUAL' && (
-                                                    <button
-                                                        className="delete-btn"
-                                                        style={{ opacity: 1 }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedTaskId(task.id);
-                                                            setIsDetailsModalOpen(true);
-                                                        }}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                )}
-                                            </td>
+                            <div className="task-table-wrap">
+                                <table className="task-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>People</th>
+                                            <th>Status</th>
+                                            <th>Art</th>
+                                            <th>Priority</th>
+                                            <th>Due</th>
+                                            <th>Source</th>
+                                            <th>Actions</th>
                                         </tr>
-                                    ))}
+                                    </thead>
+                                    <tbody>
+                                        {visibleTasksForView.map((task: TaskView) => (
+                                            <React.Fragment key={task.id}>
+                                                <tr onClick={() => openDetailsModal(task)}>
+                                                    <td>{task.title}</td>
+                                                    <td>
+                                                        <div className="task-card-people">
+                                                            {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
+                                                            {task.assignees.length > 0 &&
+                                                                renderAvatarStack(
+                                                                    task.tenantId,
+                                                                    task.assignees.filter((id) => id !== task.ownerId)
+                                                                )}
+                                                        </div>
+                                                    </td>
+                                                    <td>{task.status}</td>
+                                                    <td>{task.kinds.length > 0 ? task.kinds.join(', ') : '—'}</td>
+                                                    <td>
+                                                        <span className={`badge badge-priority-${task.priority.toLowerCase()}`}>
+                                                            {task.priority}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                                                    </td>
+                                                    <td>{task.sourceIndicator}</td>
+                                                    <td>
+                                                        <div className="table-actions">
+                                                            {task.sourceType === 'MANUAL' && (
+                                                                <button
+                                                                    className="icon-action settings"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openEditModal(task);
+                                                                    }}
+                                                                    data-tooltip="Task bearbeiten"
+                                                                    aria-label="Task bearbeiten"
+                                                                >
+                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                        <path d="M12 20h9" />
+                                                                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                                                                    </svg>
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                className="icon-action"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setExpandedTableTaskId((prev) => (prev === task.id ? null : task.id));
+                                                                }}
+                                                                data-tooltip="Details ausklappen"
+                                                                aria-label="Details ausklappen"
+                                                            >
+                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                                    <path d="M6 9l6 6 6-6" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {expandedTableTaskId === task.id && (
+                                                    <tr className="task-table-details">
+                                                        <td colSpan={8}>
+                                                        <div className="table-details-grid">
+                                                            <div className="table-details-span">
+                                                                <div className="table-details-label">Description</div>
+                                                                <div className="table-details-text">
+                                                                    {task.description ? stripHtml(task.description) : '—'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="table-details-label">Members</div>
+                                                                <div className="table-details-text">
+                                                                    {task.assignees.length > 0
+                                                                        ? task.assignees.map((id) => getMemberLabel(task.tenantId, id)).join(', ')
+                                                                        : '—'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="table-details-label">Checklist</div>
+                                                                <div className="table-details-text">
+                                                                    {task.checklist.length > 0
+                                                                        ? `${task.checklist.filter((item) => item.done).length}/${task.checklist.length} done`
+                                                                        : '—'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="table-details-label">Linked tasks</div>
+                                                                <div className="table-details-text">
+                                                                    {task.linkedTaskIds.length > 0 ? task.linkedTaskIds.length : '—'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="table-details-label">Attachments</div>
+                                                                <div className="table-details-text">
+                                                                    {task.attachments.length > 0 ? task.attachments.length : '—'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        ))}
                                 </tbody>
                             </table>
+                        </div>
                         ) : (
                             <div className="empty-state">No tasks to display.</div>
                         )}
@@ -4364,7 +4602,7 @@ const App: React.FC = () => {
                                 <div className="panel-title">Board settings</div>
                                 <div className="panel-subtitle">Manage this huddle board</div>
                             </div>
-                            <button className="icon-btn" onClick={() => setIsBoardSettingsOpen(false)}>✕</button>
+                            <button className="panel-close" onClick={() => setIsBoardSettingsOpen(false)} aria-label="Close">×</button>
                         </div>
                         <div className="panel-body">
                             <div className="panel-section">
@@ -4392,6 +4630,86 @@ const App: React.FC = () => {
                 </div>
             )}
 
+            {krComposerOpen && (
+                <div className="objective-overlay">
+                    <div className="objective-panel">
+                        <div className="objective-header">
+                            <div>
+                                <div className="objective-title">Key result composer</div>
+                                <div className="objective-subtitle">Define the metric and target.</div>
+                            </div>
+                            <button
+                                className="panel-close"
+                                onClick={() => {
+                                    setKrComposerOpen(false);
+                                    setKrComposerObjectiveId(null);
+                                }}
+                                aria-label="Close"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="objective-body">
+                            <label>
+                                Title
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Improve activation rate"
+                                    value={krComposerDraft.title}
+                                    onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                />
+                            </label>
+                            <div className="objective-row">
+                                <label>
+                                    Start
+                                    <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={krComposerDraft.startValue}
+                                        onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, startValue: e.target.value }))}
+                                    />
+                                </label>
+                                <label>
+                                    Target
+                                    <input
+                                        type="number"
+                                        placeholder="100"
+                                        value={krComposerDraft.targetValue}
+                                        onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, targetValue: e.target.value }))}
+                                    />
+                                </label>
+                            </div>
+                            <label>
+                                Status
+                                <select
+                                    value={krComposerDraft.status}
+                                    onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, status: e.target.value }))}
+                                >
+                                    <option value="ACTIVE">Active</option>
+                                    <option value="AT_RISK">At risk</option>
+                                    <option value="PAUSED">Paused</option>
+                                    <option value="DONE">Done</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div className="objective-actions">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setKrComposerOpen(false);
+                                    setKrComposerObjectiveId(null);
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button className="btn btn-primary" onClick={handleKrComposerSubmit}>
+                                Create key result
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isObjectiveSettingsOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content settings-modal">
@@ -4400,10 +4718,10 @@ const App: React.FC = () => {
                                 <div className="panel-title">Objective settings</div>
                                 <div className="panel-subtitle">Edit or delete this objective</div>
                             </div>
-                            <button className="icon-btn" onClick={() => {
+                            <button className="panel-close" onClick={() => {
                                 setIsObjectiveSettingsOpen(false);
                                 setObjectiveEditId(null);
-                            }}>✕</button>
+                            }} aria-label="Close">×</button>
                         </div>
                         <div className="panel-body">
                             <div className="panel-section">
@@ -4535,7 +4853,7 @@ const App: React.FC = () => {
                                 <div className="panel-title">Huddle settings</div>
                                 <div className="panel-subtitle">Manage huddles and members</div>
                             </div>
-                            <button className="icon-btn" onClick={() => setIsTeamModalOpen(false)}>✕</button>
+                            <button className="panel-close" onClick={() => setIsTeamModalOpen(false)} aria-label="Close">×</button>
                         </div>
                         <div className="panel-body">
                             <div className="panel-section">
@@ -4637,7 +4955,7 @@ const App: React.FC = () => {
                                 <div className="panel-title">Huddle invites</div>
                                 <div className="panel-subtitle">Accept or decline invitations</div>
                             </div>
-                            <button className="icon-btn" onClick={() => setIsInvitesModalOpen(false)}>✕</button>
+                            <button className="panel-close" onClick={() => setIsInvitesModalOpen(false)} aria-label="Close">×</button>
                         </div>
                         <div className="panel-body">
                             {invites.length > 0 ? (
@@ -4679,7 +4997,22 @@ const App: React.FC = () => {
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '720px', height: '100vh', overflowY: 'auto', padding: 0 }}>
                         <div style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)', padding: '1.25rem 1.5rem 0.75rem', zIndex: 1, borderBottom: '1px solid var(--border-color)' }}>
-                            <h2 style={{ marginBottom: 0 }}>Create New Task</h2>
+                            <div className="modal-header-row">
+                                <h2 style={{ marginBottom: 0 }}>Create New Task</h2>
+                                <button
+                                    className="panel-close"
+                                    onClick={() => {
+                                        setIsModalOpen(false);
+                                        setNewTaskAttachments([]);
+                                        setNewTaskKinds([]);
+                                        setNewKindInput('');
+                                        setNewTaskBoardId(null);
+                                    }}
+                                    aria-label="Close"
+                                >
+                                    ×
+                                </button>
+                            </div>
                             {newTaskHuddleId && (
                                 <div className="huddle-inline">
                                     <span>Creating in</span>
@@ -4725,6 +5058,19 @@ const App: React.FC = () => {
                                         {displayMemberships.map((membership) => (
                                             <option key={membership.id} value={membership.tenantId}>
                                                 {getHuddleName(membership.tenant?.name) || membership.tenantId}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Board</label>
+                                    <select
+                                        value={newTaskBoardId || ''}
+                                        onChange={(e) => setNewTaskBoardId(e.target.value)}
+                                    >
+                                        {getWritableBoards(newTaskHuddleId).map((item) => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.name}
                                             </option>
                                         ))}
                                     </select>
@@ -4820,6 +5166,7 @@ const App: React.FC = () => {
                                         <div
                                             className="rich-content"
                                             contentEditable
+                                            dir="ltr"
                                             ref={newDescriptionRef}
                                             onInput={(e) => setNewTask({ ...newTask, description: e.currentTarget.innerHTML })}
                                             onPaste={handlePastePlain}
@@ -5027,20 +5374,13 @@ const App: React.FC = () => {
                                             setNewTaskAttachments([]);
                                             setNewTaskKinds([]);
                                             setNewKindInput('');
+                                            setNewTaskBoardId(null);
                                         }}
                                     >
                                         Cancel
                                     </button>
-                                    <button
-                                        type="submit"
-                                        className="icon-action create"
-                                        data-tooltip="Task erstellen"
-                                        aria-label="Task erstellen"
-                                    >
-                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                            <path d="M12 5v14" />
-                                            <path d="M5 12h14" />
-                                        </svg>
+                                    <button type="submit" className="btn btn-primary">
+                                        Speichern
                                     </button>
                                 </div>
                             </div>
@@ -5058,6 +5398,16 @@ const App: React.FC = () => {
                                     Created {new Date(selectedTask.createdAt).toLocaleDateString()}
                                 </div>
                             <div className="detail-actions">
+                                <button
+                                    className="panel-close"
+                                    onClick={() => {
+                                        setIsDetailsModalOpen(false);
+                                        setSelectedTaskId(null);
+                                    }}
+                                    aria-label="Close"
+                                >
+                                    ×
+                                </button>
                                 <button
                                     className={selectedTask.isFavorite ? 'icon-btn favorite-icon active' : 'icon-btn favorite-icon'}
                                     onClick={() => toggleFavorite(selectedTask)}
@@ -5094,17 +5444,6 @@ const App: React.FC = () => {
                                                     <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
                                                 </svg>
                                             </button>
-                                            <button
-                                                className="icon-action delete"
-                                                onClick={() => handleDeleteTask(selectedTask.id)}
-                                                data-tooltip="Task löschen"
-                                                aria-label="Task löschen"
-                                            >
-                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                                    <path d="M6 6l12 12" />
-                                                    <path d="M18 6L6 18" />
-                                                </svg>
-                                            </button>
                                         </>
                                     )}
                                 </div>
@@ -5124,17 +5463,35 @@ const App: React.FC = () => {
                             <div className="detail-section-title">Overview</div>
                             <div className="detail-rows">
                                 <div className="detail-row">
-                                    <span className="detail-label">Status</span>
+                                    <span className="detail-label">
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
+                                            <path d="M5 12h14" />
+                                            <path d="M12 5l7 7-7 7" />
+                                        </svg>
+                                        Status
+                                    </span>
                                     <span className="detail-value">{selectedTask.status}</span>
                                 </div>
                                 <div className="detail-row">
-                                    <span className="detail-label">Deadline</span>
+                                    <span className="detail-label">
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
+                                            <rect x="3" y="5" width="18" height="16" rx="2" />
+                                            <path d="M8 3v4M16 3v4M3 11h18" />
+                                        </svg>
+                                        Due date
+                                    </span>
                                     <span className="detail-value">
                                         {selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : '—'}
                                     </span>
                                 </div>
                                 <div className="detail-row">
-                                    <span className="detail-label">Owner</span>
+                                    <span className="detail-label">
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
+                                            <path d="M20 21a8 8 0 0 0-16 0" />
+                                            <circle cx="12" cy="8" r="4" />
+                                        </svg>
+                                        Owner
+                                    </span>
                                     <span className="detail-value">
                                         {selectedTask.ownerId
                                             ? renderAvatarStack(selectedTask.tenantId, [selectedTask.ownerId], 'avatar-stack-lg')
@@ -5142,11 +5499,78 @@ const App: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="detail-row">
-                                    <span className="detail-label">Members</span>
+                                    <span className="detail-label">
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
+                                            <circle cx="9" cy="8" r="3" />
+                                            <circle cx="17" cy="9" r="2.5" />
+                                            <path d="M3 21a6 6 0 0 1 12 0" />
+                                            <path d="M14.5 21a4.5 4.5 0 0 1 7.5 0" />
+                                        </svg>
+                                        Assignees
+                                    </span>
                                     <span className="detail-value">
                                         {selectedTask.assignees.length > 0
                                             ? renderAvatarStack(selectedTask.tenantId, selectedTask.assignees, 'avatar-stack-lg')
                                             : '—'}
+                                    </span>
+                                </div>
+                                <div className="detail-row">
+                                    <span className="detail-label">
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
+                                            <path d="M20 12l-8 8-8-8 8-8 8 8z" />
+                                        </svg>
+                                        Labels
+                                    </span>
+                                    <span className="detail-value detail-value-wrap">
+                                        {selectedTask.kinds.length > 0 ? (
+                                            selectedTask.kinds.map((kind) => (
+                                                <span key={kind} className="chip chip-muted">
+                                                    {kind}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="detail-row">
+                                    <span className="detail-label">
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
+                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
+                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
+                                        </svg>
+                                        Linked in
+                                    </span>
+                                    <span className="detail-value">
+                                        {incomingLinkedTasks.length > 0
+                                            ? incomingLinkedTasks.map((task) => task.title).join(', ')
+                                            : '—'}
+                                    </span>
+                                </div>
+                                <div className="detail-row">
+                                    <span className="detail-label">
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
+                                            <path d="M4 7h16" />
+                                            <path d="M4 12h10" />
+                                            <path d="M4 17h13" />
+                                        </svg>
+                                        All board
+                                    </span>
+                                    <span className="detail-value">
+                                        <span className="detail-toggle-row">
+                                            <button
+                                                type="button"
+                                                className={`detail-toggle ${selectedTask.excludeFromAll ? '' : 'active'}`}
+                                                onClick={() => submitTaskUpdate({ excludeFromAll: !selectedTask.excludeFromAll })}
+                                                disabled={selectedTask.sourceType !== 'MANUAL'}
+                                                aria-label="Show in All board"
+                                            >
+                                                <span className="detail-toggle-knob" />
+                                            </button>
+                                            <span className="detail-toggle-text">
+                                                {selectedTask.excludeFromAll ? 'Hidden' : 'Shown'}
+                                            </span>
+                                        </span>
                                     </span>
                                 </div>
                             </div>
@@ -5154,12 +5578,15 @@ const App: React.FC = () => {
 
                         <div className="detail-section">
                             <div className="detail-section-title">Description</div>
-                            <div
-                                className="detail-description rich-display"
-                                dangerouslySetInnerHTML={{
-                                    __html: selectedTask.description || 'No description provided.'
-                                }}
-                            />
+                            <div className="detail-description-box">
+                                <div
+                                    className="detail-description rich-display"
+                                    dir="ltr"
+                                    dangerouslySetInnerHTML={{
+                                        __html: selectedTask.description || 'No description provided.'
+                                    }}
+                                />
+                            </div>
                         </div>
 
                         <div className="detail-section">
@@ -5262,149 +5689,207 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="comments-panel">
-                            <div className="section-title">Comments</div>
-                            <div className="comment-input-row">
-                                <div className="comment-avatar">{currentUserInitial}</div>
-                                <input
-                                    className="comment-input"
-                                    type="text"
-                                    value={commentInput}
-                                    onChange={(e) => setCommentInput(e.target.value)}
-                                    placeholder="Write a comment"
-                                />
-                                <button
-                                    type="button"
-                                    className="icon-action create"
-                                    onClick={handleAddComment}
-                                    data-tooltip="Kommentar erstellen"
-                                    aria-label="Kommentar erstellen"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                        <path d="M12 5v14" />
-                                        <path d="M5 12h14" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="comment-list">
-                                {selectedTask.comments && selectedTask.comments.length > 0 ? (
-                                    selectedTask.comments.map((comment) => (
-                                        <div key={comment.id} className="comment-card">
-                                            <div className="comment-avatar comment-avatar-small">
-                                                {String(comment.createdBy || 'U').charAt(0).toUpperCase() || 'U'}
-                                            </div>
-                                            <div className="comment-body">
-                                                <div className="comment-meta">
-                                                    <span className="comment-author">{comment.createdBy}</span>
-                                                    <span className="comment-time">{new Date(comment.createdAt).toLocaleString()}</span>
-                                                </div>
-                                                <div className="comment-text">{comment.text}</div>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="comment-empty">No comments yet.</div>
-                                )}
-                            </div>
+                        <div className="detail-tabs" style={{ ['--active-index' as any]: detailTab === 'comments' ? 0 : detailTab === 'attachments' ? 1 : 2 }}>
+                            <button
+                                className={`detail-tab ${detailTab === 'comments' ? 'active' : ''}`}
+                                onClick={() => setDetailTab('comments')}
+                            >
+                                Comments
+                            </button>
+                            <button
+                                className={`detail-tab ${detailTab === 'attachments' ? 'active' : ''}`}
+                                onClick={() => setDetailTab('attachments')}
+                            >
+                                Attachments
+                            </button>
+                            <button
+                                className={`detail-tab ${detailTab === 'activity' ? 'active' : ''}`}
+                                onClick={() => setDetailTab('activity')}
+                            >
+                                Activity
+                            </button>
                         </div>
 
-                        <div className="detail-section">
-                            <div className="detail-section-title">Attachments</div>
-                            <div className="link-row">
-                                <input
-                                    className="link-select"
-                                    type="file"
-                                    multiple
-                                    onChange={(e) => handleAttachmentSelect(e.target.files)}
-                                />
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary btn-compact"
-                                    onClick={async () => {
-                                        if (!selectedTask || newAttachments.length === 0) return;
-                                        try {
-                                            await submitTaskUpdate({ attachmentsToAdd: newAttachments });
-                                            setNewAttachments([]);
-                                        } catch (e: any) {
-                                            alert(e.message);
-                                        }
-                                    }}
-                                >
-                                    Upload
-                                </button>
-                            </div>
-                            <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                {selectedTask.attachments && selectedTask.attachments.length > 0 ? (
-                                    selectedTask.attachments.map((attachment) => (
-                                        <div key={attachment.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontSize: '0.9rem' }}>{attachment.name}</span>
-                                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                                    <a
-                                                        href={attachment.dataUrl}
-                                                        download={attachment.name}
-                                                        style={{ fontSize: '0.85rem', color: 'var(--accent-primary)' }}
-                                                    >
-                                                        Download
-                                                    </a>
-                                                    <button
-                                                        type="button"
-                                                        className="delete-btn"
-                                                        onClick={() => submitTaskUpdate({ attachmentsToRemove: [attachment.id] })}
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {attachment.type.startsWith('image/') && (
-                                                <img
-                                                    src={attachment.dataUrl}
-                                                    alt={attachment.name}
-                                                    style={{
-                                                        width: '160px',
-                                                        height: '110px',
-                                                        objectFit: 'cover',
-                                                        borderRadius: '0.5rem',
-                                                        border: '1px solid var(--border-color)'
-                                                    }}
-                                                    className="attachment-thumb"
-                                                    onClick={() => setImagePreview({ src: attachment.dataUrl, name: attachment.name })}
-                                                />
-                                            )}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div style={{ color: 'var(--text-secondary)' }}>No attachments.</div>
-                                )}
-                            </div>
-                        </div>
-
-
-                        <div className="detail-section">
-                            <div className="detail-section-title">Activity</div>
-                            <div className="activity-list">
-                                {selectedTask.activityLog && selectedTask.activityLog.length > 0 ? (
-                                    [...selectedTask.activityLog]
-                                        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                                        .map((entry) => (
-                                            <div key={entry.id} className="activity-item">
-                                                <div className="activity-dot" />
-                                                <div className="activity-body">
-                                                    <div className="activity-text">{entry.message}</div>
-                                                    <div className="activity-meta">
-                                                        {entry.actorId} · {new Date(entry.timestamp).toLocaleString()}
+                        {detailTab === 'comments' && (
+                            <div className="comments-panel">
+                                <div className="section-title">Comments</div>
+                                <div className="comment-input-row">
+                                    <div className="comment-avatar">{currentUserInitial}</div>
+                                    <input
+                                        className="comment-input"
+                                        type="text"
+                                        value={commentInput}
+                                        onChange={(e) => setCommentInput(e.target.value)}
+                                        placeholder="Write a comment"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="icon-action create"
+                                        onClick={handleAddComment}
+                                        data-tooltip="Kommentar erstellen"
+                                        aria-label="Kommentar erstellen"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M12 5v14" />
+                                            <path d="M5 12h14" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className="comment-list">
+                                    {selectedTask.comments && selectedTask.comments.length > 0 ? (
+                                        selectedTask.comments.map((comment) => {
+                                            const authorInfo = getMemberInfo(selectedTask.tenantId, comment.createdBy);
+                                            return (
+                                                <div key={comment.id} className="comment-card">
+                                                    {authorInfo.avatarUrl ? (
+                                                        <img
+                                                            className="comment-avatar comment-avatar-small"
+                                                            src={authorInfo.avatarUrl}
+                                                            alt={authorInfo.label}
+                                                        />
+                                                    ) : (
+                                                        <div className="comment-avatar comment-avatar-small">
+                                                            {authorInfo.label.charAt(0).toUpperCase() || 'U'}
+                                                        </div>
+                                                    )}
+                                                    <div className="comment-body">
+                                                        <div className="comment-meta">
+                                                            <span className="comment-author">{authorInfo.label}</span>
+                                                            <span className="comment-time">{new Date(comment.createdAt).toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="comment-text">{comment.text}</div>
                                                     </div>
                                                 </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="comment-empty">No comments yet.</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {detailTab === 'attachments' && (
+                            <div className="detail-section">
+                                <div className="detail-section-title">Attachments</div>
+                                <div className="link-row">
+                                    <input
+                                        className="link-select"
+                                        type="file"
+                                        multiple
+                                        onChange={(e) => handleAttachmentSelect(e.target.files)}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary btn-compact"
+                                        onClick={async () => {
+                                            if (!selectedTask || newAttachments.length === 0) return;
+                                            try {
+                                                await submitTaskUpdate({ attachmentsToAdd: newAttachments });
+                                                setNewAttachments([]);
+                                            } catch (e: any) {
+                                                alert(e.message);
+                                            }
+                                        }}
+                                    >
+                                        Upload
+                                    </button>
+                                </div>
+                                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {selectedTask.attachments && selectedTask.attachments.length > 0 ? (
+                                        selectedTask.attachments.map((attachment) => (
+                                            <div key={attachment.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.9rem' }}>{attachment.name}</span>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                        <a
+                                                            href={attachment.dataUrl}
+                                                            download={attachment.name}
+                                                            style={{ fontSize: '0.85rem', color: 'var(--accent-primary)' }}
+                                                        >
+                                                            Download
+                                                        </a>
+                                                        <button
+                                                            type="button"
+                                                            className="delete-btn"
+                                                            onClick={() => submitTaskUpdate({ attachmentsToRemove: [attachment.id] })}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {attachment.type.startsWith('image/') && (
+                                                    <img
+                                                        src={attachment.dataUrl}
+                                                        alt={attachment.name}
+                                                        style={{
+                                                            width: '160px',
+                                                            height: '110px',
+                                                            objectFit: 'cover',
+                                                            borderRadius: '0.5rem',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                        className="attachment-thumb"
+                                                        onClick={() => setImagePreview({ src: attachment.dataUrl, name: attachment.name })}
+                                                    />
+                                                )}
                                             </div>
                                         ))
-                                ) : (
-                                    <div className="activity-empty">No activity yet.</div>
-                                )}
+                                    ) : (
+                                        <div style={{ color: 'var(--text-secondary)' }}>No attachments.</div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {detailTab === 'activity' && (
+                            <div className="detail-section">
+                                <div className="detail-section-title">Activity</div>
+                                <div className="activity-list">
+                                    {selectedTask.activityLog && selectedTask.activityLog.length > 0 ? (
+                                        [...selectedTask.activityLog]
+                                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                                            .map((entry) => {
+                                                const actorInfo = getMemberInfo(selectedTask.tenantId, entry.actorId);
+                                                return (
+                                                    <div key={entry.id} className="activity-item">
+                                                        {actorInfo.avatarUrl ? (
+                                                            <img
+                                                                className="comment-avatar comment-avatar-small"
+                                                                src={actorInfo.avatarUrl}
+                                                                alt={actorInfo.label}
+                                                            />
+                                                        ) : (
+                                                            <div className="comment-avatar comment-avatar-small">
+                                                                {actorInfo.label.charAt(0).toUpperCase() || 'U'}
+                                                            </div>
+                                                        )}
+                                                        <div className="activity-body">
+                                                            <div className="activity-text">{entry.message}</div>
+                                                            <div className="activity-meta">
+                                                                {actorInfo.label} · {new Date(entry.timestamp).toLocaleString()}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                    ) : (
+                                        <div className="activity-empty">No activity yet.</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         </div>
                         <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem 1.25rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                {selectedTask.sourceType === 'MANUAL' && (
+                                    <button
+                                        className="btn btn-secondary btn-delete"
+                                        onClick={() => handleDeleteTask(selectedTask.id)}
+                                    >
+                                        Löschen
+                                    </button>
+                                )}
                                 <button
                                     className="btn btn-secondary"
                                     onClick={() => {
@@ -5412,7 +5897,7 @@ const App: React.FC = () => {
                                         setSelectedTaskId(null);
                                     }}
                                 >
-                                    Close
+                                    Speichern
                                 </button>
                             </div>
                         </div>
@@ -5436,7 +5921,27 @@ const App: React.FC = () => {
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '720px', height: '100vh', overflowY: 'auto', padding: 0 }}>
                         <div style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)', padding: '1.25rem 1.5rem 0.75rem', zIndex: 1, borderBottom: '1px solid var(--border-color)' }}>
-                            <h2 style={{ marginBottom: 0 }}>Edit Task</h2>
+                            <div className="modal-header-row">
+                                <h2 style={{ marginBottom: 0 }}>Edit Task</h2>
+                                <button
+                                    className="panel-close"
+                                    onClick={() => {
+                                        setIsEditModalOpen(false);
+                                        setEditingTaskId(null);
+                                        setNewAttachments([]);
+                                        setRemovedAttachmentIds([]);
+                                        setEditTaskKinds([]);
+                                        setEditKindInput('');
+                                        setChecklistDraft([]);
+                                        setChecklistInput('');
+                                        setLinkedDraft([]);
+                                        setLinkSelectId('');
+                                    }}
+                                    aria-label="Close"
+                                >
+                                    ×
+                                </button>
+                            </div>
                             {editTaskHuddleId && (
                                 <div className="huddle-inline">
                                     <span>Editing in</span>
@@ -5482,6 +5987,19 @@ const App: React.FC = () => {
                                         {displayMemberships.map((membership) => (
                                             <option key={membership.id} value={membership.tenantId}>
                                                 {getHuddleName(membership.tenant?.name) || membership.tenantId}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Board</label>
+                                    <select
+                                        value={editTaskBoardId || ''}
+                                        onChange={(e) => setEditTaskBoardId(e.target.value)}
+                                    >
+                                        {getWritableBoards(editTaskHuddleId || activeTenantId).map((item) => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.name}
                                             </option>
                                         ))}
                                     </select>
@@ -5544,6 +6062,7 @@ const App: React.FC = () => {
                                         <div
                                             className="rich-content"
                                             contentEditable
+                                            dir="ltr"
                                             ref={editDescriptionRef}
                                             onInput={(e) => setEditTask({ ...editTask, description: e.currentTarget.innerHTML })}
                                             onPaste={handlePastePlain}

@@ -105,6 +105,7 @@ export class UpdateTaskDetailsPipeline extends CommandPipeline {
             linkedTaskIds: command.payload.linkedTaskIds ?? task.linkedTaskIds,
             activityLog: nextActivityLog,
             isFavorite: command.payload.isFavorite ?? task.isFavorite,
+            excludeFromAll: command.payload.excludeFromAll ?? task.excludeFromAll,
             updatedAt: new Date(),
             version: task.version + 1,
         };

@@ -31,4 +31,8 @@ export class InMemoryTaskRepository implements TaskRepository {
             (task) => task.policyContext.scopeId === boardId && task.tenantId === tenantId
         );
     }
+
+    async findAllByTenant(tenantId: TenantId): Promise<Task[]> {
+        return Array.from(this.tasks.values()).filter((task) => task.tenantId === tenantId);
+    }
 }

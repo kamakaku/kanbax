@@ -20,6 +20,8 @@ export class TaskRepositoryPostgres {
             status: task.status,
             priority: task.priority,
             dueDate: task.dueDate ?? null,
+            ownerId: task.ownerId ?? null,
+            excludeFromAll: task.excludeFromAll ?? false,
             assignees: task.assignees,
             labels: task.labels,
             attachments: task.attachments,
@@ -43,6 +45,8 @@ export class TaskRepositoryPostgres {
             status: task.status,
             priority: task.priority,
             dueDate: task.dueDate ?? null,
+            ownerId: task.ownerId ?? null,
+            excludeFromAll: task.excludeFromAll ?? false,
             assignees: task.assignees,
             labels: task.labels,
             attachments: task.attachments,
@@ -78,6 +82,12 @@ export class TaskRepositoryPostgres {
         });
         return records.map(this.mapToDomain);
     }
+    async findAllByTenant(tenantId) {
+        const records = await this.prisma.task.findMany({
+            where: { tenantId },
+        });
+        return records.map(this.mapToDomain);
+    }
     mapToDomain(record) {
         return {
             id: record.id,
@@ -88,6 +98,8 @@ export class TaskRepositoryPostgres {
             status: record.status,
             priority: record.priority,
             dueDate: record.dueDate ?? undefined,
+            ownerId: record.ownerId ?? null,
+            excludeFromAll: record.excludeFromAll ?? false,
             assignees: record.assignees,
             labels: record.labels,
             attachments: record.attachments ?? [],

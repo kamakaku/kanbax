@@ -17,6 +17,12 @@ export class QueryService {
     async getTasks(principal: Principal, boardId = 'default-board'): Promise<TaskView[]> {
         // In a real app, this would use a specialized query repository.
         // Here we use the existing repository and map to views.
+        if (boardId === 'all') {
+            const tasks = await this.taskRepository.findAllByTenant(principal.tenantId);
+            return tasks
+                .filter((task) => !task.excludeFromAll)
+                .map(t => this.mapToTaskView(t));
+        }
         const tasks = await this.taskRepository.findAllByBoardId(boardId, principal.tenantId);
         return tasks.map(t => this.mapToTaskView(t));
     }
@@ -68,6 +74,7 @@ export class QueryService {
         return {
             id: task.id,
             tenantId: task.tenantId,
+            boardId: task.policyContext?.scopeId ?? 'default-board',
             ownerId: task.ownerId ?? null,
             title: task.title,
             description: task.description,
@@ -75,6 +82,7 @@ export class QueryService {
             status: task.status,
             priority: task.priority,
             dueDate: task.dueDate,
+            excludeFromAll: task.excludeFromAll ?? false,
             assignees: task.assignees,
             labels: task.labels,
             attachments: task.attachments ?? [],

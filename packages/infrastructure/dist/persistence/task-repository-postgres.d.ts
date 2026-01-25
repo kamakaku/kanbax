@@ -7,6 +7,7 @@ export declare class TaskRepositoryPostgres implements TaskRepository {
     save(task: Task): Promise<void>;
     delete(id: TaskId, tenantId: TenantId): Promise<void>;
     findAllByBoardId(boardId: string, tenantId: TenantId): Promise<Task[]>;
+    findAllByTenant(tenantId: TenantId): Promise<Task[]>;
     private mapToDomain;
 }
 //# sourceMappingURL=task-repository-postgres.d.ts.map

@@ -103,6 +103,7 @@ model Task {
   priority    String
   dueDate     DateTime?
   ownerId     String?
+  excludeFromAll Boolean @default(false)
   assignees   String[]
   labels      String[]
   attachments Json?

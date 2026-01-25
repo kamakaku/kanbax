@@ -5,6 +5,7 @@ import { PrincipalType } from './identity';
 export interface TaskView {
     id: string;
     tenantId: string;
+    boardId: string;
     ownerId?: string | null;
     title: string;
     description?: string;
@@ -12,6 +13,7 @@ export interface TaskView {
     status: TaskStatus;
     priority: TaskPriority;
     dueDate?: Date;
+    excludeFromAll?: boolean;
     assignees: string[];
     labels: string[];
     attachments: TaskAttachment[];

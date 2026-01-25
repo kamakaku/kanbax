@@ -84,6 +84,7 @@ export interface Task {
     status: TaskStatus;
     priority: TaskPriority;
     dueDate?: Date;
+    excludeFromAll?: boolean;
     assignees: UserId[];
     labels: string[];
     attachments: TaskAttachment[];
@@ -103,5 +104,6 @@ export interface TaskRepository {
     save(task: Task): Promise<void>;
     delete(id: TaskId, tenantId: TenantId): Promise<void>;
     findAllByBoardId(boardId: string, tenantId: TenantId): Promise<Task[]>;
+    findAllByTenant(tenantId: TenantId): Promise<Task[]>;
 }
 //# sourceMappingURL=task.d.ts.map
