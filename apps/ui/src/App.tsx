@@ -860,6 +860,45 @@ const App: React.FC = () => {
         const total = krs.reduce((sum, kr) => sum + kr.progress, 0);
         return Math.round(total / krs.length);
     };
+    const renderMiniBars = (series: number[]) => {
+        if (!series || series.length === 0) return null;
+        const max = Math.max(...series, 1);
+        return (
+            <div className="dashboard-mini-bars">
+                {series.map((value, index) => (
+                    <span
+                        key={`bar-${index}`}
+                        className="dashboard-mini-bar"
+                        style={{ height: `${Math.round((value / max) * 100)}%` }}
+                    />
+                ))}
+            </div>
+        );
+    };
+    const renderChangeBadge = (delta: number) => {
+        const direction = delta === 0 ? 'flat' : delta > 0 ? 'up' : 'down';
+        const value = Math.abs(delta);
+        return (
+            <span className={`stat-change ${direction}`}>
+                {direction === 'up' && (
+                    <svg viewBox="0 0 20 20" fill="none" strokeWidth="1.8">
+                        <path d="M10 4l5 6h-3v6H8v-6H5l5-6z" />
+                    </svg>
+                )}
+                {direction === 'down' && (
+                    <svg viewBox="0 0 20 20" fill="none" strokeWidth="1.8">
+                        <path d="M10 16l-5-6h3V4h4v6h3l-5 6z" />
+                    </svg>
+                )}
+                {direction === 'flat' && (
+                    <svg viewBox="0 0 20 20" fill="none" strokeWidth="1.8">
+                        <path d="M4 10h12" />
+                    </svg>
+                )}
+                {value}%
+            </span>
+        );
+    };
 
     const objectiveViews = useMemo<ObjectiveView[]>(() => {
         return okrObjectives.map((objective) => {
@@ -895,6 +934,120 @@ const App: React.FC = () => {
             return base;
         });
     }, [okrObjectives]);
+
+    const dashboardTasks = useMemo(() => {
+        if (!activeTenantId) return [];
+        return tasksByTenant[activeTenantId] || tasks || [];
+    }, [activeTenantId, tasksByTenant, tasks]);
+
+    const dashboardSummary = useMemo(() => {
+        const now = new Date();
+        const soon = new Date();
+        soon.setDate(now.getDate() + 7);
+        const dayStart = new Date(now);
+        dayStart.setHours(0, 0, 0, 0);
+        const validTasks = dashboardTasks.filter((task) => task && task.id);
+        const parseDate = (value?: string | null) => (value ? new Date(value) : null);
+        const isOpen = (task: TaskView) => task.status !== 'DONE';
+        const statusCounts = validTasks.reduce<Record<string, number>>((acc, task) => {
+            const status = task.status || 'UNKNOWN';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {});
+        const doneCount = statusCounts.DONE || 0;
+        const buildSeries = (
+            items: Array<{ updatedAt?: string; createdAt?: string }>,
+            predicate?: (item: any) => boolean,
+            daysBack = 7
+        ) => {
+            const series: number[] = [];
+            for (let i = daysBack - 1; i >= 0; i -= 1) {
+                const start = new Date(dayStart);
+                start.setDate(dayStart.getDate() - i);
+                const end = new Date(start);
+                end.setDate(start.getDate() + 1);
+                const count = items.filter((item) => {
+                    const timestamp = new Date(item.updatedAt || item.createdAt || 0).getTime();
+                    if (!timestamp) return false;
+                    if (timestamp < start.getTime() || timestamp >= end.getTime()) return false;
+                    return predicate ? predicate(item) : true;
+                }).length;
+                series.push(count);
+            }
+            return series;
+        };
+        const activitySeries14 = buildSeries(validTasks, undefined, 14);
+        const completionSeries14 = buildSeries(validTasks, (task) => task.status === 'DONE', 14);
+        const openSeries14 = buildSeries(validTasks, (task) => isOpen(task), 14);
+        const keyResults = objectiveViews.flatMap((objective) => objective.keyResults);
+        const krSeries14 = buildSeries(keyResults as Array<{ updatedAt?: string; createdAt?: string }>, undefined, 14);
+        const activitySeries = activitySeries14.slice(7);
+        const completionSeries = completionSeries14.slice(7);
+        const openSeries = openSeries14.slice(7);
+        const krSeries = krSeries14.slice(7);
+        const sumSeries = (series: number[]) => series.reduce((sum, value) => sum + value, 0);
+        const calcDelta = (current: number[], previous: number[]) => {
+            const currentSum = sumSeries(current);
+            const prevSum = sumSeries(previous);
+            if (prevSum === 0) return currentSum === 0 ? 0 : 100;
+            return Math.round(((currentSum - prevSum) / prevSum) * 100);
+        };
+        const dueSoonTasks = validTasks
+            .filter((task) => {
+                const due = parseDate(task.dueDate);
+                return due && due >= now && due <= soon && isOpen(task);
+            })
+            .sort((a, b) => new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime())
+            .slice(0, 5);
+        const overdueTasks = validTasks
+            .filter((task) => {
+                const due = parseDate(task.dueDate);
+                return due && due < now && isOpen(task);
+            })
+            .sort((a, b) => new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime())
+            .slice(0, 5);
+        const recentTasks = [...validTasks]
+            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+            .slice(0, 5);
+        const favoriteTasks = validTasks.filter((task) => task.isFavorite).slice(0, 5);
+        const activeTasks = validTasks.filter(isOpen).slice(0, 5);
+        const boardCount = activeTenantId ? (boardsByTenant[activeTenantId]?.length ?? boards.length) : boards.length;
+        const averageKrProgress = keyResults.length
+            ? Math.round(keyResults.reduce((sum, kr) => sum + kr.progress, 0) / keyResults.length)
+            : 0;
+        const atRiskKrs = keyResults.filter((kr) => kr.status !== 'ON_TRACK').length;
+        return {
+            totalTasks: validTasks.length,
+            openTasks: validTasks.filter(isOpen).length,
+            dueSoonCount: validTasks.filter((task) => {
+                const due = parseDate(task.dueDate);
+                return due && due >= now && due <= soon && isOpen(task);
+            }).length,
+            overdueCount: validTasks.filter((task) => {
+                const due = parseDate(task.dueDate);
+                return due && due < now && isOpen(task);
+            }).length,
+            favoriteCount: validTasks.filter((task) => task.isFavorite).length,
+            completionRate: validTasks.length ? Math.round((doneCount / validTasks.length) * 100) : 0,
+            doneCount,
+            statusCounts,
+            boardCount,
+            objectiveCount: objectiveViews.length,
+            keyResultCount: keyResults.length,
+            atRiskKrs,
+            averageKrProgress,
+            activitySeries,
+            completionSeries,
+            openChange: calcDelta(openSeries, openSeries14.slice(0, 7)),
+            completionChange: calcDelta(completionSeries, completionSeries14.slice(0, 7)),
+            okrChange: calcDelta(krSeries, krSeries14.slice(0, 7)),
+            activeTasks,
+            dueSoonTasks,
+            overdueTasks,
+            recentTasks,
+            favoriteTasks,
+        };
+    }, [dashboardTasks, activeTenantId, boardsByTenant, boards.length, objectiveViews]);
 
     const showLegacyOkr = useMemo(() => {
         try {
@@ -3032,6 +3185,21 @@ const App: React.FC = () => {
                     <div className="sidebar-team">
                         <div className="sidebar-nav">
                             <button
+                                className={`sidebar-nav-item ${view === 'dashboard' ? 'active' : ''}`}
+                                onClick={() => setView('dashboard')}
+                                data-tooltip="Dashboard"
+                            >
+                                <span className="sidebar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                        <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
+                                        <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
+                                        <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
+                                        <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
+                                    </svg>
+                                </span>
+                                <span className="sidebar-nav-label">Dashboard</span>
+                            </button>
+                            <button
                                 className={`sidebar-nav-item ${view === 'kanban' ? 'active' : ''}`}
                                 onClick={() => setView('kanban')}
                                 data-tooltip="Board"
@@ -3126,7 +3294,9 @@ const App: React.FC = () => {
                                 ? 'Settings'
                                 : view === 'okr'
                                     ? 'OKRs'
-                                    : (activeBoard?.name || activeHuddleName || 'Board')}
+                                    : view === 'dashboard'
+                                        ? 'Dashboard'
+                                        : (activeBoard?.name || activeHuddleName || 'Board')}
                         </h1>
                         {(view === 'kanban' || view === 'table') && (
                             <button
@@ -4589,7 +4759,129 @@ const App: React.FC = () => {
                     )
                 ) : view === 'dashboard' ? (
                     <div className="dashboard-panel">
-                        <div className="empty-state">Dashboard view coming soon.</div>
+                        {!activeTenantId ? (
+                            <div className="empty-state">Select a huddle to see the dashboard.</div>
+                        ) : (
+                            <>
+                                <div className="dashboard-stats">
+                                    <div className="dashboard-card dashboard-stat">
+                                        <div className="dashboard-stat-top">
+                                            <span className="dashboard-stat-label">Tasks completed</span>
+                                            <span className="dashboard-stat-icon">✓</span>
+                                        </div>
+                                        <div className="dashboard-stat-body">
+                                            <div className="dashboard-stat-value-row">
+                                                <div className="dashboard-stat-value">{dashboardSummary.doneCount}</div>
+                                                {renderChangeBadge(dashboardSummary.completionChange)}
+                                            </div>
+                                            <div className="dashboard-stat-meta">
+                                                {dashboardSummary.completionRate}% completion
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="dashboard-card dashboard-stat">
+                                        <div className="dashboard-stat-top">
+                                            <span className="dashboard-stat-label">Tasks in progress</span>
+                                            <span className="dashboard-stat-icon">⏳</span>
+                                        </div>
+                                        <div className="dashboard-stat-body">
+                                            <div className="dashboard-stat-value-row">
+                                                <div className="dashboard-stat-value">{dashboardSummary.openTasks}</div>
+                                                {renderChangeBadge(dashboardSummary.openChange)}
+                                            </div>
+                                            <div className="dashboard-stat-meta">
+                                                {dashboardSummary.dueSoonCount} due soon · {dashboardSummary.totalTasks} total
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="dashboard-card dashboard-stat">
+                                        <div className="dashboard-stat-top">
+                                            <span className="dashboard-stat-label">Overdue tasks</span>
+                                            <span className="dashboard-stat-icon">⚠️</span>
+                                        </div>
+                                        <div className="dashboard-stat-body">
+                                            <div className="dashboard-stat-value-row">
+                                                <div className="dashboard-stat-value">{dashboardSummary.overdueCount}</div>
+                                                {renderChangeBadge(dashboardSummary.openChange)}
+                                            </div>
+                                            <div className="dashboard-stat-meta">
+                                                {dashboardSummary.dueSoonCount} due soon
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="dashboard-sections">
+                                    <div className="dashboard-card dashboard-list dashboard-card-accent">
+                                        <div className="dashboard-card-title">Due next</div>
+                                        {dashboardSummary.overdueTasks.length === 0 && dashboardSummary.dueSoonTasks.length === 0 && (
+                                            <div className="dashboard-empty">No upcoming deadlines.</div>
+                                        )}
+                                        {[...dashboardSummary.overdueTasks, ...dashboardSummary.dueSoonTasks]
+                                            .slice(0, 5)
+                                            .map((task) => {
+                                                const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+                                                const isOverdue = dueDate ? dueDate < new Date() : false;
+                                                return (
+                                                    <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
+                                                        <div className="dashboard-item-title">{task.title}</div>
+                                                        <div className="dashboard-item-meta">
+                                                            {dueDate ? dueDate.toLocaleDateString() : 'No due date'}
+                                                            <span className={`dashboard-badge ${isOverdue ? 'danger' : ''}`}>
+                                                                {isOverdue ? 'Overdue' : task.status}
+                                                            </span>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                    </div>
+                                    <div className="dashboard-card dashboard-list">
+                                        <div className="dashboard-card-title">Recent updates</div>
+                                        {dashboardSummary.recentTasks.length === 0 && (
+                                            <div className="dashboard-empty">No recent updates.</div>
+                                        )}
+                                        {dashboardSummary.recentTasks.map((task) => (
+                                            <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
+                                                <div className="dashboard-item-title">{task.title}</div>
+                                                <div className="dashboard-item-meta">
+                                                    {new Date(task.updatedAt).toLocaleDateString()}
+                                                    <span className="dashboard-badge">{task.status}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="dashboard-card dashboard-list dashboard-card-accent">
+                                        <div className="dashboard-card-title">Favorites</div>
+                                        {dashboardSummary.favoriteTasks.length === 0 && (
+                                            <div className="dashboard-empty">No favorites yet.</div>
+                                        )}
+                                        {dashboardSummary.favoriteTasks.map((task) => (
+                                            <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
+                                                <div className="dashboard-item-title">{task.title}</div>
+                                                <div className="dashboard-item-meta">
+                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                                                    <span className="dashboard-badge">{task.status}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="dashboard-card dashboard-list">
+                                        <div className="dashboard-card-title">Active tasks</div>
+                                        {dashboardSummary.activeTasks.length === 0 && (
+                                            <div className="dashboard-empty">No active tasks right now.</div>
+                                        )}
+                                        {dashboardSummary.activeTasks.map((task) => (
+                                            <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
+                                                <div className="dashboard-item-title">{task.title}</div>
+                                                <div className="dashboard-item-meta">
+                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                                                    <span className="dashboard-badge">{task.status}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <>
