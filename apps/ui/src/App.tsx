@@ -3,6 +3,7 @@ import { TaskView, BoardView, TaskStatus } from '@kanbax/domain';
 import { supabase } from './supabaseClient';
 
 const API_BASE = 'http://localhost:4000';
+const ARCHIVED_BOARD_ID = 'archived';
 
 interface OkrKeyResult {
     id: string;
@@ -67,7 +68,7 @@ interface ObjectiveView {
 }
 
 const App: React.FC = () => {
-    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'archived' | 'settings' | 'okr'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'settings' | 'okr'>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
     const [detailTab, setDetailTab] = useState<'comments' | 'attachments' | 'activity'>('comments');
     useEffect(() => {
@@ -123,6 +124,12 @@ const App: React.FC = () => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isHuddleMenuOpen, setIsHuddleMenuOpen] = useState(false);
+    const [lineHoverIndex, setLineHoverIndex] = useState<number | null>(null);
+    const [lineRangeDays, setLineRangeDays] = useState(30);
+
+    useEffect(() => {
+        setLineHoverIndex(null);
+    }, [lineRangeDays]);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         try {
             return localStorage.getItem('kanbax-sidebar-collapsed') === 'true';
@@ -202,7 +209,9 @@ const App: React.FC = () => {
     const [filterText, setFilterText] = useState('');
     const [filterPriority, setFilterPriority] = useState('ALL');
     const [filterFavorites, setFilterFavorites] = useState(false);
+    const [filterStatus, setFilterStatus] = useState('ALL');
     const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
+    const [statusFilterOpen, setStatusFilterOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
     const [newTaskAttachments, setNewTaskAttachments] = useState<TaskView['attachments']>([]);
@@ -311,9 +320,11 @@ const App: React.FC = () => {
                 }
             })();
             const fallbackBoardId = boardsData[0]?.id || null;
-            const nextBoardId = (storedBoardId && boardsData.some((b: BoardView) => b.id === storedBoardId))
-                ? storedBoardId
-                : fallbackBoardId;
+            const nextBoardId = storedBoardId === ARCHIVED_BOARD_ID
+                ? ARCHIVED_BOARD_ID
+                : (storedBoardId && boardsData.some((b: BoardView) => b.id === storedBoardId))
+                    ? storedBoardId
+                    : fallbackBoardId;
             setActiveBoardId(nextBoardId);
             if (nextBoardId) {
                 try {
@@ -323,7 +334,8 @@ const App: React.FC = () => {
                 }
             }
 
-            const tasksRes = await fetch(`${API_BASE}/tasks?boardId=${encodeURIComponent(nextBoardId || '')}`, { headers: getApiHeaders() });
+            const tasksBoardId = nextBoardId === ARCHIVED_BOARD_ID ? 'all' : (nextBoardId || '');
+            const tasksRes = await fetch(`${API_BASE}/tasks?boardId=${encodeURIComponent(tasksBoardId)}`, { headers: getApiHeaders() });
             if (!tasksRes.ok) throw new Error('Failed to fetch tasks');
             const tasksData = await tasksRes.json();
 
@@ -379,7 +391,7 @@ const App: React.FC = () => {
         }
         try {
             setOkrLoading(true);
-            const boardId = activeBoardId === 'all'
+            const boardId = activeBoardId === 'all' || activeBoardId === ARCHIVED_BOARD_ID
                 ? resolveWritableBoardId(activeTenantId)
                 : (activeBoardId || 'default-board');
             const res = await fetch(`${API_BASE}/okrs?boardId=${encodeURIComponent(boardId)}`, { headers: getApiHeaders() });
@@ -409,7 +421,7 @@ const App: React.FC = () => {
                 startDate: draft.startDate || null,
                 endDate: draft.endDate || null,
                 status: draft.status || 'ACTIVE',
-                boardId: activeBoardId === 'all'
+                boardId: activeBoardId === 'all' || activeBoardId === ARCHIVED_BOARD_ID
                     ? resolveWritableBoardId(activeTenantId)
                     : (activeBoardId || 'default-board'),
             };
@@ -860,6 +872,29 @@ const App: React.FC = () => {
         const total = krs.reduce((sum, kr) => sum + kr.progress, 0);
         return Math.round(total / krs.length);
     };
+    const isOpenTask = (task: TaskView) => task.status !== 'DONE';
+    const buildSeriesForDays = (
+        items: Array<{ updatedAt?: string; createdAt?: string }>,
+        dayStart: Date,
+        daysBack: number,
+        predicate?: (item: any) => boolean
+    ) => {
+        const series: number[] = [];
+        for (let i = daysBack - 1; i >= 0; i -= 1) {
+            const start = new Date(dayStart);
+            start.setDate(dayStart.getDate() - i);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 1);
+            const count = items.filter((item) => {
+                const timestamp = new Date(item.updatedAt || item.createdAt || 0).getTime();
+                if (!timestamp) return false;
+                if (timestamp < start.getTime() || timestamp >= end.getTime()) return false;
+                return predicate ? predicate(item) : true;
+            }).length;
+            series.push(count);
+        }
+        return series;
+    };
     const renderMiniBars = (series: number[]) => {
         if (!series || series.length === 0) return null;
         const max = Math.max(...series, 1);
@@ -872,6 +907,152 @@ const App: React.FC = () => {
                         style={{ height: `${Math.round((value / max) * 100)}%` }}
                     />
                 ))}
+            </div>
+        );
+    };
+    const renderInverseBars = (series: number[], variant: 'ink' | 'lime' | 'ice', invert = false) => {
+        if (!series || series.length === 0) return null;
+        const max = Math.max(...series, 1);
+        return (
+            <div className={`dashboard-inverse-bars ${variant}${invert ? ' inverted' : ''}`}>
+                {series.map((value, index) => (
+                    <span
+                        key={`inverse-bar-${variant}-${index}`}
+                        className="dashboard-inverse-bar"
+                        style={{
+                            height: `${Math.round((value / max) * 100)}%`,
+                            ['--bar-index' as any]: index,
+                        }}
+                    />
+                ))}
+            </div>
+        );
+    };
+    const renderLineChart = (
+        seriesList: Array<{ key: string; label: string; series: number[]; className: string }>,
+        options?: {
+            width?: number;
+            height?: number;
+            padding?: number;
+            labels?: string[];
+            hoverIndex?: number | null;
+            onHover?: (index: number | null) => void;
+        }
+    ) => {
+        if (!seriesList.length) return null;
+        const width = options?.width ?? 220;
+        const height = options?.height ?? 76;
+        const padding = options?.padding ?? 10;
+        const hoverIndex = options?.hoverIndex ?? null;
+        const allValues = seriesList.flatMap((item) => item.series);
+        const maxValue = Math.max(...allValues, 1);
+        const minValue = Math.min(...allValues, 0);
+        const valueRange = maxValue - minValue || 1;
+        const labels = options?.labels ?? seriesList[0]?.series.map((_, idx) => `Day ${idx + 1}`) ?? [];
+        const span = Math.max(seriesList[0]?.series.length - 1, 1);
+        const getPoint = (series: number[], index: number) => {
+            const x = padding + (index / span) * (width - padding * 2);
+            const value = series[Math.min(index, series.length - 1)] ?? 0;
+            const y = height - padding - ((value - minValue) / valueRange) * (height - padding * 2);
+            return { x, y, value };
+        };
+        const buildPath = (series: number[]) => {
+            if (!series.length) return '';
+            const points = series.map((value, index) => {
+                const x = padding + (index / span) * (width - padding * 2);
+                const y = height - padding - ((value - minValue) / valueRange) * (height - padding * 2);
+                return { x, y };
+            });
+            if (points.length < 3) {
+                return points
+                    .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+                    .join(' ');
+            }
+            let path = `M${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+            for (let i = 1; i < points.length - 1; i += 1) {
+                const midX = (points[i].x + points[i + 1].x) / 2;
+                const midY = (points[i].y + points[i + 1].y) / 2;
+                path += ` Q${points[i].x.toFixed(1)} ${points[i].y.toFixed(1)} ${midX.toFixed(1)} ${midY.toFixed(1)}`;
+            }
+            const last = points[points.length - 1];
+            path += ` T${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
+            return path;
+        };
+        const handleHover = (event: React.MouseEvent<HTMLDivElement>) => {
+            if (!options?.onHover || !labels.length) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const padPx = (padding / width) * rect.width;
+            const relativeX = event.clientX - rect.left;
+            const clamped = Math.min(Math.max(relativeX, padPx), rect.width - padPx);
+            const ratio = (clamped - padPx) / Math.max(rect.width - padPx * 2, 1);
+            const index = Math.round(ratio * span);
+            options.onHover(index);
+        };
+        const handleLeave = () => {
+            if (options?.onHover) options.onHover(null);
+        };
+        const hoverX = hoverIndex === null ? null : getPoint(seriesList[0].series, hoverIndex).x;
+        const hoverXPercent = hoverX === null ? null : (hoverX / width) * 100;
+        const seriesLabels = seriesList.map((item) => {
+            const lastIndex = Math.max(item.series.length - 1, 0);
+            const point = getPoint(item.series, lastIndex);
+            return {
+                key: item.key,
+                label: item.label,
+                value: point.value,
+                className: item.className,
+                left: (point.x / width) * 100,
+                top: (point.y / height) * 100,
+            };
+        });
+        return (
+            <div className="dashboard-line-chart" onMouseMove={handleHover} onMouseLeave={handleLeave}>
+                <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+                    <g className="dashboard-line-grid">
+                        <line x1="0" y1={height - padding} x2={width} y2={height - padding} />
+                        <line x1="0" y1={height * 0.66} x2={width} y2={height * 0.66} />
+                        <line x1="0" y1={height * 0.33} x2={width} y2={height * 0.33} />
+                    </g>
+                    {hoverX !== null && (
+                        <line className="dashboard-line-marker" x1={hoverX} y1={padding} x2={hoverX} y2={height - padding} />
+                    )}
+                    {seriesList.map((item) => (
+                        <path key={item.key} className={`dashboard-line-path ${item.className}`} d={buildPath(item.series)} />
+                    ))}
+                    {hoverIndex !== null &&
+                        seriesList.map((item) => {
+                            const point = getPoint(item.series, hoverIndex);
+                            return (
+                                <circle
+                                    key={`${item.key}-point`}
+                                    className={`dashboard-line-point ${item.className}`}
+                                    cx={point.x}
+                                    cy={point.y}
+                                    r={3}
+                                />
+                            );
+                        })}
+                </svg>
+                {seriesLabels.map((label) => (
+                    <span
+                        key={`${label.key}-label`}
+                        className={`dashboard-line-label ${label.className}`}
+                        style={{ left: `calc(${label.left}% + 6px)`, top: `${label.top}%` }}
+                    >
+                        {label.label} {label.value}
+                    </span>
+                ))}
+                {hoverIndex !== null && hoverXPercent !== null && (
+                    <div className="dashboard-line-tooltip" style={{ left: `${hoverXPercent}%` }}>
+                        <div className="tooltip-title">{labels[hoverIndex] ?? ''}</div>
+                        {seriesList.map((item) => (
+                            <div key={`${item.key}-tip`} className={`tooltip-row ${item.className}`}>
+                                <span>{item.label}</span>
+                                <strong>{item.series[hoverIndex] ?? 0}</strong>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     };
@@ -948,39 +1129,17 @@ const App: React.FC = () => {
         dayStart.setHours(0, 0, 0, 0);
         const validTasks = dashboardTasks.filter((task) => task && task.id);
         const parseDate = (value?: string | null) => (value ? new Date(value) : null);
-        const isOpen = (task: TaskView) => task.status !== 'DONE';
         const statusCounts = validTasks.reduce<Record<string, number>>((acc, task) => {
             const status = task.status || 'UNKNOWN';
             acc[status] = (acc[status] || 0) + 1;
             return acc;
         }, {});
         const doneCount = statusCounts.DONE || 0;
-        const buildSeries = (
-            items: Array<{ updatedAt?: string; createdAt?: string }>,
-            predicate?: (item: any) => boolean,
-            daysBack = 7
-        ) => {
-            const series: number[] = [];
-            for (let i = daysBack - 1; i >= 0; i -= 1) {
-                const start = new Date(dayStart);
-                start.setDate(dayStart.getDate() - i);
-                const end = new Date(start);
-                end.setDate(start.getDate() + 1);
-                const count = items.filter((item) => {
-                    const timestamp = new Date(item.updatedAt || item.createdAt || 0).getTime();
-                    if (!timestamp) return false;
-                    if (timestamp < start.getTime() || timestamp >= end.getTime()) return false;
-                    return predicate ? predicate(item) : true;
-                }).length;
-                series.push(count);
-            }
-            return series;
-        };
-        const activitySeries14 = buildSeries(validTasks, undefined, 14);
-        const completionSeries14 = buildSeries(validTasks, (task) => task.status === 'DONE', 14);
-        const openSeries14 = buildSeries(validTasks, (task) => isOpen(task), 14);
+        const activitySeries14 = buildSeriesForDays(validTasks, dayStart, 14);
+        const completionSeries14 = buildSeriesForDays(validTasks, dayStart, 14, (task) => task.status === 'DONE');
+        const openSeries14 = buildSeriesForDays(validTasks, dayStart, 14, (task) => isOpenTask(task));
         const keyResults = objectiveViews.flatMap((objective) => objective.keyResults);
-        const krSeries14 = buildSeries(keyResults as Array<{ updatedAt?: string; createdAt?: string }>, undefined, 14);
+        const krSeries14 = buildSeriesForDays(keyResults as Array<{ updatedAt?: string; createdAt?: string }>, dayStart, 14);
         const activitySeries = activitySeries14.slice(7);
         const completionSeries = completionSeries14.slice(7);
         const openSeries = openSeries14.slice(7);
@@ -992,17 +1151,22 @@ const App: React.FC = () => {
             if (prevSum === 0) return currentSum === 0 ? 0 : 100;
             return Math.round(((currentSum - prevSum) / prevSum) * 100);
         };
+        const activityTotal14 = sumSeries(activitySeries14);
+        const completionTotal14 = sumSeries(completionSeries14);
+        const openTotal14 = sumSeries(openSeries14);
+        const krTotal14 = sumSeries(krSeries14);
+        const activityChange = calcDelta(activitySeries, activitySeries14.slice(0, 7));
         const dueSoonTasks = validTasks
             .filter((task) => {
                 const due = parseDate(task.dueDate);
-                return due && due >= now && due <= soon && isOpen(task);
+                return due && due >= now && due <= soon && isOpenTask(task);
             })
             .sort((a, b) => new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime())
             .slice(0, 5);
         const overdueTasks = validTasks
             .filter((task) => {
                 const due = parseDate(task.dueDate);
-                return due && due < now && isOpen(task);
+                return due && due < now && isOpenTask(task);
             })
             .sort((a, b) => new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime())
             .slice(0, 5);
@@ -1010,7 +1174,7 @@ const App: React.FC = () => {
             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
             .slice(0, 5);
         const favoriteTasks = validTasks.filter((task) => task.isFavorite).slice(0, 5);
-        const activeTasks = validTasks.filter(isOpen).slice(0, 5);
+        const activeTasks = validTasks.filter(isOpenTask).slice(0, 5);
         const boardCount = activeTenantId ? (boardsByTenant[activeTenantId]?.length ?? boards.length) : boards.length;
         const averageKrProgress = keyResults.length
             ? Math.round(keyResults.reduce((sum, kr) => sum + kr.progress, 0) / keyResults.length)
@@ -1018,14 +1182,14 @@ const App: React.FC = () => {
         const atRiskKrs = keyResults.filter((kr) => kr.status !== 'ON_TRACK').length;
         return {
             totalTasks: validTasks.length,
-            openTasks: validTasks.filter(isOpen).length,
+            openTasks: validTasks.filter(isOpenTask).length,
             dueSoonCount: validTasks.filter((task) => {
                 const due = parseDate(task.dueDate);
-                return due && due >= now && due <= soon && isOpen(task);
+                return due && due >= now && due <= soon && isOpenTask(task);
             }).length,
             overdueCount: validTasks.filter((task) => {
                 const due = parseDate(task.dueDate);
-                return due && due < now && isOpen(task);
+                return due && due < now && isOpenTask(task);
             }).length,
             favoriteCount: validTasks.filter((task) => task.isFavorite).length,
             completionRate: validTasks.length ? Math.round((doneCount / validTasks.length) * 100) : 0,
@@ -1038,6 +1202,17 @@ const App: React.FC = () => {
             averageKrProgress,
             activitySeries,
             completionSeries,
+            openSeries,
+            krSeries,
+            activitySeries14,
+            completionSeries14,
+            openSeries14,
+            krSeries14,
+            activityTotal14,
+            completionTotal14,
+            openTotal14,
+            krTotal14,
+            activityChange,
             openChange: calcDelta(openSeries, openSeries14.slice(0, 7)),
             completionChange: calcDelta(completionSeries, completionSeries14.slice(0, 7)),
             okrChange: calcDelta(krSeries, krSeries14.slice(0, 7)),
@@ -1048,6 +1223,57 @@ const App: React.FC = () => {
             favoriteTasks,
         };
     }, [dashboardTasks, activeTenantId, boardsByTenant, boards.length, objectiveViews]);
+
+    const lineChartSeries = useMemo(() => {
+        const now = new Date();
+        const dayStart = new Date(now);
+        dayStart.setHours(0, 0, 0, 0);
+        const validTasks = dashboardTasks.filter((task) => task && task.id);
+        const keyResults = objectiveViews.flatMap((objective) => objective.keyResults);
+        return {
+            activity: buildSeriesForDays(validTasks, dayStart, lineRangeDays),
+            done: buildSeriesForDays(validTasks, dayStart, lineRangeDays, (task) => task.status === 'DONE'),
+            open: buildSeriesForDays(validTasks, dayStart, lineRangeDays, (task) => isOpenTask(task)),
+            kr: buildSeriesForDays(keyResults as Array<{ updatedAt?: string; createdAt?: string }>, dayStart, lineRangeDays),
+        };
+    }, [dashboardTasks, objectiveViews, lineRangeDays]);
+
+    const lineChartTotals = useMemo(() => {
+        const sumSeries = (series: number[]) => series.reduce((sum, value) => sum + value, 0);
+        return {
+            activity: sumSeries(lineChartSeries.activity),
+            done: sumSeries(lineChartSeries.done),
+            open: sumSeries(lineChartSeries.open),
+            kr: sumSeries(lineChartSeries.kr),
+        };
+    }, [lineChartSeries]);
+
+    const lineChartLabels = useMemo(() => {
+        const count = lineChartSeries.activity.length;
+        if (!count) return [];
+        const today = new Date();
+        return Array.from({ length: count }, (_, index) => {
+            const date = new Date(today);
+            date.setDate(today.getDate() - (count - 1 - index));
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        });
+    }, [lineChartSeries.activity.length]);
+
+    const attentionTasks = useMemo(() => {
+        const items: TaskView[] = [];
+        const seen = new Set<string>();
+        const pushTask = (task?: TaskView | null) => {
+            if (!task || seen.has(task.id)) return;
+            seen.add(task.id);
+            items.push(task);
+        };
+        dashboardSummary.overdueTasks.forEach(pushTask);
+        dashboardSummary.dueSoonTasks.forEach(pushTask);
+        if (items.length < 5) {
+            dashboardSummary.activeTasks.forEach(pushTask);
+        }
+        return items.slice(0, 5);
+    }, [dashboardSummary.overdueTasks, dashboardSummary.dueSoonTasks, dashboardSummary.activeTasks]);
 
     const showLegacyOkr = useMemo(() => {
         try {
@@ -1313,7 +1539,10 @@ const App: React.FC = () => {
     const currentUserInitial = currentUserLabel.charAt(0).toUpperCase() || 'U';
     const currentUserAvatar = settingsDraft?.avatarUrl || userProfile?.avatarUrl || '';
     const toDateInput = (value?: string | null) => (value ? new Date(value).toISOString().slice(0, 10) : '');
-    const activeBoard = boards.find((item) => item.id === activeBoardId) || board;
+    const isArchivedBoard = activeBoardId === ARCHIVED_BOARD_ID;
+    const activeBoard = isArchivedBoard
+        ? { id: ARCHIVED_BOARD_ID, name: 'Archived', columns: [] }
+        : (boards.find((item) => item.id === activeBoardId) || board);
     const getWritableBoards = (tenantId?: string | null) => {
         const list = tenantId
             ? (boardsByTenant[tenantId] || (tenantId === activeTenantId ? boards : []))
@@ -1530,7 +1759,6 @@ const App: React.FC = () => {
         if (view === 'dashboard') items.push({ label: 'Dashboard', onClick: () => setView('dashboard') });
         if (view === 'table') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'list') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
-        if (view === 'archived') items.push({ label: 'Archived', onClick: () => setView('archived') });
         if (view === 'kanban') items.push({ label: activeBoard?.name || 'Board', onClick: () => setView('kanban') });
         return items;
     }, [view, activeHuddleName, okrScreen, okrActiveObjective, activeBoard?.name]);
@@ -2128,10 +2356,41 @@ const App: React.FC = () => {
         }
     };
 
+    const statusFilterOptions = useMemo(() => {
+        if (isArchivedBoard) {
+            return ['ALL', TaskStatus.ARCHIVED];
+        }
+        const options = new Set<string>();
+        (board?.columns || []).forEach((column: any) => {
+            if (column?.status) options.add(String(column.status));
+        });
+        if (options.size === 0) {
+            tasks.forEach((task) => {
+                if (task.status && task.status !== TaskStatus.ARCHIVED) {
+                    options.add(task.status);
+                }
+            });
+        }
+        return ['ALL', ...Array.from(options)];
+    }, [board?.columns, tasks, isArchivedBoard]);
+
+    useEffect(() => {
+        if (filterStatus !== 'ALL' && !statusFilterOptions.includes(filterStatus)) {
+            setFilterStatus('ALL');
+        }
+    }, [filterStatus, statusFilterOptions]);
+
+    useEffect(() => {
+        if (view !== 'table' && statusFilterOpen) {
+            setStatusFilterOpen(false);
+        }
+    }, [view, statusFilterOpen]);
+
     const normalizedFilter = filterText.trim().toLowerCase();
     const matchesFilter = (task: TaskView) => {
         if (filterFavorites && !task.isFavorite) return false;
         if (filterPriority !== 'ALL' && task.priority !== filterPriority) return false;
+        if (view === 'table' && filterStatus !== 'ALL' && task.status !== filterStatus) return false;
         if (!normalizedFilter) return true;
         const haystack = [
             task.title,
@@ -2143,9 +2402,12 @@ const App: React.FC = () => {
         return haystack.includes(normalizedFilter);
     };
     const filteredTasks = tasks.filter(matchesFilter);
-    const visibleTasksForView = view === 'archived'
+    const visibleTasksForView = isArchivedBoard
         ? filteredTasks.filter((task) => task.status === TaskStatus.ARCHIVED)
         : filteredTasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
+    const kanbanColumns = isArchivedBoard
+        ? [{ status: TaskStatus.ARCHIVED, tasks: visibleTasksForView }]
+        : (board?.columns || []);
     const linkedToSet = new Set(tasks.flatMap((task) => task.linkedTaskIds));
     const normalizedSearch = filterText.trim().toLowerCase();
     const searchPool = normalizedSearch
@@ -3400,6 +3662,16 @@ const App: React.FC = () => {
                                                         {boardItem.name}
                                                     </button>
                                                 ))}
+                                                <button
+                                                    type="button"
+                                                    className={`board-switch-item ${activeBoardId === ARCHIVED_BOARD_ID ? 'active' : ''}`}
+                                                    onClick={() => {
+                                                        setBoardMenuOpen(false);
+                                                        handleBoardChange(ARCHIVED_BOARD_ID);
+                                                    }}
+                                                >
+                                                    Archived
+                                                </button>
                                             </div>
                                         )}
                                     </span>
@@ -4810,74 +5082,104 @@ const App: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="dashboard-sections">
-                                    <div className="dashboard-card dashboard-list dashboard-card-accent">
-                                        <div className="dashboard-card-title">Due next</div>
-                                        {dashboardSummary.overdueTasks.length === 0 && dashboardSummary.dueSoonTasks.length === 0 && (
-                                            <div className="dashboard-empty">No upcoming deadlines.</div>
+                                <div className="dashboard-visuals">
+                                    <div className="dashboard-card dashboard-line-card">
+                                        <div className="dashboard-line-header">
+                                            <div>
+                                                <div className="dashboard-line-title">Signal lines</div>
+                                                <div className="dashboard-line-value">
+                                                    {lineChartTotals.activity}
+                                                    <span>events / {lineRangeDays}d</span>
+                                                </div>
+                                            </div>
+                                            <div className="dashboard-line-actions">
+                                                <div className="dashboard-line-chip">Trends</div>
+                                                <div className="dashboard-line-controls" role="tablist" aria-label="Time range">
+                                                    {[30, 60, 90].map((range) => (
+                                                        <button
+                                                            key={`range-${range}`}
+                                                            className={`dashboard-line-range${lineRangeDays === range ? ' active' : ''}`}
+                                                            onClick={() => setLineRangeDays(range)}
+                                                            type="button"
+                                                            role="tab"
+                                                            aria-selected={lineRangeDays === range}
+                                                        >
+                                                            {range}d
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {renderLineChart([
+                                            {
+                                                key: 'activity',
+                                                label: 'Activity',
+                                                series: lineChartSeries.activity,
+                                                className: 'line-activity',
+                                            },
+                                            {
+                                                key: 'done',
+                                                label: 'Done',
+                                                series: lineChartSeries.done,
+                                                className: 'line-done',
+                                            },
+                                            {
+                                                key: 'open',
+                                                label: 'Open',
+                                                series: lineChartSeries.open,
+                                                className: 'line-open',
+                                            },
+                                            {
+                                                key: 'kr',
+                                                label: 'KRs',
+                                                series: lineChartSeries.kr,
+                                                className: 'line-kr',
+                                            },
+                                        ], {
+                                            labels: lineChartLabels,
+                                            hoverIndex: lineHoverIndex,
+                                            onHover: setLineHoverIndex,
+                                        })}
+                                        {lineChartLabels.length > 0 && (
+                                            <div className="dashboard-line-axis">
+                                                <span>{lineChartLabels[0]}</span>
+                                                <span>{lineChartLabels[Math.floor((lineChartLabels.length - 1) / 2)]}</span>
+                                                <span>{lineChartLabels[lineChartLabels.length - 1]}</span>
+                                            </div>
                                         )}
-                                        {[...dashboardSummary.overdueTasks, ...dashboardSummary.dueSoonTasks]
-                                            .slice(0, 5)
-                                            .map((task) => {
+                                        <div className="dashboard-line-legend">
+                                            <span className="line-key line-activity">Activity</span>
+                                            <span className="line-key line-done">Done</span>
+                                            <span className="line-key line-open">Open</span>
+                                            <span className="line-key line-kr">KRs</span>
+                                        </div>
+                                    </div>
+                                    <div className="dashboard-card dashboard-list dashboard-attention-card">
+                                        <div className="dashboard-card-title">Needs attention</div>
+                                        {attentionTasks.length === 0 && (
+                                            <div className="dashboard-empty">No urgent todos.</div>
+                                        )}
+                                        <div className="dashboard-card-content">
+                                            {attentionTasks.map((task) => {
                                                 const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-                                                const isOverdue = dueDate ? dueDate < new Date() : false;
+                                                const now = new Date();
+                                                const soon = new Date();
+                                                soon.setDate(now.getDate() + 7);
+                                                const isOverdue = dueDate ? dueDate < now : false;
+                                                const isDueSoon = dueDate ? dueDate >= now && dueDate <= soon : false;
+                                                const badgeLabel = isOverdue ? 'Overdue' : isDueSoon ? 'Due soon' : task.status;
+                                                const badgeClass = isOverdue ? 'danger' : isDueSoon ? 'warning' : '';
                                                 return (
                                                     <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
                                                         <div className="dashboard-item-title">{task.title}</div>
                                                         <div className="dashboard-item-meta">
                                                             {dueDate ? dueDate.toLocaleDateString() : 'No due date'}
-                                                            <span className={`dashboard-badge ${isOverdue ? 'danger' : ''}`}>
-                                                                {isOverdue ? 'Overdue' : task.status}
-                                                            </span>
+                                                            <span className={`dashboard-badge ${badgeClass}`}>{badgeLabel}</span>
                                                         </div>
                                                     </button>
                                                 );
                                             })}
-                                    </div>
-                                    <div className="dashboard-card dashboard-list">
-                                        <div className="dashboard-card-title">Recent updates</div>
-                                        {dashboardSummary.recentTasks.length === 0 && (
-                                            <div className="dashboard-empty">No recent updates.</div>
-                                        )}
-                                        {dashboardSummary.recentTasks.map((task) => (
-                                            <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
-                                                <div className="dashboard-item-title">{task.title}</div>
-                                                <div className="dashboard-item-meta">
-                                                    {new Date(task.updatedAt).toLocaleDateString()}
-                                                    <span className="dashboard-badge">{task.status}</span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="dashboard-card dashboard-list dashboard-card-accent">
-                                        <div className="dashboard-card-title">Favorites</div>
-                                        {dashboardSummary.favoriteTasks.length === 0 && (
-                                            <div className="dashboard-empty">No favorites yet.</div>
-                                        )}
-                                        {dashboardSummary.favoriteTasks.map((task) => (
-                                            <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
-                                                <div className="dashboard-item-title">{task.title}</div>
-                                                <div className="dashboard-item-meta">
-                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
-                                                    <span className="dashboard-badge">{task.status}</span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="dashboard-card dashboard-list">
-                                        <div className="dashboard-card-title">Active tasks</div>
-                                        {dashboardSummary.activeTasks.length === 0 && (
-                                            <div className="dashboard-empty">No active tasks right now.</div>
-                                        )}
-                                        {dashboardSummary.activeTasks.map((task) => (
-                                            <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
-                                                <div className="dashboard-item-title">{task.title}</div>
-                                                <div className="dashboard-item-meta">
-                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
-                                                    <span className="dashboard-badge">{task.status}</span>
-                                                </div>
-                                            </button>
-                                        ))}
+                                        </div>
                                     </div>
                                 </div>
                             </>
@@ -4955,6 +5257,38 @@ const App: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
+                                {view === 'table' && (
+                                    <div className="filter-dropdown">
+                                        <button
+                                            type="button"
+                                            className="filter-select"
+                                            onClick={() => setStatusFilterOpen((prev) => !prev)}
+                                            aria-haspopup="listbox"
+                                            aria-expanded={statusFilterOpen}
+                                        >
+                                            {filterStatus === 'ALL' ? 'All statuses' : filterStatus}
+                                        </button>
+                                        {statusFilterOpen && (
+                                            <div className="filter-options" role="listbox">
+                                                {statusFilterOptions.map((value) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        className={`filter-option ${filterStatus === value ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setFilterStatus(value);
+                                                            setStatusFilterOpen(false);
+                                                        }}
+                                                        role="option"
+                                                        aria-selected={filterStatus === value}
+                                                    >
+                                                        {value === 'ALL' ? 'All statuses' : value}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <label className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`} title="Favorites only">
                                     <input
                                         type="checkbox"
@@ -4970,7 +5304,7 @@ const App: React.FC = () => {
 
                         {view === 'kanban' ? (
                             <div className="kanban-board">
-                                {board?.columns.map((column: any) => {
+                                {kanbanColumns.map((column: any) => {
                                     const visibleTasks = column.tasks.filter(matchesFilter);
                                     const orderKey = getOrderKey(activeTenantId, activeBoardId, column.status);
                                     const orderedIds = taskOrderByColumn[orderKey] || [];
@@ -5117,122 +5451,6 @@ const App: React.FC = () => {
                                     </div>
                                 );
                                 })}
-                            </div>
-                        ) : view === 'archived' ? (
-                            <div className="kanban-board">
-                                <div className="kanban-column">
-                                    <div className="column-header">
-                                        <span>ARCHIVED</span>
-                                        <span>{visibleTasksForView.length}</span>
-                                    </div>
-                                    <div className="column-content">
-                                    {visibleTasksForView.map((task: TaskView) => {
-                                        const checklistDone = task.checklist.filter((item) => item.done).length;
-                                        const checklistTotal = task.checklist.length;
-                                        const linkedCount = task.linkedTaskIds.length;
-                                        const isLinkedFromOther = linkedToSet.has(task.id);
-                                        return (
-                                            <div
-                                                key={task.id}
-                                                className="task-card"
-                                                onClick={() => openDetailsModal(task)}
-                                            >
-                                                <div className="task-card-topbar">
-                                                <div className="task-card-due">
-                                                    <span className="task-card-due-icon" aria-hidden="true">
-                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                            <path d="M5 4v16" />
-                                                            <path d="M5 4h11l-2 4 2 4H5" />
-                                                        </svg>
-                                                    </span>
-                                                    <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}</span>
-                                                </div>
-                                                    <div className={`priority-bubble priority-${task.priority.toLowerCase()}`}>
-                                                        <span
-                                                            className={`priority-line tooltip-target ${task.priority === 'CRITICAL' ? 'priority-line-critical' : ''}`}
-                                                            aria-hidden="true"
-                                                            data-tooltip={`Priority: ${task.priority}`}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="task-card-header">
-                                                    <div className="task-title-row">
-                                                        {isLinkedFromOther && (
-                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
-                                                                <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                            </svg>
-                                                        )}
-                                                        {task.title}
-                                                    </div>
-                                                    {task.isFavorite && (
-                                                        <span className="favorite-badge" title="Favorite">
-                                                            ★
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {task.description && (
-                                                    <div className="task-card-description">{stripHtml(task.description)}</div>
-                                                )}
-                                                <hr className="card-divider" />
-                                                <div className="task-card-footer">
-                                                    <div className="task-card-kinds">
-                                                        {task.kinds.map((kind) => (
-                                                            <span key={kind} className="badge task-kind-badge">
-                                                                {kind}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                    <div className="task-card-people">
-                                                        {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
-                                                        {task.assignees.length > 0 &&
-                                                            renderAvatarStack(
-                                                                task.tenantId,
-                                                                task.assignees.filter((id) => id !== task.ownerId)
-                                                            )}
-                                                    </div>
-                                                    <div className="task-card-icons">
-                                                        {checklistTotal > 0 && (
-                                                            <span className="icon-badge">
-                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                    <path d="M4 6h16M4 12h16M4 18h10" />
-                                                                    <path d="M18 17l2 2 4-4" />
-                                                                </svg>
-                                                                {checklistDone}/{checklistTotal}
-                                                            </span>
-                                                        )}
-                                                        {task.comments.length > 0 && (
-                                                            <span className="icon-badge">
-                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                    <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-                                                                </svg>
-                                                                {task.comments.length}
-                                                            </span>
-                                                        )}
-                                                        {linkedCount > 0 && (
-                                                            <span className="icon-badge">
-                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                    <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                    <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                                </svg>
-                                                                {linkedCount}
-                                                            </span>
-                                                        )}
-                                                        {task.attachments.length > 0 && (
-                                                            <span className="icon-badge">
-                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                    <path d="M21.5 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 1 1 5 5l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.9-7.9" />
-                                                                </svg>
-                                                                {task.attachments.length}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    </div>
-                                </div>
                             </div>
                         ) : view === 'table' ? (
                             <div className="task-table-wrap">
