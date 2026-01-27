@@ -8,6 +8,8 @@ interface OkrKeyResult {
     id: string;
     objectiveId: string;
     title: string;
+    description?: string | null;
+    assignees?: string[];
     startValue: number;
     targetValue: number;
     currentValue: number;
@@ -21,6 +23,7 @@ interface OkrObjective {
     id: string;
     tenantId: string;
     title: string;
+    description?: string | null;
     ownerId?: string | null;
     startDate?: string | null;
     endDate?: string | null;
@@ -38,6 +41,8 @@ interface KeyResultView {
     id: string;
     objectiveId: string;
     title: string;
+    description?: string | null;
+    assignees?: string[];
     metricType: string;
     startValue: number;
     targetValue: number;
@@ -50,6 +55,7 @@ interface KeyResultView {
 interface ObjectiveView {
     id: string;
     title: string;
+    description?: string | null;
     ownerId?: string | null;
     startDate?: string | null;
     endDate?: string | null;
@@ -142,6 +148,7 @@ const App: React.FC = () => {
             return [];
         }
     });
+    const [expandedObjectives, setExpandedObjectives] = useState<string[]>([]);
     const [okrRecent, setOkrRecent] = useState<string[]>(() => {
         try {
             return JSON.parse(localStorage.getItem('kanbax-okr-recent') || '[]');
@@ -150,6 +157,8 @@ const App: React.FC = () => {
         }
     });
     const [okrRoute, setOkrRoute] = useState<{ screen: 'library' | 'objective' | 'review'; objectiveId?: string } | null>(null);
+    const [okrObjectiveViewMode, setOkrObjectiveViewMode] = useState<'list' | 'cards'>('list');
+    const [okrKrViewMode, setOkrKrViewMode] = useState<'list' | 'cards' | 'table'>('list');
     const [reviewStep, setReviewStep] = useState(0);
     const [isBoardSettingsOpen, setIsBoardSettingsOpen] = useState(false);
     const [isObjectiveSettingsOpen, setIsObjectiveSettingsOpen] = useState(false);
@@ -157,22 +166,26 @@ const App: React.FC = () => {
     const [objectiveEditId, setObjectiveEditId] = useState<string | null>(null);
     const [krComposerOpen, setKrComposerOpen] = useState(false);
     const [krComposerObjectiveId, setKrComposerObjectiveId] = useState<string | null>(null);
+    const [krEditingId, setKrEditingId] = useState<string | null>(null);
     const [krComposerDraft, setKrComposerDraft] = useState({
         title: '',
+        description: '',
+        assignees: [] as string[],
         startValue: '0',
         targetValue: '100',
-        status: 'ACTIVE',
+        status: 'ON_TRACK',
     });
     const [objectiveDraft, setObjectiveDraft] = useState({
         title: '',
+        description: '',
         ownerId: '',
         startDate: '',
         endDate: '',
         status: 'ACTIVE',
     });
-    const [expandedObjectives, setExpandedObjectives] = useState<string[]>([]);
     const [newObjective, setNewObjective] = useState({
         title: '',
+        description: '',
         ownerId: '',
         startDate: '',
         endDate: '',
@@ -180,6 +193,8 @@ const App: React.FC = () => {
     });
     const [krDrafts, setKrDrafts] = useState<Record<string, {
         title: string;
+        description: string;
+        assignees: string[];
         startValue: string;
         targetValue: string;
         status: string;
@@ -384,11 +399,12 @@ const App: React.FC = () => {
         }
     };
 
-    const submitObjective = async (draft: { title: string; ownerId: string; startDate: string; endDate: string; status: string }, onSuccess?: () => void) => {
+    const submitObjective = async (draft: { title: string; description?: string; ownerId: string; startDate: string; endDate: string; status: string }, onSuccess?: () => void) => {
         if (!activeTenantId) return;
         try {
             const payload = {
                 title: draft.title.trim(),
+                description: draft.description?.trim() || null,
                 ownerId: draft.ownerId || null,
                 startDate: draft.startDate || null,
                 endDate: draft.endDate || null,
@@ -428,6 +444,7 @@ const App: React.FC = () => {
         await submitObjective(newObjective, () => {
             setNewObjective({
                 title: '',
+                description: '',
                 ownerId: '',
                 startDate: '',
                 endDate: '',
@@ -495,6 +512,7 @@ const App: React.FC = () => {
             setObjectiveEditId(null);
             setObjectiveDraft({
                 title: '',
+                description: '',
                 ownerId: '',
                 startDate: '',
                 endDate: '',
@@ -507,6 +525,7 @@ const App: React.FC = () => {
         setObjectiveEditId(objective.id);
         setObjectiveDraft({
             title: objective.title,
+            description: objective.description || '',
             ownerId: objective.ownerId || '',
             startDate: toDateInput(objective.startDate),
             endDate: toDateInput(objective.endDate),
@@ -594,12 +613,14 @@ const App: React.FC = () => {
     const getKrDraft = (objectiveId: string) =>
         krDrafts[objectiveId] || {
             title: '',
+            description: '',
+            assignees: [],
             startValue: '0',
             targetValue: '100',
-            status: 'ACTIVE',
+            status: 'ON_TRACK',
         };
 
-    const updateKrDraft = (objectiveId: string, next: Partial<{ title: string; startValue: string; targetValue: string; status: string; }>) => {
+    const updateKrDraft = (objectiveId: string, next: Partial<{ title: string; description: string; assignees: string[]; startValue: string; targetValue: string; status: string; }>) => {
         setKrDrafts((prev) => ({
             ...prev,
             [objectiveId]: { ...getKrDraft(objectiveId), ...next },
@@ -618,10 +639,12 @@ const App: React.FC = () => {
                 headers: getApiHeaders(),
                 body: JSON.stringify({
                     title: draft.title.trim(),
+                    description: draft.description?.trim() || null,
+                    assignees: draft.assignees || [],
                     startValue: Number(draft.startValue),
                     targetValue: Number(draft.targetValue),
                     currentValue: Number(draft.startValue),
-                    status: draft.status || 'ACTIVE',
+                    status: draft.status || 'ON_TRACK',
                 }),
             });
             if (!res.ok) {
@@ -646,9 +669,11 @@ const App: React.FC = () => {
                 ...prev,
                 [objectiveId]: {
                     title: '',
+                    description: '',
+                    assignees: [],
                     startValue: draft.startValue,
                     targetValue: draft.targetValue,
-                    status: 'ACTIVE',
+                    status: 'ON_TRACK',
                 },
             }));
             setOkrNotice(null);
@@ -662,11 +687,59 @@ const App: React.FC = () => {
         setKrComposerObjectiveId(objectiveId);
         setKrComposerDraft({
             title: '',
+            description: '',
+            assignees: [],
             startValue: '0',
             targetValue: '100',
-            status: 'ACTIVE',
+            status: 'ON_TRACK',
         });
+        setKrEditingId(null);
         setKrComposerOpen(true);
+    };
+
+    const openKrEditor = (kr: KeyResultView, objectiveId: string) => {
+        setKrComposerObjectiveId(objectiveId);
+        setKrComposerDraft({
+            title: kr.title,
+            description: kr.description || '',
+            assignees: kr.assignees || [],
+            startValue: String(kr.startValue),
+            targetValue: String(kr.targetValue),
+            status: kr.status || 'ON_TRACK',
+        });
+        setKrEditingId(kr.id);
+        setKrComposerOpen(true);
+    };
+
+    const [krProgressEditingId, setKrProgressEditingId] = useState<string | null>(null);
+    const [krProgressDraft, setKrProgressDraft] = useState('');
+    const [krStatusEditingId, setKrStatusEditingId] = useState<string | null>(null);
+
+    const startEditKrProgress = (kr: KeyResultView) => {
+        setKrProgressEditingId(kr.id);
+        setKrProgressDraft(String(Math.round(kr.progress ?? 0)));
+    };
+
+    const commitKrProgress = (kr: KeyResultView, objectiveId: string) => {
+        const parsed = Number(krProgressDraft);
+        if (Number.isNaN(parsed)) {
+            setKrProgressEditingId(null);
+            return;
+        }
+        const clamped = Math.max(0, Math.min(100, parsed));
+        const range = kr.targetValue - kr.startValue;
+        const nextCurrent = kr.startValue + (range * clamped) / 100;
+        handleUpdateKeyResult(kr.id, objectiveId, { currentValue: Number.isFinite(nextCurrent) ? nextCurrent : kr.currentValue });
+        setKrProgressEditingId(null);
+    };
+
+    const krStatusLabel = (status: string) => {
+        if (status === 'ON_TRACK') return 'On track';
+        if (status === 'AT_RISK') return 'At risk';
+        if (status === 'OFF_TRACK') return 'Off track';
+        if (status === 'PAUSED') return 'Paused';
+        if (status === 'DONE') return 'Done';
+        return status;
     };
 
     const handleKrComposerSubmit = async () => {
@@ -675,16 +748,40 @@ const App: React.FC = () => {
             alert('Key result title is required');
             return;
         }
+        if (krEditingId) {
+            await handleUpdateKeyResult(krEditingId, krComposerObjectiveId, {
+                title: krComposerDraft.title.trim(),
+                description: krComposerDraft.description?.trim() || null,
+                assignees: krComposerDraft.assignees || [],
+                startValue: Number(krComposerDraft.startValue),
+                targetValue: Number(krComposerDraft.targetValue),
+                status: krComposerDraft.status || 'ON_TRACK',
+            });
+            setKrComposerOpen(false);
+            setKrComposerObjectiveId(null);
+            setKrEditingId(null);
+            setKrComposerDraft({
+                title: '',
+                description: '',
+                assignees: [],
+                startValue: '0',
+                targetValue: '100',
+                status: 'ON_TRACK',
+            });
+            return;
+        }
         try {
             const res = await fetch(`${API_BASE}/okrs/objectives/${krComposerObjectiveId}/key-results`, {
                 method: 'POST',
                 headers: getApiHeaders(),
                 body: JSON.stringify({
                     title: krComposerDraft.title.trim(),
+                    description: krComposerDraft.description?.trim() || null,
+                    assignees: krComposerDraft.assignees || [],
                     startValue: Number(krComposerDraft.startValue),
                     targetValue: Number(krComposerDraft.targetValue),
                     currentValue: Number(krComposerDraft.startValue),
-                    status: krComposerDraft.status || 'ACTIVE',
+                    status: krComposerDraft.status || 'ON_TRACK',
                 }),
             });
             if (!res.ok) {
@@ -709,9 +806,11 @@ const App: React.FC = () => {
             setKrComposerObjectiveId(null);
             setKrComposerDraft({
                 title: '',
+                description: '',
+                assignees: [],
                 startValue: '0',
                 targetValue: '100',
-                status: 'ACTIVE',
+                status: 'ON_TRACK',
             });
             setOkrNotice(null);
         } catch (e: any) {
@@ -768,6 +867,8 @@ const App: React.FC = () => {
                 id: kr.id,
                 objectiveId: kr.objectiveId,
                 title: kr.title,
+                description: kr.description ?? null,
+                assignees: kr.assignees ?? [],
                 metricType: 'NUMERIC',
                 startValue: kr.startValue,
                 targetValue: kr.targetValue,
@@ -781,6 +882,7 @@ const App: React.FC = () => {
             const base: ObjectiveView = {
                 id: objective.id,
                 title: objective.title,
+                description: objective.description ?? null,
                 ownerId: objective.ownerId ?? null,
                 startDate: objective.startDate ?? null,
                 endDate: objective.endDate ?? null,
@@ -3601,6 +3703,15 @@ const App: React.FC = () => {
                                     />
                                 </label>
                                 <label>
+                                    Description
+                                    <textarea
+                                        value={newObjective.description}
+                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, description: e.target.value }))}
+                                        placeholder="Short context for the objective"
+                                        rows={3}
+                                    />
+                                </label>
+                                <label>
                                     Owner
                                     <select
                                         value={newObjective.ownerId}
@@ -3672,69 +3783,86 @@ const App: React.FC = () => {
                                     const ownerLabel = objective.ownerId
                                         ? getMemberLabel(activeTenantId, objective.ownerId)
                                         : 'Unassigned';
-                                    const draft = getKrDraft(objective.id);
+                                    const isExpanded = expandedObjectives.includes(objective.id);
                                     return (
-                                        <div key={objective.id} className="okr-card">
+                                        <div
+                                            key={objective.id}
+                                            className="okr-card"
+                                            onClick={() => navigateOkr(`/okr/objective/${objective.id}`)}
+                                        >
                                             <div className="okr-header">
                                                 <div>
                                                     <div className="okr-title">{objective.title}</div>
+                                                    {objective.description && (
+                                                        <div className="okr-description">{objective.description}</div>
+                                                    )}
                                                     <div className="okr-meta">
                                                         <span>{objective.status}</span>
-                                                        <span>Owner: {ownerLabel}</span>
+                                                        {objective.ownerId ? (
+                                                            <div className="okr-owner-stack">
+                                                                {renderAvatarStack(activeTenantId || '', [objective.ownerId])}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="okr-owner-badge">Owner: {ownerLabel}</span>
+                                                        )}
                                                         {objective.startDate && <span>{new Date(objective.startDate).toLocaleDateString()}</span>}
                                                         {objective.endDate && <span>{new Date(objective.endDate).toLocaleDateString()}</span>}
                                                     </div>
                                                 </div>
                                                 <div className="okr-progress">
-                                                    <div className="okr-progress-label">{Math.round(objective.progress)}%</div>
                                                     <div className="okr-progress-bar">
                                                         <div className="okr-progress-fill" style={{ width: `${Math.round(objective.progress)}%` }} />
                                                     </div>
+                                                    <div className="okr-progress-label">{Math.round(objective.progress)}%</div>
                                                 </div>
+                                                <button
+                                                    className={`okr-chevron ${isExpanded ? 'expanded' : ''}`}
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setExpandedObjectives((prev) =>
+                                                            prev.includes(objective.id)
+                                                                ? prev.filter((id) => id !== objective.id)
+                                                                : [...prev, objective.id]
+                                                        );
+                                                    }}
+                                                    aria-expanded={isExpanded}
+                                                    aria-label={isExpanded ? 'Hide key results' : 'Show key results'}
+                                                >
+                                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <polyline points="4 8 10 14 16 8" />
+                                                    </svg>
+                                                </button>
                                             </div>
-                                            <div className="okr-keyresults">
-                                                {objective.keyResults.map((kr) => (
-                                                    <div key={kr.id} className="okr-kr-row">
-                                                        <div className="okr-kr-main">
-                                                            <div className="okr-kr-title">{kr.title}</div>
-                                                            <div className="okr-kr-meta">
-                                                                <span>{kr.status}</span>
-                                                                <span>{kr.currentValue} / {kr.targetValue}</span>
+                                            {isExpanded && (
+                                                <div className="okr-keyresults-expanded">
+                                                    {objective.keyResults.length === 0 ? (
+                                                        <div className="okr-empty">No key results yet.</div>
+                                                    ) : (
+                                                        objective.keyResults.map((kr) => (
+                                                            <div key={kr.id} className="okr-kr-expanded">
+                                                                <div className="okr-kr-expanded-header">
+                                                                    <div className="okr-kr-expanded-main">
+                                                                        <div className="okr-kr-title">{kr.title}</div>
+                                                                        {kr.description && (
+                                                                            <div className="okr-kr-description">{kr.description}</div>
+                                                                        )}
+                                                                        <div className="okr-kr-progress okr-progress-inline">
+                                                                            <div className="okr-progress-bar">
+                                                                                <div className="okr-progress-fill" style={{ width: `${Math.round(kr.progress)}%` }} />
+                                                                            </div>
+                                                                            <div className="okr-progress-foot">{Math.round(kr.progress)}%</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="okr-kr-date">
+                                                                        Updated {new Date(kr.updatedAt || kr.createdAt).toLocaleDateString()}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <div className="okr-kr-progress">
-                                                            <div className="okr-progress-label">{Math.round(kr.progress)}%</div>
-                                                            <div className="okr-progress-bar">
-                                                                <div className="okr-progress-fill" style={{ width: `${Math.round(kr.progress)}%` }} />
-                                                            </div>
-                                                        </div>
-                                                        <div className="okr-kr-edit">
-                                                            <input
-                                                                type="number"
-                                                                defaultValue={kr.currentValue}
-                                                                onBlur={(e) => handleUpdateKeyResult(kr.id, objective.id, { currentValue: Number(e.target.value) })}
-                                                            />
-                                                            <select
-                                                                value={kr.status}
-                                                                onChange={(e) => handleUpdateKeyResult(kr.id, objective.id, { status: e.target.value })}
-                                                            >
-                                                                <option value="ACTIVE">Active</option>
-                                                                <option value="AT_RISK">At risk</option>
-                                                                <option value="PAUSED">Paused</option>
-                                                                <option value="DONE">Done</option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                <div className="okr-kr-panel-trigger">
-                                                    <button
-                                                        className="btn btn-secondary btn-compact"
-                                                        onClick={() => openKrComposer(objective.id)}
-                                                    >
-                                                        KR erstellen
-                                                    </button>
+                                                        ))
+                                                    )}
                                                 </div>
-                                            </div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -3764,10 +3892,20 @@ const App: React.FC = () => {
                                             <div className="okr-focus-title">{okrActiveObjective.title}</div>
                                             <div className="okr-focus-meta">
                                                 <span>{okrActiveObjective.status}</span>
-                                                <span>Owner: {okrActiveObjective.ownerId ? getMemberLabel(activeTenantId, okrActiveObjective.ownerId) : 'Unassigned'}</span>
+                                                <span className="okr-owner-inline">
+                                                    <span className="okr-owner-label">Owner</span>
+                                                    {okrActiveObjective.ownerId ? (
+                                                        renderAvatarStack(activeTenantId || '', [okrActiveObjective.ownerId])
+                                                    ) : (
+                                                        <span className="okr-owner-empty">—</span>
+                                                    )}
+                                                </span>
                                                 {okrActiveObjective.startDate && <span>{new Date(okrActiveObjective.startDate).toLocaleDateString()}</span>} –
                                                 {okrActiveObjective.endDate && <span>{new Date(okrActiveObjective.endDate).toLocaleDateString()}</span>}
                                             </div>
+                                            {okrActiveObjective.description && (
+                                                <div className="okr-focus-description">{okrActiveObjective.description}</div>
+                                            )}
                                         </div>
                                         <div className="okr-focus-actions">
                                             {(okrActiveObjective.ownerId === userProfile?.id || isActiveHuddleOwner) && (
@@ -3793,38 +3931,307 @@ const App: React.FC = () => {
                                         </div>
                                         <div className="okr-progress-foot">{okrActiveObjective.progress}% of {okrActiveObjective.keyResults.length} key results</div>
                                     </div>
-
+                                </div>
+                                <div className="okr-focus-keyresults">
                                     <div className="okr-focus-section">
                                         <div className="okr-section-title">Key results</div>
-                                        <div className="okr-kr-list">
-                                            {okrActiveObjective.keyResults.length === 0 && <div className="okr-empty">No key results yet.</div>}
-                                            {okrActiveObjective.keyResults.map((kr) => (
-                                                <div key={kr.id} className="okr-kr-card">
-                                                    <div>
-                                                        <div className="okr-kr-title">{kr.title}</div>
-                                                        <div className="okr-kr-meta">
-                                                            <span>{kr.status.replace('_', ' ')}</span>
-                                                            <span>{kr.currentValue} / {kr.targetValue}</span>
-                                                            <span>Updated {new Date(kr.lastUpdatedAt).toLocaleDateString()}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="okr-kr-progress">
-                                                        <div className="okr-progress-bar">
-                                                            <div className="okr-progress-fill" style={{ width: `${kr.progress}%` }} />
-                                                        </div>
-                                                        <div className="okr-progress-foot">{kr.progress}%</div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        {!okrActiveObjective.readOnly && (
-                                            <div className="okr-kr-panel-trigger">
+                                        <div className="okr-section-toolbar">
+                                            <div
+                                                className="view-switch okr-view-switch okr-view-switch-three"
+                                                role="tablist"
+                                                aria-label="Key results view switcher"
+                                                style={{
+                                                    ['--active-index' as any]:
+                                                        okrKrViewMode === 'list' ? 0 : okrKrViewMode === 'cards' ? 1 : 2,
+                                                    ['--segment-count' as any]: 3,
+                                                }}
+                                            >
                                                 <button
-                                                    className="btn btn-secondary btn-compact"
+                                                    className={`view-pill ${okrKrViewMode === 'list' ? 'active' : ''}`}
+                                                    onClick={() => setOkrKrViewMode('list')}
+                                                    role="tab"
+                                                    aria-selected={okrKrViewMode === 'list'}
+                                                >
+                                                    Liste
+                                                </button>
+                                                <button
+                                                    className={`view-pill ${okrKrViewMode === 'cards' ? 'active' : ''}`}
+                                                    onClick={() => setOkrKrViewMode('cards')}
+                                                    role="tab"
+                                                    aria-selected={okrKrViewMode === 'cards'}
+                                                >
+                                                    Cards
+                                                </button>
+                                                <button
+                                                    className={`view-pill ${okrKrViewMode === 'table' ? 'active' : ''}`}
+                                                    onClick={() => setOkrKrViewMode('table')}
+                                                    role="tab"
+                                                    aria-selected={okrKrViewMode === 'table'}
+                                                >
+                                                    Table
+                                                </button>
+                                            </div>
+                                            {!okrActiveObjective.readOnly && (
+                                                <button
+                                                    className="btn btn-primary btn-compact"
                                                     onClick={() => openKrComposer(okrActiveObjective.id)}
                                                 >
-                                                    KR erstellen
+                                                    + KR
                                                 </button>
+                                            )}
+                                        </div>
+                                        {okrKrViewMode === 'table' ? (
+                                            <div className="task-table-wrap okr-kr-table-wrap">
+                                                <table className="task-table okr-kr-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Key result</th>
+                                                            <th>Status</th>
+                                                            <th>Progress</th>
+                                                            <th>Members</th>
+                                                            <th>Updated</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {okrActiveObjective.keyResults.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={6} className="okr-empty">No key results yet.</td>
+                                                            </tr>
+                                                        ) : (
+                                                            okrActiveObjective.keyResults.map((kr) => (
+                                                                <tr key={kr.id}>
+                                                                    <td>
+                                                                        <div className="okr-kr-table-title">{kr.title}</div>
+                                                                        {kr.description && (
+                                                                            <div className="okr-kr-table-desc">{kr.description}</div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td>
+                                                                        {krStatusEditingId === kr.id ? (
+                                                                            <div className="filter-dropdown okr-status-dropdown">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="filter-select okr-status-select"
+                                                                                    onClick={() => setKrStatusEditingId(null)}
+                                                                                    aria-haspopup="listbox"
+                                                                                    aria-expanded="true"
+                                                                                >
+                                                                                    {krStatusLabel(kr.status)}
+                                                                                </button>
+                                                                                <div className="filter-options" role="listbox">
+                                                                                    {['ON_TRACK', 'AT_RISK', 'OFF_TRACK'].map((value) => (
+                                                                                        <button
+                                                                                            key={value}
+                                                                                            type="button"
+                                                                                            className={`filter-option ${kr.status === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
+                                                                                            onClick={() => {
+                                                                                                handleUpdateKeyResult(kr.id, okrActiveObjective.id, { status: value });
+                                                                                                setKrStatusEditingId(null);
+                                                                                            }}
+                                                                                            role="option"
+                                                                                            aria-selected={kr.status === value}
+                                                                                        >
+                                                                                            {krStatusLabel(value)}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button
+                                                                                type="button"
+                                                                                className={`okr-status-badge status-${kr.status.toLowerCase()} tooltip-target`}
+                                                                                onClick={() => setKrStatusEditingId(kr.id)}
+                                                                                data-tooltip={`Klicken zum Ändern des Status (derzeit: ${krStatusLabel(kr.status)})`}
+                                                                                aria-label={`Klicken zum Ändern des Status (derzeit: ${krStatusLabel(kr.status)})`}
+                                                                            >
+                                                                                {krStatusLabel(kr.status)}
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                    <td>
+                                                                        <div className="okr-kr-table-progress okr-progress-inline">
+                                                                            <div className="okr-progress-bar">
+                                                                                <div className="okr-progress-fill" style={{ width: `${kr.progress}%` }} />
+                                                                            </div>
+                                                                            {krProgressEditingId === kr.id ? (
+                                                                                <input
+                                                                                    type="number"
+                                                                                    className="okr-progress-input"
+                                                                                    value={krProgressDraft}
+                                                                                    min={0}
+                                                                                    max={100}
+                                                                                    onChange={(e) => setKrProgressDraft(e.target.value)}
+                                                                                    onBlur={() => commitKrProgress(kr, okrActiveObjective.id)}
+                                                                                    onKeyDown={(e) => {
+                                                                                        if (e.key === 'Enter') {
+                                                                                            commitKrProgress(kr, okrActiveObjective.id);
+                                                                                        }
+                                                                                        if (e.key === 'Escape') {
+                                                                                            setKrProgressEditingId(null);
+                                                                                        }
+                                                                                    }}
+                                                                                    autoFocus
+                                                                                />
+                                                                            ) : (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="okr-progress-value tooltip-target"
+                                                                                    onClick={() => startEditKrProgress(kr)}
+                                                                                    data-tooltip={`Klicken zum Bearbeiten des Fortschritts (derzeit: ${Math.round(kr.progress)}%)`}
+                                                                                    aria-label={`Klicken zum Bearbeiten des Fortschritts (derzeit: ${Math.round(kr.progress)}%)`}
+                                                                                >
+                                                                                    {Math.round(kr.progress)}%
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        {kr.assignees && kr.assignees.length > 0 ? (
+                                                                            <div className="okr-kr-assignees">
+                                                                                {renderAvatarStack(activeTenantId || '', kr.assignees)}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="okr-empty">—</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="okr-kr-date">
+                                                                        {new Date(kr.lastUpdatedAt).toLocaleDateString()}
+                                                                    </td>
+                                                                    <td>
+                                                                        <button
+                                                                            className="icon-action settings"
+                                                                            onClick={() => openKrEditor(kr, okrActiveObjective.id)}
+                                                                            data-tooltip="KR bearbeiten"
+                                                                            aria-label="KR bearbeiten"
+                                                                        >
+                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                <path d="M12 20h9" />
+                                                                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div className={`okr-kr-list ${okrKrViewMode === 'cards' ? 'okr-kr-cards' : ''}`}>
+                                                {okrActiveObjective.keyResults.length === 0 && <div className="okr-empty">No key results yet.</div>}
+                                                {okrActiveObjective.keyResults.map((kr) => (
+                                                    <div key={kr.id} className="okr-kr-card">
+                                                        <div className="okr-kr-expanded-header okr-kr-detail-header">
+                                                            <div className="okr-kr-toprow">
+                                                                <div className="okr-kr-toprow-left">
+                                                                    {krStatusEditingId === kr.id ? (
+                                                                        <div className="filter-dropdown okr-status-dropdown">
+                                                                            <button
+                                                                                type="button"
+                                                                                className="filter-select okr-status-select"
+                                                                                onClick={() => setKrStatusEditingId(null)}
+                                                                                aria-haspopup="listbox"
+                                                                                aria-expanded="true"
+                                                                            >
+                                                                                {krStatusLabel(kr.status)}
+                                                                            </button>
+                                                                            <div className="filter-options" role="listbox">
+                                                                                {['ON_TRACK', 'AT_RISK', 'OFF_TRACK'].map((value) => (
+                                                                                    <button
+                                                                                        key={value}
+                                                                                        type="button"
+                                                                                        className={`filter-option ${kr.status === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
+                                                                                        onClick={() => {
+                                                                                            handleUpdateKeyResult(kr.id, okrActiveObjective.id, { status: value });
+                                                                                            setKrStatusEditingId(null);
+                                                                                        }}
+                                                                                        role="option"
+                                                                                        aria-selected={kr.status === value}
+                                                                                    >
+                                                                                        {krStatusLabel(value)}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            className={`okr-status-badge status-${kr.status.toLowerCase()} tooltip-target`}
+                                                                            onClick={() => setKrStatusEditingId(kr.id)}
+                                                                            data-tooltip={`Klicken zum Ändern des Status (derzeit: ${krStatusLabel(kr.status)})`}
+                                                                            aria-label={`Klicken zum Ändern des Status (derzeit: ${krStatusLabel(kr.status)})`}
+                                                                        >
+                                                                            {krStatusLabel(kr.status)}
+                                                                        </button>
+                                                                    )}
+                                                                    {kr.assignees && kr.assignees.length > 0 && (
+                                                                        <div className="okr-kr-assignees">
+                                                                            {renderAvatarStack(activeTenantId || '', kr.assignees)}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="okr-kr-toprow-right">
+                                                                    <div className="okr-kr-date">
+                                                                        Updated {new Date(kr.lastUpdatedAt).toLocaleDateString()}
+                                                                    </div>
+                                                                    <button
+                                                                        className="icon-action settings"
+                                                                        onClick={() => openKrEditor(kr, okrActiveObjective.id)}
+                                                                        data-tooltip="KR bearbeiten"
+                                                                        aria-label="KR bearbeiten"
+                                                                    >
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <path d="M12 20h9" />
+                                                                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="okr-kr-expanded-main">
+                                                                <div className="okr-kr-title">{kr.title}</div>
+                                                                {kr.description && (
+                                                                    <div className="okr-kr-description">{kr.description}</div>
+                                                                )}
+                                                                <div className="okr-kr-progress okr-progress-inline">
+                                                                    <div className="okr-progress-bar">
+                                                                        <div className="okr-progress-fill" style={{ width: `${kr.progress}%` }} />
+                                                                    </div>
+                                                                    {krProgressEditingId === kr.id ? (
+                                                                        <input
+                                                                            type="number"
+                                                                            className="okr-progress-input"
+                                                                            value={krProgressDraft}
+                                                                            min={0}
+                                                                            max={100}
+                                                                            onChange={(e) => setKrProgressDraft(e.target.value)}
+                                                                            onBlur={() => commitKrProgress(kr, okrActiveObjective.id)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    commitKrProgress(kr, okrActiveObjective.id);
+                                                                                }
+                                                                                if (e.key === 'Escape') {
+                                                                                    setKrProgressEditingId(null);
+                                                                                }
+                                                                            }}
+                                                                            autoFocus
+                                                                        />
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="okr-progress-value tooltip-target"
+                                                                            onClick={() => startEditKrProgress(kr)}
+                                                                            data-tooltip={`Klicken zum Bearbeiten des Fortschritts (derzeit: ${Math.round(kr.progress)}%)`}
+                                                                            aria-label={`Klicken zum Bearbeiten des Fortschritts (derzeit: ${Math.round(kr.progress)}%)`}
+                                                                        >
+                                                                            {Math.round(kr.progress)}%
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                         <button className="btn btn-ghost btn-compact" onClick={() => navigateOkr(`/okr/review/${okrActiveObjective.id}`)}>
@@ -3889,63 +4296,84 @@ const App: React.FC = () => {
                                         <div className="okr-pulse-title">Objectives</div>
                                         <div className="okr-pulse-subtitle">Create objectives and track key results.</div>
                                     </div>
-                                    <div className="okr-pulse-actions">
-                                        <button className="btn btn-secondary btn-compact" onClick={loadOkrs}>
-                                            Refresh
+                                </div>
+                                <div className="okr-pulse-toolbar">
+                                    <div
+                                        className="view-switch okr-view-switch"
+                                        role="tablist"
+                                        aria-label="Objectives view switcher"
+                                        style={{ ['--active-index' as any]: okrObjectiveViewMode === 'list' ? 0 : 1 }}
+                                    >
+                                        <button
+                                            className={`view-pill ${okrObjectiveViewMode === 'list' ? 'active' : ''}`}
+                                            onClick={() => setOkrObjectiveViewMode('list')}
+                                            role="tab"
+                                            aria-selected={okrObjectiveViewMode === 'list'}
+                                        >
+                                            Liste
                                         </button>
+                                        <button
+                                            className={`view-pill ${okrObjectiveViewMode === 'cards' ? 'active' : ''}`}
+                                            onClick={() => setOkrObjectiveViewMode('cards')}
+                                            role="tab"
+                                            aria-selected={okrObjectiveViewMode === 'cards'}
+                                        >
+                                            Cards
+                                        </button>
+                                    </div>
+                                    <div className="okr-pulse-actions">
                                         <button className="btn btn-primary btn-compact" onClick={() => setObjectiveComposerOpen(true)}>
-                                            New objective
+                                            + Objective
                                         </button>
                                     </div>
                                 </div>
-                                <div className="okr-pulse-grid">
-                                    <div className="okr-pulse-section okr-pulse-objectives">
-                                        <div className="okr-section-title">Objectives</div>
-                                        {objectiveViews.length === 0 ? (
-                                            <div className="okr-empty">No objectives yet.</div>
-                                        ) : (
-                                            <div className="task-list">
-                                                {objectiveViews.map((objective) => {
-                                                    const isExpanded = expandedObjectives.includes(objective.id);
-                                                    const ownerLabel = objective.ownerId
-                                                        ? getMemberLabel(activeTenantId, objective.ownerId)
-                                                        : 'Unassigned';
-                                                    return (
-                                                        <div key={objective.id} className={`okr-objective-item ${isExpanded ? 'expanded' : ''}`}>
-                                                            <div
-                                                                className="task-row okr-objective-row"
-                                                                onClick={() =>
-                                                                    setExpandedObjectives((prev) =>
-                                                                        prev.includes(objective.id)
-                                                                            ? prev.filter((id) => id !== objective.id)
-                                                                            : [...prev, objective.id]
-                                                                    )
-                                                                }
-                                                            >
-                                                                <div className="task-row-main">
-                                                                    <div className="task-row-title">
-                                                                        <button
-                                                                            className="okr-objective-title-btn"
-                                                                            onClick={(event) => {
-                                                                                event.stopPropagation();
-                                                                                openObjectiveFocus(objective.id);
-                                                                            }}
-                                                                        >
-                                                                            {objective.title}
-                                                                        </button>
-                                                                    </div>
-                                                                    <div className="task-row-meta">
-                                                                        <span className="badge task-kind-badge">{objective.status}</span>
-                                                                        <span className="badge task-kind-badge">Progress {objective.progress}%</span>
-                                                                    </div>
+                                <div className="okr-pulse-section okr-pulse-objectives">
+                                    {objectiveViews.length === 0 ? (
+                                        <div className="okr-empty">No objectives yet.</div>
+                                    ) : (
+                                        <div className={okrObjectiveViewMode === 'cards' ? 'okr-objective-grid' : 'task-list'}>
+                                            {objectiveViews.map((objective) => {
+                                                const isExpanded =
+                                                    okrObjectiveViewMode === 'list' && expandedObjectives.includes(objective.id);
+                                                const ownerLabel = objective.ownerId
+                                                    ? getMemberLabel(activeTenantId, objective.ownerId)
+                                                    : 'Unassigned';
+                                                return (
+                                                    <div key={objective.id} className={`okr-objective-item ${isExpanded ? 'expanded' : ''}`}>
+                                                        <div
+                                                            className="task-row okr-objective-row"
+                                                            onClick={() => openObjectiveFocus(objective.id)}
+                                                        >
+                                                            <div className="task-row-main">
+                                                            <div className="task-row-title">
+                                                                <span className="okr-objective-title-text">{objective.title}</span>
+                                                            </div>
+                                                            {objective.description && (
+                                                                <div className="okr-objective-description">{objective.description}</div>
+                                                            )}
+                                                            <div className="okr-kr-progress okr-progress-inline">
+                                                                <div className="okr-progress-bar">
+                                                                    <div className="okr-progress-fill" style={{ width: `${Math.round(objective.progress)}%` }} />
                                                                 </div>
-                                                                <div className="task-row-side">
-                                                                    <div className="okr-objective-side">
-                                                                        <span className="okr-objective-owner">{ownerLabel}</span>
-                                                                        <span className="okr-objective-progress">{Math.round(objective.progress)}%</span>
+                                                                <div className="okr-progress-foot">{Math.round(objective.progress)}%</div>
+                                                            </div>
+                                                            <div className="task-row-meta">
+                                                                <span className="badge task-kind-badge">{objective.status}</span>
+                                                                <span className="badge task-kind-badge">{objective.keyResults.length} KRs</span>
+                                                                {objective.ownerId ? (
+                                                                    <div className="okr-owner-stack">
+                                                                        {renderAvatarStack(activeTenantId || '', [objective.ownerId])}
                                                                     </div>
+                                                                ) : (
+                                                                    <span className="badge task-kind-badge">Owner: {ownerLabel}</span>
+                                                                )}
+                                                            </div>
+                                                            </div>
+                                                            {okrObjectiveViewMode === 'list' && (
+                                                                <div className="task-row-side">
                                                                     <button
-                                                                        className={`okr-objective-toggle ${isExpanded ? 'active' : ''}`}
+                                                                        className={`okr-chevron ${isExpanded ? 'expanded' : ''}`}
+                                                                        type="button"
                                                                         onClick={(event) => {
                                                                             event.stopPropagation();
                                                                             setExpandedObjectives((prev) =>
@@ -3955,126 +4383,208 @@ const App: React.FC = () => {
                                                                             );
                                                                         }}
                                                                         aria-expanded={isExpanded}
+                                                                        aria-label={isExpanded ? 'Hide key results' : 'Show key results'}
                                                                     >
-                                                                        {isExpanded ? 'Hide KRs' : 'Show KRs'}
+                                                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                            <polyline points="4 8 10 14 16 8" />
+                                                                        </svg>
                                                                     </button>
-                                                                </div>
-                                                            </div>
-                                                            {isExpanded && (
-                                                                <div className="okr-kr-inline">
-                                                                    {objective.keyResults.length === 0 ? (
-                                                                        <div className="okr-empty">No key results yet.</div>
-                                                                    ) : (
-                                                                        objective.keyResults.map((kr) => (
-                                                                            <div key={kr.id} className="okr-kr-inline-row">
-                                                                                <div>
-                                                                                    <div className="okr-kr-title">{kr.title}</div>
-                                                                                    <div className="okr-kr-meta">
-                                                                                        <span>{kr.status.replace('_', ' ')}</span>
-                                                                                        <span>{kr.currentValue} / {kr.targetValue}</span>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div className="okr-kr-progress">
-                                                                                    <div className="okr-progress-bar">
-                                                                                        <div className="okr-progress-fill" style={{ width: `${kr.progress}%` }} />
-                                                                                    </div>
-                                                                                    <div className="okr-progress-foot">{kr.progress}%</div>
-                                                                                </div>
-                                                                            </div>
-                                                                        ))
-                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
+                                                        {isExpanded && (
+                                                            <div className="okr-kr-inline">
+                                                                {objective.keyResults.length === 0 ? (
+                                                                    <div className="okr-empty">No key results yet.</div>
+                                                                ) : (
+                                                                    objective.keyResults.map((kr) => (
+                                                                        <div key={kr.id} className="okr-kr-inline-row">
+                                                                            <div className="okr-kr-expanded-header okr-kr-detail-header">
+                                                                                <div className="okr-kr-toprow">
+                                                                                    <div className="okr-kr-toprow-left">
+                                                                                        {krStatusEditingId === kr.id ? (
+                                                                                            <div className="filter-dropdown okr-status-dropdown">
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    className="filter-select okr-status-select"
+                                                                                                    onClick={() => setKrStatusEditingId(null)}
+                                                                                                    aria-haspopup="listbox"
+                                                                                                    aria-expanded="true"
+                                                                                                >
+                                                                                                    {krStatusLabel(kr.status)}
+                                                                                                </button>
+                                                                                                <div className="filter-options" role="listbox">
+                                                                                                    {['ON_TRACK', 'AT_RISK', 'OFF_TRACK'].map((value) => (
+                                                                                                        <button
+                                                                                                            key={value}
+                                                                                                            type="button"
+                                                                                                            className={`filter-option ${kr.status === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
+                                                                                                            onClick={() => {
+                                                                                                                handleUpdateKeyResult(kr.id, objective.id, { status: value });
+                                                                                                                setKrStatusEditingId(null);
+                                                                                                            }}
+                                                                                                            role="option"
+                                                                                                            aria-selected={kr.status === value}
+                                                                                                        >
+                                                                                                            {krStatusLabel(value)}
+                                                                                                        </button>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                className={`okr-status-badge status-${kr.status.toLowerCase()} tooltip-target`}
+                                                                                                onClick={() => setKrStatusEditingId(kr.id)}
+                                                                                                data-tooltip={`Klicken zum Ändern des Status (derzeit: ${krStatusLabel(kr.status)})`}
+                                                                                                aria-label={`Klicken zum Ändern des Status (derzeit: ${krStatusLabel(kr.status)})`}
+                                                                                            >
+                                                                                                {krStatusLabel(kr.status)}
+                                                                                            </button>
+                                                                                        )}
+                                                                                        {kr.assignees && kr.assignees.length > 0 && (
+                                                                                            <div className="okr-kr-assignees">
+                                                                                                {renderAvatarStack(activeTenantId || '', kr.assignees)}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="okr-kr-toprow-right">
+                                                                                        <div className="okr-kr-date">
+                                                                                            Updated {new Date(kr.lastUpdatedAt).toLocaleDateString()}
+                                                                                        </div>
+                                                                                        <button
+                                                                                            className="icon-action settings"
+                                                                                            onClick={() => openKrEditor(kr, objective.id)}
+                                                                                            data-tooltip="KR bearbeiten"
+                                                                                            aria-label="KR bearbeiten"
+                                                                                        >
+                                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                                <path d="M12 20h9" />
+                                                                                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                                                                                            </svg>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="okr-kr-expanded-main">
+                                                                                    <div className="okr-kr-title">{kr.title}</div>
+                                                                                    {kr.description && (
+                                                                                        <div className="okr-kr-description">{kr.description}</div>
+                                                                                    )}
+                                                                                    <div className="okr-kr-progress okr-progress-inline">
+                                                                                        <div className="okr-progress-bar">
+                                                                                            <div className="okr-progress-fill" style={{ width: `${kr.progress}%` }} />
+                                                                                        </div>
+                                                                                        <div className="okr-progress-foot">{Math.round(kr.progress)}%</div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
 
             {objectiveComposerOpen && (
-                <div className="objective-overlay">
-                    <div className="objective-panel">
-                                    <div className="objective-header">
-                                        <div>
-                                            <div className="objective-title">{objectiveEditId ? 'Edit objective' : 'Objective composer'}</div>
-                                            <div className="objective-subtitle">Create the objective details.</div>
-                                        </div>
-                                        <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
-                                            Close
-                                        </button>
-                                    </div>
-                                    <div className="objective-body">
-                                        <label>
-                                            Objective title
-                                            <input
-                                                type="text"
-                                                value={objectiveDraft.title}
-                                                onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, title: e.target.value }))}
-                                                placeholder="Deliver a calmer onboarding experience"
-                                            />
-                                        </label>
-                                        <label>
-                                            Owner
-                                            <select
-                                                value={objectiveDraft.ownerId}
-                                                onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, ownerId: e.target.value }))}
-                                            >
-                                                <option value="">Unassigned</option>
-                                                {getMembersForTenant(activeTenantId).map((member) => (
-                                                    <option key={member.userId} value={member.userId}>
-                                                        {member.user?.name || member.user?.email || member.userId}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </label>
-                                        <div className="objective-row">
-                                            <label>
-                                                Start date
-                                                <input
-                                                    type="date"
-                                                    value={objectiveDraft.startDate}
-                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, startDate: e.target.value }))}
-                                                />
-                                            </label>
-                                            <label>
-                                                End date
-                                                <input
-                                                    type="date"
-                                                    value={objectiveDraft.endDate}
-                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, endDate: e.target.value }))}
-                                                />
-                                            </label>
-                                        </div>
-                                        <div className="objective-row">
-                                            <label>
-                                                Status
-                                                <select
-                                                    value={objectiveDraft.status}
-                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, status: e.target.value }))}
-                                                >
-                                                    <option value="ACTIVE">Active</option>
-                                                    <option value="AT_RISK">At risk</option>
-                                                    <option value="PAUSED">Paused</option>
-                                                    <option value="DONE">Done</option>
-                                                </select>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div className="objective-actions">
-                                        <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
-                                            {objectiveEditId ? 'Save changes' : 'Create objective'}
-                                        </button>
-                                        <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
+                <div className="modal-overlay">
+                    <div className="modal-content settings-modal">
+                        <div className="panel-header">
+                            <div>
+                                <div className="panel-title">{objectiveEditId ? 'Objective bearbeiten' : 'Objective erstellen'}</div>
+                                <div className="panel-subtitle">Create the objective details.</div>
                             </div>
-                        )}
+                            <button className="panel-close" onClick={() => setObjectiveComposerOpen(false)} aria-label="Close">
+                                ×
+                            </button>
+                        </div>
+                        <div className="panel-body">
+                            <div className="panel-section">
+                                <div className="section-title">Details</div>
+                                <label>
+                                    Objective title
+                                    <input
+                                        type="text"
+                                        value={objectiveDraft.title}
+                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                        placeholder="Deliver a calmer onboarding experience"
+                                    />
+                                </label>
+                                <label>
+                                    Description
+                                    <textarea
+                                        value={objectiveDraft.description}
+                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, description: e.target.value }))}
+                                        placeholder="Short context for this objective"
+                                        rows={3}
+                                    />
+                                </label>
+                                <label>
+                                    Owner
+                                    <select
+                                        value={objectiveDraft.ownerId}
+                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, ownerId: e.target.value }))}
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {getMembersForTenant(activeTenantId).map((member) => (
+                                            <option key={member.userId} value={member.userId}>
+                                                {member.user?.name || member.user?.email || member.userId}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Timeline</div>
+                                <div className="objective-row">
+                                    <label>
+                                        Start date
+                                        <input
+                                            type="date"
+                                            value={objectiveDraft.startDate}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, startDate: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        End date
+                                        <input
+                                            type="date"
+                                            value={objectiveDraft.endDate}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, endDate: e.target.value }))}
+                                        />
+                                    </label>
+                                </div>
+                                <label>
+                                    Status
+                                    <select
+                                        value={objectiveDraft.status}
+                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, status: e.target.value }))}
+                                    >
+                                        <option value="ACTIVE">Active</option>
+                                        <option value="AT_RISK">At risk</option>
+                                        <option value="PAUSED">Paused</option>
+                                        <option value="DONE">Done</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div className="panel-actions">
+                                <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
+                                    {objectiveEditId ? 'Save changes' : 'Create objective'}
+                                </button>
+                                <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
                     </div>
                     )
                 ) : view === 'dashboard' ? (
@@ -4631,80 +5141,121 @@ const App: React.FC = () => {
             )}
 
             {krComposerOpen && (
-                <div className="objective-overlay">
-                    <div className="objective-panel">
-                        <div className="objective-header">
+                <div className="modal-overlay">
+                    <div className="modal-content settings-modal">
+                        <div className="panel-header">
                             <div>
-                                <div className="objective-title">Key result composer</div>
-                                <div className="objective-subtitle">Define the metric and target.</div>
+                                <div className="panel-title">{krEditingId ? 'KR bearbeiten' : 'KR erstellen'}</div>
+                                <div className="panel-subtitle">
+                                    {krEditingId ? 'Update the metric and target.' : 'Define the metric and target.'}
+                                </div>
                             </div>
                             <button
                                 className="panel-close"
                                 onClick={() => {
                                     setKrComposerOpen(false);
                                     setKrComposerObjectiveId(null);
+                                    setKrEditingId(null);
                                 }}
                                 aria-label="Close"
                             >
                                 ×
                             </button>
                         </div>
-                        <div className="objective-body">
-                            <label>
-                                Title
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Improve activation rate"
-                                    value={krComposerDraft.title}
-                                    onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, title: e.target.value }))}
-                                />
-                            </label>
-                            <div className="objective-row">
-                                <label>
-                                    Start
-                                    <input
-                                        type="number"
-                                        placeholder="0"
-                                        value={krComposerDraft.startValue}
-                                        onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, startValue: e.target.value }))}
-                                    />
-                                </label>
-                                <label>
-                                    Target
-                                    <input
-                                        type="number"
-                                        placeholder="100"
-                                        value={krComposerDraft.targetValue}
-                                        onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, targetValue: e.target.value }))}
-                                    />
-                                </label>
+                        <div className="panel-body">
+                            <div className="panel-section">
+                                <div className="section-title">Details</div>
+                                <div className="okr-grid">
+                                    <label>
+                                        Title
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Improve activation rate"
+                                            value={krComposerDraft.title}
+                                            onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label className="okr-grid-full">
+                                        Description
+                                        <textarea
+                                            placeholder="What does this key result capture?"
+                                            value={krComposerDraft.description}
+                                            onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, description: e.target.value }))}
+                                            rows={3}
+                                        />
+                                    </label>
+                                    <label>
+                                        Start
+                                        <input
+                                            type="number"
+                                            placeholder="0"
+                                            value={krComposerDraft.startValue}
+                                            onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, startValue: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        Target
+                                        <input
+                                            type="number"
+                                            placeholder="100"
+                                            value={krComposerDraft.targetValue}
+                                            onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, targetValue: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        Status
+                                        <select
+                                            value={krComposerDraft.status}
+                                            onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, status: e.target.value }))}
+                                        >
+                                            <option value="ON_TRACK">On track</option>
+                                            <option value="AT_RISK">At risk</option>
+                                            <option value="OFF_TRACK">Off track</option>
+                                        </select>
+                                    </label>
+                                </div>
                             </div>
-                            <label>
-                                Status
-                                <select
-                                    value={krComposerDraft.status}
-                                    onChange={(e) => setKrComposerDraft((prev) => ({ ...prev, status: e.target.value }))}
+                            <div className="panel-section">
+                                <div className="section-title">Members</div>
+                                <div className="assignee-grid">
+                                    {getMembersForTenant(activeTenantId).map((member) => {
+                                        const checked = krComposerDraft.assignees.includes(member.userId);
+                                        return (
+                                            <label key={member.userId} className="assignee-chip">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                        const next = e.target.checked
+                                                            ? krComposerDraft.assignees.concat(member.userId)
+                                                            : krComposerDraft.assignees.filter((id) => id !== member.userId);
+                                                        setKrComposerDraft((prev) => ({ ...prev, assignees: next }));
+                                                    }}
+                                                />
+                                                <span>{member.user?.name || member.user?.email || member.userId}</span>
+                                            </label>
+                                        );
+                                    })}
+                                    {getMembersForTenant(activeTenantId).length === 0 && (
+                                        <div className="empty-state">No members in this huddle yet.</div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="panel-actions">
+                                <button
+                                    className="btn btn-ghost btn-compact"
+                                    onClick={() => {
+                                        setKrComposerOpen(false);
+                                        setKrComposerObjectiveId(null);
+                                        setKrEditingId(null);
+                                    }}
                                 >
-                                    <option value="ACTIVE">Active</option>
-                                    <option value="AT_RISK">At risk</option>
-                                    <option value="PAUSED">Paused</option>
-                                    <option value="DONE">Done</option>
-                                </select>
-                            </label>
-                        </div>
-                        <div className="objective-actions">
-                            <button
-                                className="btn btn-secondary"
-                                onClick={() => {
-                                    setKrComposerOpen(false);
-                                    setKrComposerObjectiveId(null);
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button className="btn btn-primary" onClick={handleKrComposerSubmit}>
-                                Create key result
-                            </button>
+                                    Cancel
+                                </button>
+                                <button className="btn btn-primary btn-compact" onClick={handleKrComposerSubmit}>
+                                    {krEditingId ? 'Save changes' : 'Create key result'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4733,6 +5284,14 @@ const App: React.FC = () => {
                                             type="text"
                                             value={objectiveDraft.title}
                                             onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                        />
+                                    </label>
+                                    <label className="okr-grid-full">
+                                        Description
+                                        <textarea
+                                            value={objectiveDraft.description}
+                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, description: e.target.value }))}
+                                            rows={3}
                                         />
                                     </label>
                                     <label>

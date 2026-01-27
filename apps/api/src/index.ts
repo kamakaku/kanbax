@@ -349,6 +349,8 @@ const formatObjective = (objective: any) => {
         id: kr.id,
         objectiveId: kr.objectiveId,
         title: kr.title,
+        description: kr.description ?? null,
+        assignees: kr.assignees ?? [],
         startValue: kr.startValue,
         targetValue: kr.targetValue,
         currentValue: kr.currentValue,
@@ -365,6 +367,7 @@ const formatObjective = (objective: any) => {
         tenantId: objective.tenantId,
         boardId: objective.boardId,
         title: objective.title,
+        description: objective.description ?? null,
         ownerId: objective.ownerId ?? null,
         startDate: objective.startDate,
         endDate: objective.endDate,
@@ -402,6 +405,7 @@ app.post('/okrs/objectives', async (req, res) => {
         const tenantId = (req as any).tenantId;
         const {
             title,
+            description,
             ownerId,
             startDate,
             endDate,
@@ -423,6 +427,7 @@ app.post('/okrs/objectives', async (req, res) => {
                 tenantId,
                 boardId,
                 title: String(title),
+                description: description ? String(description) : null,
                 ownerId: ownerId ? String(ownerId) : null,
                 startDate: startDate ? new Date(startDate) : null,
                 endDate: endDate ? new Date(endDate) : null,
@@ -444,6 +449,7 @@ app.patch('/okrs/objectives/:id', async (req, res) => {
         const objectiveId = String(req.params.id);
         const {
             title,
+            description,
             ownerId,
             startDate,
             endDate,
@@ -467,6 +473,7 @@ app.patch('/okrs/objectives/:id', async (req, res) => {
             where: { id: objectiveId },
             data: {
                 title: title !== undefined ? String(title) : undefined,
+                description: description === null ? null : (description !== undefined ? String(description) : undefined),
                 ownerId: ownerId === null ? null : (ownerId ? String(ownerId) : undefined),
                 startDate: startDate === null ? null : (startDate ? new Date(startDate) : undefined),
                 endDate: endDate === null ? null : (endDate ? new Date(endDate) : undefined),
@@ -509,6 +516,8 @@ app.post('/okrs/objectives/:id/key-results', async (req, res) => {
         }
         const {
             title,
+            description,
+            assignees,
             startValue,
             targetValue,
             currentValue,
@@ -521,6 +530,8 @@ app.post('/okrs/objectives/:id/key-results', async (req, res) => {
             data: {
                 objectiveId,
                 title: String(title),
+                description: description ? String(description) : null,
+                assignees: Array.isArray(assignees) ? assignees.map((id) => String(id)) : [],
                 startValue: Number(startValue),
                 targetValue: Number(targetValue),
                 currentValue: currentValue !== undefined ? Number(currentValue) : Number(startValue),
@@ -550,6 +561,8 @@ app.patch('/okrs/key-results/:id', async (req, res) => {
         }
         const {
             title,
+            description,
+            assignees,
             startValue,
             targetValue,
             currentValue,
@@ -559,6 +572,10 @@ app.patch('/okrs/key-results/:id', async (req, res) => {
             where: { id: keyResultId },
             data: {
                 title: title !== undefined ? String(title) : undefined,
+                description: description === null ? null : (description !== undefined ? String(description) : undefined),
+                assignees: assignees !== undefined
+                    ? (Array.isArray(assignees) ? assignees.map((id) => String(id)) : [])
+                    : undefined,
                 startValue: startValue !== undefined ? Number(startValue) : undefined,
                 targetValue: targetValue !== undefined ? Number(targetValue) : undefined,
                 currentValue: currentValue !== undefined ? Number(currentValue) : undefined,
