@@ -2432,8 +2432,8 @@ const App: React.FC = () => {
             return label.toLowerCase().includes(normalizedSearch);
         })
         : [];
-    const searchColumns = normalizedSearch && board?.columns
-        ? board.columns.filter((column: any) => String(column.status).toLowerCase().includes(normalizedSearch))
+    const searchColumns = normalizedSearch
+        ? kanbanColumns.filter((column: any) => String(column.status).toLowerCase().includes(normalizedSearch))
         : [];
     const searchCacheComplete = displayMemberships.length > 0
         && displayMemberships.every((membership) => Boolean(tasksByTenant[membership.tenantId]));
