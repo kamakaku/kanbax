@@ -873,6 +873,11 @@ const App: React.FC = () => {
         return Math.round(total / krs.length);
     };
     const isOpenTask = (task: TaskView) => task.status !== 'DONE';
+    const isOverdueTask = (task: TaskView) => {
+        if (!task?.dueDate) return false;
+        if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+        return new Date(task.dueDate).getTime() < Date.now();
+    };
     const buildSeriesForDays = (
         items: Array<{ updatedAt?: string; createdAt?: string }>,
         dayStart: Date,
@@ -5341,7 +5346,7 @@ const App: React.FC = () => {
                                             return (
                                                 <React.Fragment key={task.id}>
                                                     <div
-                                                        className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}`}
+                                                        className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}${isOverdueTask(task) ? ' task-card-overdue' : ''}`}
                                                         style={taskCardStyle}
                                                         draggable={isDraggable}
                                                         onDragStart={(e) => (isDraggable ? onDragStart(e, task.id) : e.preventDefault())}
@@ -5352,7 +5357,7 @@ const App: React.FC = () => {
                                                     >
                                                         <div className="task-card-content">
                                                             <div className="task-card-topbar">
-                                                            <div className="task-card-due">
+                                                            <div className={`task-card-due${isOverdueTask(task) ? ' overdue' : ''}`}>
                                                                 <span className="task-card-due-icon" aria-hidden="true">
                                                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
                                                                         <path d="M5 4v16" />
@@ -5470,7 +5475,7 @@ const App: React.FC = () => {
                                     <tbody>
                                         {visibleTasksForView.map((task: TaskView) => (
                                             <React.Fragment key={task.id}>
-                                                <tr onClick={() => openDetailsModal(task)}>
+                                                <tr onClick={() => openDetailsModal(task)} className={isOverdueTask(task) ? 'task-row-overdue' : ''}>
                                                     <td>{task.title}</td>
                                                     <td>
                                                         <div className="task-card-people">
@@ -5489,7 +5494,7 @@ const App: React.FC = () => {
                                                             {task.priority}
                                                         </span>
                                                     </td>
-                                                    <td>
+                                                    <td className={`task-table-due${isOverdueTask(task) ? ' overdue' : ''}`}>
                                                         {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
                                                     </td>
                                                     <td>{task.sourceIndicator}</td>

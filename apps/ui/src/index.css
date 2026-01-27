@@ -3813,6 +3813,11 @@ textarea {
   border-radius: var(--radius-lg);
 }
 
+.task-card-overdue {
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 14px 26px rgba(239, 68, 68, 0.12);
+}
+
 .task-card-content {
   display: flex;
   flex-direction: column;
@@ -3862,6 +3867,19 @@ textarea {
   border: 1px solid rgba(30, 30, 30, 0.08);
 }
 
+.task-card-due.overdue {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.task-card-due.overdue .task-card-due-icon svg {
+  stroke: #b91c1c;
+}
+
+.task-card-due.overdue span:last-child {
+  color: #b91c1c;
+}
 .task-card-due-icon svg {
   width: 14px;
   height: 14px;
@@ -4703,8 +4721,21 @@ textarea {
   transition: background 0.2s ease;
 }
 
+.task-table tbody tr.task-row-overdue {
+  background: rgba(248, 113, 113, 0.08);
+}
+
 .task-table tbody tr:hover {
   background: rgba(215, 254, 2, 0.12);
+}
+
+.task-table tbody tr.task-row-overdue:hover {
+  background: rgba(248, 113, 113, 0.16);
+}
+
+.task-table-due.overdue {
+  color: #b91c1c;
+  font-weight: 600;
 }
 
 .table-actions {
