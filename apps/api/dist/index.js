@@ -13,6 +13,7 @@ import { PrincipalType, TaskStatus } from '@kanbax/domain';
 import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify } from 'jose';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../../../.env') });
@@ -64,6 +65,7 @@ const isApiRoute = (pathName) => pathName.startsWith('/commands') ||
     pathName.startsWith('/tasks') ||
     pathName.startsWith('/boards') ||
     pathName.startsWith('/okrs') ||
+    pathName.startsWith('/calendar') ||
     pathName.startsWith('/me') ||
     pathName.startsWith('/teams') ||
     pathName.startsWith('/invites');
@@ -87,6 +89,292 @@ const resolveJwtKey = (token) => {
         throw new Error('Server misconfigured: SUPABASE_ISSUER missing');
     }
     return SUPABASE_JWKS;
+};
+const API_PUBLIC_URL = process.env.API_PUBLIC_URL || 'http://localhost:4000';
+const UI_PUBLIC_URL = process.env.UI_PUBLIC_URL || 'http://localhost:5173';
+const CALENDAR_STATE_SECRET = process.env.CALENDAR_STATE_SECRET || SUPABASE_JWT_SECRET || 'calendar-dev-secret';
+const CALENDAR_ENCRYPTION_KEY = process.env.CALENDAR_ENCRYPTION_KEY || SUPABASE_JWT_SECRET || '';
+const CALENDAR_SCOPES = [
+    'offline_access',
+    'Calendars.Read',
+    'User.Read',
+];
+const getCalendarEncryptionKey = () => {
+    if (!CALENDAR_ENCRYPTION_KEY) {
+        throw new Error('Server misconfigured: CALENDAR_ENCRYPTION_KEY missing');
+    }
+    return crypto.createHash('sha256').update(CALENDAR_ENCRYPTION_KEY).digest();
+};
+const encryptSecret = (value) => {
+    const iv = crypto.randomBytes(12);
+    const key = getCalendarEncryptionKey();
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return Buffer.concat([iv, tag, encrypted]).toString('base64url');
+};
+const decryptSecret = (payload) => {
+    const raw = Buffer.from(payload, 'base64url');
+    const iv = raw.subarray(0, 12);
+    const tag = raw.subarray(12, 28);
+    const encrypted = raw.subarray(28);
+    const key = getCalendarEncryptionKey();
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted.toString('utf8');
+};
+const signCalendarState = (payload) => {
+    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto.createHmac('sha256', CALENDAR_STATE_SECRET).update(encoded).digest('base64url');
+    return `${encoded}.${signature}`;
+};
+const verifyCalendarState = (state) => {
+    if (!state)
+        return null;
+    const [encoded, signature] = state.split('.');
+    if (!encoded || !signature)
+        return null;
+    const expected = crypto.createHmac('sha256', CALENDAR_STATE_SECRET).update(encoded).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected)))
+        return null;
+    try {
+        return JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    }
+    catch {
+        return null;
+    }
+};
+const getCalendarSecretKey = (provider, userId) => `calendar:${provider}:${userId}`;
+const getCalendarSecret = async (tenantId, key) => prisma.secret.findUnique({ where: { tenantId_key: { tenantId, key } } });
+const setCalendarSecret = async (tenantId, key, value, metadata) => prisma.secret.upsert({
+    where: { tenantId_key: { tenantId, key } },
+    update: { value, metadata },
+    create: { tenantId, key, value, metadata },
+});
+const deleteCalendarSecret = async (tenantId, key) => prisma.secret.delete({ where: { tenantId_key: { tenantId, key } } });
+const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID || '';
+const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET || '';
+const ensureCalendarConfig = () => {
+    if (!MICROSOFT_CLIENT_ID || !MICROSOFT_CLIENT_SECRET) {
+        throw new Error('Microsoft Calendar not configured');
+    }
+};
+const buildOAuthRedirectUri = () => `${API_PUBLIC_URL}/calendar/oauth/microsoft/callback`;
+const exchangeMicrosoftCode = async (code) => {
+    const body = new URLSearchParams({
+        code,
+        client_id: MICROSOFT_CLIENT_ID,
+        client_secret: MICROSOFT_CLIENT_SECRET,
+        redirect_uri: buildOAuthRedirectUri(),
+        grant_type: 'authorization_code',
+        scope: CALENDAR_SCOPES.join(' '),
+    });
+    const res = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+    });
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Microsoft token exchange failed: ${err}`);
+    }
+    return res.json();
+};
+const refreshMicrosoftToken = async (refreshToken) => {
+    const body = new URLSearchParams({
+        refresh_token: refreshToken,
+        client_id: MICROSOFT_CLIENT_ID,
+        client_secret: MICROSOFT_CLIENT_SECRET,
+        redirect_uri: buildOAuthRedirectUri(),
+        grant_type: 'refresh_token',
+        scope: CALENDAR_SCOPES.join(' '),
+    });
+    const res = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+    });
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Microsoft refresh failed: ${err}`);
+    }
+    return res.json();
+};
+const getCalendarImportKey = (userId) => `calendar:ics:${userId}`;
+const getCalendarImports = async (tenantId, userId) => {
+    const key = getCalendarImportKey(userId);
+    const secret = await getCalendarSecret(tenantId, key);
+    if (!secret?.value)
+        return [];
+    try {
+        const parsed = JSON.parse(decryptSecret(secret.value));
+        const rawList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.imports) ? parsed.imports : []);
+        if (!Array.isArray(rawList))
+            return [];
+        return rawList.map((entry) => {
+            const type = entry?.type || (entry?.url ? 'url' : 'file');
+            return {
+                id: String(entry.id || crypto.randomUUID()),
+                name: String(entry.name || 'Imported calendar'),
+                type,
+                ics: entry.ics,
+                url: entry.url,
+                createdAt: entry.createdAt || new Date().toISOString(),
+            };
+        });
+    }
+    catch {
+        return [];
+    }
+};
+const setCalendarImports = async (tenantId, userId, imports) => {
+    const key = getCalendarImportKey(userId);
+    const encrypted = encryptSecret(JSON.stringify(imports));
+    await setCalendarSecret(tenantId, key, encrypted, {
+        type: 'calendar-imports',
+        count: imports.length,
+        updatedAt: new Date().toISOString(),
+    });
+};
+const normalizeCalendarUrl = (value) => {
+    try {
+        const parsed = new URL(value);
+        if (!['https:', 'http:'].includes(parsed.protocol))
+            return null;
+        return parsed.toString();
+    }
+    catch {
+        return null;
+    }
+};
+const fetchIcsFromUrl = async (url) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+        const res = await fetch(url, {
+            headers: { Accept: 'text/calendar,text/plain,*/*' },
+            signal: controller.signal,
+        });
+        if (!res.ok) {
+            throw new Error(`Failed to fetch ICS (${res.status})`);
+        }
+        const text = await res.text();
+        if (text.length > 2_000_000) {
+            throw new Error('ICS payload too large');
+        }
+        return text;
+    }
+    finally {
+        clearTimeout(timeout);
+    }
+};
+const unfoldIcsLines = (ics) => {
+    const normalized = ics.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const rawLines = normalized.split('\n');
+    const lines = [];
+    for (const line of rawLines) {
+        if (!line)
+            continue;
+        if ((line.startsWith(' ') || line.startsWith('\t')) && lines.length) {
+            lines[lines.length - 1] += line.slice(1);
+        }
+        else {
+            lines.push(line);
+        }
+    }
+    return lines;
+};
+const unescapeIcsText = (value) => value
+    .replace(/\\n/gi, '\n')
+    .replace(/\\,/g, ',')
+    .replace(/\\;/g, ';')
+    .replace(/\\\\/g, '\\');
+const parseIcsDate = (value, params) => {
+    const trimmed = value.trim();
+    const isDateOnly = params.VALUE === 'DATE' || /^\d{8}$/.test(trimmed);
+    if (isDateOnly) {
+        const year = Number(trimmed.slice(0, 4));
+        const month = Number(trimmed.slice(4, 6)) - 1;
+        const day = Number(trimmed.slice(6, 8));
+        const date = new Date(Date.UTC(year, month, day, 0, 0, 0));
+        return { iso: date.toISOString(), allDay: true };
+    }
+    const hasZ = trimmed.endsWith('Z');
+    const stamp = hasZ ? trimmed.slice(0, -1) : trimmed;
+    if (!/^\d{8}T\d{6}$/.test(stamp))
+        return null;
+    const year = Number(stamp.slice(0, 4));
+    const month = Number(stamp.slice(4, 6)) - 1;
+    const day = Number(stamp.slice(6, 8));
+    const hour = Number(stamp.slice(9, 11));
+    const minute = Number(stamp.slice(11, 13));
+    const second = Number(stamp.slice(13, 15));
+    const date = hasZ
+        ? new Date(Date.UTC(year, month, day, hour, minute, second))
+        : new Date(year, month, day, hour, minute, second);
+    return { iso: date.toISOString(), allDay: false };
+};
+const parseIcsEvents = (ics) => {
+    const lines = unfoldIcsLines(ics);
+    const events = [];
+    let current = null;
+    for (const line of lines) {
+        if (line === 'BEGIN:VEVENT') {
+            current = { id: '', title: '', allDay: false };
+            continue;
+        }
+        if (line === 'END:VEVENT') {
+            if (current?.start) {
+                if (!current.end)
+                    current.end = current.start;
+                if (!current.id)
+                    current.id = crypto.randomUUID();
+                events.push(current);
+            }
+            current = null;
+            continue;
+        }
+        if (!current)
+            continue;
+        const [rawProp, ...rest] = line.split(':');
+        if (!rawProp || rest.length === 0)
+            continue;
+        const value = rest.join(':');
+        const [rawName, ...paramParts] = rawProp.split(';');
+        const name = rawName.toUpperCase();
+        const params = {};
+        paramParts.forEach((part) => {
+            const [k, v] = part.split('=');
+            if (k)
+                params[k.toUpperCase()] = v || '';
+        });
+        if (name === 'UID')
+            current.id = value.trim();
+        if (name === 'SUMMARY')
+            current.title = unescapeIcsText(value.trim());
+        if (name === 'LOCATION')
+            current.location = unescapeIcsText(value.trim());
+        if (name === 'DESCRIPTION')
+            current.description = unescapeIcsText(value.trim());
+        if (name === 'URL')
+            current.url = value.trim();
+        if (name === 'DTSTART') {
+            const parsed = parseIcsDate(value, params);
+            if (parsed) {
+                current.start = parsed.iso;
+                current.allDay = parsed.allDay;
+            }
+        }
+        if (name === 'DTEND') {
+            const parsed = parseIcsDate(value, params);
+            if (parsed) {
+                current.end = parsed.iso;
+                current.allDay = current.allDay || parsed.allDay;
+            }
+        }
+    }
+    return events;
 };
 const buildPrincipal = (tenantId, user, role) => ({
     id: user.id,
@@ -113,6 +401,9 @@ const buildPrincipal = (tenantId, user, role) => ({
 app.use(async (req, res, next) => {
     if (!isApiRoute(req.path))
         return next();
+    if (req.path.startsWith('/calendar/oauth') && req.path.includes('/callback')) {
+        return next();
+    }
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (!token) {
@@ -241,6 +532,380 @@ app.get('/boards', async (req, res) => {
         res.status(403).json({ error: e?.message ?? 'Forbidden' });
     }
 });
+app.get('/calendar/connections', async (req, res) => {
+    try {
+        const principal = req.principal;
+        if (!principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const userId = principal.id;
+        const providers = ['microsoft'];
+        const connections = await Promise.all(providers.map(async (provider) => {
+            const key = getCalendarSecretKey(provider, userId);
+            const secret = await getCalendarSecret(tenantId, key);
+            if (!secret)
+                return { provider, connected: false };
+            const metadata = secret.metadata || {};
+            return {
+                provider,
+                connected: true,
+                email: metadata.email || null,
+                expiresAt: metadata.expiresAt || null,
+            };
+        }));
+        res.json(connections);
+    }
+    catch (e) {
+        res.status(500).json({ error: e?.message ?? 'Failed to load calendar connections' });
+    }
+});
+app.get('/calendar/imports', async (req, res) => {
+    try {
+        const principal = req.principal;
+        if (!principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const userId = principal.id;
+        const imports = await getCalendarImports(tenantId, userId);
+        res.json(imports.map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            type: entry.type,
+            createdAt: entry.createdAt,
+        })));
+    }
+    catch (e) {
+        res.status(500).json({ error: e?.message ?? 'Failed to load calendar imports' });
+    }
+});
+app.post('/calendar/imports', async (req, res) => {
+    try {
+        const principal = req.principal;
+        if (!principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const userId = principal.id;
+        const ics = typeof req.body?.ics === 'string' ? req.body.ics.trim() : '';
+        const urlInput = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+        if (!ics && !urlInput) {
+            return res.status(400).json({ error: 'Missing .ics file or URL' });
+        }
+        if (ics && urlInput) {
+            return res.status(400).json({ error: 'Provide either file or URL, not both' });
+        }
+        const name = typeof req.body?.name === 'string' && req.body.name.trim()
+            ? req.body.name.trim()
+            : 'Imported calendar';
+        const imports = await getCalendarImports(tenantId, userId);
+        if (imports.length >= 12) {
+            return res.status(400).json({ error: 'Too many calendar imports (max 12)' });
+        }
+        let entry;
+        if (ics) {
+            if (!ics.includes('BEGIN:VCALENDAR')) {
+                return res.status(400).json({ error: 'Invalid .ics payload' });
+            }
+            entry = {
+                id: crypto.randomUUID(),
+                name,
+                type: 'file',
+                ics,
+                createdAt: new Date().toISOString(),
+            };
+        }
+        else {
+            const normalized = normalizeCalendarUrl(urlInput);
+            if (!normalized) {
+                return res.status(400).json({ error: 'Invalid calendar URL' });
+            }
+            const icsText = await fetchIcsFromUrl(normalized);
+            if (!icsText.includes('BEGIN:VCALENDAR')) {
+                return res.status(400).json({ error: 'URL does not return a valid calendar' });
+            }
+            entry = {
+                id: crypto.randomUUID(),
+                name,
+                type: 'url',
+                url: normalized,
+                createdAt: new Date().toISOString(),
+            };
+        }
+        const next = [...imports, entry];
+        await setCalendarImports(tenantId, userId, next);
+        res.json({ id: entry.id, name: entry.name, type: entry.type, createdAt: entry.createdAt });
+    }
+    catch (e) {
+        res.status(500).json({ error: e?.message ?? 'Failed to import calendar' });
+    }
+});
+app.delete('/calendar/imports/:importId', async (req, res) => {
+    try {
+        const principal = req.principal;
+        if (!principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const userId = principal.id;
+        const importId = String(req.params.importId || '');
+        const imports = await getCalendarImports(tenantId, userId);
+        const next = imports.filter((entry) => entry.id !== importId);
+        await setCalendarImports(tenantId, userId, next);
+        res.json({ ok: true });
+    }
+    catch (e) {
+        res.status(500).json({ error: e?.message ?? 'Failed to remove calendar import' });
+    }
+});
+app.delete('/calendar/connections/:provider', async (req, res) => {
+    try {
+        const principal = req.principal;
+        if (!principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const userId = principal.id;
+        const provider = String(req.params.provider || '');
+        if (provider !== 'microsoft') {
+            return res.status(400).json({ error: 'Unsupported provider' });
+        }
+        const key = getCalendarSecretKey(provider, userId);
+        try {
+            await deleteCalendarSecret(tenantId, key);
+        }
+        catch (err) {
+            if (err?.code !== 'P2025')
+                throw err;
+        }
+        res.json({ ok: true });
+    }
+    catch (e) {
+        res.status(500).json({ error: e?.message ?? 'Failed to disconnect calendar' });
+    }
+});
+app.get('/calendar/oauth/:provider', async (req, res) => {
+    try {
+        const principal = req.principal;
+        if (!principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const userId = principal.id;
+        const provider = String(req.params.provider || '');
+        if (provider !== 'microsoft') {
+            return res.status(400).json({ error: 'Unsupported provider' });
+        }
+        ensureCalendarConfig();
+        const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : UI_PUBLIC_URL;
+        const state = signCalendarState({
+            provider,
+            tenantId,
+            userId,
+            returnTo,
+            ts: Date.now(),
+        });
+        const url = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+        url.searchParams.set('client_id', MICROSOFT_CLIENT_ID);
+        url.searchParams.set('redirect_uri', buildOAuthRedirectUri());
+        url.searchParams.set('response_type', 'code');
+        url.searchParams.set('response_mode', 'query');
+        url.searchParams.set('scope', CALENDAR_SCOPES.join(' '));
+        url.searchParams.set('state', state);
+        return res.redirect(url.toString());
+    }
+    catch (e) {
+        res.status(500).json({ error: e?.message ?? 'Failed to start OAuth flow' });
+    }
+});
+app.get('/calendar/oauth/:provider/callback', async (req, res) => {
+    try {
+        const provider = String(req.params.provider || '');
+        if (provider !== 'microsoft') {
+            return res.status(400).send('Unsupported provider');
+        }
+        if (req.query.error) {
+            return res.redirect(`${UI_PUBLIC_URL}?view=calendar&calendarError=${encodeURIComponent(String(req.query.error))}`);
+        }
+        const code = typeof req.query.code === 'string' ? req.query.code : null;
+        const state = verifyCalendarState(typeof req.query.state === 'string' ? req.query.state : null);
+        if (!code || !state || state.provider !== provider) {
+            return res.status(400).send('Invalid calendar OAuth state');
+        }
+        if (!state.ts || Date.now() - Number(state.ts) > 10 * 60 * 1000) {
+            return res.status(400).send('Expired calendar OAuth state');
+        }
+        ensureCalendarConfig();
+        const tenantId = state.tenantId;
+        const userId = state.userId;
+        const key = getCalendarSecretKey(provider, userId);
+        const existing = await getCalendarSecret(tenantId, key);
+        let existingPayload = null;
+        if (existing?.value) {
+            try {
+                existingPayload = JSON.parse(decryptSecret(existing.value));
+            }
+            catch {
+                existingPayload = null;
+            }
+        }
+        const tokenData = await exchangeMicrosoftCode(code);
+        const refreshToken = tokenData.refresh_token || existingPayload?.refresh_token || null;
+        const expiresAt = tokenData.expires_in ? Date.now() + Number(tokenData.expires_in) * 1000 : null;
+        const tokenPayload = {
+            access_token: tokenData.access_token,
+            refresh_token: refreshToken,
+            expires_at: expiresAt,
+            scope: tokenData.scope,
+            token_type: tokenData.token_type,
+        };
+        let email = null;
+        try {
+            const infoRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+                headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            });
+            if (infoRes.ok) {
+                const info = await infoRes.json();
+                email = info.mail || info.userPrincipalName || null;
+            }
+        }
+        catch {
+            // ignore metadata fetch failures
+        }
+        const encrypted = encryptSecret(JSON.stringify(tokenPayload));
+        await setCalendarSecret(tenantId, key, encrypted, {
+            provider,
+            userId,
+            email,
+            scopes: CALENDAR_SCOPES,
+            connectedAt: new Date().toISOString(),
+            expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        });
+        const returnTo = typeof state.returnTo === 'string' && state.returnTo ? state.returnTo : `${UI_PUBLIC_URL}?view=calendar`;
+        return res.redirect(returnTo);
+    }
+    catch (e) {
+        res.status(500).send(e?.message ?? 'Failed to complete OAuth flow');
+    }
+});
+app.get('/calendar/events', async (req, res) => {
+    try {
+        const principal = req.principal;
+        if (!principal)
+            return res.status(403).json({ error: 'No tenant selected' });
+        const tenantId = req.tenantId;
+        const userId = principal.id;
+        const start = typeof req.query.start === 'string' ? new Date(req.query.start) : null;
+        const end = typeof req.query.end === 'string' ? new Date(req.query.end) : null;
+        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return res.status(400).json({ error: 'Invalid date range' });
+        }
+        const providers = ['microsoft'];
+        const results = [];
+        const imports = await getCalendarImports(tenantId, userId);
+        for (const entry of imports) {
+            let icsText = null;
+            if (entry.type === 'file') {
+                icsText = entry.ics || null;
+            }
+            else if (entry.type === 'url' && entry.url) {
+                try {
+                    icsText = await fetchIcsFromUrl(entry.url);
+                }
+                catch {
+                    icsText = null;
+                }
+            }
+            if (!icsText)
+                continue;
+            const parsed = parseIcsEvents(icsText);
+            parsed.forEach((event, index) => {
+                const startTime = new Date(event.start).getTime();
+                const endTime = new Date(event.end).getTime();
+                if (Number.isNaN(startTime) || Number.isNaN(endTime))
+                    return;
+                if (endTime < start.getTime() || startTime > end.getTime())
+                    return;
+                results.push({
+                    ...event,
+                    id: `${entry.id}:${event.id || index}`,
+                    provider: 'ics',
+                    calendarName: entry.name,
+                });
+            });
+        }
+        for (const provider of providers) {
+            const key = getCalendarSecretKey(provider, userId);
+            const secret = await getCalendarSecret(tenantId, key);
+            if (!secret)
+                continue;
+            let payload;
+            try {
+                payload = JSON.parse(decryptSecret(secret.value));
+            }
+            catch {
+                continue;
+            }
+            let accessToken = payload.access_token;
+            const refreshToken = payload.refresh_token;
+            const expiresAt = payload.expires_at ? Number(payload.expires_at) : null;
+            if (expiresAt && refreshToken && Date.now() > expiresAt - 60_000) {
+                try {
+                    const refreshed = await refreshMicrosoftToken(refreshToken);
+                    accessToken = refreshed.access_token;
+                    const nextRefresh = refreshed.refresh_token || refreshToken;
+                    const nextExpires = refreshed.expires_in ? Date.now() + Number(refreshed.expires_in) * 1000 : null;
+                    const nextPayload = {
+                        ...payload,
+                        access_token: accessToken,
+                        refresh_token: nextRefresh,
+                        expires_at: nextExpires,
+                        scope: refreshed.scope || payload.scope,
+                        token_type: refreshed.token_type || payload.token_type,
+                    };
+                    const encrypted = encryptSecret(JSON.stringify(nextPayload));
+                    await setCalendarSecret(tenantId, key, encrypted, {
+                        ...secret.metadata,
+                        expiresAt: nextExpires ? new Date(nextExpires).toISOString() : null,
+                    });
+                }
+                catch {
+                    // ignore refresh failures
+                }
+            }
+            if (!accessToken)
+                continue;
+            const url = new URL('https://graph.microsoft.com/v1.0/me/calendarView');
+            url.searchParams.set('startDateTime', start.toISOString());
+            url.searchParams.set('endDateTime', end.toISOString());
+            const response = await fetch(url.toString(), {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Prefer: 'outlook.timezone="UTC"',
+                },
+            });
+            if (!response.ok)
+                continue;
+            const data = await response.json();
+            (data.value || []).forEach((event) => {
+                if (!event.start?.dateTime || !event.end?.dateTime)
+                    return;
+                results.push({
+                    id: event.id,
+                    provider,
+                    title: event.subject || '',
+                    start: event.start.dateTime,
+                    end: event.end.dateTime,
+                    allDay: Boolean(event.isAllDay),
+                    location: event.location?.displayName || null,
+                    description: event.bodyPreview || null,
+                    url: event.webLink || null,
+                });
+            });
+        }
+        results.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+        res.set('Cache-Control', 'no-store');
+        res.json(results);
+    }
+    catch (e) {
+        res.status(500).json({ error: e?.message ?? 'Failed to load calendar events' });
+    }
+});
 app.post('/boards', async (req, res) => {
     try {
         if (!req.principal)
@@ -317,6 +982,8 @@ const formatObjective = (objective) => {
         id: kr.id,
         objectiveId: kr.objectiveId,
         title: kr.title,
+        description: kr.description ?? null,
+        assignees: kr.assignees ?? [],
         startValue: kr.startValue,
         targetValue: kr.targetValue,
         currentValue: kr.currentValue,
@@ -333,6 +1000,7 @@ const formatObjective = (objective) => {
         tenantId: objective.tenantId,
         boardId: objective.boardId,
         title: objective.title,
+        description: objective.description ?? null,
         ownerId: objective.ownerId ?? null,
         startDate: objective.startDate,
         endDate: objective.endDate,
@@ -368,7 +1036,7 @@ app.post('/okrs/objectives', async (req, res) => {
         if (!req.principal)
             return res.status(403).json({ error: 'No tenant selected' });
         const tenantId = req.tenantId;
-        const { title, ownerId, startDate, endDate, status, confidence, boardId: rawBoardId, } = req.body || {};
+        const { title, description, ownerId, startDate, endDate, status, confidence, boardId: rawBoardId, } = req.body || {};
         if (!title || !status)
             return res.status(400).json({ error: 'Title and status are required' });
         const boardId = rawBoardId ? String(rawBoardId) : 'default-board';
@@ -383,6 +1051,7 @@ app.post('/okrs/objectives', async (req, res) => {
                 tenantId,
                 boardId,
                 title: String(title),
+                description: description ? String(description) : null,
                 ownerId: ownerId ? String(ownerId) : null,
                 startDate: startDate ? new Date(startDate) : null,
                 endDate: endDate ? new Date(endDate) : null,
@@ -403,7 +1072,7 @@ app.patch('/okrs/objectives/:id', async (req, res) => {
             return res.status(403).json({ error: 'No tenant selected' });
         const tenantId = req.tenantId;
         const objectiveId = String(req.params.id);
-        const { title, ownerId, startDate, endDate, status, confidence, boardId: rawBoardId, } = req.body || {};
+        const { title, description, ownerId, startDate, endDate, status, confidence, boardId: rawBoardId, } = req.body || {};
         const existing = await prisma.objective.findUnique({ where: { id: objectiveId } });
         if (!existing || existing.tenantId !== tenantId) {
             return res.status(404).json({ error: 'Objective not found' });
@@ -419,6 +1088,7 @@ app.patch('/okrs/objectives/:id', async (req, res) => {
             where: { id: objectiveId },
             data: {
                 title: title !== undefined ? String(title) : undefined,
+                description: description === null ? null : (description !== undefined ? String(description) : undefined),
                 ownerId: ownerId === null ? null : (ownerId ? String(ownerId) : undefined),
                 startDate: startDate === null ? null : (startDate ? new Date(startDate) : undefined),
                 endDate: endDate === null ? null : (endDate ? new Date(endDate) : undefined),
@@ -461,7 +1131,7 @@ app.post('/okrs/objectives/:id/key-results', async (req, res) => {
         if (!objective || objective.tenantId !== tenantId) {
             return res.status(404).json({ error: 'Objective not found' });
         }
-        const { title, startValue, targetValue, currentValue, status, } = req.body || {};
+        const { title, description, assignees, startValue, targetValue, currentValue, status, } = req.body || {};
         if (!title || status === undefined || targetValue === undefined || startValue === undefined) {
             return res.status(400).json({ error: 'Title, startValue, targetValue, and status are required' });
         }
@@ -469,6 +1139,8 @@ app.post('/okrs/objectives/:id/key-results', async (req, res) => {
             data: {
                 objectiveId,
                 title: String(title),
+                description: description ? String(description) : null,
+                assignees: Array.isArray(assignees) ? assignees.map((id) => String(id)) : [],
                 startValue: Number(startValue),
                 targetValue: Number(targetValue),
                 currentValue: currentValue !== undefined ? Number(currentValue) : Number(startValue),
@@ -497,11 +1169,15 @@ app.patch('/okrs/key-results/:id', async (req, res) => {
         if (!existing || existing.objective.tenantId !== tenantId) {
             return res.status(404).json({ error: 'Key result not found' });
         }
-        const { title, startValue, targetValue, currentValue, status, } = req.body || {};
+        const { title, description, assignees, startValue, targetValue, currentValue, status, } = req.body || {};
         const updated = await prisma.keyResult.update({
             where: { id: keyResultId },
             data: {
                 title: title !== undefined ? String(title) : undefined,
+                description: description === null ? null : (description !== undefined ? String(description) : undefined),
+                assignees: assignees !== undefined
+                    ? (Array.isArray(assignees) ? assignees.map((id) => String(id)) : [])
+                    : undefined,
                 startValue: startValue !== undefined ? Number(startValue) : undefined,
                 targetValue: targetValue !== undefined ? Number(targetValue) : undefined,
                 currentValue: currentValue !== undefined ? Number(currentValue) : undefined,
@@ -958,6 +1634,7 @@ app.use((req, res) => {
         req.path.startsWith('/tasks') ||
         req.path.startsWith('/boards') ||
         req.path.startsWith('/okrs') ||
+        req.path.startsWith('/calendar') ||
         req.path.startsWith('/me') ||
         req.path.startsWith('/teams') ||
         req.path.startsWith('/invites')) {

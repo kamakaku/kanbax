@@ -67,8 +67,27 @@ interface ObjectiveView {
     readOnly: boolean;
 }
 
+interface CalendarEvent {
+    id: string;
+    provider: 'microsoft' | 'ics';
+    title: string;
+    start: string;
+    end: string;
+    allDay: boolean;
+    location?: string | null;
+    description?: string | null;
+    url?: string | null;
+}
+
+interface CalendarImport {
+    id: string;
+    name: string;
+    type: 'file' | 'url';
+    createdAt: string;
+}
+
 const App: React.FC = () => {
-    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'settings' | 'okr'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'calendar' | 'settings' | 'okr'>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
     const [detailTab, setDetailTab] = useState<'comments' | 'attachments' | 'activity'>('comments');
     useEffect(() => {
@@ -76,6 +95,16 @@ const App: React.FC = () => {
             setView('table');
         }
     }, [view]);
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const viewParam = params.get('view');
+        if (viewParam === 'calendar') {
+            setView('calendar');
+            params.delete('view');
+            const next = params.toString();
+            window.history.replaceState({}, '', `${window.location.pathname}${next ? `?${next}` : ''}`);
+        }
+    }, []);
     const [session, setSession] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [memberships, setMemberships] = useState<any[]>([]);
@@ -212,6 +241,20 @@ const App: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState('ALL');
     const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
     const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+    const [calendarDate, setCalendarDate] = useState(() => new Date());
+    const [calendarSelectedDate, setCalendarSelectedDate] = useState(() => new Date());
+    const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+    const [calendarImports, setCalendarImports] = useState<CalendarImport[]>([]);
+    const [calendarLoading, setCalendarLoading] = useState(false);
+    const [calendarError, setCalendarError] = useState<string | null>(null);
+    const [calendarImportFileName, setCalendarImportFileName] = useState('');
+    const [calendarImportFile, setCalendarImportFile] = useState<File | null>(null);
+    const [calendarImporting, setCalendarImporting] = useState(false);
+    const [calendarImportInputKey, setCalendarImportInputKey] = useState(0);
+    const [calendarImportUrlName, setCalendarImportUrlName] = useState('');
+    const [calendarImportUrl, setCalendarImportUrl] = useState('');
+    const [isBoardNavOpen, setIsBoardNavOpen] = useState(() => !isSidebarCollapsed);
+    const [isOkrNavOpen, setIsOkrNavOpen] = useState(() => !isSidebarCollapsed && view === 'okr');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
     const [newTaskAttachments, setNewTaskAttachments] = useState<TaskView['attachments']>([]);
@@ -411,6 +454,135 @@ const App: React.FC = () => {
         }
     };
 
+    const fetchCalendarImports = async () => {
+        if (!activeTenantId) return;
+        try {
+            const res = await fetch(`${API_BASE}/calendar/imports`, { headers: getApiHeaders(true) });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to load calendar imports');
+            }
+            const data = await res.json();
+            setCalendarImports(data || []);
+        } catch (err: any) {
+            setCalendarError(err.message);
+        }
+    };
+
+    const fetchCalendarEvents = async (start: Date, end: Date) => {
+        if (!activeTenantId) return;
+        setCalendarLoading(true);
+        setCalendarError(null);
+        try {
+            const params = new URLSearchParams({
+                start: start.toISOString(),
+                end: end.toISOString(),
+            });
+            const res = await fetch(`${API_BASE}/calendar/events?${params.toString()}`, { headers: getApiHeaders(true) });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to load calendar events');
+            }
+            const data = await res.json();
+            setCalendarEvents(data || []);
+        } catch (err: any) {
+            setCalendarEvents([]);
+            setCalendarError(err.message);
+        } finally {
+            setCalendarLoading(false);
+        }
+    };
+
+    const handleCalendarImportFile = async () => {
+        if (!calendarImportFile) {
+            setCalendarError('Please select an .ics file to import.');
+            return;
+        }
+        setCalendarImporting(true);
+        setCalendarError(null);
+        try {
+            const fileText = await calendarImportFile.text();
+            const name = calendarImportFileName.trim() || calendarImportFile.name.replace(/\.ics$/i, '') || 'Imported calendar';
+            const res = await fetch(`${API_BASE}/calendar/imports`, {
+                method: 'POST',
+                headers: { ...getApiHeaders(true), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, ics: fileText }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to import calendar');
+            }
+            setCalendarImportFileName('');
+            setCalendarImportFile(null);
+            setCalendarImportInputKey((prev) => prev + 1);
+            await fetchCalendarImports();
+            fetchCalendarEvents(calendarRange.start, calendarRange.end);
+        } catch (err: any) {
+            setCalendarError(err.message);
+        } finally {
+            setCalendarImporting(false);
+        }
+    };
+
+    const handleCalendarImportUrl = async () => {
+        if (!calendarImportUrl.trim()) {
+            setCalendarError('Please paste an ICS subscription URL.');
+            return;
+        }
+        setCalendarImporting(true);
+        setCalendarError(null);
+        try {
+            const name = calendarImportUrlName.trim() || 'Subscribed calendar';
+            const res = await fetch(`${API_BASE}/calendar/imports`, {
+                method: 'POST',
+                headers: { ...getApiHeaders(true), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, url: calendarImportUrl.trim() }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to subscribe calendar');
+            }
+            setCalendarImportUrlName('');
+            setCalendarImportUrl('');
+            await fetchCalendarImports();
+            fetchCalendarEvents(calendarRange.start, calendarRange.end);
+        } catch (err: any) {
+            setCalendarError(err.message);
+        } finally {
+            setCalendarImporting(false);
+        }
+    };
+
+    const handleCalendarImportRemove = async (importId: string) => {
+        try {
+            const res = await fetch(`${API_BASE}/calendar/imports/${importId}`, {
+                method: 'DELETE',
+                headers: getApiHeaders(true),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to remove calendar import');
+            }
+            await fetchCalendarImports();
+            fetchCalendarEvents(calendarRange.start, calendarRange.end);
+        } catch (err: any) {
+            setCalendarError(err.message);
+        }
+    };
+
+    const handleCalendarMonthChange = (delta: number) => {
+        const next = new Date(calendarDate);
+        next.setMonth(next.getMonth() + delta);
+        setCalendarDate(next);
+        setCalendarSelectedDate(next);
+    };
+
+    const handleCalendarToday = () => {
+        const today = new Date();
+        setCalendarDate(today);
+        setCalendarSelectedDate(today);
+    };
+
     const submitObjective = async (draft: { title: string; description?: string; ownerId: string; startDate: string; endDate: string; status: string }, onSuccess?: () => void) => {
         if (!activeTenantId) return;
         try {
@@ -503,6 +675,27 @@ const App: React.FC = () => {
             // ignore
         }
         fetchData();
+    };
+
+    const handleBoardNavClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        if (isSidebarCollapsed) {
+            setIsBoardNavOpen(true);
+            setView('kanban');
+            return;
+        }
+        const target = event.target as HTMLElement;
+        if (target.closest('.sidebar-nav-chevron')) {
+            setIsBoardNavOpen((prev) => !prev);
+            return;
+        }
+        setIsBoardNavOpen(true);
+        setView('kanban');
+    };
+
+    const handleSidebarBoardSelect = (boardId: string) => {
+        handleBoardChange(boardId);
+        setIsBoardNavOpen(true);
+        setView('kanban');
     };
 
     const loadBoardsForHuddle = async (tenantId: string) => {
@@ -877,6 +1070,12 @@ const App: React.FC = () => {
         if (!task?.dueDate) return false;
         if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
         return new Date(task.dueDate).getTime() < Date.now();
+    };
+    const toDateKey = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     };
     const buildSeriesForDays = (
         items: Array<{ updatedAt?: string; createdAt?: string }>,
@@ -1280,6 +1479,57 @@ const App: React.FC = () => {
         return items.slice(0, 5);
     }, [dashboardSummary.overdueTasks, dashboardSummary.dueSoonTasks, dashboardSummary.activeTasks]);
 
+    const calendarRange = useMemo(() => {
+        const base = new Date(calendarDate);
+        base.setHours(0, 0, 0, 0);
+        const firstOfMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+        const startOffset = (firstOfMonth.getDay() + 6) % 7;
+        const start = new Date(firstOfMonth);
+        start.setDate(firstOfMonth.getDate() - startOffset);
+        const days = Array.from({ length: 42 }, (_, index) => {
+            const day = new Date(start);
+            day.setDate(start.getDate() + index);
+            return day;
+        });
+        const end = new Date(days[days.length - 1]);
+        end.setHours(23, 59, 59, 999);
+        return { start, end, days };
+    }, [calendarDate]);
+
+    const calendarEventsByDay = useMemo(() => {
+        const map = new Map<string, CalendarEvent[]>();
+        calendarEvents.forEach((event) => {
+            const start = new Date(event.start);
+            const end = new Date(event.end);
+            const current = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+            if (event.allDay && endDay.getTime() === end.getTime()) {
+                endDay.setDate(endDay.getDate() - 1);
+            }
+            let guard = 0;
+            while (current <= endDay && guard < 40) {
+                const key = toDateKey(current);
+                const list = map.get(key) || [];
+                list.push(event);
+                map.set(key, list);
+                current.setDate(current.getDate() + 1);
+                guard += 1;
+            }
+        });
+        map.forEach((value) => {
+            value.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+        });
+        return map;
+    }, [calendarEvents]);
+
+    const selectedCalendarKey = useMemo(() => toDateKey(calendarSelectedDate), [calendarSelectedDate]);
+    const selectedDayEvents = calendarEventsByDay.get(selectedCalendarKey) || [];
+    const calendarMonthLabel = useMemo(
+        () => calendarDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+        [calendarDate]
+    );
+    const calendarWeekdays = useMemo(() => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []);
+
     const showLegacyOkr = useMemo(() => {
         try {
             return localStorage.getItem('kanbax-okr-legacy') === '1';
@@ -1315,6 +1565,30 @@ const App: React.FC = () => {
             setReviewStep(0);
         }
     }, [okrScreen, okrRoute?.objectiveId]);
+
+    useEffect(() => {
+        if (view !== 'calendar' || !session || !activeTenantId) return;
+        fetchCalendarImports();
+    }, [view, session, activeTenantId]);
+
+    useEffect(() => {
+        if (view !== 'calendar' || !session || !activeTenantId) return;
+        fetchCalendarEvents(calendarRange.start, calendarRange.end);
+    }, [view, session, activeTenantId, calendarRange.start.getTime(), calendarRange.end.getTime()]);
+
+    useEffect(() => {
+        if (view !== 'calendar' || !session || !activeTenantId) return;
+        const refresh = () => fetchCalendarEvents(calendarRange.start, calendarRange.end);
+        const interval = window.setInterval(refresh, 180000);
+        const onVisibility = () => {
+            if (!document.hidden) refresh();
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => {
+            window.clearInterval(interval);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    }, [view, session, activeTenantId, calendarRange.start.getTime(), calendarRange.end.getTime()]);
 
     const okrPeriphery = useMemo(() => {
         const pinned = okrPinned.map((id) => objectiveViews.find((obj) => obj.id === id)).filter(Boolean) as ObjectiveView[];
@@ -1398,6 +1672,179 @@ const App: React.FC = () => {
             // ignore
         }
     }, [isSidebarCollapsed]);
+
+    useEffect(() => {
+        if (isSidebarCollapsed) {
+            setIsBoardNavOpen(false);
+        }
+    }, [isSidebarCollapsed]);
+
+    useEffect(() => {
+        if (isSidebarCollapsed && view !== 'kanban' && view !== 'table') {
+            setIsBoardNavOpen(false);
+        }
+    }, [isSidebarCollapsed, view]);
+
+    useEffect(() => {
+        if (isSidebarCollapsed) {
+            setIsOkrNavOpen(false);
+        }
+    }, [isSidebarCollapsed]);
+
+    useEffect(() => {
+        if (isSidebarCollapsed && view !== 'okr') {
+            setIsOkrNavOpen(false);
+        }
+    }, [isSidebarCollapsed, view]);
+
+    useEffect(() => {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'app-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        tooltip.style.opacity = '0';
+        tooltip.style.visibility = 'hidden';
+        document.body.appendChild(tooltip);
+
+        let activeTarget: HTMLElement | null = null;
+        let rafId: number | null = null;
+
+        const getTooltipText = (el: HTMLElement) => {
+            const raw =
+                el.getAttribute('data-tooltip') ||
+                el.getAttribute('data-label') ||
+                el.getAttribute('title') ||
+                '';
+            const text = raw.trim();
+            return text || null;
+        };
+
+        const restoreTitle = (el: HTMLElement) => {
+            if (el.dataset.tooltipTitle !== undefined) {
+                el.setAttribute('title', el.dataset.tooltipTitle);
+                delete el.dataset.tooltipTitle;
+            }
+        };
+
+        const positionTooltip = () => {
+            if (!activeTarget) return;
+            const text = getTooltipText(activeTarget);
+            if (!text) return;
+            const rect = activeTarget.getBoundingClientRect();
+            const tipRect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const spacing = 8;
+            const isCollapsed = document.querySelector('.dashboard')?.classList.contains('sidebar-collapsed');
+            const isSidebarTarget = Boolean(activeTarget.closest('.sidebar')) && Boolean(isCollapsed);
+
+            let top: number;
+            let left: number;
+
+            if (isSidebarTarget) {
+                left = rect.right + spacing;
+                top = rect.top + rect.height / 2 - tipRect.height / 2;
+                if (left + tipRect.width > viewportWidth - spacing) {
+                    left = rect.left - spacing - tipRect.width;
+                }
+            } else {
+                top = rect.top - spacing - tipRect.height;
+                left = rect.left + rect.width / 2 - tipRect.width / 2;
+                if (top < spacing) {
+                    top = rect.bottom + spacing;
+                }
+            }
+
+            left = Math.max(spacing, Math.min(left, viewportWidth - spacing - tipRect.width));
+            top = Math.max(spacing, Math.min(top, viewportHeight - spacing - tipRect.height));
+
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+        };
+
+        const schedulePosition = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = window.requestAnimationFrame(positionTooltip);
+        };
+
+        const showTooltip = (target: HTMLElement) => {
+            const text = getTooltipText(target);
+            if (!text) return;
+            if (activeTarget && activeTarget !== target) {
+                restoreTitle(activeTarget);
+            }
+            activeTarget = target;
+            if (target.hasAttribute('title')) {
+                target.dataset.tooltipTitle = target.getAttribute('title') || '';
+                target.removeAttribute('title');
+            }
+            tooltip.textContent = text;
+            tooltip.style.opacity = '1';
+            tooltip.style.visibility = 'visible';
+            schedulePosition();
+        };
+
+        const hideTooltip = () => {
+            if (activeTarget) {
+                restoreTitle(activeTarget);
+            }
+            activeTarget = null;
+            tooltip.style.opacity = '0';
+            tooltip.style.visibility = 'hidden';
+        };
+
+        const resolveTarget = (eventTarget: EventTarget | null) => {
+            if (!(eventTarget instanceof HTMLElement)) return null;
+            return eventTarget.closest('[data-tooltip], [data-label], [title]') as HTMLElement | null;
+        };
+
+        const handlePointerOver = (event: PointerEvent) => {
+            const target = resolveTarget(event.target);
+            if (!target) return;
+            if (activeTarget && (target === activeTarget || activeTarget.contains(target))) return;
+            showTooltip(target);
+        };
+
+        const handlePointerOut = (event: PointerEvent) => {
+            if (!activeTarget) return;
+            const relatedNode = event.relatedTarget as Node | null;
+            if (relatedNode && activeTarget.contains(relatedNode)) return;
+            const target = resolveTarget(event.target);
+            if (target && target !== activeTarget) return;
+            hideTooltip();
+        };
+
+        const handleFocusIn = (event: FocusEvent) => {
+            const target = resolveTarget(event.target);
+            if (!target) return;
+            showTooltip(target);
+        };
+
+        const handleFocusOut = () => {
+            hideTooltip();
+        };
+
+        const handleViewportChange = () => {
+            if (activeTarget) schedulePosition();
+        };
+
+        document.addEventListener('pointerover', handlePointerOver);
+        document.addEventListener('pointerout', handlePointerOut);
+        document.addEventListener('focusin', handleFocusIn);
+        document.addEventListener('focusout', handleFocusOut);
+        window.addEventListener('scroll', handleViewportChange, true);
+        window.addEventListener('resize', handleViewportChange);
+
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            document.removeEventListener('pointerover', handlePointerOver);
+            document.removeEventListener('pointerout', handlePointerOut);
+            document.removeEventListener('focusin', handleFocusIn);
+            document.removeEventListener('focusout', handleFocusOut);
+            window.removeEventListener('scroll', handleViewportChange, true);
+            window.removeEventListener('resize', handleViewportChange);
+            tooltip.remove();
+        };
+    }, []);
 
     const loadProfile = async () => {
         if (!session?.access_token) return;
@@ -1548,6 +1995,21 @@ const App: React.FC = () => {
     const activeBoard = isArchivedBoard
         ? { id: ARCHIVED_BOARD_ID, name: 'Archived', columns: [] }
         : (boards.find((item) => item.id === activeBoardId) || board);
+    const getBoardInitials = (name?: string | null) => {
+        const clean = (name || '').trim();
+        if (!clean) return 'B';
+        const parts = clean.split(/\s+/).filter(Boolean);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    };
+    const sidebarBoardItems = useMemo(() => {
+        const list = activeTenantId ? (boardsByTenant[activeTenantId] || boards) : boards;
+        const items = Array.isArray(list) ? [...list] : [];
+        if (!items.some((item) => item.id === ARCHIVED_BOARD_ID)) {
+            items.push({ id: ARCHIVED_BOARD_ID, name: 'Archived', columns: [] } as BoardView);
+        }
+        return items;
+    }, [activeTenantId, boardsByTenant, boards]);
     const getWritableBoards = (tenantId?: string | null) => {
         const list = tenantId
             ? (boardsByTenant[tenantId] || (tenantId === activeTenantId ? boards : []))
@@ -1658,6 +2120,24 @@ const App: React.FC = () => {
         setView('okr');
         setOkrRoute(parseOkrPath(path));
     };
+    const handleOkrNavClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        if (isSidebarCollapsed) {
+            setIsOkrNavOpen(true);
+            navigateOkr('/okr');
+            return;
+        }
+        const target = event.target as HTMLElement;
+        if (target.closest('.sidebar-nav-chevron')) {
+            setIsOkrNavOpen((prev) => !prev);
+            return;
+        }
+        setIsOkrNavOpen(true);
+        navigateOkr('/okr');
+    };
+    const handleSidebarObjectiveSelect = (objectiveId: string) => {
+        setIsOkrNavOpen(true);
+        openObjectiveFocus(objectiveId);
+    };
     const buildSettingsDraft = (user: any) => {
         const prefs = user?.preferences || {};
         return {
@@ -1762,6 +2242,7 @@ const App: React.FC = () => {
             return items;
         }
         if (view === 'dashboard') items.push({ label: 'Dashboard', onClick: () => setView('dashboard') });
+        if (view === 'calendar') items.push({ label: 'Calendar', onClick: () => setView('calendar') });
         if (view === 'table') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'list') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'kanban') items.push({ label: activeBoard?.name || 'Board', onClick: () => setView('kanban') });
@@ -3468,7 +3949,7 @@ const App: React.FC = () => {
                             </button>
                             <button
                                 className={`sidebar-nav-item ${view === 'kanban' ? 'active' : ''}`}
-                                onClick={() => setView('kanban')}
+                                onClick={handleBoardNavClick}
                                 data-tooltip="Board"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
@@ -3479,10 +3960,51 @@ const App: React.FC = () => {
                                     </svg>
                                 </span>
                                 <span className="sidebar-nav-label">Board</span>
+                                <span
+                                    className={`sidebar-nav-chevron ${isBoardNavOpen ? 'open' : ''}`}
+                                    aria-hidden="true"
+                                >
+                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <polyline points="4 8 10 14 16 8" />
+                                    </svg>
+                                </span>
                             </button>
+                            {!isSidebarCollapsed && isBoardNavOpen && (
+                                <div className="sidebar-board-list">
+                                    {sidebarBoardItems.length === 0 ? (
+                                        <div className="sidebar-board-empty">No boards yet.</div>
+                                    ) : (
+                                        sidebarBoardItems.map((boardItem) => (
+                                            <button
+                                                key={boardItem.id}
+                                                className={`sidebar-board-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
+                                                onClick={() => handleSidebarBoardSelect(boardItem.id)}
+                                            >
+                                                <span className="sidebar-board-dot" aria-hidden="true" />
+                                                <span className="sidebar-board-label">{boardItem.name}</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                            {isSidebarCollapsed && isBoardNavOpen && (view === 'kanban' || view === 'table') && (
+                                <div className="sidebar-board-compact">
+                                    {sidebarBoardItems.map((boardItem) => (
+                                        <button
+                                            key={boardItem.id}
+                                            className={`sidebar-board-compact-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
+                                            onClick={() => handleSidebarBoardSelect(boardItem.id)}
+                                            title={boardItem.name}
+                                            aria-label={`Open board ${boardItem.name}`}
+                                        >
+                                            {getBoardInitials(boardItem.name)}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <button
                                 className={`sidebar-nav-item ${view === 'okr' ? 'active' : ''}`}
-                                onClick={() => navigateOkr('/okr')}
+                                onClick={handleOkrNavClick}
                                 data-tooltip="OKRs"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
@@ -3494,7 +4016,50 @@ const App: React.FC = () => {
                                     </svg>
                                 </span>
                                 <span className="sidebar-nav-label">OKRs</span>
+                                <span
+                                    className={`sidebar-nav-chevron ${isOkrNavOpen ? 'open' : ''}`}
+                                    aria-hidden="true"
+                                >
+                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <polyline points="4 8 10 14 16 8" />
+                                    </svg>
+                                </span>
                             </button>
+                            {!isSidebarCollapsed && isOkrNavOpen && (
+                                <div className="sidebar-board-list">
+                                    {okrLoading ? (
+                                        <div className="sidebar-board-empty">Loading OKRs…</div>
+                                    ) : objectiveViews.length === 0 ? (
+                                        <div className="sidebar-board-empty">No objectives yet.</div>
+                                    ) : (
+                                        objectiveViews.map((objective) => (
+                                            <button
+                                                key={objective.id}
+                                                className={`sidebar-board-item ${objective.id === okrActiveObjective?.id ? 'active' : ''}`}
+                                                onClick={() => handleSidebarObjectiveSelect(objective.id)}
+                                            >
+                                                <span className="sidebar-board-dot" aria-hidden="true" />
+                                                <span className="sidebar-board-label">{objective.title}</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                            {isSidebarCollapsed && isOkrNavOpen && view === 'okr' && (
+                                <div className="sidebar-board-compact">
+                                    {objectiveViews.map((objective) => (
+                                        <button
+                                            key={objective.id}
+                                            className={`sidebar-board-compact-item ${objective.id === okrActiveObjective?.id ? 'active' : ''}`}
+                                            onClick={() => handleSidebarObjectiveSelect(objective.id)}
+                                            title={objective.title}
+                                            aria-label={`Open objective ${objective.title}`}
+                                        >
+                                            {getBoardInitials(objective.title)}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="sidebar-footer">
@@ -3563,7 +4128,9 @@ const App: React.FC = () => {
                                     ? 'OKRs'
                                     : view === 'dashboard'
                                         ? 'Dashboard'
-                                        : (activeBoard?.name || activeHuddleName || 'Board')}
+                                        : view === 'calendar'
+                                            ? 'Calendar'
+                                            : (activeBoard?.name || activeHuddleName || 'Board')}
                         </h1>
                         {(view === 'kanban' || view === 'table') && (
                             <button
@@ -3689,6 +4256,189 @@ const App: React.FC = () => {
                     <div className="content-loader">
                         <div className="content-loader-title">Loading huddle…</div>
                         <div className="content-loader-text">Fetching tasks and status.</div>
+                    </div>
+                ) : view === 'calendar' ? (
+                    <div className="calendar-view">
+                        <div className="calendar-header">
+                            <div className="calendar-header-left">
+                                <div className="calendar-title">{calendarMonthLabel}</div>
+                                <div className="calendar-nav">
+                                    <button className="btn btn-ghost btn-compact" onClick={handleCalendarToday}>
+                                        Today
+                                    </button>
+                                    <button
+                                        className="icon-action"
+                                        onClick={() => handleCalendarMonthChange(-1)}
+                                        aria-label="Previous month"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M15 6l-6 6 6 6" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className="icon-action"
+                                        onClick={() => handleCalendarMonthChange(1)}
+                                        aria-label="Next month"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M9 6l6 6-6 6" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="calendar-imports">
+                                <div className="calendar-import-card">
+                                    <div className="calendar-import-title">Manual import (.ics)</div>
+                                    <div className="calendar-import-meta">
+                                        Upload a calendar export. Re-upload to refresh.
+                                    </div>
+                                    <div className="calendar-import-form">
+                                        <input
+                                            key={calendarImportInputKey}
+                                            type="file"
+                                            accept=".ics,text/calendar"
+                                            onChange={(event) => {
+                                                const file = event.target.files?.[0] || null;
+                                                setCalendarImportFile(file);
+                                            }}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Optional label"
+                                            value={calendarImportFileName}
+                                            onChange={(event) => setCalendarImportFileName(event.target.value)}
+                                        />
+                                        <button
+                                            className="btn btn-primary btn-compact"
+                                            onClick={handleCalendarImportFile}
+                                            disabled={calendarImporting || !calendarImportFile}
+                                        >
+                                            {calendarImporting ? 'Importing…' : 'Import'}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="calendar-import-card">
+                                    <div className="calendar-import-title">Subscribe via URL</div>
+                                    <div className="calendar-import-meta">
+                                        Add a published ICS link. Auto-refreshes while open.
+                                    </div>
+                                    <div className="calendar-import-form">
+                                        <input
+                                            type="url"
+                                            placeholder="https://outlook.office.com/calendar/..."
+                                            value={calendarImportUrl}
+                                            onChange={(event) => setCalendarImportUrl(event.target.value)}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Optional label"
+                                            value={calendarImportUrlName}
+                                            onChange={(event) => setCalendarImportUrlName(event.target.value)}
+                                        />
+                                        <button
+                                            className="btn btn-primary btn-compact"
+                                            onClick={handleCalendarImportUrl}
+                                            disabled={calendarImporting || !calendarImportUrl.trim()}
+                                        >
+                                            {calendarImporting ? 'Subscribing…' : 'Subscribe'}
+                                        </button>
+                                    </div>
+                                </div>
+                                {calendarImports.map((item) => (
+                                    <div key={item.id} className="calendar-import-card">
+                                        <div className="calendar-import-title">{item.name}</div>
+                                        <div className="calendar-import-meta">
+                                            {item.type === 'url' ? 'URL subscription' : 'File import'} ·{' '}
+                                            {new Date(item.createdAt).toLocaleDateString()}
+                                        </div>
+                                        <button
+                                            className="btn btn-ghost btn-compact"
+                                            onClick={() => handleCalendarImportRemove(item.id)}
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        {calendarError && <div className="calendar-error">{calendarError}</div>}
+                        <div className="calendar-layout">
+                            <div className="calendar-grid">
+                                <div className="calendar-weekdays">
+                                    {calendarWeekdays.map((day) => (
+                                        <span key={day}>{day}</span>
+                                    ))}
+                                </div>
+                                <div className="calendar-days">
+                                    {calendarRange.days.map((day) => {
+                                        const key = toDateKey(day);
+                                        const events = calendarEventsByDay.get(key) || [];
+                                        const isCurrentMonth = day.getMonth() === calendarDate.getMonth();
+                                        const isToday = key === toDateKey(new Date());
+                                        const isSelected = key === selectedCalendarKey;
+                                        return (
+                                            <button
+                                                key={key}
+                                                className={`calendar-day${isCurrentMonth ? '' : ' muted'}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}`}
+                                                onClick={() => setCalendarSelectedDate(day)}
+                                            >
+                                                <span className="calendar-day-number">{day.getDate()}</span>
+                                                <span className="calendar-day-events">
+                                                    {events.slice(0, 3).map((event, index) => (
+                                                        <span
+                                                            key={`${event.id}-${index}`}
+                                                            className={`calendar-event-dot ${event.provider}`}
+                                                        />
+                                                    ))}
+                                                    {events.length > 3 && (
+                                                        <span className="calendar-event-more">+{events.length - 3}</span>
+                                                    )}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="calendar-agenda">
+                                <div className="calendar-agenda-header">
+                                    <div className="calendar-agenda-date">
+                                        {calendarSelectedDate.toLocaleDateString(undefined, {
+                                            weekday: 'long',
+                                            month: 'long',
+                                            day: 'numeric',
+                                        })}
+                                    </div>
+                                    <div className="calendar-agenda-meta">{selectedDayEvents.length} events</div>
+                                </div>
+                                {calendarLoading ? (
+                                    <div className="calendar-loading">Loading events…</div>
+                                ) : selectedDayEvents.length === 0 ? (
+                                    <div className="calendar-empty">No events scheduled.</div>
+                                ) : (
+                                    <div className="calendar-agenda-list">
+                                        {selectedDayEvents.map((event) => {
+                                            const start = new Date(event.start);
+                                            const end = new Date(event.end);
+                                            const timeLabel = event.allDay
+                                                ? 'All day'
+                                                : `${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                            return (
+                                                <div key={`${event.provider}-${event.id}`} className="calendar-agenda-item">
+                                                    <span className={`calendar-event-dot ${event.provider}`} />
+                                                    <div className="calendar-agenda-info">
+                                                        <div className="calendar-agenda-time">{timeLabel}</div>
+                                                        <div className="calendar-agenda-title">{event.title || '(No title)'}</div>
+                                                        {event.location && (
+                                                            <div className="calendar-agenda-meta">{event.location}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 ) : view === 'settings' ? (
                     <div className="settings-panel">
@@ -4150,15 +4900,6 @@ const App: React.FC = () => {
                                     />
                                 </label>
                                 <label>
-                                    Description
-                                    <textarea
-                                        value={newObjective.description}
-                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, description: e.target.value }))}
-                                        placeholder="Short context for the objective"
-                                        rows={3}
-                                    />
-                                </label>
-                                <label>
                                     Owner
                                     <select
                                         value={newObjective.ownerId}
@@ -4199,6 +4940,15 @@ const App: React.FC = () => {
                                         <option value="PAUSED">Paused</option>
                                         <option value="DONE">Done</option>
                                     </select>
+                                </label>
+                                <label className="okr-grid-full">
+                                    Description
+                                    <textarea
+                                        value={newObjective.description}
+                                        onChange={(e) => setNewObjective((prev) => ({ ...prev, description: e.target.value }))}
+                                        placeholder="Short context for the objective"
+                                        rows={3}
+                                    />
                                 </label>
                             </div>
                             <div className="okr-actions">
@@ -5294,11 +6044,13 @@ const App: React.FC = () => {
                                         )}
                                     </div>
                                 )}
-                                <label className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`} title="Favorites only">
+                                <label className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`} data-tooltip="Nur Favoriten"
+                                            aria-label="Nur Favoriten">
                                     <input
                                         type="checkbox"
                                         checked={filterFavorites}
                                         onChange={(e) => setFilterFavorites(e.target.checked)}
+
                                     />
                                     <span className="filter-favorites-icon" aria-hidden="true">★</span>
                                 </label>
@@ -5346,7 +6098,7 @@ const App: React.FC = () => {
                                             return (
                                                 <React.Fragment key={task.id}>
                                                     <div
-                                                        className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}${isOverdueTask(task) ? ' task-card-overdue' : ''}`}
+                                                        className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}`}
                                                         style={taskCardStyle}
                                                         draggable={isDraggable}
                                                         onDragStart={(e) => (isDraggable ? onDragStart(e, task.id) : e.preventDefault())}
@@ -5357,7 +6109,7 @@ const App: React.FC = () => {
                                                     >
                                                         <div className="task-card-content">
                                                             <div className="task-card-topbar">
-                                                            <div className={`task-card-due${isOverdueTask(task) ? ' overdue' : ''}`}>
+                                                            <div className="task-card-due">
                                                                 <span className="task-card-due-icon" aria-hidden="true">
                                                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
                                                                         <path d="M5 4v16" />
@@ -5475,7 +6227,7 @@ const App: React.FC = () => {
                                     <tbody>
                                         {visibleTasksForView.map((task: TaskView) => (
                                             <React.Fragment key={task.id}>
-                                                <tr onClick={() => openDetailsModal(task)} className={isOverdueTask(task) ? 'task-row-overdue' : ''}>
+                                                <tr onClick={() => openDetailsModal(task)}>
                                                     <td>{task.title}</td>
                                                     <td>
                                                         <div className="task-card-people">
@@ -5494,7 +6246,7 @@ const App: React.FC = () => {
                                                             {task.priority}
                                                         </span>
                                                     </td>
-                                                    <td className={`task-table-due${isOverdueTask(task) ? ' overdue' : ''}`}>
+                                                    <td>
                                                         {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
                                                     </td>
                                                     <td>{task.sourceIndicator}</td>
