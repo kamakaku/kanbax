@@ -4,6 +4,8 @@ import { supabase } from './supabaseClient';
 
 const API_BASE = 'http://localhost:4000';
 const ARCHIVED_BOARD_ID = 'archived';
+const ALL_BOARD_ID = 'all';
+const OWN_BOARD_ID = 'mine';
 
 interface OkrKeyResult {
     id: string;
@@ -187,6 +189,7 @@ const App: React.FC = () => {
     useEffect(() => {
         setLineHoverIndex(null);
     }, [lineRangeDays]);
+
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         try {
             return localStorage.getItem('kanbax-sidebar-collapsed') === 'true';
@@ -200,6 +203,7 @@ const App: React.FC = () => {
     const [boardsByTenant, setBoardsByTenant] = useState<Record<string, BoardView[]>>({});
     const [boardMenuOpen, setBoardMenuOpen] = useState(false);
     const [okrMenuOpen, setOkrMenuOpen] = useState(false);
+    const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
     const [scopeWindowsByBoard, setScopeWindowsByBoard] = useState<Record<string, ScopeWindow[]>>(() => {
         try {
             const raw = localStorage.getItem('kanbax-scope-windows');
@@ -245,6 +249,7 @@ const App: React.FC = () => {
     const [scopeStatusFilterOpen, setScopeStatusFilterOpen] = useState(false);
     const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list'>('board');
     const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
+    const [showScopeDropRow, setShowScopeDropRow] = useState(false);
     const [scopeSettingsDraft, setScopeSettingsDraft] = useState({
         name: '',
         description: '',
@@ -335,6 +340,16 @@ const App: React.FC = () => {
     const [isBoardNavOpen, setIsBoardNavOpen] = useState(() => !isSidebarCollapsed);
     const [isOkrNavOpen, setIsOkrNavOpen] = useState(() => !isSidebarCollapsed && view === 'okr');
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (view !== 'kanban' && view !== 'table') {
+            setIsBoardNavOpen(false);
+        }
+        if (view !== 'okr') {
+            setIsOkrNavOpen(false);
+        }
+    }, [view]);
+
     const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
     const [newTaskAttachments, setNewTaskAttachments] = useState<TaskView['attachments']>([]);
     const [newTaskKinds, setNewTaskKinds] = useState<string[]>([]);
@@ -427,7 +442,7 @@ const App: React.FC = () => {
                 return;
             }
             const boardsRes = await fetch(`${API_BASE}/boards`, { headers: getApiHeaders() });
-            if (!boardsRes.ok) throw new Error('Failed to fetch boards');
+            if (!boardsRes.ok) throw new Error('Failed to fetch task lists');
             const boardsData = await boardsRes.json();
             setBoards(boardsData);
             if (activeTenantId) {
@@ -442,8 +457,11 @@ const App: React.FC = () => {
                 }
             })();
             const fallbackBoardId = boardsData[0]?.id || null;
-            const nextBoardId = storedBoardId === ARCHIVED_BOARD_ID
-                ? ARCHIVED_BOARD_ID
+            const isStoredSpecial = storedBoardId === ARCHIVED_BOARD_ID
+                || storedBoardId === ALL_BOARD_ID
+                || storedBoardId === OWN_BOARD_ID;
+            const nextBoardId = isStoredSpecial
+                ? storedBoardId
                 : (storedBoardId && boardsData.some((b: BoardView) => b.id === storedBoardId))
                     ? storedBoardId
                     : fallbackBoardId;
@@ -456,16 +474,30 @@ const App: React.FC = () => {
                 }
             }
 
-            const tasksBoardId = nextBoardId === ARCHIVED_BOARD_ID ? 'all' : (nextBoardId || '');
+            const tasksBoardId = nextBoardId === ARCHIVED_BOARD_ID
+                || nextBoardId === ALL_BOARD_ID
+                || nextBoardId === OWN_BOARD_ID
+                ? 'all'
+                : (nextBoardId || '');
             const tasksRes = await fetch(`${API_BASE}/tasks?boardId=${encodeURIComponent(tasksBoardId)}`, { headers: getApiHeaders() });
             if (!tasksRes.ok) throw new Error('Failed to fetch tasks');
             const tasksData = await tasksRes.json();
 
-            setTasks(tasksData);
+            const currentUserId = userProfile?.id || session?.user?.id || '';
+            const scopedTasks = nextBoardId === OWN_BOARD_ID && currentUserId
+                ? tasksData.filter((task: TaskView) =>
+                    task.ownerId === currentUserId || (task.assignees || []).includes(currentUserId)
+                )
+                : tasksData;
+
+            setTasks(scopedTasks);
             if (activeTenantId) {
                 setTasksByTenant((prev) => ({ ...prev, [activeTenantId]: tasksData }));
             }
-            setBoard(boardsData.find((b: BoardView) => b.id === nextBoardId) || boardsData[0] || null);
+            const selectedBoard = (nextBoardId && nextBoardId !== ARCHIVED_BOARD_ID && nextBoardId !== ALL_BOARD_ID && nextBoardId !== OWN_BOARD_ID)
+                ? boardsData.find((b: BoardView) => b.id === nextBoardId) || boardsData[0] || null
+                : null;
+            setBoard(selectedBoard);
             const taskKinds = tasksData
                 .flatMap((task: TaskView) => (task.kinds || []).map((kind) => kind.trim()))
                 .filter((kind: string) => kind.length > 0);
@@ -513,7 +545,7 @@ const App: React.FC = () => {
         }
         try {
             setOkrLoading(true);
-            const boardId = activeBoardId === 'all' || activeBoardId === ARCHIVED_BOARD_ID
+            const boardId = activeBoardId === ALL_BOARD_ID || activeBoardId === OWN_BOARD_ID || activeBoardId === ARCHIVED_BOARD_ID
                 ? resolveWritableBoardId(activeTenantId)
                 : (activeBoardId || 'default-board');
             const res = await fetch(`${API_BASE}/okrs?boardId=${encodeURIComponent(boardId)}`, { headers: getApiHeaders() });
@@ -672,7 +704,7 @@ const App: React.FC = () => {
                 startDate: draft.startDate || null,
                 endDate: draft.endDate || null,
                 status: draft.status || 'ACTIVE',
-                boardId: activeBoardId === 'all' || activeBoardId === ARCHIVED_BOARD_ID
+                boardId: activeBoardId === ALL_BOARD_ID || activeBoardId === OWN_BOARD_ID || activeBoardId === ARCHIVED_BOARD_ID
                     ? resolveWritableBoardId(activeTenantId)
                     : (activeBoardId || 'default-board'),
             };
@@ -718,7 +750,7 @@ const App: React.FC = () => {
 
     const handleCreateBoard = async () => {
         if (!activeTenantId) return;
-        const name = prompt('Board name');
+        const name = prompt('Task list name');
         if (!name) return;
         try {
             const res = await fetch(`${API_BASE}/boards`, {
@@ -728,7 +760,7 @@ const App: React.FC = () => {
             });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to create board');
+                throw new Error(err.error || 'Failed to create task list');
             }
             const created = await res.json();
             setBoards((prev) => prev.concat(created));
@@ -974,7 +1006,8 @@ const App: React.FC = () => {
 
     const handleDeleteBoard = async () => {
         if (!activeTenantId || !activeBoardId) return;
-        if (!confirm('Delete this board and all its data? This cannot be undone.')) return;
+        if (activeBoardId === ARCHIVED_BOARD_ID || activeBoardId === ALL_BOARD_ID || activeBoardId === OWN_BOARD_ID) return;
+        if (!confirm('Delete this task list and all its data? This cannot be undone.')) return;
         try {
             const res = await fetch(`${API_BASE}/boards/${activeBoardId}`, {
                 method: 'DELETE',
@@ -982,7 +1015,7 @@ const App: React.FC = () => {
             });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to delete board');
+                throw new Error(err.error || 'Failed to delete task list');
             }
             const nextBoards = boards.filter((item) => item.id !== activeBoardId);
             setBoards(nextBoards);
@@ -1850,6 +1883,19 @@ const App: React.FC = () => {
     }, [session, activeTenantId]);
 
     useEffect(() => {
+        if (activeBoardId !== OWN_BOARD_ID || !activeTenantId) return;
+        const userId = userProfile?.id || session?.user?.id || '';
+        if (!userId) return;
+        const sourceTasks = tasksByTenant[activeTenantId];
+        if (!sourceTasks) return;
+        setTasks(
+            sourceTasks.filter((task) =>
+                task.ownerId === userId || (task.assignees || []).includes(userId)
+            )
+        );
+    }, [activeBoardId, activeTenantId, userProfile?.id, session?.user?.id, tasksByTenant]);
+
+    useEffect(() => {
         try {
             localStorage.setItem('kanbax-okr-pinned', JSON.stringify(okrPinned));
         } catch {
@@ -2232,9 +2278,16 @@ const App: React.FC = () => {
     const currentUserAvatar = settingsDraft?.avatarUrl || userProfile?.avatarUrl || '';
     const toDateInput = (value?: string | null) => (value ? new Date(value).toISOString().slice(0, 10) : '');
     const isArchivedBoard = activeBoardId === ARCHIVED_BOARD_ID;
+    const isAllBoard = activeBoardId === ALL_BOARD_ID;
+    const isOwnBoard = activeBoardId === OWN_BOARD_ID;
+    const isSpecialBoard = isAllBoard || isOwnBoard;
     const activeBoard = isArchivedBoard
         ? { id: ARCHIVED_BOARD_ID, name: 'Archived', columns: [] }
-        : (boards.find((item) => item.id === activeBoardId) || board);
+        : isAllBoard
+            ? { id: ALL_BOARD_ID, name: 'All tasks', columns: [] }
+            : isOwnBoard
+                ? { id: OWN_BOARD_ID, name: 'My tickets', columns: [] }
+                : (boards.find((item) => item.id === activeBoardId) || board);
     const getBoardInitials = (name?: string | null) => {
         const clean = (name || '').trim();
         if (!clean) return 'B';
@@ -2262,18 +2315,20 @@ const App: React.FC = () => {
         const map = new Map<string, string>();
         (list || []).forEach((boardItem) => {
             if (boardItem?.id) {
-                map.set(boardItem.id, boardItem.name || 'Board');
+                map.set(boardItem.id, boardItem.name || 'Tasks');
             }
         });
         map.set(ARCHIVED_BOARD_ID, 'Archived');
+        map.set(ALL_BOARD_ID, 'All tasks');
+        map.set(OWN_BOARD_ID, 'My tickets');
         if (!map.has('default-board')) {
-            map.set('default-board', 'Main Board');
+            map.set('default-board', 'Main Tasks');
         }
         return map;
     }, [activeTenantId, boardsByTenant, boards]);
     const getBoardLabel = (boardId?: string | null) => {
-        if (!boardId) return 'Board';
-        return boardLabelById.get(boardId) || (boardId === 'all' ? 'All' : boardId);
+        if (!boardId) return 'Tasks';
+        return boardLabelById.get(boardId) || (boardId === ALL_BOARD_ID ? 'All tasks' : boardId);
     };
     const scopeKey = activeTenantId || null;
     const scopeWindows = useMemo(() => {
@@ -2427,21 +2482,31 @@ const App: React.FC = () => {
     };
     const sidebarBoardItems = useMemo(() => {
         const list = activeTenantId ? (boardsByTenant[activeTenantId] || boards) : boards;
-        const items = Array.isArray(list) ? [...list] : [];
-        if (!items.some((item) => item.id === ARCHIVED_BOARD_ID)) {
-            items.push({ id: ARCHIVED_BOARD_ID, name: 'Archived', columns: [] } as BoardView);
-        }
+        const items: Array<{ id: string; name: string }> = [];
+        const pushUnique = (item: { id: string; name: string }) => {
+            if (!items.some((entry) => entry.id === item.id)) {
+                items.push(item);
+            }
+        };
+        pushUnique({ id: ALL_BOARD_ID, name: 'All tasks' });
+        pushUnique({ id: OWN_BOARD_ID, name: 'My tickets' });
+        (Array.isArray(list) ? list : []).forEach((boardItem) => {
+            if (boardItem?.id) {
+                pushUnique({ id: boardItem.id, name: boardItem.name || 'Tasks' });
+            }
+        });
+        pushUnique({ id: ARCHIVED_BOARD_ID, name: 'Archived' });
         return items;
     }, [activeTenantId, boardsByTenant, boards]);
     const getWritableBoards = (tenantId?: string | null) => {
         const list = tenantId
             ? (boardsByTenant[tenantId] || (tenantId === activeTenantId ? boards : []))
             : boards;
-        return (list || []).filter((item) => item.id !== 'all');
+        return (list || []).filter((item) => item.id !== ALL_BOARD_ID && item.id !== OWN_BOARD_ID);
     };
     const resolveWritableBoardId = (tenantId?: string | null) => {
         const list = getWritableBoards(tenantId);
-        if (tenantId === activeTenantId && activeBoardId && activeBoardId !== 'all') {
+        if (tenantId === activeTenantId && activeBoardId && activeBoardId !== ALL_BOARD_ID && activeBoardId !== OWN_BOARD_ID && activeBoardId !== ARCHIVED_BOARD_ID) {
             if (list.some((item) => item.id === activeBoardId)) return activeBoardId;
         }
         return list[0]?.id || 'default-board';
@@ -2646,6 +2711,49 @@ const App: React.FC = () => {
         };
     }, [memberships, activeTenantId]);
     const isActiveHuddleOwner = activeMembership?.role === 'OWNER' || activeMembership?.role === 'ADMIN';
+    const isSpecialSidebarBoard = (boardId?: string | null) =>
+        boardId === ARCHIVED_BOARD_ID || boardId === ALL_BOARD_ID || boardId === OWN_BOARD_ID;
+    const renderSidebarBoardIcon = (boardId?: string | null, compact = false) => {
+        if (!boardId) return <span className="sidebar-board-dot" aria-hidden="true" />;
+        if (boardId === OWN_BOARD_ID) {
+            return (
+                <span
+                    className={`sidebar-board-icon sidebar-board-avatar${compact ? ' compact' : ''}`}
+                    style={{
+                        background: activeHuddleAccent?.solid || 'var(--accent-primary)',
+                        color: activeHuddleAccent?.text || '#0f172a',
+                        borderColor: activeHuddleAccent?.border || 'rgba(30, 30, 30, 0.2)',
+                    }}
+                    aria-hidden="true"
+                >
+                    {currentUserAvatar ? <img src={currentUserAvatar} alt="" /> : currentUserInitial}
+                </span>
+            );
+        }
+        if (boardId === ARCHIVED_BOARD_ID) {
+            return (
+                <span className={`sidebar-board-icon${compact ? ' compact' : ''}`} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                        <rect x="3.5" y="4" width="17" height="5" rx="1.5" />
+                        <path d="M6 9h12v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9z" />
+                        <path d="M9 13h6" />
+                    </svg>
+                </span>
+            );
+        }
+        if (boardId === ALL_BOARD_ID) {
+            return (
+                <span className={`sidebar-board-icon${compact ? ' compact' : ''}`} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                        <rect x="4" y="4.5" width="7" height="7" rx="2" />
+                        <rect x="13" y="4.5" width="7" height="7" rx="2" />
+                        <rect x="4" y="13" width="16" height="7" rx="2" />
+                    </svg>
+                </span>
+            );
+        }
+        return <span className="sidebar-board-dot" aria-hidden="true" />;
+    };
     const breadcrumbItems = useMemo(() => {
         if (view === 'settings') {
             return [{ label: 'Settings' }];
@@ -2683,7 +2791,7 @@ const App: React.FC = () => {
         }
         if (view === 'table') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'list') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
-        if (view === 'kanban') items.push({ label: activeBoard?.name || 'Board', onClick: () => setView('kanban') });
+        if (view === 'kanban') items.push({ label: activeBoard?.name || 'Tasks', onClick: () => setView('kanban') });
         return items;
     }, [view, activeHuddleName, okrScreen, okrActiveObjective, activeBoard?.name, scopeScreen, activeScopeWindow]);
     const notificationSnapshotRef = useRef<Record<string, any>>({});
@@ -3285,9 +3393,11 @@ const App: React.FC = () => {
             return ['ALL', TaskStatus.ARCHIVED];
         }
         const options = new Set<string>();
-        (board?.columns || []).forEach((column: any) => {
-            if (column?.status) options.add(String(column.status));
-        });
+        if (!isSpecialBoard) {
+            (board?.columns || []).forEach((column: any) => {
+                if (column?.status) options.add(String(column.status));
+            });
+        }
         if (options.size === 0) {
             tasks.forEach((task) => {
                 if (task.status && task.status !== TaskStatus.ARCHIVED) {
@@ -3296,7 +3406,7 @@ const App: React.FC = () => {
             });
         }
         return ['ALL', ...Array.from(options)];
-    }, [board?.columns, tasks, isArchivedBoard]);
+    }, [board?.columns, tasks, isArchivedBoard, isSpecialBoard]);
 
     useEffect(() => {
         if (filterStatus !== 'ALL' && !statusFilterOptions.includes(filterStatus)) {
@@ -3325,13 +3435,22 @@ const App: React.FC = () => {
             .toLowerCase();
         return haystack.includes(normalizedFilter);
     };
-    const filteredTasks = tasks.filter(matchesFilter);
-    const visibleTasksForView = isArchivedBoard
-        ? filteredTasks.filter((task) => task.status === TaskStatus.ARCHIVED)
-        : filteredTasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
+    const baseBoardTasks = isArchivedBoard
+        ? tasks.filter((task) => task.status === TaskStatus.ARCHIVED)
+        : tasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
+    const filteredTasks = baseBoardTasks.filter(matchesFilter);
+    const visibleTasksForView = filteredTasks;
+    const syntheticKanbanColumns = useMemo(() => {
+        if (!isSpecialBoard) return [];
+        const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
+        return statuses.map((status) => ({
+            status,
+            tasks: baseBoardTasks.filter((task) => task.status === status),
+        }));
+    }, [baseBoardTasks, isSpecialBoard]);
     const kanbanColumns = isArchivedBoard
         ? [{ status: TaskStatus.ARCHIVED, tasks: visibleTasksForView }]
-        : (board?.columns || []);
+        : (isSpecialBoard ? syntheticKanbanColumns : (board?.columns || []));
     const linkedToSet = new Set(tasks.flatMap((task) => task.linkedTaskIds));
     const normalizedSearch = filterText.trim().toLowerCase();
     const searchPool = normalizedSearch
@@ -3609,6 +3728,154 @@ const App: React.FC = () => {
         setRemovedAttachmentIds([]);
         setIsEditModalOpen(true);
     };
+
+    const closeCreateTaskModal = () => {
+        setIsModalOpen(false);
+        setNewTaskAttachments([]);
+        setNewTaskKinds([]);
+        setNewKindInput('');
+        setNewTaskBoardId(null);
+    };
+
+    const closeDetailsModal = () => {
+        setIsDetailsModalOpen(false);
+        setSelectedTaskId(null);
+    };
+
+    const closeEditTaskModal = () => {
+        setIsEditModalOpen(false);
+        setEditingTaskId(null);
+        setNewAttachments([]);
+        setRemovedAttachmentIds([]);
+        setEditTaskKinds([]);
+        setEditKindInput('');
+        setChecklistDraft([]);
+        setChecklistInput('');
+        setLinkedDraft([]);
+        setLinkSelectId('');
+    };
+
+    const closeKrComposer = () => {
+        setKrComposerOpen(false);
+        setKrComposerObjectiveId(null);
+        setKrEditingId(null);
+    };
+
+    const closeObjectiveSettings = () => {
+        setIsObjectiveSettingsOpen(false);
+        setObjectiveEditId(null);
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            let handled = false;
+
+            if (imagePreview) {
+                setImagePreview(null);
+                handled = true;
+            } else if (isEditModalOpen) {
+                closeEditTaskModal();
+                handled = true;
+            } else if (isDetailsModalOpen) {
+                closeDetailsModal();
+                handled = true;
+            } else if (isModalOpen) {
+                closeCreateTaskModal();
+                handled = true;
+            } else if (krComposerOpen) {
+                closeKrComposer();
+                handled = true;
+            } else if (objectiveComposerOpen) {
+                setObjectiveComposerOpen(false);
+                handled = true;
+            } else if (isObjectiveSettingsOpen) {
+                closeObjectiveSettings();
+                handled = true;
+            } else if (isScopeSettingsOpen) {
+                setIsScopeSettingsOpen(false);
+                handled = true;
+            } else if (isBoardSettingsOpen) {
+                setIsBoardSettingsOpen(false);
+                handled = true;
+            } else if (isInvitesModalOpen) {
+                setIsInvitesModalOpen(false);
+                handled = true;
+            } else if (isTeamModalOpen) {
+                setIsTeamModalOpen(false);
+                handled = true;
+            } else if (isNotificationsOpen) {
+                setIsNotificationsOpen(false);
+                handled = true;
+            } else if (isUserMenuOpen) {
+                setIsUserMenuOpen(false);
+                handled = true;
+            } else if (isHuddleMenuOpen) {
+                setIsHuddleMenuOpen(false);
+                handled = true;
+            } else if (boardMenuOpen) {
+                setBoardMenuOpen(false);
+                handled = true;
+            } else if (okrMenuOpen) {
+                setOkrMenuOpen(false);
+                handled = true;
+            } else if (scopeMenuOpen) {
+                setScopeMenuOpen(false);
+                handled = true;
+            } else if (scopePickerOpenId) {
+                setScopePickerOpenId(null);
+                handled = true;
+            } else if (scopePriorityFilterOpen) {
+                setScopePriorityFilterOpen(false);
+                handled = true;
+            } else if (scopeStatusFilterOpen) {
+                setScopeStatusFilterOpen(false);
+                handled = true;
+            } else if (priorityFilterOpen) {
+                setPriorityFilterOpen(false);
+                handled = true;
+            } else if (statusFilterOpen) {
+                setStatusFilterOpen(false);
+                handled = true;
+            }
+
+            if (handled) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [
+        imagePreview,
+        isEditModalOpen,
+        isDetailsModalOpen,
+        isModalOpen,
+        krComposerOpen,
+        objectiveComposerOpen,
+        isObjectiveSettingsOpen,
+        isScopeSettingsOpen,
+        isBoardSettingsOpen,
+        isInvitesModalOpen,
+        isTeamModalOpen,
+        isNotificationsOpen,
+        isUserMenuOpen,
+        isHuddleMenuOpen,
+        boardMenuOpen,
+        okrMenuOpen,
+        scopeMenuOpen,
+        scopePickerOpenId,
+        scopePriorityFilterOpen,
+        scopeStatusFilterOpen,
+        priorityFilterOpen,
+        statusFilterOpen,
+        closeCreateTaskModal,
+        closeDetailsModal,
+        closeEditTaskModal,
+        closeKrComposer,
+        closeObjectiveSettings,
+    ]);
 
     const handleCreateAttachmentSelect = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
@@ -4039,7 +4306,7 @@ const App: React.FC = () => {
                 <div className="auth-card">
                     <div className="auth-header">
                         <h1>Kanbax</h1>
-                        <p>Sign in to manage your boards, huddles, and tasks.</p>
+                        <p>Sign in to manage your tasks, huddles, and work.</p>
                     </div>
                     <div className="auth-tabs">
                         <button
@@ -4181,7 +4448,7 @@ const App: React.FC = () => {
                         </svg>
                         <input
                             type="search"
-                            placeholder="Search tasks, boards, huddles..."
+                            placeholder="Search tasks, huddles..."
                             value={filterText}
                             onChange={(e) => setFilterText(e.target.value)}
                         />
@@ -4225,7 +4492,7 @@ const App: React.FC = () => {
                             )}
                             {searchColumns.length > 0 && (
                                 <div className="search-section">
-                                    <div className="search-title">Board columns</div>
+                                    <div className="search-title">Task columns</div>
                                     {searchColumns.map((column: any) => (
                                         <button
                                             key={column.status}
@@ -4285,7 +4552,7 @@ const App: React.FC = () => {
                                             setIsUserMenuOpen(false);
                                         }}
                                     >
-                                        Board
+                                        Tasks
                                     </button>
                                     <button
                                         className="user-menu-item"
@@ -4415,7 +4682,8 @@ const App: React.FC = () => {
                             <button
                                 className={`sidebar-nav-item ${view === 'kanban' ? 'active' : ''}`}
                                 onClick={handleBoardNavClick}
-                                data-tooltip="Board"
+                                data-tooltip="Tasks"
+                                data-nav-group="board"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
@@ -4424,7 +4692,7 @@ const App: React.FC = () => {
                                         <path d="M13.5 16h7" />
                                     </svg>
                                 </span>
-                                <span className="sidebar-nav-label">Board</span>
+                                <span className="sidebar-nav-label">Tasks</span>
                                 <span
                                     className={`sidebar-nav-chevron ${isBoardNavOpen ? 'open' : ''}`}
                                     aria-hidden="true"
@@ -4435,9 +4703,9 @@ const App: React.FC = () => {
                                 </span>
                             </button>
                             {!isSidebarCollapsed && isBoardNavOpen && (
-                                <div className="sidebar-board-list">
+                                <div className="sidebar-board-list" data-nav-group="board">
                                     {sidebarBoardItems.length === 0 ? (
-                                        <div className="sidebar-board-empty">No boards yet.</div>
+                                        <div className="sidebar-board-empty">No task lists yet.</div>
                                     ) : (
                                         sidebarBoardItems.map((boardItem) => (
                                             <button
@@ -4445,7 +4713,7 @@ const App: React.FC = () => {
                                                 className={`sidebar-board-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
                                                 onClick={() => handleSidebarBoardSelect(boardItem.id)}
                                             >
-                                                <span className="sidebar-board-dot" aria-hidden="true" />
+                                                {renderSidebarBoardIcon(boardItem.id)}
                                                 <span className="sidebar-board-label">{boardItem.name}</span>
                                             </button>
                                         ))
@@ -4453,16 +4721,18 @@ const App: React.FC = () => {
                                 </div>
                             )}
                             {isSidebarCollapsed && isBoardNavOpen && (view === 'kanban' || view === 'table') && (
-                                <div className="sidebar-board-compact">
+                                <div className="sidebar-board-compact" data-nav-group="board">
                                     {sidebarBoardItems.map((boardItem) => (
                                         <button
                                             key={boardItem.id}
                                             className={`sidebar-board-compact-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
                                             onClick={() => handleSidebarBoardSelect(boardItem.id)}
                                             title={boardItem.name}
-                                            aria-label={`Open board ${boardItem.name}`}
+                                            aria-label={`Open tasks ${boardItem.name}`}
                                         >
-                                            {getBoardInitials(boardItem.name)}
+                                            {isSpecialSidebarBoard(boardItem.id)
+                                                ? renderSidebarBoardIcon(boardItem.id, true)
+                                                : getBoardInitials(boardItem.name)}
                                         </button>
                                     ))}
                                 </div>
@@ -4474,10 +4744,12 @@ const App: React.FC = () => {
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
-                                        <rect x="4" y="4" width="16" height="16" rx="3" />
-                                        <path d="M8 9h8" />
-                                        <path d="M8 13h6" />
-                                        <path d="M8 17h4" />
+                                        <circle cx="12" cy="12" r="7.5" />
+                                        <circle cx="12" cy="12" r="2.5" />
+                                        <path d="M12 4v3" />
+                                        <path d="M12 17v3" />
+                                        <path d="M4 12h3" />
+                                        <path d="M17 12h3" />
                                     </svg>
                                 </span>
                                 <span className="sidebar-nav-label">Scope Window</span>
@@ -4486,6 +4758,7 @@ const App: React.FC = () => {
                                 className={`sidebar-nav-item ${view === 'okr' ? 'active' : ''}`}
                                 onClick={handleOkrNavClick}
                                 data-tooltip="OKRs"
+                                data-nav-group="okr"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
@@ -4506,7 +4779,7 @@ const App: React.FC = () => {
                                 </span>
                             </button>
                             {!isSidebarCollapsed && isOkrNavOpen && (
-                                <div className="sidebar-board-list">
+                                <div className="sidebar-board-list" data-nav-group="okr">
                                     {okrLoading ? (
                                         <div className="sidebar-board-empty">Loading OKRs…</div>
                                     ) : objectiveViews.length === 0 ? (
@@ -4526,7 +4799,7 @@ const App: React.FC = () => {
                                 </div>
                             )}
                             {isSidebarCollapsed && isOkrNavOpen && view === 'okr' && (
-                                <div className="sidebar-board-compact">
+                                <div className="sidebar-board-compact" data-nav-group="okr">
                                     {objectiveViews.map((objective) => (
                                         <button
                                             key={objective.id}
@@ -4599,19 +4872,65 @@ const App: React.FC = () => {
                         </button>
                     </div>
                 )}
-                <div className="page-heading">
-                    <div className="page-breadcrumbs">
-                        {breadcrumbItems.map((item, index) => (
-                            <span key={`${item.label}-${index}`} className="page-breadcrumb-item">
-                                {item.onClick ? (
-                                    <button type="button" className="page-breadcrumb-link" onClick={item.onClick}>
-                                        {item.label}
-                                    </button>
-                                ) : (
-                                    <span>{item.label}</span>
+                <div className="page-heading-wrap">
+                    <div className="page-breadcrumbs-row">
+                        <div className="page-breadcrumbs">
+                            {breadcrumbItems.map((item, index) => (
+                                <span key={`${item.label}-${index}`} className="page-breadcrumb-item">
+                                    {item.onClick ? (
+                                        <button type="button" className="page-breadcrumb-link" onClick={item.onClick}>
+                                            {item.label}
+                                        </button>
+                                    ) : (
+                                        <span>{item.label}</span>
+                                    )}
+                                    {index < breadcrumbItems.length - 1 && <span className="page-breadcrumb-sep">/</span>}
+                                </span>
+                            ))}
+                        </div>
+                        {(view === 'kanban' || view === 'table' || view === 'okr' || view === 'scope') && (
+                            <div className="page-breadcrumb-actions">
+                                {(view === 'kanban' || view === 'table') && (
+                                    <span className="board-switch-inline">
+                                        <button
+                                            type="button"
+                                            className="board-switch-trigger-icon"
+                                            onClick={() => setBoardMenuOpen((prev) => !prev)}
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                <path d="M6 9l6 6 6-6" />
+                                            </svg>
+                                        </button>
+                                        {boardMenuOpen && (
+                                            <div className="board-switch-menu">
+                                                <button
+                                                    type="button"
+                                                    className="board-switch-item create"
+                                                    onClick={() => {
+                                                        setBoardMenuOpen(false);
+                                                        handleCreateBoard();
+                                                    }}
+                                                >
+                                                    + Taskliste erstellen
+                                                </button>
+                                                {sidebarBoardItems.map((boardItem) => (
+                                                    <button
+                                                        key={boardItem.id}
+                                                        type="button"
+                                                        className={`board-switch-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setBoardMenuOpen(false);
+                                                            handleBoardChange(boardItem.id);
+                                                        }}
+                                                    >
+                                                        {boardItem.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </span>
                                 )}
-                                {index < breadcrumbItems.length - 1 && <span className="page-breadcrumb-sep">/</span>}
-                                {index === breadcrumbItems.length - 1 && view === 'okr' && (
+                                {view === 'okr' && (
                                     <span className="board-switch-inline">
                                         <button
                                             type="button"
@@ -4651,87 +4970,189 @@ const App: React.FC = () => {
                                         )}
                                     </span>
                                 )}
-                                {index === breadcrumbItems.length - 1 && (view === 'kanban' || view === 'table') && (
+                                {view === 'scope' && (
                                     <span className="board-switch-inline">
                                         <button
                                             type="button"
                                             className="board-switch-trigger-icon"
-                                            onClick={() => setBoardMenuOpen((prev) => !prev)}
+                                            onClick={() => setScopeMenuOpen((prev) => !prev)}
                                         >
                                             <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
                                                 <path d="M6 9l6 6 6-6" />
                                             </svg>
                                         </button>
-                                        {boardMenuOpen && (
+                                        {scopeMenuOpen && (
                                             <div className="board-switch-menu">
                                                 <button
                                                     type="button"
-                                                    className="board-switch-item create"
+                                                    className={`board-switch-item ${scopeScreen === 'list' ? 'active' : ''}`}
                                                     onClick={() => {
-                                                        setBoardMenuOpen(false);
-                                                        handleCreateBoard();
+                                                        setScopeMenuOpen(false);
+                                                        setScopeScreen('list');
+                                                        setScopeRouteId(null);
+                                                        updateScopeUrl(null, 'replace');
                                                     }}
                                                 >
-                                                    + Board erstellen
+                                                    Scope list
                                                 </button>
-                                                {boards.map((boardItem) => (
-                                                    <button
-                                                        key={boardItem.id}
-                                                        type="button"
-                                                        className={`board-switch-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
-                                                        onClick={() => {
-                                                            setBoardMenuOpen(false);
-                                                            handleBoardChange(boardItem.id);
-                                                        }}
-                                                    >
-                                                        {boardItem.name}
-                                                    </button>
-                                                ))}
-                                                <button
-                                                    type="button"
-                                                    className={`board-switch-item ${activeBoardId === ARCHIVED_BOARD_ID ? 'active' : ''}`}
-                                                    onClick={() => {
-                                                        setBoardMenuOpen(false);
-                                                        handleBoardChange(ARCHIVED_BOARD_ID);
-                                                    }}
-                                                >
-                                                    Archived
-                                                </button>
+                                                {scopeWindows.length === 0 ? (
+                                                    <div className="board-switch-empty">No scope windows yet.</div>
+                                                ) : (
+                                                    scopeWindows.map((scopeWindow) => (
+                                                        <button
+                                                            key={scopeWindow.id}
+                                                            type="button"
+                                                            className={`board-switch-item ${scopeWindow.id === activeScopeId ? 'active' : ''}`}
+                                                            onClick={() => {
+                                                                setScopeMenuOpen(false);
+                                                                openScopeDetail(scopeWindow.id);
+                                                            }}
+                                                        >
+                                                            {scopeWindow.name}
+                                                        </button>
+                                                    ))
+                                                )}
                                             </div>
                                         )}
                                     </span>
                                 )}
-                            </span>
-                        ))}
-                    </div>
-                    <div className="page-heading-row">
-                        <h1>
-                            {view === 'settings'
-                                ? 'Settings'
-                                : view === 'okr'
-                                    ? 'OKRs'
-                                : view === 'dashboard'
-                                    ? 'Dashboard'
-                                    : view === 'calendar'
-                                        ? 'Calendar'
-                                        : view === 'scope'
-                                            ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope Window')
-                                            : (activeBoard?.name || activeHuddleName || 'Board')}
-                        </h1>
-                        {(view === 'kanban' || view === 'table') && (
-                            <button
-                                className="icon-action create"
-                                disabled={!activeTenantId}
-                                onClick={openCreateTask}
-                                data-tooltip="Task erstellen"
-                                aria-label="Task erstellen"
-                            >
-                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                    <path d="M12 5v14" />
-                                    <path d="M5 12h14" />
-                                </svg>
-                            </button>
+                            </div>
                         )}
+                    </div>
+                    <div
+                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'scope' ? ' page-heading-dark' : ''}`}
+                    >
+                        <div className="page-heading-row">
+                            <div className="page-heading-title">
+                                <h1>
+                                    {view === 'settings'
+                                        ? 'Settings'
+                                        : view === 'okr'
+                                            ? 'OKRs'
+                                        : view === 'dashboard'
+                                            ? 'Dashboard'
+                                            : view === 'calendar'
+                                                ? 'Calendar'
+                                                : view === 'scope'
+                                                    ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope Window')
+                                                    : (activeBoard?.name || activeHuddleName || 'Tasks')}
+                                </h1>
+                                {(view === 'kanban' || view === 'table' || view === 'scope' || view === 'okr') && (
+                                    <div className="page-heading-meta">
+                                        <span className="page-heading-meta-label">{activeHuddleName || 'Huddle'}</span>
+                                        {view === 'kanban' || view === 'table' ? (
+                                            <>
+                                                <span className="page-heading-dot">•</span>
+                                                <span className="page-heading-meta-label">
+                                                    {view === 'table' ? 'Table view' : 'Board view'}
+                                                </span>
+                                            </>
+                                        ) : null}
+                                        {view === 'okr' && (
+                                            <>
+                                                <span className="page-heading-dot">•</span>
+                                                <span className="page-heading-meta-label">OKRs</span>
+                                            </>
+                                        )}
+                                        {view === 'scope' && (
+                                            <>
+                                                <span className="page-heading-dot">•</span>
+                                                <span className="page-heading-meta-label">Scope Window</span>
+                                                {scopeScreen === 'detail' && activeScopeWindow && (
+                                                    <>
+                                                        <span className="page-heading-dot">•</span>
+                                                        <span className="page-heading-meta-label">{getScopeDateLabel(activeScopeWindow)}</span>
+                                                        <span className="page-heading-dot">•</span>
+                                                        <span className="page-heading-meta-label">
+                                                            {activeScopeWindow.taskIds.length} tasks
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                                {view === 'scope' && scopeScreen === 'detail' && activeScopeWindow?.description && (
+                                    <div className="page-heading-description">{activeScopeWindow.description}</div>
+                                )}
+                            </div>
+                            {(view === 'kanban' || view === 'table' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow)) && (
+                                <div className="page-heading-actions">
+                                    {(view === 'kanban' || view === 'table') && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className="icon-action scope-toggle"
+                                                onClick={() => setShowScopeDropRow((prev) => !prev)}
+                                                data-tooltip="Tasks zu Scope zuteilen"
+                                                aria-label="Tasks zu Scope zuteilen"
+                                                aria-pressed={showScopeDropRow}
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                    <circle cx="12" cy="12" r="8" />
+                                                    <circle cx="12" cy="12" r="3" />
+                                                    <path d="M12 2v3" />
+                                                    <path d="M12 19v3" />
+                                                    <path d="M2 12h3" />
+                                                    <path d="M19 12h3" />
+                                                </svg>
+                                            </button>
+                                            {isActiveHuddleOwner && !isArchivedBoard && !isSpecialBoard && (
+                                                <button
+                                                    className="icon-action settings"
+                                                    onClick={() => setIsBoardSettingsOpen(true)}
+                                                    data-tooltip="Einstellungen zu Tasks"
+                                                    aria-label="Einstellungen zu Tasks"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                        <circle cx="12" cy="12" r="3.5" />
+                                                        <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                            <button
+                                                className="icon-action create"
+                                                disabled={!activeTenantId}
+                                                onClick={openCreateTask}
+                                                data-tooltip="Task erstellen"
+                                                aria-label="Task erstellen"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                    <path d="M12 5v14" />
+                                                    <path d="M5 12h14" />
+                                                </svg>
+                                            </button>
+                                        </>
+                                    )}
+                                    {view === 'scope' && scopeScreen === 'detail' && activeScopeWindow && (
+                                        <>
+                                            <button
+                                                className="icon-action settings"
+                                                onClick={() => setIsScopeSettingsOpen(true)}
+                                                data-tooltip="Scope Window settings"
+                                                aria-label="Scope Window settings"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                    <circle cx="12" cy="12" r="3.5" />
+                                                    <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                className="icon-action create"
+                                                onClick={() => {
+                                                    setScopePickerQuery('');
+                                                    setScopePickerOpenId((prev) => (prev === activeScopeWindow.id ? null : activeScopeWindow.id));
+                                                }}
+                                                data-tooltip="Task zum Scope hinzufügen"
+                                                aria-label="Task zum Scope hinzufügen"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
                 {loading ? (
@@ -5434,6 +5855,9 @@ const App: React.FC = () => {
                                 </label>
                             </div>
                             <div className="okr-actions">
+                                <button className="btn btn-ghost btn-compact" onClick={loadOkrs}>
+                                    Refresh
+                                </button>
                                 <button
                                     className="icon-action create"
                                     onClick={handleCreateObjective}
@@ -5444,9 +5868,6 @@ const App: React.FC = () => {
                                         <path d="M12 5v14" />
                                         <path d="M5 12h14" />
                                     </svg>
-                                </button>
-                                <button className="btn btn-ghost btn-compact" onClick={loadOkrs}>
-                                    Refresh
                                 </button>
                             </div>
                         </div>
@@ -5652,10 +6073,12 @@ const App: React.FC = () => {
                                             </div>
                                             {!okrActiveObjective.readOnly && (
                                                 <button
-                                                    className="btn btn-primary btn-compact"
+                                                    className="icon-action create"
                                                     onClick={() => openKrComposer(okrActiveObjective.id)}
+                                                    data-tooltip={`Neuen Key result hinzufügen`}
+                                                    aria-label={`Neuen Key result hinzufügen`}
                                                 >
-                                                    + KR
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
                                                 </button>
                                             )}
                                         </div>
@@ -6385,7 +6808,7 @@ const App: React.FC = () => {
                                                             openScopeDetail(scopeWindow.id);
                                                         }}
                                                     >
-                                                        Open board
+                                                        Open tasks
                                                     </button>
                                                 </div>
                                             </div>
@@ -6396,38 +6819,6 @@ const App: React.FC = () => {
                         ) : activeScopeWindow ? (
                             <div className="scope-detail-panel">
                                 <div className="scope-board-panel">
-                                    <div className="scope-board-header">
-                                        <div className="scope-board-header-main">
-                                            <div className="scope-board-meta">
-                                                {getScopeDateLabel(activeScopeWindow)} · {activeScopeWindow.taskIds.length} tasks
-                                            </div>
-                                            {activeScopeWindow.description && (
-                                                <div className="scope-board-description">{activeScopeWindow.description}</div>
-                                            )}
-                                        </div>
-                                        <div className="scope-board-actions">
-                                            <button
-                                                className="btn btn-primary btn-compact"
-                                                onClick={() => {
-                                                    setScopePickerQuery('');
-                                                    setScopePickerOpenId((prev) => (prev === activeScopeWindow.id ? null : activeScopeWindow.id));
-                                                }}
-                                            >
-                                                + task
-                                            </button>
-                                            <button
-                                                className="icon-action settings"
-                                                onClick={() => setIsScopeSettingsOpen(true)}
-                                                data-tooltip="Scope Window settings"
-                                                aria-label="Scope Window settings"
-                                            >
-                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                    <circle cx="12" cy="12" r="3.5" />
-                                                    <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
                                     <div className="scope-board-toolbar">
                                         <div className="scope-board-toolbar-left">
                                             <div
@@ -6584,7 +6975,7 @@ const App: React.FC = () => {
                                                             <th>Title</th>
                                                             <th>Status</th>
                                                             <th>Due</th>
-                                                            <th>Board</th>
+                                                            <th>Tasks</th>
                                                             <th>Actions</th>
                                                         </tr>
                                                     </thead>
@@ -6704,7 +7095,7 @@ const App: React.FC = () => {
                                                                                         </span>
                                                                                     ))}
                                                                                     {boardLabel && (
-                                                                                        <span className="scope-task-origin">Board: {boardLabel}</span>
+                                                                    <span className="scope-task-origin">Tasks: {boardLabel}</span>
                                                                                     )}
                                                                                 </div>
                                                                                 <button
@@ -6917,21 +7308,6 @@ const App: React.FC = () => {
                                 </button>
                             </div>
                             <div className="filter-actions">
-                                {isActiveHuddleOwner && (
-                                    <>
-                                        <button
-                                            className="icon-action settings"
-                                            onClick={() => setIsBoardSettingsOpen(true)}
-                                            data-tooltip="Einstellungen zum Board"
-                                            aria-label="Einstellungen zum Board"
-                                        >
-                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                <circle cx="12" cy="12" r="3.5" />
-                                                <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
-                                            </svg>
-                                        </button>
-                                    </>
-                                )}
                                 <div className="filter-dropdown">
                                     <button
                                         type="button"
@@ -6994,24 +7370,25 @@ const App: React.FC = () => {
                                         )}
                                     </div>
                                 )}
-                                <label className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`} data-tooltip="Nur Favoriten"
-                                            aria-label="Nur Favoriten">
+                                <label
+                                    className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`}
+                                    data-tooltip="Nur Favoriten"
+                                    aria-label="Nur Favoriten"
+                                >
                                     <input
                                         type="checkbox"
                                         checked={filterFavorites}
                                         onChange={(e) => setFilterFavorites(e.target.checked)}
-
                                     />
                                     <span className="filter-favorites-icon" aria-hidden="true">★</span>
                                 </label>
                             </div>
                         </div>
-
                         {error && <div style={{ color: '#f87171', marginBottom: '1rem' }}>Error: {error}</div>}
 
                         {view === 'kanban' ? (
                             <div className="kanban-board-wrap">
-                                {activeTenantId && (
+                                {activeTenantId && showScopeDropRow && (
                                     <div className={`scope-drop-row${isDragging ? ' dragging' : ''}`}>
                                         <div className="scope-drop-header">
                                             <div>
@@ -7382,15 +7759,15 @@ const App: React.FC = () => {
                     <div className="modal-content settings-modal">
                         <div className="panel-header">
                             <div>
-                                <div className="panel-title">Board settings</div>
-                                <div className="panel-subtitle">Manage this huddle board</div>
+                                    <div className="panel-title">Task settings</div>
+                                    <div className="panel-subtitle">Manage this task list</div>
                             </div>
                             <button className="panel-close" onClick={() => setIsBoardSettingsOpen(false)} aria-label="Close">×</button>
                         </div>
                         <div className="panel-body">
                             <div className="panel-section">
-                                <div className="section-title">Board</div>
-                                <div className="member-name">{activeBoard?.name || activeBoardId || 'Board'}</div>
+                                <div className="section-title">Tasks</div>
+                                <div className="member-name">{activeBoard?.name || activeBoardId || 'Tasks'}</div>
                                 <div className="member-meta">Role: {activeMembership?.role || 'Member'}</div>
                             </div>
                             <div className="panel-section panel-danger">
@@ -7403,9 +7780,9 @@ const App: React.FC = () => {
                                     Warning
                                 </div>
                                 <div className="section-title">Danger zone</div>
-                                <div className="panel-text">Delete this board and all tasks, objectives, and key results.</div>
+                                <div className="panel-text">Delete this task list and all tasks, objectives, and key results.</div>
                                 <button className="btn btn-delete btn-compact" onClick={handleDeleteBoard}>
-                                    Delete board
+                                    Delete task list
                                 </button>
                             </div>
                             <div className="panel-actions">
@@ -7524,15 +7901,7 @@ const App: React.FC = () => {
                                     {krEditingId ? 'Update the metric and target.' : 'Define the metric and target.'}
                                 </div>
                             </div>
-                            <button
-                                className="panel-close"
-                                onClick={() => {
-                                    setKrComposerOpen(false);
-                                    setKrComposerObjectiveId(null);
-                                    setKrEditingId(null);
-                                }}
-                                aria-label="Close"
-                            >
+                            <button className="panel-close" onClick={closeKrComposer} aria-label="Close">
                                 ×
                             </button>
                         </div>
@@ -7617,14 +7986,7 @@ const App: React.FC = () => {
                             </div>
                             <div className="panel-actions">
                                 <div className="panel-actions-left">
-                                    <button
-                                        className="btn btn-ghost btn-compact"
-                                        onClick={() => {
-                                            setKrComposerOpen(false);
-                                            setKrComposerObjectiveId(null);
-                                            setKrEditingId(null);
-                                        }}
-                                    >
+                                    <button className="btn btn-ghost btn-compact" onClick={closeKrComposer}>
                                         Cancel
                                     </button>
                                 </div>
@@ -7647,10 +8009,7 @@ const App: React.FC = () => {
                                 <div className="panel-title">Objective settings</div>
                                 <div className="panel-subtitle">Edit or delete this objective</div>
                             </div>
-                            <button className="panel-close" onClick={() => {
-                                setIsObjectiveSettingsOpen(false);
-                                setObjectiveEditId(null);
-                            }} aria-label="Close">×</button>
+                            <button className="panel-close" onClick={closeObjectiveSettings} aria-label="Close">×</button>
                         </div>
                         <div className="panel-body">
                             <div className="panel-section">
@@ -7770,13 +8129,7 @@ const App: React.FC = () => {
                             </div>
                             <div className="panel-actions">
                                 <div className="panel-actions-left">
-                                    <button
-                                        className="btn btn-ghost btn-compact"
-                                        onClick={() => {
-                                            setIsObjectiveSettingsOpen(false);
-                                            setObjectiveEditId(null);
-                                        }}
-                                    >
+                                    <button className="btn btn-ghost btn-compact" onClick={closeObjectiveSettings}>
                                         Cancel
                                     </button>
                                 </div>
@@ -7952,17 +8305,7 @@ const App: React.FC = () => {
                         <div style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)', padding: '1.25rem 1.5rem 0.75rem', zIndex: 1, borderBottom: '1px solid var(--border-color)' }}>
                             <div className="modal-header-row">
                                 <h2 style={{ marginBottom: 0 }}>Create New Task</h2>
-                                <button
-                                    className="panel-close"
-                                    onClick={() => {
-                                        setIsModalOpen(false);
-                                        setNewTaskAttachments([]);
-                                        setNewTaskKinds([]);
-                                        setNewKindInput('');
-                                        setNewTaskBoardId(null);
-                                    }}
-                                    aria-label="Close"
-                                >
+                                <button className="panel-close" onClick={closeCreateTaskModal} aria-label="Close">
                                     ×
                                 </button>
                             </div>
@@ -8016,7 +8359,7 @@ const App: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>Board</label>
+                                    <label>Tasks</label>
                                     <select
                                         value={newTaskBoardId || ''}
                                         onChange={(e) => setNewTaskBoardId(e.target.value)}
@@ -8319,17 +8662,7 @@ const App: React.FC = () => {
                             </div>
                             <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem 1.25rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => {
-                                            setIsModalOpen(false);
-                                            setNewTaskAttachments([]);
-                                            setNewTaskKinds([]);
-                                            setNewKindInput('');
-                                            setNewTaskBoardId(null);
-                                        }}
-                                    >
+                                    <button type="button" className="btn btn-secondary" onClick={closeCreateTaskModal}>
                                         Cancel
                                     </button>
                                     <button type="submit" className="btn btn-primary">
@@ -8351,14 +8684,7 @@ const App: React.FC = () => {
                                     Created {new Date(selectedTask.createdAt).toLocaleDateString()}
                                 </div>
                             <div className="detail-actions">
-                                <button
-                                    className="panel-close"
-                                    onClick={() => {
-                                        setIsDetailsModalOpen(false);
-                                        setSelectedTaskId(null);
-                                    }}
-                                    aria-label="Close"
-                                >
+                                <button className="panel-close" onClick={closeDetailsModal} aria-label="Close">
                                     ×
                                 </button>
                                 <button
@@ -8507,7 +8833,7 @@ const App: React.FC = () => {
                                             <path d="M4 12h10" />
                                             <path d="M4 17h13" />
                                         </svg>
-                                        All board
+                                        All tasks
                                     </span>
                                     <span className="detail-value">
                                         <span className="detail-toggle-row">
@@ -8516,7 +8842,7 @@ const App: React.FC = () => {
                                                 className={`detail-toggle ${selectedTask.excludeFromAll ? '' : 'active'}`}
                                                 onClick={() => submitTaskUpdate({ excludeFromAll: !selectedTask.excludeFromAll })}
                                                 disabled={selectedTask.sourceType !== 'MANUAL'}
-                                                aria-label="Show in All board"
+                                                aria-label="Show in All tasks"
                                             >
                                                 <span className="detail-toggle-knob" />
                                             </button>
@@ -8843,13 +9169,7 @@ const App: React.FC = () => {
                                         Löschen
                                     </button>
                                 )}
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setIsDetailsModalOpen(false);
-                                        setSelectedTaskId(null);
-                                    }}
-                                >
+                                <button className="btn btn-secondary" onClick={closeDetailsModal}>
                                     Speichern
                                 </button>
                             </div>
@@ -8876,22 +9196,7 @@ const App: React.FC = () => {
                         <div style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)', padding: '1.25rem 1.5rem 0.75rem', zIndex: 1, borderBottom: '1px solid var(--border-color)' }}>
                             <div className="modal-header-row">
                                 <h2 style={{ marginBottom: 0 }}>Edit Task</h2>
-                                <button
-                                    className="panel-close"
-                                    onClick={() => {
-                                        setIsEditModalOpen(false);
-                                        setEditingTaskId(null);
-                                        setNewAttachments([]);
-                                        setRemovedAttachmentIds([]);
-                                        setEditTaskKinds([]);
-                                        setEditKindInput('');
-                                        setChecklistDraft([]);
-                                        setChecklistInput('');
-                                        setLinkedDraft([]);
-                                        setLinkSelectId('');
-                                    }}
-                                    aria-label="Close"
-                                >
+                                <button className="panel-close" onClick={closeEditTaskModal} aria-label="Close">
                                     ×
                                 </button>
                             </div>
@@ -8945,7 +9250,7 @@ const App: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>Board</label>
+                                    <label>Tasks</label>
                                     <select
                                         value={editTaskBoardId || ''}
                                         onChange={(e) => setEditTaskBoardId(e.target.value)}
@@ -9126,22 +9431,7 @@ const App: React.FC = () => {
                             </div>
                             <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem 1.25rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => {
-                                            setIsEditModalOpen(false);
-                                            setEditingTaskId(null);
-                                            setNewAttachments([]);
-                                            setRemovedAttachmentIds([]);
-                                            setEditTaskKinds([]);
-                                            setEditKindInput('');
-                                            setChecklistDraft([]);
-                                            setChecklistInput('');
-                                            setLinkedDraft([]);
-                                            setLinkSelectId('');
-                                        }}
-                                    >
+                                    <button type="button" className="btn btn-secondary" onClick={closeEditTaskModal}>
                                         Cancel
                                     </button>
                                     <button type="submit" className="btn btn-primary">
