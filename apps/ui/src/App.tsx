@@ -86,8 +86,18 @@ interface CalendarImport {
     createdAt: string;
 }
 
+interface ScopeWindow {
+    id: string;
+    name: string;
+    description?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    taskIds: string[];
+    createdAt: string;
+}
+
 const App: React.FC = () => {
-    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'calendar' | 'settings' | 'okr'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'calendar' | 'settings' | 'okr' | 'scope'>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
     const [detailTab, setDetailTab] = useState<'comments' | 'attachments' | 'activity'>('comments');
     useEffect(() => {
@@ -104,6 +114,23 @@ const App: React.FC = () => {
             const next = params.toString();
             window.history.replaceState({}, '', `${window.location.pathname}${next ? `?${next}` : ''}`);
         }
+    }, []);
+    useEffect(() => {
+        const syncScopeFromUrl = () => {
+            const params = new URLSearchParams(window.location.search);
+            const scopeParam = params.get('scope');
+            if (scopeParam) {
+                setScopeRouteId(scopeParam);
+                setView('scope');
+                setScopeScreen('detail');
+            } else {
+                setScopeRouteId(null);
+                setScopeScreen('list');
+            }
+        };
+        syncScopeFromUrl();
+        window.addEventListener('popstate', syncScopeFromUrl);
+        return () => window.removeEventListener('popstate', syncScopeFromUrl);
     }, []);
     const [session, setSession] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
@@ -142,6 +169,7 @@ const App: React.FC = () => {
     const [pendingTaskOpen, setPendingTaskOpen] = useState<{ taskId: string; tenantId: string } | null>(null);
     const [taskOrderByColumn, setTaskOrderByColumn] = useState<Record<string, string[]>>({});
     const [tasksByTenant, setTasksByTenant] = useState<Record<string, TaskView[]>>({});
+    const [scopeTasksByTenant, setScopeTasksByTenant] = useState<Record<string, TaskView[]>>({});
     const [searchLoading, setSearchLoading] = useState(false);
     const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -172,6 +200,57 @@ const App: React.FC = () => {
     const [boardsByTenant, setBoardsByTenant] = useState<Record<string, BoardView[]>>({});
     const [boardMenuOpen, setBoardMenuOpen] = useState(false);
     const [okrMenuOpen, setOkrMenuOpen] = useState(false);
+    const [scopeWindowsByBoard, setScopeWindowsByBoard] = useState<Record<string, ScopeWindow[]>>(() => {
+        try {
+            const raw = localStorage.getItem('kanbax-scope-windows');
+            if (!raw) return {};
+            const parsed = JSON.parse(raw) as Record<string, ScopeWindow[]>;
+            const migrated: Record<string, ScopeWindow[]> = {};
+            Object.entries(parsed).forEach(([key, value]) => {
+                if (!Array.isArray(value)) return;
+                if (key.includes(':')) {
+                    const tenantId = key.split(':')[0];
+                    if (!tenantId) return;
+                    const existing = migrated[tenantId] || [];
+                    value.forEach((window) => {
+                        if (!existing.some((entry) => entry.id === window.id)) {
+                            existing.push(window);
+                        }
+                    });
+                    migrated[tenantId] = existing;
+                } else {
+                    migrated[key] = value;
+                }
+            });
+            return migrated;
+        } catch {
+            return {};
+        }
+    });
+    const [scopeDraft, setScopeDraft] = useState({
+        name: '',
+        description: '',
+        startDate: '',
+        endDate: '',
+    });
+    const [scopePickerOpenId, setScopePickerOpenId] = useState<string | null>(null);
+    const [scopePickerQuery, setScopePickerQuery] = useState('');
+    const [scopeDropTargetId, setScopeDropTargetId] = useState<string | null>(null);
+    const [activeScopeId, setActiveScopeId] = useState<string | null>(null);
+    const [scopeScreen, setScopeScreen] = useState<'list' | 'detail'>('list');
+    const [scopeRouteId, setScopeRouteId] = useState<string | null>(null);
+    const [scopeFilterPriority, setScopeFilterPriority] = useState<'ALL' | string>('ALL');
+    const [scopeFilterStatus, setScopeFilterStatus] = useState<'ALL' | TaskStatus>('ALL');
+    const [scopePriorityFilterOpen, setScopePriorityFilterOpen] = useState(false);
+    const [scopeStatusFilterOpen, setScopeStatusFilterOpen] = useState(false);
+    const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list'>('board');
+    const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
+    const [scopeSettingsDraft, setScopeSettingsDraft] = useState({
+        name: '',
+        description: '',
+        startDate: '',
+        endDate: '',
+    });
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
     const [okrObjectives, setOkrObjectives] = useState<OkrObjective[]>([]);
     const [okrLoading, setOkrLoading] = useState(false);
@@ -692,10 +771,121 @@ const App: React.FC = () => {
         setView('kanban');
     };
 
+    const handleScopeNavClick = () => {
+        setView('scope');
+        setScopeScreen('list');
+        setScopeRouteId(null);
+        updateScopeUrl(null, 'replace');
+    };
+
     const handleSidebarBoardSelect = (boardId: string) => {
         handleBoardChange(boardId);
         setIsBoardNavOpen(true);
         setView('kanban');
+    };
+
+    const handleScopeCreate = () => {
+        if (!scopeKey || !scopeDraft.name.trim()) return;
+        const nextId = createScopeId();
+        const nextWindow: ScopeWindow = {
+            id: nextId,
+            name: scopeDraft.name.trim(),
+            description: scopeDraft.description?.trim() || null,
+            startDate: scopeDraft.startDate || null,
+            endDate: scopeDraft.endDate || null,
+            taskIds: [],
+            createdAt: new Date().toISOString(),
+        };
+        updateScopeWindows((prev) => prev.concat(nextWindow));
+        setScopeDraft({ name: '', description: '', startDate: '', endDate: '' });
+        setActiveScopeId(nextId);
+    };
+
+    const openScopeDetail = (scopeId: string) => {
+        setActiveScopeId(scopeId);
+        setScopeScreen('detail');
+        setScopeRouteId(scopeId);
+        updateScopeUrl(scopeId, 'push');
+    };
+
+    const handleScopeAddTask = (windowId: string, taskId: string) => {
+        updateScopeWindows((prev) =>
+            prev.map((window) =>
+                window.id === windowId && !window.taskIds.includes(taskId)
+                    ? { ...window, taskIds: window.taskIds.concat(taskId) }
+                    : window
+            )
+        );
+    };
+
+    const handleScopeRemoveTask = (windowId: string, taskId: string) => {
+        updateScopeWindows((prev) =>
+            prev.map((window) =>
+                window.id === windowId
+                    ? { ...window, taskIds: window.taskIds.filter((id) => id !== taskId) }
+                    : window
+            )
+        );
+    };
+
+    const handleScopeDelete = (windowId: string) => {
+        updateScopeWindows((prev) => prev.filter((window) => window.id !== windowId));
+        setScopePickerOpenId((prev) => (prev === windowId ? null : prev));
+        if (windowId === activeScopeId) {
+            setActiveScopeId(null);
+            setScopeScreen('list');
+            setScopeRouteId(null);
+            updateScopeUrl(null, 'replace');
+        }
+    };
+
+    const handleScopeDragOver = (event: React.DragEvent, windowId: string) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        setScopeDropTargetId(windowId);
+    };
+
+    const handleScopeDragLeave = (event: React.DragEvent, windowId: string) => {
+        const target = event.currentTarget as HTMLElement;
+        const related = event.relatedTarget as HTMLElement | null;
+        if (!related || !target.contains(related)) {
+            setScopeDropTargetId((prev) => (prev === windowId ? null : prev));
+        }
+    };
+
+    const handleScopeDrop = (event: React.DragEvent, windowId: string) => {
+        event.preventDefault();
+        const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId || '';
+        if (!taskId) return;
+        handleScopeAddTask(windowId, taskId);
+        setScopeDropTargetId(null);
+        setToastMessage('Added to scope window');
+    };
+
+    const handleScopeColumnDragOver = (event: React.DragEvent) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        event.currentTarget.classList.add('drag-over');
+    };
+
+    const handleScopeColumnDragLeave = (event: React.DragEvent) => {
+        const target = event.currentTarget as HTMLElement;
+        const related = event.relatedTarget as HTMLElement | null;
+        if (!related || !target.contains(related)) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+    };
+
+    const handleScopeColumnDrop = (event: React.DragEvent, status: TaskStatus) => {
+        event.preventDefault();
+        event.currentTarget.classList.remove('drag-over');
+        const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId || '';
+        if (!taskId || !activeScopeWindow) return;
+        if (!activeScopeWindow.taskIds.includes(taskId)) return;
+        const sourceTask = scopeTaskById.get(taskId);
+        if (sourceTask && sourceTask.status === status) return;
+        handleUpdateStatus(taskId, status);
+        setToastMessage(`Moved to ${status}`);
     };
 
     const loadBoardsForHuddle = async (tenantId: string) => {
@@ -1066,10 +1256,17 @@ const App: React.FC = () => {
         return Math.round(total / krs.length);
     };
     const isOpenTask = (task: TaskView) => task.status !== 'DONE';
-    const isOverdueTask = (task: TaskView) => {
-        if (!task?.dueDate) return false;
-        if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
-        return new Date(task.dueDate).getTime() < Date.now();
+    const getDueStatus = (task: TaskView): 'overdue' | 'due-soon' | 'none' => {
+        if (!task?.dueDate) return 'none';
+        if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return 'none';
+        const due = new Date(task.dueDate);
+        if (Number.isNaN(due.getTime())) return 'none';
+        const now = new Date();
+        const soonHours = settingsDraft?.reminders?.dueSoonHours ?? 24;
+        const soonWindow = new Date(now.getTime() + soonHours * 60 * 60 * 1000);
+        if (due < now) return 'overdue' as const;
+        if (due <= soonWindow) return 'due-soon' as const;
+        return 'none';
     };
     const toDateKey = (date: Date) => {
         const year = date.getFullYear();
@@ -1324,6 +1521,15 @@ const App: React.FC = () => {
         if (!activeTenantId) return [];
         return tasksByTenant[activeTenantId] || tasks || [];
     }, [activeTenantId, tasksByTenant, tasks]);
+
+    const scopeTaskPool = useMemo(() => {
+        if (!activeTenantId) return tasks || [];
+        return scopeTasksByTenant[activeTenantId] || tasksByTenant[activeTenantId] || tasks || [];
+    }, [activeTenantId, scopeTasksByTenant, tasksByTenant, tasks]);
+
+    const scopeTaskById = useMemo(() => {
+        return new Map(scopeTaskPool.map((task) => [task.id, task]));
+    }, [scopeTaskPool]);
 
     const dashboardSummary = useMemo(() => {
         const now = new Date();
@@ -1660,10 +1866,39 @@ const App: React.FC = () => {
     }, [okrRecent]);
 
     useEffect(() => {
+        try {
+            localStorage.setItem('kanbax-scope-windows', JSON.stringify(scopeWindowsByBoard));
+        } catch {
+            // ignore
+        }
+    }, [scopeWindowsByBoard]);
+
+    useEffect(() => {
         if (view === 'okr') {
             loadOkrs();
         }
     }, [view, session, activeTenantId, activeBoardId]);
+
+    useEffect(() => {
+        if (view !== 'scope' || !activeTenantId || !session?.access_token) return;
+        let cancelled = false;
+        const loadScopeTasks = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/tasks?boardId=all`, { headers: getApiHeaders(true, activeTenantId) });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!cancelled) {
+                    setScopeTasksByTenant((prev) => ({ ...prev, [activeTenantId]: data }));
+                }
+            } catch {
+                // ignore scope task load errors
+            }
+        };
+        loadScopeTasks();
+        return () => {
+            cancelled = true;
+        };
+    }, [view, activeTenantId, session?.access_token]);
 
     useEffect(() => {
         try {
@@ -1684,6 +1919,11 @@ const App: React.FC = () => {
             setIsBoardNavOpen(false);
         }
     }, [isSidebarCollapsed, view]);
+
+    useEffect(() => {
+        setScopePickerOpenId(null);
+        setScopePickerQuery('');
+    }, [activeTenantId]);
 
     useEffect(() => {
         if (isSidebarCollapsed) {
@@ -2002,6 +2242,189 @@ const App: React.FC = () => {
         if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
         return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     };
+    const updateScopeUrl = (scopeId: string | null, mode: 'push' | 'replace' = 'push') => {
+        const params = new URLSearchParams(window.location.search);
+        if (scopeId) {
+            params.set('scope', scopeId);
+        } else {
+            params.delete('scope');
+        }
+        const next = params.toString();
+        const url = `${window.location.pathname}${next ? `?${next}` : ''}`;
+        if (mode === 'replace') {
+            window.history.replaceState({}, '', url);
+        } else {
+            window.history.pushState({}, '', url);
+        }
+    };
+    const boardLabelById = useMemo(() => {
+        const list = activeTenantId ? (boardsByTenant[activeTenantId] || boards) : boards;
+        const map = new Map<string, string>();
+        (list || []).forEach((boardItem) => {
+            if (boardItem?.id) {
+                map.set(boardItem.id, boardItem.name || 'Board');
+            }
+        });
+        map.set(ARCHIVED_BOARD_ID, 'Archived');
+        if (!map.has('default-board')) {
+            map.set('default-board', 'Main Board');
+        }
+        return map;
+    }, [activeTenantId, boardsByTenant, boards]);
+    const getBoardLabel = (boardId?: string | null) => {
+        if (!boardId) return 'Board';
+        return boardLabelById.get(boardId) || (boardId === 'all' ? 'All' : boardId);
+    };
+    const scopeKey = activeTenantId || null;
+    const scopeWindows = useMemo(() => {
+        if (!scopeKey) return [];
+        return scopeWindowsByBoard[scopeKey] || [];
+    }, [scopeKey, scopeWindowsByBoard]);
+    const activeScopeWindow = useMemo(() => {
+        if (!activeScopeId) return null;
+        return scopeWindows.find((window) => window.id === activeScopeId) || null;
+    }, [scopeWindows, activeScopeId]);
+    const scopeStatuses = useMemo(() => [
+        TaskStatus.BACKLOG,
+        TaskStatus.TODO,
+        TaskStatus.IN_PROGRESS,
+        TaskStatus.DONE,
+    ], []);
+    const scopeColumns = useMemo(() => {
+        if (!activeScopeWindow) return [];
+        const scopedTasks = activeScopeWindow.taskIds
+            .map((taskId) => scopeTaskById.get(taskId))
+            .filter(Boolean) as TaskView[];
+        const filteredTasks = scopedTasks.filter((task) => {
+            if (scopeFilterPriority !== 'ALL' && task.priority !== scopeFilterPriority) return false;
+            if (scopeFilterStatus !== 'ALL' && task.status !== scopeFilterStatus) return false;
+            return true;
+        });
+        return scopeStatuses.map((status) => ({
+            status,
+            tasks: filteredTasks.filter((task) => task.status === status),
+        }));
+    }, [activeScopeWindow, scopeTaskById, scopeStatuses, scopeFilterPriority, scopeFilterStatus]);
+    const scopeListTasks = useMemo(() => {
+        return scopeColumns.flatMap((column) => column.tasks);
+    }, [scopeColumns]);
+    const scopeAvailableTasks = useMemo(() => {
+        if (!activeScopeWindow) return [];
+        const scopedTaskSet = new Set(activeScopeWindow.taskIds);
+        return scopeTaskPool.filter((task) => task.status !== TaskStatus.ARCHIVED && !scopedTaskSet.has(task.id));
+    }, [activeScopeWindow, scopeTaskPool]);
+    const filteredScopeAvailableTasks = useMemo(() => {
+        const query = scopePickerQuery.trim().toLowerCase();
+        if (!query) return scopeAvailableTasks;
+        return scopeAvailableTasks.filter((task) => task.title.toLowerCase().includes(query));
+    }, [scopeAvailableTasks, scopePickerQuery]);
+    useEffect(() => {
+        if (!activeTenantId) {
+            setActiveScopeId(null);
+            return;
+        }
+        if (scopeWindows.length === 0) {
+            setActiveScopeId(null);
+            return;
+        }
+        if (!activeScopeId || !scopeWindows.some((window) => window.id === activeScopeId)) {
+            setActiveScopeId(scopeWindows[0].id);
+        }
+    }, [activeTenantId, scopeWindows, activeScopeId]);
+    useEffect(() => {
+        setScopePickerOpenId(null);
+        setScopePickerQuery('');
+    }, [activeScopeId]);
+    useEffect(() => {
+        if (!activeTenantId || scopeWindows.length === 0) {
+            setScopeScreen('list');
+            return;
+        }
+        if (scopeScreen === 'detail' && !activeScopeWindow) {
+            setScopeScreen('list');
+        }
+    }, [activeTenantId, scopeWindows.length, activeScopeWindow, scopeScreen]);
+    useEffect(() => {
+        if (!scopeRouteId) return;
+        if (scopeWindows.length === 0) return;
+        const match = scopeWindows.find((window) => window.id === scopeRouteId);
+        if (match) {
+            setActiveScopeId(match.id);
+            setScopeScreen('detail');
+            return;
+        }
+        setScopeRouteId(null);
+        updateScopeUrl(null, 'replace');
+        setScopeScreen('list');
+    }, [scopeRouteId, scopeWindows]);
+    useEffect(() => {
+        if (view !== 'scope' && scopeRouteId) {
+            setScopeRouteId(null);
+            updateScopeUrl(null, 'replace');
+        }
+    }, [view, scopeRouteId]);
+    useEffect(() => {
+        if (scopeScreen !== 'detail') {
+            setScopePriorityFilterOpen(false);
+            setScopeStatusFilterOpen(false);
+        }
+    }, [scopeScreen]);
+    useEffect(() => {
+        if (!isScopeSettingsOpen || !activeScopeWindow) return;
+        setScopeSettingsDraft({
+            name: activeScopeWindow.name,
+            description: activeScopeWindow.description || '',
+            startDate: activeScopeWindow.startDate || '',
+            endDate: activeScopeWindow.endDate || '',
+        });
+    }, [isScopeSettingsOpen, activeScopeWindow]);
+    const updateScopeWindows = (updater: (prev: ScopeWindow[]) => ScopeWindow[]) => {
+        if (!scopeKey) return;
+        setScopeWindowsByBoard((prev) => {
+            const current = prev[scopeKey] || [];
+            const next = updater(current);
+            return { ...prev, [scopeKey]: next };
+        });
+    };
+    const createScopeId = () => {
+        if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+            return crypto.randomUUID();
+        }
+        return `scope-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    };
+    const formatScopeDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString() : '—');
+    const isScopeDateRangeInvalid = (startDate: string, endDate: string) => {
+        if (!startDate || !endDate) return false;
+        return new Date(endDate) < new Date(startDate);
+    };
+    const getScopeDateLabel = (window: ScopeWindow) => {
+        if (!window.startDate && !window.endDate) return 'No dates set';
+        return `${formatScopeDate(window.startDate)} → ${formatScopeDate(window.endDate)}`;
+    };
+    const scopeSettingsDateInvalid = useMemo(
+        () => isScopeDateRangeInvalid(scopeSettingsDraft.startDate, scopeSettingsDraft.endDate),
+        [scopeSettingsDraft.startDate, scopeSettingsDraft.endDate]
+    );
+    const handleScopeSettingsSave = () => {
+        if (!activeScopeWindow) return;
+        const trimmedName = scopeSettingsDraft.name.trim();
+        if (!trimmedName) return;
+        if (scopeSettingsDateInvalid) return;
+        updateScopeWindows((prev) =>
+            prev.map((window) =>
+                window.id === activeScopeWindow.id
+                    ? {
+                        ...window,
+                        name: trimmedName,
+                        description: scopeSettingsDraft.description.trim() || null,
+                        startDate: scopeSettingsDraft.startDate || null,
+                        endDate: scopeSettingsDraft.endDate || null,
+                    }
+                    : window
+            )
+        );
+        setIsScopeSettingsOpen(false);
+    };
     const sidebarBoardItems = useMemo(() => {
         const list = activeTenantId ? (boardsByTenant[activeTenantId] || boards) : boards;
         const items = Array.isArray(list) ? [...list] : [];
@@ -2243,11 +2666,26 @@ const App: React.FC = () => {
         }
         if (view === 'dashboard') items.push({ label: 'Dashboard', onClick: () => setView('dashboard') });
         if (view === 'calendar') items.push({ label: 'Calendar', onClick: () => setView('calendar') });
+        if (view === 'scope') {
+            items.push({
+                label: 'Scope Window',
+                onClick: () => {
+                    setView('scope');
+                    setScopeScreen('list');
+                    setScopeRouteId(null);
+                    updateScopeUrl(null, 'replace');
+                }
+            });
+            if (scopeScreen === 'detail' && activeScopeWindow) {
+                items.push({ label: activeScopeWindow.name });
+            }
+            return items;
+        }
         if (view === 'table') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'list') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'kanban') items.push({ label: activeBoard?.name || 'Board', onClick: () => setView('kanban') });
         return items;
-    }, [view, activeHuddleName, okrScreen, okrActiveObjective, activeBoard?.name]);
+    }, [view, activeHuddleName, okrScreen, okrActiveObjective, activeBoard?.name, scopeScreen, activeScopeWindow]);
     const notificationSnapshotRef = useRef<Record<string, any>>({});
     const initializedHuddlesRef = useRef<Set<string>>(new Set());
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
@@ -3068,6 +3506,17 @@ const App: React.FC = () => {
             }
 
             fetchData();
+            if (view === 'scope' && activeTenantId) {
+                try {
+                    const scopeRes = await fetch(`${API_BASE}/tasks?boardId=all`, { headers: getApiHeaders(true, activeTenantId) });
+                    if (scopeRes.ok) {
+                        const data = await scopeRes.json();
+                        setScopeTasksByTenant((prev) => ({ ...prev, [activeTenantId]: data }));
+                    }
+                } catch {
+                    // ignore scope refresh errors
+                }
+            }
         } catch (e: any) {
             alert(e.message);
         }
@@ -3481,8 +3930,12 @@ const App: React.FC = () => {
         document.querySelectorAll('.task-card.drag-over-card').forEach((el) => {
             el.classList.remove('drag-over-card');
         });
+        document.querySelectorAll('.kanban-column.drag-over').forEach((el) => {
+            el.classList.remove('drag-over');
+        });
         setDraggingTaskId(null);
         lastDragTargetRef.current = null;
+        setScopeDropTargetId(null);
         setTimeout(() => setIsDragging(false), 200);
     };
 
@@ -3837,6 +4290,18 @@ const App: React.FC = () => {
                                     <button
                                         className="user-menu-item"
                                         onClick={() => {
+                                            setView('scope');
+                                            setScopeScreen('list');
+                                            setScopeRouteId(null);
+                                            updateScopeUrl(null, 'replace');
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                    >
+                                        Scope Window
+                                    </button>
+                                    <button
+                                        className="user-menu-item"
+                                        onClick={() => {
                                             navigateOkr('/okr');
                                             setIsUserMenuOpen(false);
                                         }}
@@ -4003,6 +4468,21 @@ const App: React.FC = () => {
                                 </div>
                             )}
                             <button
+                                className={`sidebar-nav-item ${view === 'scope' ? 'active' : ''}`}
+                                onClick={handleScopeNavClick}
+                                data-tooltip="Scope Window"
+                            >
+                                <span className="sidebar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                        <rect x="4" y="4" width="16" height="16" rx="3" />
+                                        <path d="M8 9h8" />
+                                        <path d="M8 13h6" />
+                                        <path d="M8 17h4" />
+                                    </svg>
+                                </span>
+                                <span className="sidebar-nav-label">Scope Window</span>
+                            </button>
+                            <button
                                 className={`sidebar-nav-item ${view === 'okr' ? 'active' : ''}`}
                                 onClick={handleOkrNavClick}
                                 data-tooltip="OKRs"
@@ -4120,33 +4600,6 @@ const App: React.FC = () => {
                     </div>
                 )}
                 <div className="page-heading">
-                    <div className="page-heading-row">
-                        <h1>
-                            {view === 'settings'
-                                ? 'Settings'
-                                : view === 'okr'
-                                    ? 'OKRs'
-                                    : view === 'dashboard'
-                                        ? 'Dashboard'
-                                        : view === 'calendar'
-                                            ? 'Calendar'
-                                            : (activeBoard?.name || activeHuddleName || 'Board')}
-                        </h1>
-                        {(view === 'kanban' || view === 'table') && (
-                            <button
-                                className="icon-action create"
-                                disabled={!activeTenantId}
-                                onClick={openCreateTask}
-                                data-tooltip="Task erstellen"
-                                aria-label="Task erstellen"
-                            >
-                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                    <path d="M12 5v14" />
-                                    <path d="M5 12h14" />
-                                </svg>
-                            </button>
-                        )}
-                    </div>
                     <div className="page-breadcrumbs">
                         {breadcrumbItems.map((item, index) => (
                             <span key={`${item.label}-${index}`} className="page-breadcrumb-item">
@@ -4250,6 +4703,35 @@ const App: React.FC = () => {
                                 )}
                             </span>
                         ))}
+                    </div>
+                    <div className="page-heading-row">
+                        <h1>
+                            {view === 'settings'
+                                ? 'Settings'
+                                : view === 'okr'
+                                    ? 'OKRs'
+                                : view === 'dashboard'
+                                    ? 'Dashboard'
+                                    : view === 'calendar'
+                                        ? 'Calendar'
+                                        : view === 'scope'
+                                            ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope Window')
+                                            : (activeBoard?.name || activeHuddleName || 'Board')}
+                        </h1>
+                        {(view === 'kanban' || view === 'table') && (
+                            <button
+                                className="icon-action create"
+                                disabled={!activeTenantId}
+                                onClick={openCreateTask}
+                                data-tooltip="Task erstellen"
+                                aria-label="Task erstellen"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                    <path d="M12 5v14" />
+                                    <path d="M5 12h14" />
+                                </svg>
+                            </button>
+                        )}
                     </div>
                 </div>
                 {loading ? (
@@ -5771,12 +6253,16 @@ const App: React.FC = () => {
                                 </label>
                             </div>
                             <div className="panel-actions">
-                                <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
-                                    {objectiveEditId ? 'Save changes' : 'Create objective'}
-                                </button>
-                                <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
-                                    Cancel
-                                </button>
+                                <div className="panel-actions-left">
+                                    <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
+                                        Cancel
+                                    </button>
+                                </div>
+                                <div className="panel-actions-right">
+                                    <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
+                                        {objectiveEditId ? 'Save changes' : 'Create objective'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -5784,6 +6270,470 @@ const App: React.FC = () => {
             )}
                     </div>
                     )
+                ) : view === 'scope' ? (
+                    <div className="scope-view">
+                        {!activeTenantId ? (
+                            <div className="empty-state">Select a huddle to build a scope window.</div>
+                        ) : scopeScreen === 'list' ? (
+                            <>
+                                <div className="scope-create-card">
+                                    <div className="scope-card-header">
+                                        <div>
+                                            <div className="scope-card-title">Create scope window</div>
+                                            <div className="scope-card-subtitle">
+                                                Bundle tasks from {activeHuddleName || 'this huddle'} into a focused sprint scope.
+                                            </div>
+                                        </div>
+                                        {activeHuddleName && (
+                                            <span className="scope-board-badge">{activeHuddleName}</span>
+                                        )}
+                                    </div>
+                                    <div className="scope-create-grid">
+                                        <label>
+                                            Title
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Sprint 12"
+                                                value={scopeDraft.name}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, name: event.target.value }))}
+                                            />
+                                        </label>
+                                        <label>
+                                            Start date
+                                            <input
+                                                type="date"
+                                                value={scopeDraft.startDate}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, startDate: event.target.value }))}
+                                            />
+                                        </label>
+                                        <label>
+                                            End date
+                                            <input
+                                                type="date"
+                                                value={scopeDraft.endDate}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, endDate: event.target.value }))}
+                                            />
+                                        </label>
+                                        <label className="scope-create-span">
+                                            Notes
+                                            <textarea
+                                                rows={2}
+                                                placeholder="Optional note for this scope window."
+                                                value={scopeDraft.description}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, description: event.target.value }))}
+                                            />
+                                        </label>
+                                    </div>
+                                    <div className="scope-create-actions">
+                                        <button
+                                            className="btn btn-primary btn-compact"
+                                            onClick={handleScopeCreate}
+                                            disabled={!scopeDraft.name.trim() || !scopeKey}
+                                        >
+                                            Create scope window
+                                        </button>
+                                    </div>
+                                </div>
+                                {scopeWindows.length === 0 ? (
+                                    <div className="scope-empty">No scope windows yet. Create one to start grouping tasks.</div>
+                                ) : (
+                                    <div className="scope-window-grid">
+                                        {scopeWindows.map((scopeWindow) => (
+                                            <div
+                                                key={scopeWindow.id}
+                                                className={`scope-window-card${activeScopeId === scopeWindow.id ? ' active' : ''}`}
+                                                onClick={() => openScopeDetail(scopeWindow.id)}
+                                                role="button"
+                                                tabIndex={0}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                        event.preventDefault();
+                                                        openScopeDetail(scopeWindow.id);
+                                                    }
+                                                }}
+                                            >
+                                                <div className="scope-window-header">
+                                                    <div>
+                                                        <div className="scope-window-title">{scopeWindow.name}</div>
+                                                        <div className="scope-window-meta">
+                                                            {getScopeDateLabel(scopeWindow)} · {scopeWindow.taskIds.length} tasks
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        className="icon-action delete"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            handleScopeDelete(scopeWindow.id);
+                                                        }}
+                                                        data-tooltip="Scope Window löschen"
+                                                        aria-label="Scope Window löschen"
+                                                    >
+                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                            <path d="M6 6l12 12" />
+                                                            <path d="M18 6L6 18" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                {scopeWindow.description && (
+                                                    <div className="scope-window-description">{scopeWindow.description}</div>
+                                                )}
+                                                <div className="scope-window-actions">
+                                                    <button
+                                                        className="btn btn-ghost btn-compact"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            openScopeDetail(scopeWindow.id);
+                                                        }}
+                                                    >
+                                                        Open board
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        ) : activeScopeWindow ? (
+                            <div className="scope-detail-panel">
+                                <div className="scope-board-panel">
+                                    <div className="scope-board-header">
+                                        <div className="scope-board-header-main">
+                                            <div className="scope-board-meta">
+                                                {getScopeDateLabel(activeScopeWindow)} · {activeScopeWindow.taskIds.length} tasks
+                                            </div>
+                                            {activeScopeWindow.description && (
+                                                <div className="scope-board-description">{activeScopeWindow.description}</div>
+                                            )}
+                                        </div>
+                                        <div className="scope-board-actions">
+                                            <button
+                                                className="btn btn-primary btn-compact"
+                                                onClick={() => {
+                                                    setScopePickerQuery('');
+                                                    setScopePickerOpenId((prev) => (prev === activeScopeWindow.id ? null : activeScopeWindow.id));
+                                                }}
+                                            >
+                                                + task
+                                            </button>
+                                            <button
+                                                className="icon-action settings"
+                                                onClick={() => setIsScopeSettingsOpen(true)}
+                                                data-tooltip="Scope Window settings"
+                                                aria-label="Scope Window settings"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                    <circle cx="12" cy="12" r="3.5" />
+                                                    <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="scope-board-toolbar">
+                                        <div className="scope-board-toolbar-left">
+                                            <div
+                                                className="view-switch scope-view-switch"
+                                                role="tablist"
+                                                aria-label="Scope view switcher"
+                                                style={{ ['--active-index' as any]: scopeDetailView === 'board' ? 0 : 1 }}
+                                            >
+                                                <button
+                                                    className={`view-pill ${scopeDetailView === 'board' ? 'active' : ''}`}
+                                                    onClick={() => setScopeDetailView('board')}
+                                                    role="tab"
+                                                    aria-selected={scopeDetailView === 'board'}
+                                                >
+                                                    Board
+                                                </button>
+                                                <button
+                                                    className={`view-pill ${scopeDetailView === 'list' ? 'active' : ''}`}
+                                                    onClick={() => setScopeDetailView('list')}
+                                                    role="tab"
+                                                    aria-selected={scopeDetailView === 'list'}
+                                                >
+                                                    Table
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="scope-board-toolbar-right">
+                                            <div className="scope-filter-row">
+                                                <div className="filter-dropdown">
+                                                    <button
+                                                        type="button"
+                                                        className="filter-select"
+                                                        onClick={() => setScopePriorityFilterOpen((prev) => !prev)}
+                                                        aria-haspopup="listbox"
+                                                        aria-expanded={scopePriorityFilterOpen}
+                                                    >
+                                                        {scopeFilterPriority === 'ALL' ? 'All priorities' : scopeFilterPriority}
+                                                    </button>
+                                                    {scopePriorityFilterOpen && (
+                                                        <div className="filter-options" role="listbox">
+                                                            {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => (
+                                                                <button
+                                                                    key={value}
+                                                                    type="button"
+                                                                    className={`filter-option ${scopeFilterPriority === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
+                                                                    onClick={() => {
+                                                                        setScopeFilterPriority(value);
+                                                                        setScopePriorityFilterOpen(false);
+                                                                    }}
+                                                                    role="option"
+                                                                    aria-selected={scopeFilterPriority === value}
+                                                                >
+                                                                    {value === 'ALL' ? 'All priorities' : value}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="filter-dropdown">
+                                                    <button
+                                                        type="button"
+                                                        className="filter-select"
+                                                        onClick={() => setScopeStatusFilterOpen((prev) => !prev)}
+                                                        aria-haspopup="listbox"
+                                                        aria-expanded={scopeStatusFilterOpen}
+                                                    >
+                                                        {scopeFilterStatus === 'ALL' ? 'All statuses' : scopeFilterStatus}
+                                                    </button>
+                                                    {scopeStatusFilterOpen && (
+                                                        <div className="filter-options" role="listbox">
+                                                            {['ALL', ...scopeStatuses].map((value) => (
+                                                                <button
+                                                                    key={value}
+                                                                    type="button"
+                                                                    className={`filter-option ${scopeFilterStatus === value ? 'active' : ''}`}
+                                                                    onClick={() => {
+                                                                        setScopeFilterStatus(value as TaskStatus | 'ALL');
+                                                                        setScopeStatusFilterOpen(false);
+                                                                    }}
+                                                                    role="option"
+                                                                    aria-selected={scopeFilterStatus === value}
+                                                                >
+                                                                    {value === 'ALL' ? 'All statuses' : value}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {(scopeFilterPriority !== 'ALL' || scopeFilterStatus !== 'ALL') && (
+                                                    <button
+                                                        className="btn btn-ghost btn-compact scope-filter-reset"
+                                                        onClick={() => {
+                                                            setScopeFilterPriority('ALL');
+                                                            setScopeFilterStatus('ALL');
+                                                        }}
+                                                    >
+                                                        Reset filters
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {scopePickerOpenId === activeScopeWindow.id && (
+                                        <div className="scope-task-picker">
+                                            <div className="scope-task-picker-header">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search tasks"
+                                                    value={scopePickerQuery}
+                                                    onChange={(event) => setScopePickerQuery(event.target.value)}
+                                                />
+                                                <button
+                                                    className="btn btn-ghost btn-compact"
+                                                    onClick={() => {
+                                                        setScopePickerOpenId(null);
+                                                        setScopePickerQuery('');
+                                                    }}
+                                                >
+                                                    Done
+                                                </button>
+                                            </div>
+                                            <div className="scope-task-picker-list">
+                                                {filteredScopeAvailableTasks.length === 0 ? (
+                                                    <div className="scope-task-empty">No tasks left to add.</div>
+                                                ) : (
+                                                    filteredScopeAvailableTasks.map((task) => (
+                                                        <button
+                                                            key={task.id}
+                                                            type="button"
+                                                            className="scope-task-option"
+                                                            onClick={() => handleScopeAddTask(activeScopeWindow.id, task.id)}
+                                                        >
+                                                            <div className="scope-task-option-main">
+                                                                <div className="scope-task-option-title">{task.title}</div>
+                                                                <div className="scope-task-option-meta">
+                                                                    {task.status} · {getBoardLabel(task.boardId)} · {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                                                                </div>
+                                                            </div>
+                                                            <span className="scope-task-option-add">Add</span>
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {scopeDetailView === 'list' ? (
+                                        scopeListTasks.length === 0 ? (
+                                            <div className="scope-task-empty">No tasks in this scope window.</div>
+                                        ) : (
+                                            <div className="task-table-wrap">
+                                                <table className="task-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Title</th>
+                                                            <th>Status</th>
+                                                            <th>Due</th>
+                                                            <th>Board</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {scopeListTasks.map((task) => {
+                                                            const dueStatus = getDueStatus(task);
+                                                            const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
+                                                            const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
+                                                            const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
+                                                            const boardLabel = task.boardId ? getBoardLabel(task.boardId) : '—';
+                                                            return (
+                                                                <tr
+                                                                    key={task.id}
+                                                                    className={`task-table-row${dueStatusClass}`}
+                                                                    onClick={() => handleCardClick(task)}
+                                                                >
+                                                                    <td>{task.title}</td>
+                                                                    <td>{task.status}</td>
+                                                                    <td>
+                                                                        <div className={`task-table-due${dueStatusClass}`}>
+                                                                            <span className="task-table-due-date">{dueDateLabel}</span>
+                                                                            {dueLabel && <span className="task-table-due-badge">{dueLabel}</span>}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>{boardLabel}</td>
+                                                                    <td>
+                                                                        <div className="table-actions">
+                                                                            <button
+                                                                                type="button"
+                                                                                className="scope-task-remove"
+                                                                                onClick={(event) => {
+                                                                                    event.stopPropagation();
+                                                                                    handleScopeRemoveTask(activeScopeWindow.id, task.id);
+                                                                                }}
+                                                                            >
+                                                                                Remove
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )
+                                    ) : (
+                                        <div className="kanban-board scope-kanban-board">
+                                            {scopeColumns.map((column) => (
+                                                <div
+                                                    key={column.status}
+                                                    className="kanban-column"
+                                                    onDragOver={handleScopeColumnDragOver}
+                                                    onDragLeave={handleScopeColumnDragLeave}
+                                                    onDrop={(event) => handleScopeColumnDrop(event, column.status)}
+                                                >
+                                                    <div className="column-header">
+                                                        <span>{column.status}</span>
+                                                        <span>{column.tasks.length}</span>
+                                                    </div>
+                                                    <div className="column-content">
+                                                        {column.tasks.length === 0 ? (
+                                                            <div className="scope-column-empty">No tasks</div>
+                                                        ) : (
+                                                            column.tasks.map((task) => {
+                                                                const dueStatus = getDueStatus(task);
+                                                                const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
+                                                                const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
+                                                                const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
+                                                                const isScopeDraggable = task.sourceType ? task.sourceType === 'MANUAL' : true;
+                                                                const boardLabel = getBoardLabel(task.boardId);
+                                                                return (
+                                                                    <div
+                                                                        key={task.id}
+                                                                        className={`task-card scope-task-card${isScopeDraggable ? ' task-card-draggable' : ''}`}
+                                                                        onClick={() => handleCardClick(task)}
+                                                                        draggable={isScopeDraggable}
+                                                                        onDragStart={(event) => (isScopeDraggable ? onDragStart(event, task.id) : event.preventDefault())}
+                                                                        onDragEnd={onDragEnd}
+                                                                    >
+                                                                        <div className="task-card-content">
+                                                                            <div className="task-card-topbar">
+                                                                                <div className={`task-card-due${dueStatusClass}`}>
+                                                                                    <span className="task-card-due-icon" aria-hidden="true">
+                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                            <path d="M5 4v16" />
+                                                                                            <path d="M5 4h11l-2 4 2 4H5" />
+                                                                                        </svg>
+                                                                                    </span>
+                                                                                    <span className="task-card-due-date">{dueDateLabel}</span>
+                                                                                    {dueLabel && <span className="task-card-due-badge">{dueLabel}</span>}
+                                                                                </div>
+                                                                                <div className={`priority-bubble priority-${task.priority.toLowerCase()}`}>
+                                                                                    <span
+                                                                                        className={`priority-line tooltip-target ${task.priority === 'CRITICAL' ? 'priority-line-critical' : ''}`}
+                                                                                        aria-hidden="true"
+                                                                                        data-tooltip={`Priority: ${task.priority}`}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="task-card-header">
+                                                                                <div className="task-title-row">{task.title}</div>
+                                                                                {task.isFavorite && (
+                                                                                    <span className="favorite-badge" title="Favorite">
+                                                                                        ★
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            {task.description && (
+                                                                                <div className="task-card-description">{stripHtml(task.description)}</div>
+                                                                            )}
+                                                                            <div className="scope-card-footer">
+                                                                                <div className="task-card-kinds">
+                                                                                    {task.kinds.map((kind) => (
+                                                                                        <span key={kind} className="badge task-kind-badge">
+                                                                                            {kind}
+                                                                                        </span>
+                                                                                    ))}
+                                                                                    {boardLabel && (
+                                                                                        <span className="scope-task-origin">Board: {boardLabel}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="scope-task-remove"
+                                                                                    onClick={(event) => {
+                                                                                        event.stopPropagation();
+                                                                                        handleScopeRemoveTask(activeScopeWindow.id, task.id);
+                                                                                    }}
+                                                                                >
+                                                                                    Remove
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="scope-empty">Select a scope window.</div>
+                        )}
+                    </div>
                 ) : view === 'dashboard' ? (
                     <div className="dashboard-panel">
                         {!activeTenantId ? (
@@ -6060,7 +7010,47 @@ const App: React.FC = () => {
                         {error && <div style={{ color: '#f87171', marginBottom: '1rem' }}>Error: {error}</div>}
 
                         {view === 'kanban' ? (
-                            <div className="kanban-board">
+                            <div className="kanban-board-wrap">
+                                {activeTenantId && (
+                                    <div className={`scope-drop-row${isDragging ? ' dragging' : ''}`}>
+                                        <div className="scope-drop-header">
+                                            <div>
+                                                <div className="scope-drop-title">Scope Window</div>
+                                                <div className="scope-drop-subtitle">Drag tasks here to add them to a scope window.</div>
+                                            </div>
+                                            <button
+                                                className="btn btn-ghost btn-compact"
+                                                onClick={() => {
+                                                    setView('scope');
+                                                    setScopeScreen('list');
+                                                    setScopeRouteId(null);
+                                                    updateScopeUrl(null, 'replace');
+                                                }}
+                                            >
+                                                Open
+                                            </button>
+                                        </div>
+                                        {scopeWindows.length === 0 ? (
+                                            <div className="scope-drop-empty">No scope windows yet.</div>
+                                        ) : (
+                                            <div className="scope-drop-list">
+                                                {scopeWindows.map((scopeWindow) => (
+                                                    <div
+                                                        key={scopeWindow.id}
+                                                        className={`scope-drop-item${scopeDropTargetId === scopeWindow.id ? ' over' : ''}`}
+                                                        onDragOver={(event) => handleScopeDragOver(event, scopeWindow.id)}
+                                                        onDragLeave={(event) => handleScopeDragLeave(event, scopeWindow.id)}
+                                                        onDrop={(event) => handleScopeDrop(event, scopeWindow.id)}
+                                                    >
+                                                        <div className="scope-drop-name">{scopeWindow.name}</div>
+                                                        <div className="scope-drop-meta">{scopeWindow.taskIds.length} tasks</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="kanban-board">
                                 {kanbanColumns.map((column: any) => {
                                     const visibleTasks = column.tasks.filter(matchesFilter);
                                     const orderKey = getOrderKey(activeTenantId, activeBoardId, column.status);
@@ -6089,6 +7079,11 @@ const App: React.FC = () => {
                                             const isChecklistComplete = checklistTotal > 0 && checklistDone === checklistTotal;
                                             const isLinkedFromOther = linkedToSet.has(task.id);
                                             const isDraggable = task.sourceType ? task.sourceType === 'MANUAL' : true;
+                                            const dueStatus = getDueStatus(task);
+                                            const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
+                                            const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
+                                            const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
+                                            const cardStatusClass = dueStatus === 'overdue' ? ' task-card-overdue' : dueStatus === 'due-soon' ? ' task-card-due-soon' : '';
                                             const taskCardStyle: React.CSSProperties = {
                                                 cursor: isDraggable ? 'grab' : 'default',
                                                 userSelect: 'none',
@@ -6098,7 +7093,7 @@ const App: React.FC = () => {
                                             return (
                                                 <React.Fragment key={task.id}>
                                                     <div
-                                                        className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}`}
+                                                        className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}${cardStatusClass}`}
                                                         style={taskCardStyle}
                                                         draggable={isDraggable}
                                                         onDragStart={(e) => (isDraggable ? onDragStart(e, task.id) : e.preventDefault())}
@@ -6109,14 +7104,15 @@ const App: React.FC = () => {
                                                     >
                                                         <div className="task-card-content">
                                                             <div className="task-card-topbar">
-                                                            <div className="task-card-due">
+                                                            <div className={`task-card-due${dueStatusClass}`}>
                                                                 <span className="task-card-due-icon" aria-hidden="true">
                                                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
                                                                         <path d="M5 4v16" />
                                                                         <path d="M5 4h11l-2 4 2 4H5" />
                                                                     </svg>
                                                                 </span>
-                                                                <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}</span>
+                                                                <span className="task-card-due-date">{dueDateLabel}</span>
+                                                                {dueLabel && <span className="task-card-due-badge">{dueLabel}</span>}
                                                             </div>
                                                                 <div className={`priority-bubble priority-${task.priority.toLowerCase()}`}>
                                                             <span
@@ -6208,6 +7204,7 @@ const App: React.FC = () => {
                                     </div>
                                 );
                                 })}
+                                </div>
                             </div>
                         ) : view === 'table' ? (
                             <div className="task-table-wrap">
@@ -6225,9 +7222,14 @@ const App: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {visibleTasksForView.map((task: TaskView) => (
+                                        {visibleTasksForView.map((task: TaskView) => {
+                                            const dueStatus = getDueStatus(task);
+                                            const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
+                                            const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
+                                            const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
+                                            return (
                                             <React.Fragment key={task.id}>
-                                                <tr onClick={() => openDetailsModal(task)}>
+                                                <tr className={`task-table-row${dueStatusClass}`} onClick={() => openDetailsModal(task)}>
                                                     <td>{task.title}</td>
                                                     <td>
                                                         <div className="task-card-people">
@@ -6247,7 +7249,10 @@ const App: React.FC = () => {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                                                        <div className={`task-table-due${dueStatusClass}`}>
+                                                            <span className="task-table-due-date">{dueDateLabel}</span>
+                                                            {dueLabel && <span className="task-table-due-badge">{dueLabel}</span>}
+                                                        </div>
                                                     </td>
                                                     <td>{task.sourceIndicator}</td>
                                                     <td>
@@ -6327,7 +7332,8 @@ const App: React.FC = () => {
                                                     </tr>
                                                 )}
                                             </React.Fragment>
-                                        ))}
+                                            );
+                                        })}
                                 </tbody>
                             </table>
                         </div>
@@ -6387,20 +7393,121 @@ const App: React.FC = () => {
                                 <div className="member-name">{activeBoard?.name || activeBoardId || 'Board'}</div>
                                 <div className="member-meta">Role: {activeMembership?.role || 'Member'}</div>
                             </div>
-                            <div className="panel-section">
+                            <div className="panel-section panel-danger">
+                                <div className="panel-danger-row">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" aria-hidden="true">
+                                        <path d="M12 3l9 16H3l9-16z" />
+                                        <path d="M12 9v4" />
+                                        <path d="M12 17h.01" />
+                                    </svg>
+                                    Warning
+                                </div>
                                 <div className="section-title">Danger zone</div>
                                 <div className="panel-text">Delete this board and all tasks, objectives, and key results.</div>
-                                <button
-                                    className="icon-action delete"
-                                    onClick={handleDeleteBoard}
-                                    data-tooltip="Board löschen"
-                                    aria-label="Board löschen"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                        <path d="M6 6l12 12" />
-                                        <path d="M18 6L6 18" />
-                                    </svg>
+                                <button className="btn btn-delete btn-compact" onClick={handleDeleteBoard}>
+                                    Delete board
                                 </button>
+                            </div>
+                            <div className="panel-actions">
+                                <div className="panel-actions-right">
+                                    <button className="btn btn-ghost btn-compact" onClick={() => setIsBoardSettingsOpen(false)}>
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isScopeSettingsOpen && activeScopeWindow && (
+                <div className="modal-overlay">
+                    <div className="modal-content settings-modal">
+                        <div className="panel-header">
+                            <div>
+                                <div className="panel-title">Scope window settings</div>
+                                <div className="panel-subtitle">Manage this scope window</div>
+                            </div>
+                            <button className="panel-close" onClick={() => setIsScopeSettingsOpen(false)} aria-label="Close">×</button>
+                        </div>
+                        <div className="panel-body">
+                            <div className="panel-section">
+                                <div className="section-title">Scope window</div>
+                                <div className="scope-create-grid">
+                                    <label>
+                                        Title
+                                        <input
+                                            type="text"
+                                            value={scopeSettingsDraft.name}
+                                            onChange={(event) => setScopeSettingsDraft((prev) => ({ ...prev, name: event.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        Start date
+                                        <input
+                                            type="date"
+                                            value={scopeSettingsDraft.startDate}
+                                            onChange={(event) => setScopeSettingsDraft((prev) => ({ ...prev, startDate: event.target.value }))}
+                                        />
+                                    </label>
+                                    <label>
+                                        End date
+                                        <input
+                                            type="date"
+                                            value={scopeSettingsDraft.endDate}
+                                            onChange={(event) => setScopeSettingsDraft((prev) => ({ ...prev, endDate: event.target.value }))}
+                                        />
+                                    </label>
+                                    <label className="scope-create-span">
+                                        Notes
+                                        <textarea
+                                            rows={3}
+                                            value={scopeSettingsDraft.description}
+                                            onChange={(event) => setScopeSettingsDraft((prev) => ({ ...prev, description: event.target.value }))}
+                                        />
+                                    </label>
+                                </div>
+                                {scopeSettingsDateInvalid && (
+                                    <div className="form-error">End date must be after start date.</div>
+                                )}
+                                <div className="member-meta">Huddle: {activeHuddleName || '—'}</div>
+                            </div>
+                            <div className="panel-section panel-danger">
+                                <div className="panel-danger-row">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" aria-hidden="true">
+                                        <path d="M12 3l9 16H3l9-16z" />
+                                        <path d="M12 9v4" />
+                                        <path d="M12 17h.01" />
+                                    </svg>
+                                    Warning
+                                </div>
+                                <div className="section-title">Danger zone</div>
+                                <div className="panel-text">Delete this scope window and remove its task links.</div>
+                                <button
+                                    className="btn btn-delete btn-compact"
+                                    onClick={() => {
+                                        handleScopeDelete(activeScopeWindow.id);
+                                        setIsScopeSettingsOpen(false);
+                                    }}
+                                >
+                                    Delete scope window
+                                </button>
+                            </div>
+                            <div className="panel-actions">
+                                <div className="panel-actions-left">
+                                    <button className="btn btn-ghost btn-compact" onClick={() => setIsScopeSettingsOpen(false)}>
+                                        Cancel
+                                    </button>
+                                </div>
+                                <div className="panel-actions-right">
+                                    <button
+                                        className="btn btn-primary btn-compact"
+                                        onClick={handleScopeSettingsSave}
+                                        disabled={!scopeSettingsDraft.name.trim() || scopeSettingsDateInvalid}
+                                    >
+                                        Save changes
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -6509,19 +7616,23 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                             <div className="panel-actions">
-                                <button
-                                    className="btn btn-ghost btn-compact"
-                                    onClick={() => {
-                                        setKrComposerOpen(false);
-                                        setKrComposerObjectiveId(null);
-                                        setKrEditingId(null);
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button className="btn btn-primary btn-compact" onClick={handleKrComposerSubmit}>
-                                    {krEditingId ? 'Save changes' : 'Create key result'}
-                                </button>
+                                <div className="panel-actions-left">
+                                    <button
+                                        className="btn btn-ghost btn-compact"
+                                        onClick={() => {
+                                            setKrComposerOpen(false);
+                                            setKrComposerObjectiveId(null);
+                                            setKrEditingId(null);
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                                <div className="panel-actions-right">
+                                    <button className="btn btn-primary btn-compact" onClick={handleKrComposerSubmit}>
+                                        {krEditingId ? 'Save changes' : 'Create key result'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -6604,18 +7715,6 @@ const App: React.FC = () => {
                                         </select>
                                     </label>
                                 </div>
-                                <div className="okr-actions">
-                                    <button
-                                        className="btn btn-secondary btn-compact"
-                                        onClick={() => {
-                                            handleObjectiveComposerSubmit();
-                                            setIsObjectiveSettingsOpen(false);
-                                            setObjectiveEditId(null);
-                                        }}
-                                    >
-                                        Save changes
-                                    </button>
-                                </div>
                             </div>
                             <div className="panel-section">
                                 <div className="section-title">Key results</div>
@@ -6645,26 +7744,54 @@ const App: React.FC = () => {
                                     <div className="empty-state">No key results yet.</div>
                                 )}
                             </div>
-                            <div className="panel-section">
+                            <div className="panel-section panel-danger">
+                                <div className="panel-danger-row">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" aria-hidden="true">
+                                        <path d="M12 3l9 16H3l9-16z" />
+                                        <path d="M12 9v4" />
+                                        <path d="M12 17h.01" />
+                                    </svg>
+                                    Warning
+                                </div>
                                 <div className="section-title">Danger zone</div>
                                 <div className="panel-text">Delete this objective and its key results.</div>
                                 {objectiveEditId && (
                                     <button
-                                        className="icon-action delete"
+                                        className="btn btn-delete btn-compact"
                                         onClick={() => {
                                             handleDeleteObjective(objectiveEditId);
                                             setIsObjectiveSettingsOpen(false);
                                             setObjectiveEditId(null);
                                         }}
-                                        data-tooltip="Objective löschen"
-                                        aria-label="Objective löschen"
                                     >
-                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                            <path d="M6 6l12 12" />
-                                            <path d="M18 6L6 18" />
-                                        </svg>
+                                        Delete objective
                                     </button>
                                 )}
+                            </div>
+                            <div className="panel-actions">
+                                <div className="panel-actions-left">
+                                    <button
+                                        className="btn btn-ghost btn-compact"
+                                        onClick={() => {
+                                            setIsObjectiveSettingsOpen(false);
+                                            setObjectiveEditId(null);
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                                <div className="panel-actions-right">
+                                    <button
+                                        className="btn btn-secondary btn-compact"
+                                        onClick={() => {
+                                            handleObjectiveComposerSubmit();
+                                            setIsObjectiveSettingsOpen(false);
+                                            setObjectiveEditId(null);
+                                        }}
+                                    >
+                                        Save changes
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

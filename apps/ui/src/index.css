@@ -830,6 +830,9 @@ textarea {
   justify-content: space-between;
   align-items: center;
   gap: 1.25rem;
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .okr-pulse {
@@ -1244,7 +1247,7 @@ textarea {
 .okr-focus-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .okr-focus-actions {
@@ -2152,6 +2155,34 @@ textarea {
   gap: 0.75rem;
 }
 
+.panel-section.panel-danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.panel-section.panel-danger .section-title {
+  color: #b91c1c;
+}
+
+.panel-section.panel-danger .panel-text {
+  color: #7f1d1d;
+}
+
+.panel-danger-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #b91c1c;
+}
+
+.panel-danger-row svg {
+  width: 16px;
+  height: 16px;
+}
+
 .panel-section label {
   display: flex;
   flex-direction: column;
@@ -2171,9 +2202,15 @@ textarea {
   font-family: inherit;
 }
 
+.form-error {
+  color: #b91c1c;
+  font-size: 0.75rem;
+}
+
 .panel-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.75rem;
   position: sticky;
   bottom: 0;
@@ -2183,6 +2220,17 @@ textarea {
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
   z-index: 2;
+}
+
+.panel-actions-left,
+.panel-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.panel-actions-right {
+  margin-left: auto;
 }
 
 .team-active-row {
@@ -3938,6 +3986,87 @@ textarea {
   padding-bottom: 1rem;
 }
 
+.kanban-board-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.scope-drop-row {
+  background: #ffffff;
+  border: 1px dashed rgba(30, 30, 30, 0.18);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.scope-drop-row.dragging {
+  border-color: rgba(30, 30, 30, 0.35);
+  box-shadow: 0 12px 24px rgba(30, 30, 30, 0.08);
+}
+
+.scope-drop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.scope-drop-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.scope-drop-subtitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.scope-drop-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.scope-drop-item {
+  min-width: 140px;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: rgba(30, 30, 30, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.scope-drop-item.over {
+  border-color: rgba(30, 30, 30, 0.35);
+  background: rgba(215, 254, 2, 0.25);
+}
+
+.scope-drop-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.scope-drop-meta {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.scope-drop-empty {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
 .kanban-column {
   flex: 0 0 320px;
   min-height: 100px;
@@ -4040,13 +4169,58 @@ textarea {
 .task-card-due-icon svg {
   width: 14px;
   height: 14px;
-  stroke: var(--text-secondary);
+  stroke: currentColor;
 }
 
-.task-card-due span:last-child {
+.task-card-due-date {
   font-size: 0.7rem;
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.task-card-due-badge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  background: rgba(255, 255, 255, 0.75);
+  color: inherit;
+}
+
+.task-card-due.overdue {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(185, 28, 28, 0.35);
+  padding-right: 3px;
+}
+
+.task-card-due.due-soon {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.22);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.task-card-due.overdue .task-card-due-badge {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+.task-card-due.due-soon .task-card-due-badge {
+  background: rgba(251, 191, 36, 0.25);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.task-card-overdue {
+  border-color: rgba(185, 28, 28, 0.35);
+  box-shadow: 0 12px 26px rgba(185, 28, 28, 0.08);
+}
+
+.task-card-due-soon {
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 12px 26px rgba(245, 158, 11, 0.08);
 }
 
 .priority-bubble {
@@ -4880,6 +5054,73 @@ textarea {
 
 .task-table tbody tr:hover {
   background: rgba(215, 254, 2, 0.12);
+}
+
+.task-table-row.overdue {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.task-table-row.due-soon {
+  background: rgba(251, 191, 36, 0.16);
+}
+
+.task-table-row.overdue:hover {
+  background: rgba(248, 113, 113, 0.16);
+}
+
+.task-table-row.due-soon:hover {
+  background: rgba(251, 191, 36, 0.22);
+}
+
+.task-table-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  background: rgba(30, 30, 30, 0.04);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.task-table-due-date {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.task-table-due-badge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  background: rgba(255, 255, 255, 0.75);
+  color: inherit;
+}
+
+.task-table-due.overdue {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+.task-table-due.due-soon {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.22);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.task-table-due.overdue .task-table-due-badge {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+.task-table-due.due-soon .task-table-due-badge {
+  background: rgba(251, 191, 36, 0.25);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .table-actions {
@@ -5908,5 +6149,444 @@ textarea {
 @media (max-width: 900px) {
   .calendar-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+.scope-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.scope-create-card {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 12px 24px rgba(30, 30, 30, 0.06);
+}
+
+.scope-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.scope-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.scope-card-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.scope-board-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: rgba(30, 30, 30, 0.03);
+  color: var(--text-secondary);
+}
+
+.scope-create-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.9rem;
+}
+
+.scope-create-grid label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.scope-create-span {
+  grid-column: 1 / -1;
+}
+
+.scope-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.8rem;
+}
+
+.scope-window-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 1.2rem;
+}
+
+.scope-window-card {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem;
+  box-shadow: 0 10px 22px rgba(30, 30, 30, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.scope-window-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(30, 30, 30, 0.08);
+}
+
+.scope-window-card.active {
+  border-color: rgba(30, 30, 30, 0.35);
+  box-shadow: 0 18px 36px rgba(30, 30, 30, 0.12);
+}
+
+.scope-window-card:focus-visible {
+  outline: 2px solid rgba(215, 254, 2, 0.7);
+  outline-offset: 2px;
+}
+
+.scope-window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.scope-window-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.scope-window-meta {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scope-window-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.scope-window-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.scope-detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.scope-board-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.scope-board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.scope-board-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.scope-board-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.scope-board-meta {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scope-board-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.scope-board-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.scope-board-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.scope-board-toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+}
+
+.scope-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.scope-filter-row .filter-dropdown {
+  min-width: 160px;
+}
+
+.scope-filter-reset {
+  white-space: nowrap;
+}
+
+.scope-board-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.scope-kanban-board {
+  padding-bottom: 0;
+}
+
+.scope-task-card {
+  cursor: pointer;
+}
+
+.scope-column-empty {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.2rem;
+}
+
+.scope-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.scope-task-origin {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px dashed rgba(30, 30, 30, 0.18);
+  background: rgba(30, 30, 30, 0.03);
+  color: var(--text-secondary);
+}
+
+.scope-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.scope-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(30, 30, 30, 0.03);
+  border: 1px solid rgba(30, 30, 30, 0.06);
+}
+
+.scope-task-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.scope-task-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.scope-task-meta {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.scope-task-status {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  background: #ffffff;
+  color: var(--text-secondary);
+}
+
+.scope-task-due {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  background: rgba(30, 30, 30, 0.04);
+  color: var(--text-secondary);
+}
+
+.scope-task-due.overdue {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+.scope-task-due.due-soon {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.scope-task-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.scope-task-remove:hover {
+  color: var(--text-primary);
+}
+
+.scope-window-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.scope-task-picker {
+  margin-top: 0.6rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(30, 30, 30, 0.2);
+  background: rgba(30, 30, 30, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.scope-task-picker-header {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.scope-task-picker-header input {
+  flex: 1;
+}
+
+.scope-task-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.scope-task-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.scope-task-option:hover {
+  background: rgba(215, 254, 2, 0.12);
+}
+
+.scope-task-option-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.scope-task-option-meta {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.scope-task-option-add {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.scope-empty,
+.scope-task-empty {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .scope-window-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scope-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .scope-board-header {
+    align-items: flex-start;
+  }
+
+  .scope-board-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
