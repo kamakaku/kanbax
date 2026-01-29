@@ -2965,6 +2965,11 @@ textarea {
   color: rgba(90, 60, 20, 0.75);
 }
 
+.dashboard-activity-card .dashboard-card-content {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
 .dashboard-card-accent .dashboard-card-title,
 .dashboard-card-accent .dashboard-item-meta,
 .dashboard-card-accent .dashboard-empty,
@@ -3121,6 +3126,45 @@ textarea {
   align-items: center;
   gap: 0.4rem;
   font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.dashboard-activity-item {
+  flex-direction: row;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.activity-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(30, 30, 30, 0.08);
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.activity-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dashboard-activity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dashboard-activity-meta {
+  font-size: 0.7rem;
   color: var(--text-secondary);
 }
 
@@ -4453,6 +4497,7 @@ textarea {
   width: 14px;
   height: 14px;
   stroke: currentColor;
+  margin-bottom: -4px;
 }
 
 .task-card-due-date {
@@ -4832,7 +4877,8 @@ textarea {
 
 .form-group input,
 .form-group select,
-.form-group textarea {
+.form-group textarea, 
+.scope-task-picker-header input {
   width: 100%;
   padding: 0.75rem;
   background: var(--bg-primary);
@@ -5063,6 +5109,30 @@ textarea {
   height: 32px;
 }
 
+.filter-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.filter-quick-pill {
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  height: 32px;
+}
+
+.filter-quick-pill.active {
+  border-color: rgba(215, 254, 2, 0.6);
+  background: rgba(215, 254, 2, 0.18);
+  color: var(--text-primary);
+}
+
 .view-switch {
   display: inline-flex;
   align-items: center;
@@ -5123,8 +5193,8 @@ textarea {
 }
 
 .filter-select {
-  min-width: 160px;
   padding: 0 0.85rem;
+  font-size: 0.7rem;
   height: 32px;
   background: #ffffff;
   border: 1px solid var(--border-color);
@@ -5169,6 +5239,12 @@ textarea {
   z-index: 20;
 }
 
+.filter-options-multi {
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
 .filter-option {
   border: 1px solid transparent;
   background: transparent;
@@ -5178,6 +5254,24 @@ textarea {
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.8rem;
+}
+
+.filter-option-check {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+
+.filter-empty {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.filter-option-clear {
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  justify-content: center;
 }
 
 .filter-option:hover {
@@ -6314,6 +6408,26 @@ textarea {
   gap: 0.4rem;
 }
 
+.page-heading-title h1 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-heading-title h1 .icon-action.scope-help {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+}
+
+.page-heading-title h1 .icon-action.scope-help svg {
+  width: 14px;
+  height: 14px;
+}
+
 .page-heading-meta {
   display: flex;
   align-items: center;
@@ -6639,6 +6753,18 @@ textarea {
   box-shadow: 0 12px 24px rgba(30, 30, 30, 0.06);
 }
 
+.scope-create-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 12px 24px rgba(30, 30, 30, 0.06);
+}
+
 .scope-card-header {
   display: flex;
   justify-content: space-between;
@@ -6753,6 +6879,85 @@ textarea {
 .scope-window-description {
   font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+.scope-window-health {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bg-primary);
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.scope-window-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.scope-window-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(30, 30, 30, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.scope-window-progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent-secondary);
+}
+
+.scope-window-progress-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scope-window-health-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scope-window-health-pill {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  font-size: 0.65rem;
+}
+
+.scope-window-health-pill.good {
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #16a34a;
+}
+
+.scope-window-health-pill.ok {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #d97706;
+}
+
+.scope-window-health-pill.risk {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #ef4444;
+}
+
+.scope-window-health-pill.overdue {
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ef4444;
+}
+
+.scope-window-overdue {
+  color: #ef4444;
+  font-weight: 600;
 }
 
 .scope-window-actions {
@@ -7009,7 +7214,7 @@ textarea {
   gap: 0.6rem;
   width: 100%;
   text-align: left;
-  padding: 0.45rem 0.6rem;
+  padding: 0.8rem;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(30, 30, 30, 0.08);
   background: #ffffff;

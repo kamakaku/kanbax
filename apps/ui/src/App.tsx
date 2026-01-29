@@ -195,20 +195,6 @@ const App: React.FC = () => {
         setLineHoverIndex(null);
     }, [lineRangeDays]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as Node;
-            if (isFocusDropdownOpen && focusDropdownRef.current && !focusDropdownRef.current.contains(target)) {
-                setIsFocusDropdownOpen(false);
-            }
-            if (isQuickPinsOpen && quickPinsDropdownRef.current && !quickPinsDropdownRef.current.contains(target)) {
-                setIsQuickPinsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isFocusDropdownOpen, isQuickPinsOpen]);
-
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         try {
             return localStorage.getItem('kanbax-sidebar-collapsed') === 'true';
@@ -267,6 +253,7 @@ const App: React.FC = () => {
     const [scopePriorityFilterOpen, setScopePriorityFilterOpen] = useState(false);
     const [scopeStatusFilterOpen, setScopeStatusFilterOpen] = useState(false);
     const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list'>('board');
+    const [isScopeCreateOpen, setIsScopeCreateOpen] = useState(false);
     const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
     const [showScopeDropRow, setShowScopeDropRow] = useState(false);
     const [scopeSettingsDraft, setScopeSettingsDraft] = useState({
@@ -342,14 +329,59 @@ const App: React.FC = () => {
     const [filterPriority, setFilterPriority] = useState('ALL');
     const [filterFavorites, setFilterFavorites] = useState(false);
     const [filterStatus, setFilterStatus] = useState('ALL');
+    const [quickFilter, setQuickFilter] = useState<'ALL' | 'MINE' | 'OVERDUE' | 'WEEK'>('ALL');
+    const [labelFilterOpen, setLabelFilterOpen] = useState(false);
+    const labelFilterRef = useRef<HTMLDivElement | null>(null);
+    const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>([]);
     const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
     const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+    const priorityFilterRef = useRef<HTMLDivElement | null>(null);
+    const statusFilterRef = useRef<HTMLDivElement | null>(null);
+    const scopePriorityFilterRef = useRef<HTMLDivElement | null>(null);
+    const scopeStatusFilterRef = useRef<HTMLDivElement | null>(null);
     const [calendarDate, setCalendarDate] = useState(() => new Date());
     const [calendarSelectedDate, setCalendarSelectedDate] = useState(() => new Date());
     const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
     const [calendarImports, setCalendarImports] = useState<CalendarImport[]>([]);
     const [calendarLoading, setCalendarLoading] = useState(false);
     const [calendarError, setCalendarError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (isFocusDropdownOpen && focusDropdownRef.current && !focusDropdownRef.current.contains(target)) {
+                setIsFocusDropdownOpen(false);
+            }
+            if (isQuickPinsOpen && quickPinsDropdownRef.current && !quickPinsDropdownRef.current.contains(target)) {
+                setIsQuickPinsOpen(false);
+            }
+            if (labelFilterOpen && labelFilterRef.current && !labelFilterRef.current.contains(target)) {
+                setLabelFilterOpen(false);
+            }
+            if (priorityFilterOpen && priorityFilterRef.current && !priorityFilterRef.current.contains(target)) {
+                setPriorityFilterOpen(false);
+            }
+            if (statusFilterOpen && statusFilterRef.current && !statusFilterRef.current.contains(target)) {
+                setStatusFilterOpen(false);
+            }
+            if (scopePriorityFilterOpen && scopePriorityFilterRef.current && !scopePriorityFilterRef.current.contains(target)) {
+                setScopePriorityFilterOpen(false);
+            }
+            if (scopeStatusFilterOpen && scopeStatusFilterRef.current && !scopeStatusFilterRef.current.contains(target)) {
+                setScopeStatusFilterOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [
+        isFocusDropdownOpen,
+        isQuickPinsOpen,
+        labelFilterOpen,
+        priorityFilterOpen,
+        statusFilterOpen,
+        scopePriorityFilterOpen,
+        scopeStatusFilterOpen,
+    ]);
     const [calendarImportFileName, setCalendarImportFileName] = useState('');
     const [calendarImportFile, setCalendarImportFile] = useState<File | null>(null);
     const [calendarImporting, setCalendarImporting] = useState(false);
@@ -856,6 +888,7 @@ const App: React.FC = () => {
         updateScopeWindows((prev) => prev.concat(nextWindow));
         setScopeDraft({ name: '', description: '', startDate: '', endDate: '' });
         setActiveScopeId(nextId);
+        setIsScopeCreateOpen(false);
     };
 
     const openScopeDetail = (scopeId: string) => {
@@ -876,6 +909,7 @@ const App: React.FC = () => {
     };
 
     const handleScopeRemoveTask = (windowId: string, taskId: string) => {
+        if (!confirm('Remove this task from the scope window?')) return;
         updateScopeWindows((prev) =>
             prev.map((window) =>
                 window.id === windowId
@@ -886,6 +920,7 @@ const App: React.FC = () => {
     };
 
     const handleScopeDelete = (windowId: string) => {
+        if (!confirm('Delete this scope window and remove its task links?')) return;
         updateScopeWindows((prev) => prev.filter((window) => window.id !== windowId));
         setScopePickerOpenId((prev) => (prev === windowId ? null : prev));
         if (windowId === activeScopeId) {
@@ -1692,6 +1727,25 @@ const App: React.FC = () => {
         };
     }, [dashboardTasks, activeTenantId, boardsByTenant, boards.length, objectiveViews]);
 
+    const dashboardActivity = useMemo(() => {
+        const entries = dashboardTasks.flatMap((task) => {
+            const activity = task.activityLog || [];
+            return activity.map((entry) => ({
+                id: entry.id,
+                taskId: task.id,
+                tenantId: task.tenantId,
+                boardId: task.boardId,
+                title: task.title,
+                message: entry.message,
+                actorId: entry.actorId,
+                timestamp: new Date(entry.timestamp),
+            }));
+        });
+        return entries
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .slice(0, 8);
+    }, [dashboardTasks]);
+
     const lineChartSeries = useMemo(() => {
         const now = new Date();
         const dayStart = new Date(now);
@@ -2081,6 +2135,9 @@ const App: React.FC = () => {
         const showTooltip = (target: HTMLElement) => {
             const text = getTooltipText(target);
             if (!text) return;
+            const isCollapsed = document.querySelector('.dashboard')?.classList.contains('sidebar-collapsed');
+            const isSidebarTarget = Boolean(target.closest('.sidebar'));
+            if (isSidebarTarget && !isCollapsed) return;
             if (activeTarget && activeTarget !== target) {
                 restoreTitle(activeTarget);
             }
@@ -3482,6 +3539,24 @@ const App: React.FC = () => {
         return ['ALL', ...Array.from(options)];
     }, [board?.columns, tasks, isArchivedBoard, isSpecialBoard]);
 
+    const labelFilterOptions = useMemo(() => {
+        const sourceTasks = isArchivedBoard
+            ? tasks.filter((task) => task.status === TaskStatus.ARCHIVED)
+            : tasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
+        const labelSet = new Set<string>();
+        sourceTasks.forEach((task) => {
+            (task.kinds || []).forEach((kind) => {
+                const value = String(kind || '').trim();
+                if (value) labelSet.add(value);
+            });
+        });
+        return Array.from(labelSet).sort((a, b) => a.localeCompare(b));
+    }, [tasks, isArchivedBoard]);
+
+    useEffect(() => {
+        setSelectedLabelFilters((prev) => prev.filter((label) => labelFilterOptions.includes(label)));
+    }, [labelFilterOptions]);
+
     useEffect(() => {
         if (filterStatus !== 'ALL' && !statusFilterOptions.includes(filterStatus)) {
             setFilterStatus('ALL');
@@ -3493,12 +3568,48 @@ const App: React.FC = () => {
             setStatusFilterOpen(false);
         }
     }, [view, statusFilterOpen]);
+    useEffect(() => {
+        if (labelFilterOpen && (view === 'dashboard' || view === 'scope')) {
+            setLabelFilterOpen(false);
+        }
+    }, [view, labelFilterOpen]);
+    useEffect(() => {
+        if (view === 'dashboard' && labelFilterOpen) {
+            setLabelFilterOpen(false);
+        }
+    }, [view, labelFilterOpen]);
 
     const normalizedFilter = filterText.trim().toLowerCase();
     const matchesFilter = (task: TaskView) => {
         if (filterFavorites && !task.isFavorite) return false;
         if (filterPriority !== 'ALL' && task.priority !== filterPriority) return false;
         if (view === 'table' && filterStatus !== 'ALL' && task.status !== filterStatus) return false;
+        if (selectedLabelFilters.length > 0) {
+            const taskLabels = (task.kinds || []).map((kind) => String(kind));
+            const hasAny = selectedLabelFilters.some((label) => taskLabels.includes(label));
+            if (!hasAny) return false;
+        }
+        if (quickFilter !== 'ALL') {
+            const due = task.dueDate ? new Date(task.dueDate) : null;
+            if (quickFilter === 'MINE') {
+                if (!currentUserId) return false;
+                const isMine = task.ownerId === currentUserId || (task.assignees || []).includes(currentUserId);
+                if (!isMine) return false;
+            }
+            if (quickFilter === 'OVERDUE') {
+                if (!due) return false;
+                if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+                if (due >= new Date()) return false;
+            }
+            if (quickFilter === 'WEEK') {
+                if (!due) return false;
+                const now = new Date();
+                const end = new Date();
+                end.setDate(now.getDate() + 7);
+                if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+                if (due < now || due > end) return false;
+            }
+        }
         if (!normalizedFilter) return true;
         const haystack = [
             task.title,
@@ -3869,6 +3980,9 @@ const App: React.FC = () => {
             } else if (isScopeSettingsOpen) {
                 setIsScopeSettingsOpen(false);
                 handled = true;
+            } else if (isScopeCreateOpen) {
+                setIsScopeCreateOpen(false);
+                handled = true;
             } else if (isBoardSettingsOpen) {
                 setIsBoardSettingsOpen(false);
                 handled = true;
@@ -3916,6 +4030,9 @@ const App: React.FC = () => {
                 handled = true;
             } else if (statusFilterOpen) {
                 setStatusFilterOpen(false);
+                handled = true;
+            } else if (labelFilterOpen) {
+                setLabelFilterOpen(false);
                 handled = true;
             }
 
@@ -5262,6 +5379,20 @@ const App: React.FC = () => {
                                                 : view === 'scope'
                                                     ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope Window')
                                                     : (activeBoard?.name || activeHuddleName || 'Tasks')}
+                                    {view === 'scope' && (
+                                        <button
+                                            type="button"
+                                            className="icon-action scope-help"
+                                            data-tooltip="Ein Scope Window ist ein zeitlicher Rahmen, in dem bestimmte Tasks erledigt werden sollen."
+                                            aria-label="Was ist ein Scope Window?"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                <circle cx="12" cy="12" r="9" />
+                                                <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2 2-2 4" />
+                                                <path d="M12 17h.01" />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </h1>
                                 {(view === 'kanban' || view === 'table' || view === 'scope' || view === 'okr') && (
                                     <div className="page-heading-meta">
@@ -5302,7 +5433,7 @@ const App: React.FC = () => {
                                     <div className="page-heading-description">{activeScopeWindow.description}</div>
                                 )}
                             </div>
-                            {(view === 'kanban' || view === 'table' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow)) && (
+                            {(view === 'kanban' || view === 'table' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow) || (view === 'scope' && scopeScreen === 'list')) && (
                                 <div className="page-heading-actions">
                                     {(view === 'kanban' || view === 'table') && (
                                         <>
@@ -5349,6 +5480,20 @@ const App: React.FC = () => {
                                                 </svg>
                                             </button>
                                         </>
+                                    )}
+                                    {view === 'scope' && scopeScreen === 'list' && (
+                                        <button
+                                            className="icon-action create"
+                                            disabled={!activeTenantId}
+                                            onClick={() => setIsScopeCreateOpen(true)}
+                                            data-tooltip="Scope Window erstellen"
+                                            aria-label="Scope Window erstellen"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                <path d="M12 5v14" />
+                                                <path d="M5 12h14" />
+                                            </svg>
+                                        </button>
                                     )}
                                     {view === 'scope' && scopeScreen === 'detail' && activeScopeWindow && (
                                         <>
@@ -6919,64 +7064,6 @@ const App: React.FC = () => {
                             <div className="empty-state">Select a huddle to build a scope window.</div>
                         ) : scopeScreen === 'list' ? (
                             <>
-                                <div className="scope-create-card">
-                                    <div className="scope-card-header">
-                                        <div>
-                                            <div className="scope-card-title">Create scope window</div>
-                                            <div className="scope-card-subtitle">
-                                                Bundle tasks from {activeHuddleName || 'this huddle'} into a focused sprint scope.
-                                            </div>
-                                        </div>
-                                        {activeHuddleName && (
-                                            <span className="scope-board-badge">{activeHuddleName}</span>
-                                        )}
-                                    </div>
-                                    <div className="scope-create-grid">
-                                        <label>
-                                            Title
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. Sprint 12"
-                                                value={scopeDraft.name}
-                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, name: event.target.value }))}
-                                            />
-                                        </label>
-                                        <label>
-                                            Start date
-                                            <input
-                                                type="date"
-                                                value={scopeDraft.startDate}
-                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, startDate: event.target.value }))}
-                                            />
-                                        </label>
-                                        <label>
-                                            End date
-                                            <input
-                                                type="date"
-                                                value={scopeDraft.endDate}
-                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, endDate: event.target.value }))}
-                                            />
-                                        </label>
-                                        <label className="scope-create-span">
-                                            Notes
-                                            <textarea
-                                                rows={2}
-                                                placeholder="Optional note for this scope window."
-                                                value={scopeDraft.description}
-                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, description: event.target.value }))}
-                                            />
-                                        </label>
-                                    </div>
-                                    <div className="scope-create-actions">
-                                        <button
-                                            className="btn btn-primary btn-compact"
-                                            onClick={handleScopeCreate}
-                                            disabled={!scopeDraft.name.trim() || !scopeKey}
-                                        >
-                                            Create scope window
-                                        </button>
-                                    </div>
-                                </div>
                                 {scopeWindows.length === 0 ? (
                                     <div className="scope-empty">No scope windows yet. Create one to start grouping tasks.</div>
                                 ) : (
@@ -7017,6 +7104,38 @@ const App: React.FC = () => {
                                                         </svg>
                                                     </button>
                                                 </div>
+                                                 {(() => {
+                                                    const scopedTasks = scopeWindow.taskIds
+                                                        .map((taskId) => scopeTaskById.get(taskId))
+                                                        .filter((task): task is TaskView => Boolean(task));
+                                                    const total = scopedTasks.length;
+                                                    const doneCount = scopedTasks.filter((task) => task.status === TaskStatus.DONE).length;
+                                                    const overdueCount = scopedTasks.filter((task) => {
+                                                        if (!task.dueDate) return false;
+                                                        if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+                                                        return new Date(task.dueDate) < new Date();
+                                                    }).length;
+                                                    const progress = total ? Math.round((doneCount / total) * 100) : 0;
+                                                    const health = overdueCount > 0 ? 'overdue' : progress >= 80 ? 'good' : progress >= 50 ? 'ok' : 'risk';
+                                                    const healthLabel =
+                                                        health === 'overdue' ? 'Overdue' : health === 'good' ? 'On track' : health === 'ok' ? 'At risk' : 'Needs focus';
+                                                    return (
+                                                        <div className={`scope-window-health health-${health}`}>
+                                                            <div className="scope-window-progress">
+                                                                <div className="scope-window-progress-bar">
+                                                                    <span style={{ width: `${progress}%` }} />
+                                                                </div>
+                                                                <span className="scope-window-progress-label">{progress}% done</span>
+                                                            </div>
+                                                            <div className="scope-window-health-row">
+                                                                <span className={`scope-window-health-pill ${health}`}>{healthLabel}</span>
+                                                                <span className="scope-window-overdue">
+                                                                    {overdueCount} overdue
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                                 {scopeWindow.description && (
                                                     <div className="scope-window-description">{scopeWindow.description}</div>
                                                 )}
@@ -7067,7 +7186,7 @@ const App: React.FC = () => {
                                         </div>
                                         <div className="scope-board-toolbar-right">
                                             <div className="scope-filter-row">
-                                                <div className="filter-dropdown">
+                                                <div className="filter-dropdown" ref={scopePriorityFilterRef}>
                                                     <button
                                                         type="button"
                                                         className="filter-select"
@@ -7097,7 +7216,7 @@ const App: React.FC = () => {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="filter-dropdown">
+                                                <div className="filter-dropdown" ref={scopeStatusFilterRef}>
                                                     <button
                                                         type="button"
                                                         className="filter-select"
@@ -7504,6 +7623,47 @@ const App: React.FC = () => {
                                             })}
                                         </div>
                                     </div>
+                                    <div className="dashboard-card dashboard-list dashboard-activity-card">
+                                        <div className="dashboard-card-title">Activity feed</div>
+                                        {dashboardActivity.length === 0 ? (
+                                            <div className="dashboard-empty">No recent activity.</div>
+                                        ) : (
+                                            <div className="dashboard-card-content">
+                                                {dashboardActivity.map((entry) => {
+                                                    const actorInfo = getMemberInfo(entry.tenantId, entry.actorId);
+                                                    const boardLabel = getBoardLabel(entry.boardId);
+                                                    return (
+                                                        <button
+                                                            key={entry.id}
+                                                            className="dashboard-item dashboard-activity-item"
+                                                            onClick={() => {
+                                                                const task = dashboardTasks.find((item) => item.id === entry.taskId);
+                                                                if (task) handleCardClick(task);
+                                                            }}
+                                                        >
+                                                            <span className="activity-avatar" aria-hidden="true">
+                                                                {actorInfo.avatarUrl ? (
+                                                                    <img src={actorInfo.avatarUrl} alt="" />
+                                                                ) : (
+                                                                    actorInfo.label.charAt(0).toUpperCase()
+                                                                )}
+                                                            </span>
+                                                            <div className="dashboard-activity-body">
+                                                                <div className="dashboard-item-title">{entry.title}</div>
+                                                                <div className="dashboard-item-meta">
+                                                                    {entry.message}
+                                                                </div>
+                                                                <div className="dashboard-activity-meta">
+                                                                    {actorInfo.label} · {entry.timestamp.toLocaleString()}
+                                                                    {boardLabel && <span> • {boardLabel}</span>}
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </>
                         )}
@@ -7535,7 +7695,23 @@ const App: React.FC = () => {
                                 </button>
                             </div>
                             <div className="filter-actions">
-                                <div className="filter-dropdown">
+                                <div className="filter-quick">
+                                    {[
+                                        { key: 'MINE', label: 'My tasks' },
+                                        { key: 'OVERDUE', label: 'Overdue' },
+                                        { key: 'WEEK', label: 'This week' }
+                                    ].map((item) => (
+                                        <button
+                                            key={item.key}
+                                            type="button"
+                                            className={`filter-quick-pill${quickFilter === item.key ? ' active' : ''}`}
+                                            onClick={() => setQuickFilter((prev) => (prev === item.key ? 'ALL' : (item.key as any)))}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="filter-dropdown" ref={priorityFilterRef}>
                                     <button
                                         type="button"
                                         className="filter-select"
@@ -7566,7 +7742,7 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                                 {view === 'table' && (
-                                    <div className="filter-dropdown">
+                                    <div className="filter-dropdown" ref={statusFilterRef}>
                                         <button
                                             type="button"
                                             className="filter-select"
@@ -7597,6 +7773,57 @@ const App: React.FC = () => {
                                         )}
                                     </div>
                                 )}
+                                <div className="filter-dropdown" ref={labelFilterRef}>
+                                    <button
+                                        type="button"
+                                        className="filter-select"
+                                        onClick={() => setLabelFilterOpen((prev) => !prev)}
+                                        aria-haspopup="listbox"
+                                        aria-expanded={labelFilterOpen}
+                                    >
+                                        {selectedLabelFilters.length > 0
+                                            ? `Labels (${selectedLabelFilters.length})`
+                                            : 'All labels'}
+                                    </button>
+                                    {labelFilterOpen && (
+                                        <div className="filter-options filter-options-multi" role="listbox">
+                                            {labelFilterOptions.length === 0 && (
+                                                <div className="filter-empty">No labels found</div>
+                                            )}
+                                            {labelFilterOptions.map((label) => {
+                                                const active = selectedLabelFilters.includes(label);
+                                                return (
+                                                    <button
+                                                        key={label}
+                                                        type="button"
+                                                        className={`filter-option ${active ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setSelectedLabelFilters((prev) =>
+                                                                prev.includes(label)
+                                                                    ? prev.filter((item) => item !== label)
+                                                                    : prev.concat(label)
+                                                            );
+                                                        }}
+                                                        role="option"
+                                                        aria-selected={active}
+                                                    >
+                                                        <span>{label}</span>
+                                                        {active && <span className="filter-option-check">✓</span>}
+                                                    </button>
+                                                );
+                                            })}
+                                            {selectedLabelFilters.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="filter-option filter-option-clear"
+                                                    onClick={() => setSelectedLabelFilters([])}
+                                                >
+                                                    Clear selection
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                                 <label
                                     className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`}
                                     data-tooltip="Nur Favoriten"
@@ -7956,6 +8183,76 @@ const App: React.FC = () => {
                 {toastMessage && (
                     <div className="toast">
                         {toastMessage}
+                    </div>
+                )}
+                {isScopeCreateOpen && (
+                    <div className="modal-overlay">
+                        <div className="modal-content settings-modal">
+                            <div className="panel-header">
+                                <div>
+                                    <div className="panel-title">Create scope window</div>
+                                    <div className="panel-subtitle">Bundle tasks into a focused sprint scope.</div>
+                                </div>
+                                <button className="panel-close" onClick={() => setIsScopeCreateOpen(false)} aria-label="Close">×</button>
+                            </div>
+                            <div className="panel-body">
+                                <div className="panel-section">
+                                    <div className="section-title">Details</div>
+                                    <div className="scope-create-grid">
+                                        <label>
+                                            Title
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Sprint 12"
+                                                value={scopeDraft.name}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, name: event.target.value }))}
+                                            />
+                                        </label>
+                                        <label>
+                                            Start date
+                                            <input
+                                                type="date"
+                                                value={scopeDraft.startDate}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, startDate: event.target.value }))}
+                                            />
+                                        </label>
+                                        <label>
+                                            End date
+                                            <input
+                                                type="date"
+                                                value={scopeDraft.endDate}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, endDate: event.target.value }))}
+                                            />
+                                        </label>
+                                        <label className="scope-create-span">
+                                            Notes
+                                            <textarea
+                                                rows={2}
+                                                placeholder="Optional note for this scope window."
+                                                value={scopeDraft.description}
+                                                onChange={(event) => setScopeDraft((prev) => ({ ...prev, description: event.target.value }))}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="panel-actions">
+                                    <div className="panel-actions-left">
+                                        <button className="btn btn-ghost btn-compact" onClick={() => setIsScopeCreateOpen(false)}>
+                                            Cancel
+                                        </button>
+                                    </div>
+                                    <div className="panel-actions-right">
+                                        <button
+                                            className="btn btn-secondary btn-compact"
+                                            onClick={handleScopeCreate}
+                                            disabled={!scopeDraft.name.trim() || !scopeKey}
+                                        >
+                                            Create scope window
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
                 
