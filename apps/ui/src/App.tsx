@@ -98,6 +98,7 @@ interface ScopeWindow {
     createdAt: string;
 }
 
+
 const App: React.FC = () => {
     const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'calendar' | 'settings' | 'okr' | 'scope'>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
@@ -183,12 +184,30 @@ const App: React.FC = () => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isHuddleMenuOpen, setIsHuddleMenuOpen] = useState(false);
+    const [isQuickPinsOpen, setIsQuickPinsOpen] = useState(false);
+    const [isFocusDropdownOpen, setIsFocusDropdownOpen] = useState(false);
+    const focusDropdownRef = useRef<HTMLDivElement | null>(null);
+    const quickPinsDropdownRef = useRef<HTMLDivElement | null>(null);
     const [lineHoverIndex, setLineHoverIndex] = useState<number | null>(null);
     const [lineRangeDays, setLineRangeDays] = useState(30);
 
     useEffect(() => {
         setLineHoverIndex(null);
     }, [lineRangeDays]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (isFocusDropdownOpen && focusDropdownRef.current && !focusDropdownRef.current.contains(target)) {
+                setIsFocusDropdownOpen(false);
+            }
+            if (isQuickPinsOpen && quickPinsDropdownRef.current && !quickPinsDropdownRef.current.contains(target)) {
+                setIsQuickPinsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isFocusDropdownOpen, isQuickPinsOpen]);
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         try {
@@ -492,7 +511,13 @@ const App: React.FC = () => {
 
             setTasks(scopedTasks);
             if (activeTenantId) {
-                setTasksByTenant((prev) => ({ ...prev, [activeTenantId]: tasksData }));
+                setTasksByTenant((prev) => {
+                    const existing = prev[activeTenantId];
+                    if (tasksBoardId !== 'all' && existing && existing.length > 0) {
+                        return prev;
+                    }
+                    return { ...prev, [activeTenantId]: tasksData };
+                });
             }
             const selectedBoard = (nextBoardId && nextBoardId !== ARCHIVED_BOARD_ID && nextBoardId !== ALL_BOARD_ID && nextBoardId !== OWN_BOARD_ID)
                 ? boardsData.find((b: BoardView) => b.id === nextBoardId) || boardsData[0] || null
@@ -1882,6 +1907,7 @@ const App: React.FC = () => {
         }
     }, [session, activeTenantId]);
 
+
     useEffect(() => {
         if (activeBoardId !== OWN_BOARD_ID || !activeTenantId) return;
         const userId = userProfile?.id || session?.user?.id || '';
@@ -2711,6 +2737,44 @@ const App: React.FC = () => {
         };
     }, [memberships, activeTenantId]);
     const isActiveHuddleOwner = activeMembership?.role === 'OWNER' || activeMembership?.role === 'ADMIN';
+    const allTasks = useMemo(() => {
+        if (activeTenantId && tasksByTenant[activeTenantId]) {
+            return tasksByTenant[activeTenantId] || [];
+        }
+        return tasks;
+    }, [activeTenantId, tasksByTenant, tasks]);
+    const greetingLabel = useMemo(() => {
+        const name = (settingsDraft?.name || userProfile?.name || currentUserLabel || '').trim();
+        const firstName = name.split(/\s+/)[0] || 'there';
+        const hour = new Date().getHours();
+        if (hour < 12) return `Guten Morgen, ${firstName}`;
+        if (hour < 18) return `Guten Tag, ${firstName}`;
+        return `Guten Abend, ${firstName}`;
+    }, [settingsDraft?.name, userProfile?.name, currentUserLabel]);
+    const focusCount = useMemo(() => {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        return allTasks.filter((task) => {
+            if (!task.dueDate) return false;
+            if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+            const due = new Date(task.dueDate);
+            return due >= start && due <= end;
+        }).length;
+    }, [allTasks]);
+    const focusTasksToday = useMemo(() => {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        return allTasks.filter((task) => {
+            if (!task.dueDate) return false;
+            if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+            const due = new Date(task.dueDate);
+            return due >= start && due <= end;
+        });
+    }, [allTasks]);
     const isSpecialSidebarBoard = (boardId?: string | null) =>
         boardId === ARCHIVED_BOARD_ID || boardId === ALL_BOARD_ID || boardId === OWN_BOARD_ID;
     const renderSidebarBoardIcon = (boardId?: string | null, compact = false) => {
@@ -2754,6 +2818,16 @@ const App: React.FC = () => {
         }
         return <span className="sidebar-board-dot" aria-hidden="true" />;
     };
+    const quickPinItems = useMemo(() => {
+        return allTasks
+            .filter((task) => task.isFavorite && task.status !== TaskStatus.ARCHIVED)
+            .slice(0, 5)
+            .map((task) => ({
+                id: task.id,
+                label: task.title,
+                sublabel: getBoardLabel(task.boardId),
+            }));
+    }, [allTasks]);
     const breadcrumbItems = useMemo(() => {
         if (view === 'settings') {
             return [{ label: 'Settings' }];
@@ -3807,6 +3881,9 @@ const App: React.FC = () => {
             } else if (isNotificationsOpen) {
                 setIsNotificationsOpen(false);
                 handled = true;
+            } else if (isFocusDropdownOpen) {
+                setIsFocusDropdownOpen(false);
+                handled = true;
             } else if (isUserMenuOpen) {
                 setIsUserMenuOpen(false);
                 handled = true;
@@ -3821,6 +3898,9 @@ const App: React.FC = () => {
                 handled = true;
             } else if (scopeMenuOpen) {
                 setScopeMenuOpen(false);
+                handled = true;
+            } else if (isQuickPinsOpen) {
+                setIsQuickPinsOpen(false);
                 handled = true;
             } else if (scopePickerOpenId) {
                 setScopePickerOpenId(null);
@@ -4506,22 +4586,168 @@ const App: React.FC = () => {
                             )}
                         </div>
                     )}
+                    <div className="topbar-personal">
+                        <div className="topbar-greeting">
+                            <span className="topbar-greeting-title">{greetingLabel}</span>
+                            <div className="topbar-greeting-meta">
+                                <div className={`focus-dropdown${isFocusDropdownOpen ? ' open' : ''}`} ref={focusDropdownRef}>
+                                    <button
+                                        type="button"
+                                        className="focus-dropdown-button"
+                                        onClick={() => {
+                                            setIsFocusDropdownOpen((prev) => !prev);
+                                            setIsQuickPinsOpen(false);
+                                            setIsNotificationsOpen(false);
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                        aria-expanded={isFocusDropdownOpen}
+                                        aria-haspopup="menu"
+                                    >
+                                        Heute fällig: {focusCount}
+                                    </button>
+                                    {isFocusDropdownOpen && (
+                                        <div className="quick-pins-panel focus-panel header-dropdown-panel" role="menu">
+                                            {focusTasksToday.length === 0 ? (
+                                                <div className="quick-pin-empty">
+                                                    <span className="quick-pin-empty-icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                                            <path d="M4 7h16" />
+                                                            <path d="M6 7v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
+                                                            <path d="M9 4h6" />
+                                                            <path d="M9 11h6" />
+                                                            <path d="M9 15h4" />
+                                                        </svg>
+                                                    </span>
+                                                    <span>Keine Tasks fällig</span>
+                                                </div>
+                                            ) : (
+                                                focusTasksToday.map((task) => (
+                                                    <button
+                                                        key={task.id}
+                                                        type="button"
+                                                        className="quick-pin quick-pin-panel-item"
+                                                        onClick={() => {
+                                                            setView('kanban');
+                                                            setActiveBoardId(task.boardId || ALL_BOARD_ID);
+                                                            setPendingTaskOpen({ taskId: task.id, tenantId: task.tenantId || activeTenantId || '' });
+                                                            setIsFocusDropdownOpen(false);
+                                                        }}
+                                                    >
+                                                        <span className="quick-pin-dot task" aria-hidden="true" />
+                                                        <span className="quick-pin-label">{task.title}</span>
+                                                        <span className="quick-pin-meta">{getBoardLabel(task.boardId)}</span>
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div className="topbar-actions">
-                        <button
-                            className="notif-button"
-                            onClick={() => setIsNotificationsOpen((prev) => !prev)}
-                            aria-label="Notifications"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7" />
-                                <path d="M10 21a2 2 0 0 0 4 0" />
-                            </svg>
-                            {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
-                        </button>
+                        {quickPinItems.length > 0 && (
+                            <div
+                                className={`quick-pins quick-pins-icon${isQuickPinsOpen ? ' open' : ''}`}
+                                ref={quickPinsDropdownRef}
+                            >
+                                <button
+                                    type="button"
+                                    className="notif-button quick-pins-icon-button"
+                                    onClick={() => {
+                                        setIsQuickPinsOpen((prev) => !prev);
+                                        setIsFocusDropdownOpen(false);
+                                        setIsNotificationsOpen(false);
+                                        setIsUserMenuOpen(false);
+                                    }}
+                                    aria-expanded={isQuickPinsOpen}
+                                    aria-haspopup="menu"
+                                    title="Favoriten"
+                                    aria-label="Favoriten öffnen"
+                                >
+                                    <span className="quick-pins-icon-star">★</span>
+                                    {quickPinItems.length > 0 && <span className="notif-badge">{quickPinItems.length}</span>}
+                                </button>
+                                {isQuickPinsOpen && (
+                                    <div className="quick-pins-panel header-dropdown-panel" role="menu">
+                                        {quickPinItems.map((pin) => (
+                                            <button
+                                                key={pin.id}
+                                                type="button"
+                                                className="quick-pin quick-pin-panel-item"
+                                                onClick={() => {
+                                                    const task = allTasks.find((item) => item.id === pin.id);
+                                                    if (!task) return;
+                                                    setView('kanban');
+                                                    setActiveBoardId(task.boardId || ALL_BOARD_ID);
+                                                    setPendingTaskOpen({ taskId: task.id, tenantId: task.tenantId || activeTenantId || '' });
+                                                    setIsQuickPinsOpen(false);
+                                                }}
+                                            >
+                                                <span className="quick-pin-dot task" aria-hidden="true" />
+                                                <span className="quick-pin-label">{pin.label}</span>
+                                                {pin.sublabel && <span className="quick-pin-meta">{pin.sublabel}</span>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <div className="notif-dropdown">
+                            <button
+                                className="notif-button"
+                                onClick={() => {
+                                    setIsNotificationsOpen((prev) => !prev);
+                                    setIsQuickPinsOpen(false);
+                                    setIsFocusDropdownOpen(false);
+                                    setIsUserMenuOpen(false);
+                                }}
+                                aria-label="Notifications"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7" />
+                                    <path d="M10 21a2 2 0 0 0 4 0" />
+                                </svg>
+                                {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+                            </button>
+                            {isNotificationsOpen && (
+                                <div className="notif-panel header-dropdown-panel">
+                                    <div className="notif-header">
+                                        <div>Notifications</div>
+                                        <button
+                                            className="btn btn-ghost btn-compact"
+                                            onClick={() => setNotifications((prev) => prev.map((item) => ({ ...item, read: true })))}
+                                        >
+                                            Mark all read
+                                        </button>
+                                    </div>
+                                    <div className="notif-list">
+                                        {notifications.length === 0 && <div className="empty-state">No notifications yet.</div>}
+                                        {notifications.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className={`notif-item ${item.read ? 'read' : ''} ${item.taskId ? 'clickable' : ''}`}
+                                                onClick={() => item.taskId && handleNotificationClick(item)}
+                                            >
+                                                <div className="notif-title">{item.message}</div>
+                                                <div className="notif-meta">
+                                                    {item.huddleName} · {new Date(item.timestamp).toLocaleString()}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <div className="user-menu">
                             <button
                                 className="user-menu-button"
-                                onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                                onClick={() => {
+                                    setIsUserMenuOpen((prev) => !prev);
+                                    setIsNotificationsOpen(false);
+                                    setIsQuickPinsOpen(false);
+                                    setIsFocusDropdownOpen(false);
+                                }}
                                 aria-label="User menu"
                             >
                                 {currentUserAvatar ? (
@@ -4531,7 +4757,7 @@ const App: React.FC = () => {
                                 )}
                             </button>
                             {isUserMenuOpen && (
-                                <div className="user-menu-dropdown">
+                                <div className="user-menu-dropdown header-dropdown-panel">
                                     <div className="user-menu-header">
                                         <div className="user-menu-name">{settingsDraft?.name || currentUserLabel}</div>
                                         <div className="user-menu-email">{currentUserLabel}</div>
@@ -6393,12 +6619,6 @@ const App: React.FC = () => {
 
                         {okrScreen === 'library' && (
                             <div className="okr-pulse">
-                                <div className="okr-pulse-header">
-                                    <div>
-                                        <div className="okr-pulse-title">Objectives</div>
-                                        <div className="okr-pulse-subtitle">Create objectives and track key results.</div>
-                                    </div>
-                                </div>
                                 <div className="okr-pulse-toolbar">
                                     <div
                                         className="view-switch okr-view-switch"
@@ -7057,8 +7277,8 @@ const App: React.FC = () => {
                                                                         onDragEnd={onDragEnd}
                                                                     >
                                                                         <div className="task-card-content">
-                                                                            <div className="task-card-topbar">
-                                                                                <div className={`task-card-due${dueStatusClass}`}>
+                                                                <div className="task-card-topbar">
+                                                                <div className={`task-card-due${dueStatusClass}`}>
                                                                                     <span className="task-card-due-icon" aria-hidden="true">
                                                                                         <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
                                                                                             <path d="M5 4v16" />
@@ -7078,11 +7298,18 @@ const App: React.FC = () => {
                                                                             </div>
                                                                             <div className="task-card-header">
                                                                                 <div className="task-title-row">{task.title}</div>
-                                                                                {task.isFavorite && (
-                                                                                    <span className="favorite-badge" title="Favorite">
-                                                                                        ★
-                                                                                    </span>
-                                                                                )}
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className={`favorite-badge favorite-badge-button${task.isFavorite ? ' active' : ''}`}
+                                                                                    onClick={(event) => {
+                                                                                        event.stopPropagation();
+                                                                                        toggleFavorite(task);
+                                                                                    }}
+                                                                                    title={task.isFavorite ? 'Unfavorite' : 'Favorite'}
+                                                                                    aria-label={task.isFavorite ? 'Unfavorite task' : 'Favorite task'}
+                                                                                >
+                                                                                    {task.isFavorite ? '★' : '☆'}
+                                                                                </button>
                                                                             </div>
                                                                             {task.description && (
                                                                                 <div className="task-card-description">{stripHtml(task.description)}</div>
@@ -7509,11 +7736,18 @@ const App: React.FC = () => {
                                                                     )}
                                                                     {task.title}
                                                                 </div>
-                                                                {task.isFavorite && (
-                                                                    <span className="favorite-badge" title="Favorite">
-                                                                        ★
-                                                                    </span>
-                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    className={`favorite-badge favorite-badge-button${task.isFavorite ? ' active' : ''}`}
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        toggleFavorite(task);
+                                                                    }}
+                                                                    title={task.isFavorite ? 'Unfavorite' : 'Favorite'}
+                                                                    aria-label={task.isFavorite ? 'Unfavorite task' : 'Favorite task'}
+                                                                >
+                                                                    {task.isFavorite ? '★' : '☆'}
+                                                                </button>
                                                             </div>
                                                         {task.description && (
                                                             <div className="task-card-description">{stripHtml(task.description)}</div>
@@ -7724,34 +7958,7 @@ const App: React.FC = () => {
                         {toastMessage}
                     </div>
                 )}
-                {isNotificationsOpen && (
-                    <div className="notif-panel">
-                        <div className="notif-header">
-                            <div>Notifications</div>
-                            <button
-                                className="btn btn-ghost btn-compact"
-                                onClick={() => setNotifications((prev) => prev.map((item) => ({ ...item, read: true })))}
-                            >
-                                Mark all read
-                            </button>
-                        </div>
-                        <div className="notif-list">
-                            {notifications.length === 0 && <div className="empty-state">No notifications yet.</div>}
-                            {notifications.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className={`notif-item ${item.read ? 'read' : ''} ${item.taskId ? 'clickable' : ''}`}
-                                    onClick={() => item.taskId && handleNotificationClick(item)}
-                                >
-                                    <div className="notif-title">{item.message}</div>
-                                    <div className="notif-meta">
-                                        {item.huddleName} · {new Date(item.timestamp).toLocaleString()}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                
             </main>
 
             {isBoardSettingsOpen && (
