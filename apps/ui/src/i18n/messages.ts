@@ -1,0 +1,52 @@
+export const messages = {
+    de: {
+        'inbox.title': 'Inbox',
+        'inbox.incoming': 'Eingang',
+        'inbox.empty.title': 'Inbox Zero',
+        'inbox.empty.text': 'Keine ungeplanten Aufgaben gerade.',
+        'inbox.intro.line1': 'Incoming → Entscheiden → Einordnen.',
+        'inbox.intro.line2': 'Keine Task-Management-Hölle.',
+        'inbox.tooltip.info': 'Unsortierte Arbeit. Entscheide was wichtig ist',
+        'inbox.action.addScope': 'Zum Scope hinzufügen',
+        'inbox.action.later': 'Später',
+        'inbox.action.archive': 'Archivieren',
+        'inbox.action.addScopeTooltip': 'Zum Scope hinzufügen',
+        'inbox.action.laterTooltip': 'Später bearbeiten',
+        'inbox.action.archiveTooltip': 'Archivieren',
+        'inbox.action.backTooltip': 'Zurück zum Eingang',
+        'inbox.action.backToInbox': 'Zum Eingang',
+        'inbox.action.moveToInbox': 'Zum Eingang',
+        'inbox.action.moveToInboxTooltip': 'Zurück in den Eingang',
+        'inbox.action.moved': 'In Scope verschoben ✅',
+        'inbox.view.incoming': 'Eingang',
+        'inbox.view.later': 'Später',
+        'inbox.view.review': 'Bearbeitet',
+        'inbox.view.archived': 'Archiviert',
+        'inbox.tooltip.incoming': 'Unsortierte Arbeit. Entscheide was wichtig ist',
+        'inbox.tooltip.worked': 'Wurde bereist verarbeitet',
+        'inbox.tooltip.review': 'Zur späteren Überprüfung',
+        'inbox.tooltip.archived': 'Archivierte Items',
+        'inbox.capture.title': 'Inbox Item erfassen',
+        'inbox.capture.subtitle': 'Füge eingehende Arbeit hinzu, bevor du sortierst.',
+        'inbox.field.title': 'Titel',
+        'inbox.field.source': 'Quelle',
+        'inbox.field.action': 'Vorgeschlagene Aktion',
+        'inbox.field.selectSource': 'Quelle wählen',
+        'inbox.field.selectAction': 'Aktion wählen',
+        'inbox.field.description': 'Beschreibung',
+        'inbox.field.descriptionPlaceholder': 'Kurz beschreiben, worum es geht',
+        'inbox.tooltip.create': 'Inbox Item erstellen',
+        'inbox.tooltip.save': 'Speichern',
+        'inbox.source.email': 'Email',
+        'inbox.source.meeting': 'Meeting-Notiz',
+        'inbox.source.request': 'Request',
+        'inbox.source.idea': 'Idee',
+        'inbox.source.external': 'Externe Anfrage',
+        'inbox.action.thisWeek': 'Diese Woche',
+        'inbox.action.nextWeek': 'Nächste Woche'
+    }
+} as const;
+
+export type SupportedLocale = keyof typeof messages;
+
+export const DEFAULT_LOCALE: SupportedLocale = 'de';

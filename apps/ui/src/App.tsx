@@ -1,6 +1,28 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import { TaskView, BoardView, TaskStatus } from '@kanbax/domain';
 import { supabase } from './supabaseClient';
+
+type DropdownOption = {
+    value: string;
+    labelId: string;
+    defaultMessage: string;
+};
+
+const INBOX_SOURCE_OPTIONS: DropdownOption[] = [
+    { value: 'email', labelId: 'inbox.source.email', defaultMessage: 'Email' },
+    { value: 'meeting', labelId: 'inbox.source.meeting', defaultMessage: 'Meeting note' },
+    { value: 'request', labelId: 'inbox.source.request', defaultMessage: 'Request' },
+    { value: 'idea', labelId: 'inbox.source.idea', defaultMessage: 'Idea' },
+    { value: 'external', labelId: 'inbox.source.external', defaultMessage: 'External' }
+];
+
+const INBOX_ACTION_OPTIONS: DropdownOption[] = [
+    { value: 'this-week', labelId: 'inbox.action.thisWeek', defaultMessage: 'This Week' },
+    { value: 'next-week', labelId: 'inbox.action.nextWeek', defaultMessage: 'Next Week' },
+    { value: 'later', labelId: 'inbox.action.later', defaultMessage: 'Later' },
+    { value: 'archive', labelId: 'inbox.action.archive', defaultMessage: 'Archive' }
+];
 
 const API_BASE = 'http://localhost:4000';
 const ARCHIVED_BOARD_ID = 'archived';
@@ -99,13 +121,65 @@ interface ScopeWindow {
 }
 
 
+const INBOX_STORAGE_KEY = 'kanbax-inbox-items';
+const INBOX_STATUS_STORAGE_KEY = 'kanbax-inbox-statuses';
+type InboxStatus = 'eingang' | 'spaeter' | 'bearbeitet' | 'archiv';
+type InboxView = InboxStatus;
+const loadInboxStatuses = (): Record<string, InboxStatus> => {
+    if (typeof window === 'undefined') return {};
+    try {
+        const stored = window.localStorage.getItem(INBOX_STATUS_STORAGE_KEY);
+        if (!stored) return {};
+        return JSON.parse(stored) as Record<string, InboxStatus>;
+    } catch {
+        return {};
+    }
+};
+
 const App: React.FC = () => {
+    const intl = useIntl();
+    const t = (id: string, defaultMessage: string) => intl.formatMessage({ id }, { defaultMessage });
+    const getOptionLabel = (
+        options: DropdownOption[],
+        value: string | undefined,
+        fallbackId: string,
+        fallbackDefault: string
+    ) => {
+        if (!value) return t(fallbackId, fallbackDefault);
+        const option = options.find((optionDef) => optionDef.value === value);
+        return option ? t(option.labelId, option.defaultMessage) : value;
+    };
+    const getSourceLabel = (value?: string) =>
+        getOptionLabel(INBOX_SOURCE_OPTIONS, value, 'inbox.field.selectSource', 'Quelle wählen');
+    const getActionLabel = (value?: string) =>
+        getOptionLabel(INBOX_ACTION_OPTIONS, value, 'inbox.field.selectAction', 'Aktion wählen');
+
     const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'timeline' | 'calendar' | 'settings' | 'okr' | 'scope' | 'inbox' | 'initiatives'>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
     const [detailTab, setDetailTab] = useState<'comments' | 'attachments' | 'activity'>('comments');
     const [inboxScopeMenuId, setInboxScopeMenuId] = useState<string | null>(null);
     const [inboxMovedId, setInboxMovedId] = useState<string | null>(null);
-    const [inboxHiddenIds, setInboxHiddenIds] = useState<string[]>([]);
+    const [inboxItemStatuses, setInboxItemStatuses] = useState<Record<string, InboxStatus>>(loadInboxStatuses);
+    const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
+    const [inboxView, setInboxView] = useState<InboxView>('eingang');
+    const inboxViewHeadings: Record<InboxView, { label: string; tooltip: string }> = {
+        eingang: {
+            label: t('inbox.view.incoming', 'Eingang'),
+            tooltip: t('inbox.tooltip.incoming', 'Unsortierte Arbeit. Entscheide was wichtig ist')
+        },
+        spaeter: {
+            label: t('inbox.view.later', 'Später'),
+            tooltip: t('inbox.tooltip.review', 'Zur späteren Überprüfung')
+        },
+        bearbeitet: {
+            label: t('inbox.view.review', 'Bearbeitet'),
+            tooltip: t('inbox.tooltip.worked', 'Später / in Bearbeitung')
+        },
+        archiv: {
+            label: t('inbox.view.archived', 'Archiviert'),
+            tooltip: t('inbox.tooltip.archived', 'Archivierte Items')
+        }
+    };
     const [inboxCaptureOpen, setInboxCaptureOpen] = useState(false);
     const [inboxSourceOpen, setInboxSourceOpen] = useState(false);
     const [inboxActionOpen, setInboxActionOpen] = useState(false);
@@ -124,15 +198,56 @@ const App: React.FC = () => {
         source?: string;
         createdAt: string;
         suggestedAction?: string;
+        description?: string;
         kind?: string;
+        creatorLabel?: string;
+        creatorAvatarUrl?: string;
+        creatorId?: string;
+        tenantId?: string | null;
     }>>([]);
+    type InboxItemsUpdater = typeof inboxCustomItems | ((items: typeof inboxCustomItems) => typeof inboxCustomItems);
+    const persistInboxItems = (itemsOrUpdater: InboxItemsUpdater) => {
+        const nextItems =
+            typeof itemsOrUpdater === 'function'
+                ? (itemsOrUpdater as (items: typeof inboxCustomItems) => typeof inboxCustomItems)(inboxCustomItems)
+                : itemsOrUpdater;
+        setInboxCustomItems(nextItems);
+        try {
+            localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(nextItems));
+        } catch {
+            // ignore storage errors
+        }
+    };
+    const persistInboxStatuses = (nextStatuses: Record<string, InboxStatus>) => {
+        if (typeof window === 'undefined') return;
+        try {
+            window.localStorage.setItem(INBOX_STATUS_STORAGE_KEY, JSON.stringify(nextStatuses));
+        } catch {
+            // ignore storage errors
+        }
+    };
+    const setInboxStatus = (id: string, status: InboxStatus) => {
+        setInboxItemStatuses((prev) => {
+            if (prev[id] === status) {
+                return prev;
+            }
+            const next = { ...prev, [id]: status };
+            persistInboxStatuses(next);
+            return next;
+        });
+        if (status === 'bearbeitet') {
+            setInboxMovedId(id);
+        }
+        if (status !== inboxView) {
+            setSelectedInboxId(null);
+        }
+    };
     const [inboxDraft, setInboxDraft] = useState({
         title: '',
         source: '',
-        suggestedAction: ''
+        suggestedAction: '',
+        description: ''
     });
-    const inboxSourceOptions = ['Email', 'Meeting note', 'Request', 'Idea', 'External'];
-    const inboxActionOptions = ['This Week', 'Next Week', 'Later', 'Archive'];
     const handleClickOutside = (event: MouseEvent) => {
         if (inboxSourceOpen && inboxSourceRef.current && !inboxSourceRef.current.contains(event.target as Node)) {
             setInboxSourceOpen(false);
@@ -174,6 +289,24 @@ const App: React.FC = () => {
         window.addEventListener('popstate', syncScopeFromUrl);
         return () => window.removeEventListener('popstate', syncScopeFromUrl);
     }, []);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(INBOX_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw) as typeof inboxCustomItems;
+                persistInboxItems(parsed);
+            }
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!selectedInboxId && inboxCustomItems.length > 0) {
+            setSelectedInboxId(inboxCustomItems[0].id);
+        }
+    }, [inboxCustomItems, selectedInboxId]);
     const [session, setSession] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [memberships, setMemberships] = useState<any[]>([]);
@@ -1414,7 +1547,7 @@ const App: React.FC = () => {
         return `${year}-${month}-${day}`;
     };
     const buildSeriesForDays = (
-        items: Array<{ updatedAt?: string; createdAt?: string }>,
+        items: Array<{ updatedAt?: string | Date; createdAt?: string | Date }>,
         dayStart: Date,
         daysBack: number,
         predicate?: (item: any) => boolean
@@ -1677,7 +1810,7 @@ const App: React.FC = () => {
         const dayStart = new Date(now);
         dayStart.setHours(0, 0, 0, 0);
         const validTasks = dashboardTasks.filter((task) => task && task.id);
-        const parseDate = (value?: string | null) => (value ? new Date(value) : null);
+        const parseDate = (value?: string | Date | null) => (value ? new Date(value) : null);
         const statusCounts = validTasks.reduce<Record<string, number>>((acc, task) => {
             const status = task.status || 'UNKNOWN';
             acc[status] = (acc[status] || 0) + 1;
@@ -1688,11 +1821,12 @@ const App: React.FC = () => {
         const completionSeries14 = buildSeriesForDays(validTasks, dayStart, 14, (task) => task.status === 'DONE');
         const openSeries14 = buildSeriesForDays(validTasks, dayStart, 14, (task) => isOpenTask(task));
         const keyResults = objectiveViews.flatMap((objective) => objective.keyResults);
-        const krSeries14 = buildSeriesForDays(keyResults as Array<{ updatedAt?: string; createdAt?: string }>, dayStart, 14);
+        const krSeries14 = buildSeriesForDays(keyResults as Array<{ updatedAt?: string | Date; createdAt?: string | Date }>, dayStart, 14);
         const activitySeries = activitySeries14.slice(7);
         const completionSeries = completionSeries14.slice(7);
         const openSeries = openSeries14.slice(7);
         const krSeries = krSeries14.slice(7);
+        const toTimestamp = (value?: string | Date | null) => (value ? new Date(value).getTime() : 0);
         const sumSeries = (series: number[]) => series.reduce((sum, value) => sum + value, 0);
         const calcDelta = (current: number[], previous: number[]) => {
             const currentSum = sumSeries(current);
@@ -1710,17 +1844,17 @@ const App: React.FC = () => {
                 const due = parseDate(task.dueDate);
                 return due && due >= now && due <= soon && isOpenTask(task);
             })
-            .sort((a, b) => new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime())
+            .sort((a, b) => toTimestamp(a.dueDate) - toTimestamp(b.dueDate))
             .slice(0, 5);
         const overdueTasks = validTasks
             .filter((task) => {
                 const due = parseDate(task.dueDate);
                 return due && due < now && isOpenTask(task);
             })
-            .sort((a, b) => new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime())
+            .sort((a, b) => toTimestamp(a.dueDate) - toTimestamp(b.dueDate))
             .slice(0, 5);
         const recentTasks = [...validTasks]
-            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+            .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt))
             .slice(0, 5);
         const favoriteTasks = validTasks.filter((task) => task.isFavorite).slice(0, 5);
         const activeTasks = validTasks.filter(isOpenTask).slice(0, 5);
@@ -2974,6 +3108,11 @@ const App: React.FC = () => {
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
     const currentUserId = userProfile?.id || '';
     const currentUserToken = (userProfile?.email || '').toLowerCase();
+    const resolveTaskCreatorId = (task: TaskView, fallbackId: string) => {
+        const createEntry = task.activityLog.find((entry) => entry.type === 'CREATE');
+        if (createEntry?.actorId) return createEntry.actorId;
+        return task.ownerId || fallbackId || '';
+    };
     const unreadCount = notifications.filter((item) => !item.read).length;
     const handleNotificationClick = (item: { id: string; taskId?: string; tenantId?: string }) => {
         setNotifications((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, read: true } : entry)));
@@ -4620,7 +4759,7 @@ const App: React.FC = () => {
     }
 
     if (!profileLoaded) {
-        return <div style={{ padding: '2rem' }}>Loading your workspace...</div>;
+        return <div style={{ padding: '2rem' }}>SQOPUS wird geladen ...</div>;
     }
 
     if (memberships.length === 0 && !skipTeamSetup) {
@@ -5523,6 +5662,37 @@ const App: React.FC = () => {
                         )}
                     </div>
                 </div>
+                {view === 'inbox' && (
+                    <div className="filter-bar inbox-filter-bar">
+                        <div
+                            className="view-switch inbox-view-switch"
+                            role="tablist"
+                            aria-label="Inbox view switcher"
+                            style={{
+                                ['--active-index' as any]: ['eingang', 'spaeter', 'bearbeitet', 'archiv'].indexOf(inboxView),
+                                ['--segment-count' as any]: 4
+                            }}
+                        >
+                            {[
+                                { key: 'eingang', label: 'Eingang' },
+                                { key: 'spaeter', label: 'Später' },
+                                { key: 'bearbeitet', label: 'Bearbeitet' },
+                                { key: 'archiv', label: 'Archiviert' }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.key}
+                                    type="button"
+                                    className={`view-pill ${inboxView === tab.key ? 'active' : ''}`}
+                                    onClick={() => setInboxView(tab.key as any)}
+                                    role="tab"
+                                    aria-selected={inboxView === tab.key}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 {loading ? (
                     <div className="content-loader">
                         <div className="content-loader-title">Loading huddle…</div>
@@ -7512,7 +7682,11 @@ const App: React.FC = () => {
                                             <div className="dashboard-empty">Nothing due today.</div>
                                         ) : (
                                             focusTasksToday.slice(0, 6).map((task) => (
-                                                <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
+                                                <button
+                                                    key={task.id}
+                                                    className="dashboard-item"
+                                                    onClick={() => handleCardClick(task)}
+                                                >
                                                     <div className="dashboard-item-title">{task.title}</div>
                                                     <div className="dashboard-item-meta">
                                                         {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
@@ -7534,136 +7708,272 @@ const App: React.FC = () => {
                             <div className="dashboard-card dashboard-list ui-card">
                                 <div className="dashboard-card-title ui-card-header">
                                     <div className="dashboard-card-title-row inbox-header-row">
-                                        <div className="inbox-header-left">
-                                            <span>Incoming</span>
+                                        {(() => {
+                                            const currentHeading = inboxViewHeadings[inboxView];
+                                            return (
+                                                <div className="inbox-header-left">
+                                                    <span>{currentHeading.label}</span>
+                                                    <button
+                                                        type="button"
+                                                        className="info-icon tooltip-target"
+                                                        data-tooltip={currentHeading.tooltip}
+                                                        aria-label={currentHeading.tooltip}
+                                                    >
+                                                        ?
+                                                    </button>
+                                                </div>
+                                            );
+                                        })()}
+                                        <div className="inbox-header-actions">
                                             <button
                                                 type="button"
-                                                className="info-icon tooltip-target"
-                                                data-tooltip="Unsortierte Arbeit. Entscheide was wichtig ist"
-                                                aria-label="Unsortierte Arbeit. Entscheide was wichtig ist"
-                                            >
-                                                ?
-                                            </button>
-                                        </div>
-                                        <div className="inbox-header-actions">
-                                        <button
-                                            type="button"
                                             className="btn btn-save btn-compact tooltip-target"
-                                            data-tooltip="Speichern"
-                                            aria-label="Speichern"
+                                            data-tooltip={t('inbox.tooltip.create', 'Erstellen')}
+                                            aria-label={t('inbox.tooltip.create', 'Erstellen')}
                                             onClick={() => setInboxCaptureOpen(true)}
                                         >
-                                            <span className="btn-save-icon">{saveIcon}</span>
+                                            <span className="btn-save-icon">
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" stroke="currentColor">
+                                                    <path d="M12 5v14M5 12h14" />
+                                                </svg>
+                                            </span>
                                         </button>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="dashboard-card-content ui-card-body">
                                     {(() => {
-                                        const customItems = inboxCustomItems.filter((item) => !inboxHiddenIds.includes(item.id));
-                                        const taskItems = allTasks
-                                            .filter((task) => !inboxHiddenIds.includes(task.id))
-                                            .map((task) => ({
+                                        const customItems = inboxCustomItems;
+                                        const taskItems = allTasks.map((task) => {
+                                            const creatorId = resolveTaskCreatorId(task, currentUserId);
+                                            const creatorInfo = getMemberInfo(task.tenantId, creatorId || undefined);
+                                            return {
                                                 id: task.id,
                                                 title: task.title,
                                                 source: (task as any).source as string | undefined,
                                                 createdAt: task.createdAt || new Date().toISOString(),
                                                 suggestedAction: '',
-                                                kind: task.kinds?.[0] || 'Incoming'
-                                            }));
+                                                description: task.description || undefined,
+                                                kind: task.kinds?.[0] || 'Incoming',
+                                                creatorLabel: creatorInfo.label,
+                                                creatorAvatarUrl: creatorInfo.avatarUrl
+                                            };
+                                        });
                                         const inboxItems = [...customItems, ...taskItems];
+                                        const filteredInboxItems = inboxItems.filter((item) => {
+                                            const status = inboxItemStatuses[item.id] || 'eingang';
+                                            if (inboxView === 'eingang') return status === 'eingang';
+                                            if (inboxView === 'spaeter') return status === 'spaeter';
+                                            if (inboxView === 'bearbeitet') return status === 'bearbeitet';
+                                            return status === 'archiv';
+                                        });
+                                        const selectedItem =
+                                            filteredInboxItems.find((item) => item.id === selectedInboxId) ||
+                                            filteredInboxItems[0] ||
+                                            null;
                                         return (
-                                            <div className="inbox-list">
-                                                <div className="inbox-intro">
-                                                    <span>Incoming → Decide → Place.</span>
-                                                    <span>No task-management hell.</span>
-                                                </div>
-                                                {inboxItems.length === 0 && (
-                                                    <div className="dashboard-empty inbox-empty">
-                                                        <div className="inbox-empty-title">Inbox Zero</div>
-                                                        <div className="inbox-empty-text">No unplanned work right now.</div>
-                                                    </div>
-                                                )}
-                                                {inboxItems.map((task) => {
-                                                    const typeLabel = task.kind || 'Incoming';
-                                                    const sourceLabel = task.source;
-                                                    const createdLabel = task.createdAt
-                                                        ? new Date(task.createdAt).toLocaleDateString()
-                                                        : 'Just now';
-                                                    const moved = inboxMovedId === task.id;
-                                                    return (
-                                                        <div key={task.id} className={`inbox-item${moved ? ' moved' : ''}`}>
-                                                            <div className="inbox-item-main">
-                                                                <div className="inbox-item-title">{task.title}</div>
-                                                                <div className="inbox-item-meta">
-                                                                    <span className="inbox-item-type">{typeLabel}</span>
-                                                                    <span className="inbox-item-dot">•</span>
-                                                                    <span className="inbox-item-time">{createdLabel}</span>
-                                                                    {sourceLabel && (
-                                                                        <>
-                                                                            <span className="inbox-item-dot">•</span>
-                                                                            <span className="inbox-item-source">{sourceLabel}</span>
-                                                                        </>
+                                            <div className="inbox-layout">
+                                                <div className="inbox-sidebar">
+                                                    {filteredInboxItems.length === 0 && (
+                                                        <div className="dashboard-empty inbox-empty">
+                                                            <div className="inbox-empty-title">{t('inbox.empty.title', 'Inbox Zero')}</div>
+                                                            <div className="inbox-empty-text">{t('inbox.empty.text', 'No unplanned work right now.')}</div>
+                                                        </div>
+                                                    )}
+                                                    {filteredInboxItems.map((task) => {
+                                                        const typeLabel = task.kind || t('inbox.incoming', 'Incoming');
+                                                        const createdLabel = task.createdAt
+                                                            ? new Date(task.createdAt).toLocaleDateString()
+                                                            : 'Just now';
+                                                        const moved = inboxMovedId === task.id;
+                                                        const avatarLabel = task.creatorLabel || typeLabel || task.title;
+                                                        const avatarInitials = getInitials(avatarLabel);
+                                                        return (
+                                                            <button
+                                                                key={task.id}
+                                                                type="button"
+                                                                className={`inbox-sidebar-item${
+                                                                    selectedItem?.id === task.id ? ' active' : ''
+                                                                }${moved ? ' moved' : ''}`}
+                                                                onClick={() => setSelectedInboxId(task.id)}
+                                                            >
+                                                                <div
+                                                                    className={`inbox-avatar${task.creatorAvatarUrl ? ' has-image' : ''} tooltip-target`}
+                                                                    aria-label={avatarLabel}
+                                                                    data-tooltip={avatarLabel}
+                                                                >
+                                                                    {task.creatorAvatarUrl ? (
+                                                                        <img src={task.creatorAvatarUrl} alt={avatarLabel} />
+                                                                    ) : (
+                                                                        avatarInitials
                                                                     )}
                                                                 </div>
-                                                                {task.suggestedAction && (
-                                                                    <div className="inbox-item-suggestion">
-                                                                        Suggested: {task.suggestedAction}
+                                                                <div className="inbox-sidebar-body">
+                                                                    <div className="inbox-sidebar-title">{task.title}</div>
+                                                                    <div className="inbox-sidebar-meta">
+                                                                        <span>{typeLabel}</span>
+                                                                        <span>•</span>
+                                                                        <span>{createdLabel}</span>
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="inbox-item-actions">
-                                                                <div className="inbox-action-group">
-                                                                    <button
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <div className="inbox-detail">
+                                                    {selectedItem ? (
+                                                        <div className="inbox-detail">
+                                                            <div className="inbox-detail-body">
+                                                                <div className="inbox-detail-topbar">
+                                                                    <div className="inbox-detail-user">
+                                                                        <div
+                                                                            className={`inbox-avatar${
+                                                                                selectedItem.creatorAvatarUrl ? ' has-image' : ''
+                                                                            } tooltip-target`}
+                                                                            aria-label={selectedItem.creatorLabel || selectedItem.title}
+                                                                            data-tooltip={selectedItem.creatorLabel || selectedItem.title}
+                                                                        >
+                                                                            {selectedItem.creatorAvatarUrl ? (
+                                                                                <img
+                                                                                    src={selectedItem.creatorAvatarUrl}
+                                                                                    alt={selectedItem.creatorLabel || selectedItem.title}
+                                                                                />
+                                                                            ) : (
+                                                                                getInitials(selectedItem.creatorLabel || selectedItem.title)
+                                                                            )}
+                                                                        </div>
+                                                                        <span className="inbox-detail-user-label">
+                                                                            {selectedItem.creatorLabel || t('inbox.meta.owner', 'Owner')}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="inbox-detail-topbar-actions">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="icon-action scope-toggle inbox-action tooltip-target"
+                                                                            data-tooltip={t('inbox.action.addScopeTooltip', 'Zum Scope hinzufügen')}
+                                                                            aria-label={t('inbox.action.addScope', 'Zum Scope hinzufügen')}
+                                                                            onClick={() => {
+                                                                                setInboxStatus(selectedItem.id, 'bearbeitet');
+                                                                                setInboxScopeMenuId((prev) =>
+                                                                                    prev === selectedItem.id ? null : selectedItem.id
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <span className="inbox-action-icon" aria-hidden="true">
+                                                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+                                                                                    <circle cx="12" cy="12" r="7.5"></circle>
+                                                                                    <circle cx="12" cy="12" r="2.5"></circle>
+                                                                                    <path d="M12 4v3"></path>
+                                                                                    <path d="M12 17v3"></path>
+                                                                                    <path d="M4 12h3"></path>
+                                                                                    <path d="M17 12h3"></path>
+                                                                                </svg>
+                                                                            </span>
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="icon-action inbox-action tooltip-target"
+                                                                            data-tooltip={t('inbox.action.laterTooltip', 'Later')}
+                                                                            aria-label={t('inbox.action.later', 'Later')}
+                                                                            onClick={() => setInboxStatus(selectedItem.id, 'spaeter')}
+                                                                        >
+                                                                            <span className="inbox-action-icon" aria-hidden="true">
+                                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                    <circle cx="12" cy="12" r="7" />
+                                                                                    <path d="M12 7v5l3 3" />
+                                                                                </svg>
+                                                                            </span>
+                                                                        </button>
+                                                                        {inboxView === 'eingang' && (
+                                                                            <button
+                                                                                type="button"
+                                                                                className="icon-action inbox-action tooltip-target"
+                                                                                data-tooltip={t('inbox.action.archiveTooltip', 'Archive')}
+                                                                                aria-label={t('inbox.action.archive', 'Archive')}
+                                                                                onClick={() => setInboxStatus(selectedItem.id, 'archiv')}
+                                                                            >
+                                                                                <span className="inbox-action-icon" aria-hidden="true">
+                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                        <path d="M4 7h16" />
+                                                                                        <path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
+                                                                                        <path d="M9 11h6" />
+                                                                                    </svg>
+                                                                                </span>
+                                                                            </button>
+                                                                        )}
+                                                                        {inboxView === 'archiv' && (
+                                                                            <button
                                                                         type="button"
-                                                                        className="btn btn-ghost btn-compact inbox-action"
+                                                                        className="icon-action inbox-action tooltip-target"
+                                                                        data-tooltip={t('inbox.action.backTooltip', 'Back to inbox')}
+                                                                        aria-label={t('inbox.action.backToInbox', 'Zum Eingang')}
                                                                         onClick={() => {
-                                                                            setInboxScopeMenuId((prev) => (prev === task.id ? null : task.id));
+                                                                            setInboxStatus(selectedItem.id, 'eingang');
+                                                                            setSelectedInboxId(null);
                                                                         }}
                                                                     >
-                                                                        Add to Scope
+                                                                        <span className="inbox-action-icon" aria-hidden="true">
+                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                <path d="M14 7l-5 5 5 5" />
+                                                                                <path d="M19 12H9" />
+                                                                            </svg>
+                                                                        </span>
                                                                     </button>
-                                                                    {inboxScopeMenuId === task.id && (
-                                                                        <div className="inbox-action-menu" role="menu">
-                                                                            {['This Week', 'Next Week', 'Later'].map((option) => (
-                                                                                <button
-                                                                                    key={option}
-                                                                                    type="button"
-                                                                                    className="inbox-action-option"
-                                                                                    onClick={() => {
-                                                                                        setInboxScopeMenuId(null);
-                                                                                        setInboxMovedId(task.id);
-                                                                                        window.setTimeout(() => {
-                                                                                            setInboxMovedId((prev) => (prev === task.id ? null : prev));
-                                                                                            setInboxHiddenIds((prev) => prev.concat(task.id));
-                                                                                        }, 1200);
-                                                                                    }}
-                                                                                >
-                                                                                    {option}
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
+                                                                )}
+                                                                {inboxView === 'spaeter' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="icon-action inbox-action tooltip-target"
+                                                                        data-tooltip={t('inbox.action.moveToInboxTooltip', 'Zurück in den Eingang')}
+                                                                        aria-label={t('inbox.action.moveToInbox', 'Zur Eingang')}
+                                                                        onClick={() => setInboxStatus(selectedItem.id, 'eingang')}
+                                                                    >
+                                                                        <span className="inbox-action-icon" aria-hidden="true">
+                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                <path d="M9 12h8" />
+                                                                                <path d="M12 7l-5 5 5 5" />
+                                                                            </svg>
+                                                                        </span>
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                                <div className="inbox-detail-meta" role="list">
+                                                                    {selectedItem.source && (
+                                                                        <span className="inbox-detail-extra" role="listitem">
+                                                                            <strong>{t('inbox.field.source', 'Source')}:</strong>{' '}
+                                                                            {getSourceLabel(selectedItem.source)}
+                                                                        </span>
+                                                                    )}
+                                                                    {selectedItem.suggestedAction && (
+                                                                        <span className="inbox-detail-extra" role="listitem">
+                                                                            <strong>{t('inbox.field.action', 'Suggested action')}:</strong>{' '}
+                                                                            {getActionLabel(selectedItem.suggestedAction)}
+                                                                        </span>
                                                                     )}
                                                                 </div>
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-ghost btn-compact inbox-action"
-                                                                    onClick={() => setInboxHiddenIds((prev) => prev.concat(task.id))}
-                                                                >
-                                                                    Later
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-ghost btn-compact inbox-action"
-                                                                    onClick={() => setInboxHiddenIds((prev) => prev.concat(task.id))}
-                                                                >
-                                                                    Archive
-                                                                </button>
+                                                                <div className="inbox-detail-header">
+                                                                    <h3>{selectedItem.title}</h3>
+                                                                    <span className="inbox-detail-date">
+                                                                        {new Date(selectedItem.createdAt).toLocaleDateString()}
+                                                                    </span>
+                                                                </div>
+                                                                {selectedItem.description && (
+                                                                    <p className="inbox-detail-description">{selectedItem.description}</p>
+                                                                )}
                                                             </div>
-                                                            {moved && <div className="inbox-moved">Moved to Scope ✅</div>}
                                                         </div>
-                                                    );
-                                                })}
+                                                    ) : (
+                                                        <div className="inbox-empty-detail">
+                                                            <div className="inbox-empty-title">
+                                                                {t('inbox.empty.title', 'Inbox Zero')}
+                                                            </div>
+                                                            <div className="inbox-empty-text">
+                                                                {t('inbox.empty.text', 'No unplanned work right now.')}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         );
                                     })()}
@@ -9277,9 +9587,18 @@ const App: React.FC = () => {
                                             placeholder="New incoming item"
                                         />
                                     </label>
+                                    <label>
+                                        {t('inbox.field.description', 'Beschreibung')}
+                                        <textarea
+                                            rows={2}
+                                            value={inboxDraft.description}
+                                            placeholder={t('inbox.field.descriptionPlaceholder', 'Kurz beschreiben, worum es geht')}
+                                            onChange={(event) => setInboxDraft((prev) => ({ ...prev, description: event.target.value }))}
+                                        />
+                                    </label>
                                     <div className="inbox-dropdown-row">
                                         <label>
-                                            Source
+                                            {t('inbox.field.source', 'Source')}
                                             <div className="filter-dropdown" ref={inboxSourceRef}>
                                                 <button
                                                     type="button"
@@ -9290,21 +9609,21 @@ const App: React.FC = () => {
                                                     }}
                                                     aria-expanded={inboxSourceOpen}
                                                 >
-                                                    {inboxDraft.source || 'Select source'}
+                                                    {inboxDraft.source ? getSourceLabel(inboxDraft.source) : t('inbox.field.selectSource', 'Select source')}
                                                 </button>
                                                 {inboxSourceOpen && (
                                                     <div className="filter-options" role="listbox">
-                                                        {inboxSourceOptions.map((source) => (
+                                                        {INBOX_SOURCE_OPTIONS.map((source) => (
                                                             <button
-                                                                key={source}
+                                                                key={source.value}
                                                                 type="button"
-                                                                className={`filter-option ${inboxDraft.source === source ? 'active' : ''}`}
+                                                                className={`filter-option ${inboxDraft.source === source.value ? 'active' : ''}`}
                                                                 onClick={() => {
-                                                                    setInboxDraft((prev) => ({ ...prev, source }));
+                                                                    setInboxDraft((prev) => ({ ...prev, source: source.value }));
                                                                     setInboxSourceOpen(false);
                                                                 }}
                                                             >
-                                                                {source}
+                                                                {t(source.labelId, source.defaultMessage)}
                                                             </button>
                                                         ))}
                                                     </div>
@@ -9312,7 +9631,7 @@ const App: React.FC = () => {
                                             </div>
                                         </label>
                                         <label>
-                                            Suggested action
+                                            {t('inbox.field.action', 'Suggested action')}
                                             <div className="filter-dropdown" ref={inboxActionRef}>
                                                 <button
                                                     type="button"
@@ -9323,21 +9642,23 @@ const App: React.FC = () => {
                                                     }}
                                                     aria-expanded={inboxActionOpen}
                                                 >
-                                                    {inboxDraft.suggestedAction || 'Select action'}
+                                                    {inboxDraft.suggestedAction
+                                                        ? getActionLabel(inboxDraft.suggestedAction)
+                                                        : t('inbox.field.selectAction', 'Select action')}
                                                 </button>
                                                 {inboxActionOpen && (
                                                     <div className="filter-options" role="listbox">
-                                                        {inboxActionOptions.map((action) => (
+                                                        {INBOX_ACTION_OPTIONS.map((action) => (
                                                             <button
-                                                                key={action}
+                                                                key={action.value}
                                                                 type="button"
-                                                                className={`filter-option ${inboxDraft.suggestedAction === action ? 'active' : ''}`}
+                                                                className={`filter-option ${inboxDraft.suggestedAction === action.value ? 'active' : ''}`}
                                                                 onClick={() => {
-                                                                    setInboxDraft((prev) => ({ ...prev, suggestedAction: action }));
+                                                                    setInboxDraft((prev) => ({ ...prev, suggestedAction: action.value }));
                                                                     setInboxActionOpen(false);
                                                                 }}
                                                             >
-                                                                {action}
+                                                                {t(action.labelId, action.defaultMessage)}
                                                             </button>
                                                         ))}
                                                     </div>
@@ -9356,19 +9677,25 @@ const App: React.FC = () => {
                                         aria-label="Speichern"
                                         onClick={() => {
                                             if (!inboxDraft.title.trim()) return;
-                                            const now = new Date().toISOString();
-                                            setInboxCustomItems((prev) => [
-                                                {
-                                                    id: `inbox-${now}-${Math.random().toString(36).slice(2, 7)}`,
-                                                    title: inboxDraft.title.trim(),
-                                                    source: inboxDraft.source || undefined,
-                                                    suggestedAction: inboxDraft.suggestedAction || undefined,
-                                                    createdAt: now,
-                                                    kind: 'Incoming'
-                                                },
-                                                ...prev
-                                            ]);
-                                            setInboxDraft({ title: '', source: '', suggestedAction: '' });
+                                        const now = new Date().toISOString();
+                                        const creatorInfo = getMemberInfo(activeTenantId, currentUserId || undefined);
+                                        persistInboxItems((prev) => [
+                                            {
+                                                id: `inbox-${now}-${Math.random().toString(36).slice(2, 7)}`,
+                                                title: inboxDraft.title.trim(),
+                                                source: inboxDraft.source || undefined,
+                                                suggestedAction: inboxDraft.suggestedAction || undefined,
+                                                description: inboxDraft.description.trim() || undefined,
+                                                createdAt: now,
+                                                kind: 'Incoming',
+                                                creatorLabel: creatorInfo.label,
+                                                creatorAvatarUrl: creatorInfo.avatarUrl,
+                                                creatorId: currentUserId || undefined,
+                                                tenantId: activeTenantId || null
+                                            },
+                                            ...prev
+                                        ]);
+                                            setInboxDraft({ title: '', source: '', suggestedAction: '', description: '' });
                                             setInboxCaptureOpen(false);
                                         }}
                                     >
