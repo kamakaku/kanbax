@@ -100,9 +100,48 @@ interface ScopeWindow {
 
 
 const App: React.FC = () => {
-    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'calendar' | 'settings' | 'okr' | 'scope'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'timeline' | 'calendar' | 'settings' | 'okr' | 'scope' | 'inbox' | 'initiatives'>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
     const [detailTab, setDetailTab] = useState<'comments' | 'attachments' | 'activity'>('comments');
+    const [inboxScopeMenuId, setInboxScopeMenuId] = useState<string | null>(null);
+    const [inboxMovedId, setInboxMovedId] = useState<string | null>(null);
+    const [inboxHiddenIds, setInboxHiddenIds] = useState<string[]>([]);
+    const [inboxCaptureOpen, setInboxCaptureOpen] = useState(false);
+    const [inboxSourceOpen, setInboxSourceOpen] = useState(false);
+    const [inboxActionOpen, setInboxActionOpen] = useState(false);
+    const inboxSourceRef = useRef<HTMLDivElement | null>(null);
+    const inboxActionRef = useRef<HTMLDivElement | null>(null);
+    const saveIcon = (
+        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" stroke="currentColor">
+            <path d="M5 6.5V20h14V8.5L17.5 5H6a1 1 0 0 0-1 1.5z" />
+            <path d="M6 5.5h10v4H6z" />
+            <circle cx="12" cy="15.5" r="2" fill="currentColor" stroke="none" />
+        </svg>
+    );
+    const [inboxCustomItems, setInboxCustomItems] = useState<Array<{
+        id: string;
+        title: string;
+        source?: string;
+        createdAt: string;
+        suggestedAction?: string;
+        kind?: string;
+    }>>([]);
+    const [inboxDraft, setInboxDraft] = useState({
+        title: '',
+        source: '',
+        suggestedAction: ''
+    });
+    const inboxSourceOptions = ['Email', 'Meeting note', 'Request', 'Idea', 'External'];
+    const inboxActionOptions = ['This Week', 'Next Week', 'Later', 'Archive'];
+    const handleClickOutside = (event: MouseEvent) => {
+        if (inboxSourceOpen && inboxSourceRef.current && !inboxSourceRef.current.contains(event.target as Node)) {
+            setInboxSourceOpen(false);
+        }
+        if (inboxActionOpen && inboxActionRef.current && !inboxActionRef.current.contains(event.target as Node)) {
+            setInboxActionOpen(false);
+        }
+    };
+
     useEffect(() => {
         if (view === 'list') {
             setView('table');
@@ -166,7 +205,6 @@ const App: React.FC = () => {
     const [settingsDraft, setSettingsDraft] = useState<any>(null);
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
-    const [templateDraft, setTemplateDraft] = useState({ name: '', title: '', priority: 'MEDIUM', status: 'BACKLOG' });
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [notifications, setNotifications] = useState<Array<{ id: string; message: string; huddleName: string; timestamp: string; read: boolean; taskId?: string; tenantId?: string }>>([]);
     const [pendingTaskOpen, setPendingTaskOpen] = useState<{ taskId: string; tenantId: string } | null>(null);
@@ -254,6 +292,7 @@ const App: React.FC = () => {
     const [scopeStatusFilterOpen, setScopeStatusFilterOpen] = useState(false);
     const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list'>('board');
     const [isScopeCreateOpen, setIsScopeCreateOpen] = useState(false);
+    const [scopeTab, setScopeTab] = useState<'current' | 'review' | 'history'>('current');
     const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
     const [showScopeDropRow, setShowScopeDropRow] = useState(false);
     const [scopeSettingsDraft, setScopeSettingsDraft] = useState({
@@ -339,6 +378,7 @@ const App: React.FC = () => {
     const statusFilterRef = useRef<HTMLDivElement | null>(null);
     const scopePriorityFilterRef = useRef<HTMLDivElement | null>(null);
     const scopeStatusFilterRef = useRef<HTMLDivElement | null>(null);
+    const [openMemberDropdownId, setOpenMemberDropdownId] = useState<string | null>(null);
     const [calendarDate, setCalendarDate] = useState(() => new Date());
     const [calendarSelectedDate, setCalendarSelectedDate] = useState(() => new Date());
     const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -370,6 +410,12 @@ const App: React.FC = () => {
             if (scopeStatusFilterOpen && scopeStatusFilterRef.current && !scopeStatusFilterRef.current.contains(target)) {
                 setScopeStatusFilterOpen(false);
             }
+            if (openMemberDropdownId) {
+                const container = (target as HTMLElement).closest('[data-member-dropdown]');
+                if (!container) {
+                    setOpenMemberDropdownId(null);
+                }
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -381,6 +427,7 @@ const App: React.FC = () => {
         statusFilterOpen,
         scopePriorityFilterOpen,
         scopeStatusFilterOpen,
+        openMemberDropdownId,
     ]);
     const [calendarImportFileName, setCalendarImportFileName] = useState('');
     const [calendarImportFile, setCalendarImportFile] = useState<File | null>(null);
@@ -410,7 +457,6 @@ const App: React.FC = () => {
     const [newTaskOwnerId, setNewTaskOwnerId] = useState<string | null>(null);
     const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
     const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>(TaskStatus.BACKLOG);
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -2610,7 +2656,6 @@ const App: React.FC = () => {
         setNewTaskBoardId(resolveWritableBoardId(nextHuddleId));
         setNewTaskOwnerId(userProfile?.id || null);
         setNewTaskAssignees([]);
-        setSelectedTemplateId('');
         setIsModalOpen(true);
     };
     const getHuddleName = (name?: string | null) => {
@@ -2743,7 +2788,6 @@ const App: React.FC = () => {
                 dueSoonHours: prefs.reminders?.dueSoonHours ?? 24,
                 dailySummaryTime: prefs.reminders?.dailySummaryTime || '09:00',
             },
-            taskTemplates: prefs.taskTemplates || [],
         };
     };
     const getInitials = (label: string) => {
@@ -3197,7 +3241,6 @@ const App: React.FC = () => {
                         notifications: settingsDraft.notifications,
                         workingHours: settingsDraft.workingHours,
                         reminders: settingsDraft.reminders,
-                        taskTemplates: settingsDraft.taskTemplates,
                     },
                 }),
             });
@@ -3965,6 +4008,9 @@ const App: React.FC = () => {
             } else if (isDetailsModalOpen) {
                 closeDetailsModal();
                 handled = true;
+            } else if (inboxCaptureOpen) {
+                setInboxCaptureOpen(false);
+                handled = true;
             } else if (isModalOpen) {
                 closeCreateTaskModal();
                 handled = true;
@@ -4034,6 +4080,9 @@ const App: React.FC = () => {
             } else if (labelFilterOpen) {
                 setLabelFilterOpen(false);
                 handled = true;
+            } else if (openMemberDropdownId) {
+                setOpenMemberDropdownId(null);
+                handled = true;
             }
 
             if (handled) {
@@ -4043,7 +4092,11 @@ const App: React.FC = () => {
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
     }, [
         imagePreview,
         isEditModalOpen,
@@ -4067,6 +4120,8 @@ const App: React.FC = () => {
         scopeStatusFilterOpen,
         priorityFilterOpen,
         statusFilterOpen,
+        inboxSourceOpen,
+        inboxActionOpen,
         closeCreateTaskModal,
         closeDetailsModal,
         closeEditTaskModal,
@@ -4886,7 +4941,7 @@ const App: React.FC = () => {
                                             setIsUserMenuOpen(false);
                                         }}
                                     >
-                                        Dashboard
+                                        Home
                                     </button>
                                     <button
                                         className="user-menu-item"
@@ -4895,7 +4950,7 @@ const App: React.FC = () => {
                                             setIsUserMenuOpen(false);
                                         }}
                                     >
-                                        Tasks
+                                        Work
                                     </button>
                                     <button
                                         className="user-menu-item"
@@ -4907,7 +4962,7 @@ const App: React.FC = () => {
                                             setIsUserMenuOpen(false);
                                         }}
                                     >
-                                        Scope Window
+                                        Scope
                                     </button>
                                     <button
                                         className="user-menu-item"
@@ -4916,7 +4971,7 @@ const App: React.FC = () => {
                                             setIsUserMenuOpen(false);
                                         }}
                                     >
-                                        OKRs
+                                        Goals
                                     </button>
                                     <button
                                         className="user-menu-item"
@@ -5010,7 +5065,7 @@ const App: React.FC = () => {
                             <button
                                 className={`sidebar-nav-item ${view === 'dashboard' ? 'active' : ''}`}
                                 onClick={() => setView('dashboard')}
-                                data-tooltip="Dashboard"
+                                data-tooltip="Home"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
@@ -5020,13 +5075,25 @@ const App: React.FC = () => {
                                         <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
                                     </svg>
                                 </span>
-                                <span className="sidebar-nav-label">Dashboard</span>
+                                <span className="sidebar-nav-label">Home</span>
                             </button>
                             <button
-                                className={`sidebar-nav-item ${view === 'kanban' ? 'active' : ''}`}
+                                className={`sidebar-nav-item ${view === 'inbox' ? 'active' : ''}`}
+                                onClick={() => setView('inbox')}
+                                data-tooltip="Inbox"
+                            >
+                                <span className="sidebar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                        <path d="M4 4h16v12H4z" />
+                                        <path d="M4 16h6l2 3h4l2-3h6" />
+                                    </svg>
+                                </span>
+                                <span className="sidebar-nav-label">Inbox</span>
+                            </button>
+                            <button
+                                className={`sidebar-nav-item ${view === 'kanban' || view === 'table' || view === 'timeline' ? 'active' : ''}`}
                                 onClick={handleBoardNavClick}
-                                data-tooltip="Tasks"
-                                data-nav-group="board"
+                                data-tooltip="Work"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
@@ -5035,55 +5102,12 @@ const App: React.FC = () => {
                                         <path d="M13.5 16h7" />
                                     </svg>
                                 </span>
-                                <span className="sidebar-nav-label">Tasks</span>
-                                <span
-                                    className={`sidebar-nav-chevron ${isBoardNavOpen ? 'open' : ''}`}
-                                    aria-hidden="true"
-                                >
-                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="4 8 10 14 16 8" />
-                                    </svg>
-                                </span>
+                                <span className="sidebar-nav-label">Work</span>
                             </button>
-                            {!isSidebarCollapsed && isBoardNavOpen && (
-                                <div className="sidebar-board-list" data-nav-group="board">
-                                    {sidebarBoardItems.length === 0 ? (
-                                        <div className="sidebar-board-empty">No task lists yet.</div>
-                                    ) : (
-                                        sidebarBoardItems.map((boardItem) => (
-                                            <button
-                                                key={boardItem.id}
-                                                className={`sidebar-board-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
-                                                onClick={() => handleSidebarBoardSelect(boardItem.id)}
-                                            >
-                                                {renderSidebarBoardIcon(boardItem.id)}
-                                                <span className="sidebar-board-label">{boardItem.name}</span>
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                            {isSidebarCollapsed && isBoardNavOpen && (view === 'kanban' || view === 'table') && (
-                                <div className="sidebar-board-compact" data-nav-group="board">
-                                    {sidebarBoardItems.map((boardItem) => (
-                                        <button
-                                            key={boardItem.id}
-                                            className={`sidebar-board-compact-item ${boardItem.id === activeBoardId ? 'active' : ''}`}
-                                            onClick={() => handleSidebarBoardSelect(boardItem.id)}
-                                            title={boardItem.name}
-                                            aria-label={`Open tasks ${boardItem.name}`}
-                                        >
-                                            {isSpecialSidebarBoard(boardItem.id)
-                                                ? renderSidebarBoardIcon(boardItem.id, true)
-                                                : getBoardInitials(boardItem.name)}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
                             <button
                                 className={`sidebar-nav-item ${view === 'scope' ? 'active' : ''}`}
                                 onClick={handleScopeNavClick}
-                                data-tooltip="Scope Window"
+                                data-tooltip="Scope"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
@@ -5095,67 +5119,34 @@ const App: React.FC = () => {
                                         <path d="M17 12h3" />
                                     </svg>
                                 </span>
-                                <span className="sidebar-nav-label">Scope Window</span>
+                                <span className="sidebar-nav-label">Scope</span>
+                            </button>
+                            <button
+                                className={`sidebar-nav-item ${view === 'initiatives' ? 'active' : ''}`}
+                                onClick={() => setView('initiatives')}
+                                data-tooltip="Initiatives"
+                            >
+                                <span className="sidebar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                        <path d="M4 16l6-6 4 4 6-6" />
+                                        <path d="M4 20h16" />
+                                    </svg>
+                                </span>
+                                <span className="sidebar-nav-label">Initiatives</span>
                             </button>
                             <button
                                 className={`sidebar-nav-item ${view === 'okr' ? 'active' : ''}`}
                                 onClick={handleOkrNavClick}
-                                data-tooltip="OKRs"
-                                data-nav-group="okr"
+                                data-tooltip="Goals"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
-                                        <path d="M4 19V5" />
-                                        <path d="M9 19V9" />
-                                        <path d="M14 19V7" />
-                                        <path d="M19 19V12" />
+                                        <circle cx="12" cy="12" r="8" />
+                                        <path d="M12 6v6l4 2" />
                                     </svg>
                                 </span>
-                                <span className="sidebar-nav-label">OKRs</span>
-                                <span
-                                    className={`sidebar-nav-chevron ${isOkrNavOpen ? 'open' : ''}`}
-                                    aria-hidden="true"
-                                >
-                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="4 8 10 14 16 8" />
-                                    </svg>
-                                </span>
+                                <span className="sidebar-nav-label">Goals</span>
                             </button>
-                            {!isSidebarCollapsed && isOkrNavOpen && (
-                                <div className="sidebar-board-list" data-nav-group="okr">
-                                    {okrLoading ? (
-                                        <div className="sidebar-board-empty">Loading OKRs…</div>
-                                    ) : objectiveViews.length === 0 ? (
-                                        <div className="sidebar-board-empty">No objectives yet.</div>
-                                    ) : (
-                                        objectiveViews.map((objective) => (
-                                            <button
-                                                key={objective.id}
-                                                className={`sidebar-board-item ${objective.id === okrActiveObjective?.id ? 'active' : ''}`}
-                                                onClick={() => handleSidebarObjectiveSelect(objective.id)}
-                                            >
-                                                <span className="sidebar-board-dot" aria-hidden="true" />
-                                                <span className="sidebar-board-label">{objective.title}</span>
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                            {isSidebarCollapsed && isOkrNavOpen && view === 'okr' && (
-                                <div className="sidebar-board-compact" data-nav-group="okr">
-                                    {objectiveViews.map((objective) => (
-                                        <button
-                                            key={objective.id}
-                                            className={`sidebar-board-compact-item ${objective.id === okrActiveObjective?.id ? 'active' : ''}`}
-                                            onClick={() => handleSidebarObjectiveSelect(objective.id)}
-                                            title={objective.title}
-                                            aria-label={`Open objective ${objective.title}`}
-                                        >
-                                            {getBoardInitials(objective.title)}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
                         </div>
                     </div>
                     <div className="sidebar-footer">
@@ -5231,7 +5222,7 @@ const App: React.FC = () => {
                                 </span>
                             ))}
                         </div>
-                        {(view === 'kanban' || view === 'table' || view === 'okr' || view === 'scope') && (
+                        {(view === 'kanban' || view === 'table' || view === 'timeline' || view === 'okr' || view === 'scope') && (
                             <div className="page-breadcrumb-actions">
                                 {(view === 'kanban' || view === 'table') && (
                                     <span className="board-switch-inline">
@@ -5363,22 +5354,27 @@ const App: React.FC = () => {
                         )}
                     </div>
                     <div
-                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'scope' ? ' page-heading-dark' : ''}`}
+                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'timeline' || view === 'scope' ? ' page-heading-dark' : ''}`}
                     >
+                        {!(view === 'okr' && okrScreen === 'objective') && (
                         <div className="page-heading-row">
                             <div className="page-heading-title">
                                 <h1>
                                     {view === 'settings'
                                         ? 'Settings'
                                         : view === 'okr'
-                                            ? 'OKRs'
+                                            ? 'Goals'
                                         : view === 'dashboard'
-                                            ? 'Dashboard'
-                                            : view === 'calendar'
-                                                ? 'Calendar'
-                                                : view === 'scope'
-                                                    ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope Window')
-                                                    : (activeBoard?.name || activeHuddleName || 'Tasks')}
+                                            ? 'Home'
+                                        : view === 'calendar'
+                                            ? 'Calendar'
+                                            : view === 'inbox'
+                                                ? 'Inbox'
+                                                : view === 'initiatives'
+                                                    ? 'Initiatives'
+                                            : view === 'scope'
+                                                ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope')
+                                                : (activeBoard?.name || activeHuddleName || 'Work')}
                                     {view === 'scope' && (
                                         <button
                                             type="button"
@@ -5394,27 +5390,27 @@ const App: React.FC = () => {
                                         </button>
                                     )}
                                 </h1>
-                                {(view === 'kanban' || view === 'table' || view === 'scope' || view === 'okr') && (
+                                {(view === 'kanban' || view === 'table' || view === 'timeline' || view === 'scope' || view === 'okr') && (
                                     <div className="page-heading-meta">
                                         <span className="page-heading-meta-label">{activeHuddleName || 'Huddle'}</span>
-                                        {view === 'kanban' || view === 'table' ? (
+                                        {view === 'kanban' || view === 'table' || view === 'timeline' ? (
                                             <>
                                                 <span className="page-heading-dot">•</span>
                                                 <span className="page-heading-meta-label">
-                                                    {view === 'table' ? 'Table view' : 'Board view'}
+                                                    {view === 'table' ? 'List view' : view === 'timeline' ? 'Timeline view' : 'Board view'}
                                                 </span>
                                             </>
                                         ) : null}
                                         {view === 'okr' && (
                                             <>
                                                 <span className="page-heading-dot">•</span>
-                                                <span className="page-heading-meta-label">OKRs</span>
+                                                <span className="page-heading-meta-label">Goals</span>
                                             </>
                                         )}
                                         {view === 'scope' && (
                                             <>
                                                 <span className="page-heading-dot">•</span>
-                                                <span className="page-heading-meta-label">Scope Window</span>
+                                                <span className="page-heading-meta-label">Scope</span>
                                                 {scopeScreen === 'detail' && activeScopeWindow && (
                                                     <>
                                                         <span className="page-heading-dot">•</span>
@@ -5433,9 +5429,9 @@ const App: React.FC = () => {
                                     <div className="page-heading-description">{activeScopeWindow.description}</div>
                                 )}
                             </div>
-                            {(view === 'kanban' || view === 'table' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow) || (view === 'scope' && scopeScreen === 'list')) && (
+                            {(view === 'kanban' || view === 'table' || view === 'timeline' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow) || (view === 'scope' && scopeScreen === 'list')) && (
                                 <div className="page-heading-actions">
-                                    {(view === 'kanban' || view === 'table') && (
+                                    {(view === 'kanban' || view === 'table' || view === 'timeline') && (
                                         <>
                                             <button
                                                 type="button"
@@ -5524,6 +5520,7 @@ const App: React.FC = () => {
                                 </div>
                             )}
                         </div>
+                        )}
                     </div>
                 </div>
                 {loading ? (
@@ -5729,116 +5726,131 @@ const App: React.FC = () => {
                                     {settingsMessage && <div className="settings-message">{settingsMessage}</div>}
                                 </div>
                                 <div className="settings-grid">
-                                    <section className="settings-card">
-                                        <div className="settings-title">Profile</div>
-                                        <div className="settings-avatar">
-                                            {settingsDraft.avatarUrl ? (
-                                                <img src={settingsDraft.avatarUrl} alt="Avatar preview" />
-                                            ) : (
-                                                <div className="settings-avatar-placeholder">
-                                                    {getInitials(settingsDraft.name || userProfile?.email || 'U')}
-                                                </div>
-                                            )}
-                                            <label className="settings-upload">
-                                                Upload avatar
-                                                <input type="file" accept="image/*" onChange={(e) => handleAvatarUpload(e.target.files)} />
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Profile</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
+                                            <div className="settings-avatar">
+                                                {settingsDraft.avatarUrl ? (
+                                                    <img src={settingsDraft.avatarUrl} alt="Avatar preview" />
+                                                ) : (
+                                                    <div className="settings-avatar-placeholder">
+                                                        {getInitials(settingsDraft.name || userProfile?.email || 'U')}
+                                                    </div>
+                                                )}
+                                                <label className="settings-upload">
+                                                    Upload avatar
+                                                    <input type="file" accept="image/*" onChange={(e) => handleAvatarUpload(e.target.files)} />
+                                                </label>
+                                            </div>
+                                            <label>
+                                                Name
+                                                <input
+                                                    type="text"
+                                                    value={settingsDraft.name}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, name: e.target.value })}
+                                                />
+                                            </label>
+                                            <label>
+                                                Avatar URL
+                                                <input
+                                                    type="text"
+                                                    value={settingsDraft.avatarUrl}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, avatarUrl: e.target.value })}
+                                                />
+                                            </label>
+                                            <label>
+                                                Email
+                                                <input type="text" value={userProfile?.email || ''} readOnly />
+                                            </label>
+                                            <label>
+                                                Profile visibility
+                                                <select
+                                                    value={settingsDraft.profileVisibility}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, profileVisibility: e.target.value })}
+                                                >
+                                                    <option value="huddle">Visible to huddles</option>
+                                                    <option value="private">Private</option>
+                                                </select>
                                             </label>
                                         </div>
-                                        <label>
-                                            Name
-                                            <input
-                                                type="text"
-                                                value={settingsDraft.name}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, name: e.target.value })}
-                                            />
-                                        </label>
-                                        <label>
-                                            Avatar URL
-                                            <input
-                                                type="text"
-                                                value={settingsDraft.avatarUrl}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, avatarUrl: e.target.value })}
-                                            />
-                                        </label>
-                                        <label>
-                                            Email
-                                            <input type="text" value={userProfile?.email || ''} readOnly />
-                                        </label>
-                                        <label>
-                                            Profile visibility
-                                            <select
-                                                value={settingsDraft.profileVisibility}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, profileVisibility: e.target.value })}
-                                            >
-                                                <option value="huddle">Visible to huddles</option>
-                                                <option value="private">Private</option>
-                                            </select>
-                                        </label>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Localization</div>
-                                        <label>
-                                            Timezone
-                                            <input
-                                                type="text"
-                                                value={settingsDraft.timezone}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, timezone: e.target.value })}
-                                            />
-                                        </label>
-                                        <label>
-                                            Locale
-                                            <input
-                                                type="text"
-                                                value={settingsDraft.locale}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, locale: e.target.value })}
-                                            />
-                                        </label>
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Localization</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
+                                            <label>
+                                                Timezone
+                                                <input
+                                                    type="text"
+                                                    value={settingsDraft.timezone}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, timezone: e.target.value })}
+                                                />
+                                            </label>
+                                            <label>
+                                                Locale
+                                                <input
+                                                    type="text"
+                                                    value={settingsDraft.locale}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, locale: e.target.value })}
+                                                />
+                                            </label>
+                                        </div>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Defaults</div>
-                                        <label>
-                                            Default huddle
-                                            <select
-                                                value={settingsDraft.defaultHuddleId || ''}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, defaultHuddleId: e.target.value })}
-                                            >
-                                                {displayMemberships.map((membership) => (
-                                                    <option key={membership.id} value={membership.tenantId}>
-                                                        {getHuddleName(membership.tenant?.name) || membership.tenantId}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </label>
-                                        <label>
-                                            Default priority
-                                            <select
-                                                value={settingsDraft.defaultPriority}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, defaultPriority: e.target.value })}
-                                            >
-                                                <option value="LOW">Low</option>
-                                                <option value="MEDIUM">Medium</option>
-                                                <option value="HIGH">High</option>
-                                                <option value="CRITICAL">Critical</option>
-                                            </select>
-                                        </label>
-                                        <label>
-                                            Default status
-                                            <select
-                                                value={settingsDraft.defaultStatus}
-                                                onChange={(e) => setSettingsDraft({ ...settingsDraft, defaultStatus: e.target.value })}
-                                            >
-                                                <option value="BACKLOG">Backlog</option>
-                                                <option value="TODO">Todo</option>
-                                                <option value="IN_PROGRESS">In progress</option>
-                                                <option value="DONE">Done</option>
-                                            </select>
-                                        </label>
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Defaults</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
+                                            <label>
+                                                Default huddle
+                                                <select
+                                                    value={settingsDraft.defaultHuddleId || ''}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, defaultHuddleId: e.target.value })}
+                                                >
+                                                    {displayMemberships.map((membership) => (
+                                                        <option key={membership.id} value={membership.tenantId}>
+                                                            {getHuddleName(membership.tenant?.name) || membership.tenantId}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label>
+                                                Default priority
+                                                <select
+                                                    value={settingsDraft.defaultPriority}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, defaultPriority: e.target.value })}
+                                                >
+                                                    <option value="LOW">Low</option>
+                                                    <option value="MEDIUM">Medium</option>
+                                                    <option value="HIGH">High</option>
+                                                    <option value="CRITICAL">Critical</option>
+                                                </select>
+                                            </label>
+                                            <label>
+                                                Default status
+                                                <select
+                                                    value={settingsDraft.defaultStatus}
+                                                    onChange={(e) => setSettingsDraft({ ...settingsDraft, defaultStatus: e.target.value })}
+                                                >
+                                                    <option value="BACKLOG">Backlog</option>
+                                                    <option value="TODO">Todo</option>
+                                                    <option value="IN_PROGRESS">In progress</option>
+                                                    <option value="DONE">Done</option>
+                                                </select>
+                                            </label>
+                                        </div>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Notifications</div>
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Notifications</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
                                         <div className="settings-subtitle">Email</div>
                                         <label className="settings-toggle">
                                             <input
@@ -5953,10 +5965,14 @@ const App: React.FC = () => {
                                             />
                                             Huddle invites
                                         </label>
+                                        </div>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Working hours</div>
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Working hours</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
                                         <label>
                                             Start
                                             <input
@@ -6000,10 +6016,14 @@ const App: React.FC = () => {
                                                 </label>
                                             ))}
                                         </div>
+                                        </div>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Reminders</div>
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Reminders</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
                                         <label>
                                             Due soon (hours)
                                             <input
@@ -6027,129 +6047,63 @@ const App: React.FC = () => {
                                                 })}
                                             />
                                         </label>
+                                        </div>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Task templates</div>
-                                        <div className="template-form">
-                                            <input
-                                                type="text"
-                                                placeholder="Template name"
-                                                value={templateDraft.name}
-                                                onChange={(e) => setTemplateDraft({ ...templateDraft, name: e.target.value })}
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Title"
-                                                value={templateDraft.title}
-                                                onChange={(e) => setTemplateDraft({ ...templateDraft, title: e.target.value })}
-                                            />
-                                            <select
-                                                value={templateDraft.priority}
-                                                onChange={(e) => setTemplateDraft({ ...templateDraft, priority: e.target.value })}
-                                            >
-                                                <option value="LOW">Low</option>
-                                                <option value="MEDIUM">Medium</option>
-                                                <option value="HIGH">High</option>
-                                                <option value="CRITICAL">Critical</option>
-                                            </select>
-                                            <select
-                                                value={templateDraft.status}
-                                                onChange={(e) => setTemplateDraft({ ...templateDraft, status: e.target.value })}
-                                            >
-                                                <option value="BACKLOG">Backlog</option>
-                                                <option value="TODO">Todo</option>
-                                                <option value="IN_PROGRESS">In progress</option>
-                                                <option value="DONE">Done</option>
-                                            </select>
-                                            <button
-                                                className="btn btn-secondary btn-compact"
-                                                onClick={() => {
-                                                    if (!templateDraft.name.trim() || !templateDraft.title.trim()) return;
-                                                    const nextTemplate = {
-                                                        id: Math.random().toString(36).slice(2),
-                                                        name: templateDraft.name.trim(),
-                                                        title: templateDraft.title.trim(),
-                                                        priority: templateDraft.priority,
-                                                        status: templateDraft.status,
-                                                    };
-                                                    setSettingsDraft({
-                                                        ...settingsDraft,
-                                                        taskTemplates: settingsDraft.taskTemplates.concat(nextTemplate),
-                                                    });
-                                                    setTemplateDraft({ name: '', title: '', priority: 'MEDIUM', status: 'BACKLOG' });
-                                                }}
-                                            >
-                                                Add template
-                                            </button>
+
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Huddles</div>
                                         </div>
-                                        <div className="template-list">
-                                            {settingsDraft.taskTemplates.map((template: any) => (
-                                                <div key={template.id} className="template-row">
-                                                    <div>
-                                                        <div className="member-name">{template.name}</div>
-                                                        <div className="member-meta">{template.title}</div>
+                                        <div className="settings-card-body ui-card-body">
+                                            <div className="template-list">
+                                                {displayMemberships.map((membership) => (
+                                                    <div key={membership.id} className="template-row">
+                                                        <div>
+                                                            <div className="member-name">{getHuddleName(membership.tenant?.name) || membership.tenantId}</div>
+                                                            <div className="member-meta">Role: {membership.role}</div>
+                                                        </div>
+                                                        {membership.tenant?.name !== 'Personal' && (
+                                                            <button
+                                                                className="btn btn-ghost btn-compact"
+                                                                onClick={() => handleLeaveHuddle(membership.tenantId)}
+                                                            >
+                                                                Leave
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                    <button
-                                                        className="btn btn-ghost btn-compact"
-                                                        onClick={() => {
-                                                            setSettingsDraft({
-                                                                ...settingsDraft,
-                                                                taskTemplates: settingsDraft.taskTemplates.filter((t: any) => t.id !== template.id),
-                                                            });
-                                                        }}
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            {settingsDraft.taskTemplates.length === 0 && (
-                                                <div className="empty-state">No templates yet.</div>
-                                            )}
+                                                ))}
+                                            </div>
                                         </div>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Huddles</div>
-                                        <div className="template-list">
-                                            {displayMemberships.map((membership) => (
-                                                <div key={membership.id} className="template-row">
-                                                    <div>
-                                                        <div className="member-name">{getHuddleName(membership.tenant?.name) || membership.tenantId}</div>
-                                                        <div className="member-meta">Role: {membership.role}</div>
-                                                    </div>
-                                                    {membership.tenant?.name !== 'Personal' && (
-                                                        <button
-                                                            className="btn btn-ghost btn-compact"
-                                                            onClick={() => handleLeaveHuddle(membership.tenantId)}
-                                                        >
-                                                            Leave
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Security & Sessions</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
+                                            <button className="btn btn-secondary btn-compact" onClick={handlePasswordReset}>
+                                                Send password reset email
+                                            </button>
+                                            <button className="btn btn-ghost btn-compact" onClick={handleSignOut}>
+                                                Sign out
+                                            </button>
                                         </div>
                                     </section>
 
-                                    <section className="settings-card">
-                                        <div className="settings-title">Security & Sessions</div>
-                                        <button className="btn btn-secondary btn-compact" onClick={handlePasswordReset}>
-                                            Send password reset email
-                                        </button>
-                                        <button className="btn btn-ghost btn-compact" onClick={handleSignOut}>
-                                            Sign out
-                                        </button>
-                                    </section>
-
-                                    <section className="settings-card">
-                                        <div className="settings-title">Export</div>
-                                        <div className="settings-actions">
-                                            <button className="btn btn-secondary btn-compact" onClick={exportTasksJson}>
-                                                Export JSON
-                                            </button>
-                                            <button className="btn btn-secondary btn-compact" onClick={exportTasksCsv}>
-                                                Export CSV
-                                            </button>
+                                    <section className="settings-card ui-card">
+                                        <div className="settings-card-header ui-card-header">
+                                            <div className="settings-title">Export</div>
+                                        </div>
+                                        <div className="settings-card-body ui-card-body">
+                                            <div className="settings-actions">
+                                                <button className="btn btn-secondary btn-compact" onClick={exportTasksJson}>
+                                                    Export JSON
+                                                </button>
+                                                <button className="btn btn-secondary btn-compact" onClick={exportTasksCsv}>
+                                                    Export CSV
+                                                </button>
+                                            </div>
                                         </div>
                                     </section>
                                 </div>
@@ -6161,9 +6115,10 @@ const App: React.FC = () => {
                 ) : view === 'okr' ? (
                     showLegacyOkr ? (
                     <div className="okr-panel">
-                        <div className="okr-create">
-                            <div className="okr-card-title">Create objective</div>
-                            <div className="okr-grid">
+                        <div className="okr-create ui-card">
+                            <div className="okr-card-title ui-card-header">Create objective</div>
+                            <div className="okr-card-body ui-card-body">
+                                <div className="okr-grid">
                                 <label>
                                     Title
                                     <input
@@ -6224,22 +6179,23 @@ const App: React.FC = () => {
                                         rows={3}
                                     />
                                 </label>
-                            </div>
-                            <div className="okr-actions">
-                                <button className="btn btn-ghost btn-compact" onClick={loadOkrs}>
-                                    Refresh
-                                </button>
-                                <button
-                                    className="icon-action create"
-                                    onClick={handleCreateObjective}
-                                    data-tooltip="Objective erstellen"
-                                    aria-label="Objective erstellen"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                        <path d="M12 5v14" />
-                                        <path d="M5 12h14" />
-                                    </svg>
-                                </button>
+                                </div>
+                                <div className="okr-actions">
+                                    <button className="btn btn-ghost btn-compact" onClick={loadOkrs}>
+                                        Refresh
+                                    </button>
+                                    <button
+                                        className="icon-action create"
+                                        onClick={handleCreateObjective}
+                                        data-tooltip="Objective erstellen"
+                                        aria-label="Objective erstellen"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                            <path d="M12 5v14" />
+                                            <path d="M5 12h14" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         {okrError && <div className="okr-error">Error: {okrError}</div>}
@@ -6258,10 +6214,10 @@ const App: React.FC = () => {
                                     return (
                                         <div
                                             key={objective.id}
-                                            className="okr-card"
+                                            className="okr-card ui-card"
                                             onClick={() => navigateOkr(`/okr/objective/${objective.id}`)}
                                         >
-                                            <div className="okr-header">
+                                            <div className="okr-header ui-card-header">
                                                 <div>
                                                     <div className="okr-title">{objective.title}</div>
                                                     {objective.description && (
@@ -6306,32 +6262,34 @@ const App: React.FC = () => {
                                                 </button>
                                             </div>
                                             {isExpanded && (
-                                                <div className="okr-keyresults-expanded">
-                                                    {objective.keyResults.length === 0 ? (
-                                                        <div className="okr-empty">No key results yet.</div>
-                                                    ) : (
-                                                        objective.keyResults.map((kr) => (
-                                                            <div key={kr.id} className="okr-kr-expanded">
-                                                                <div className="okr-kr-expanded-header">
-                                                                    <div className="okr-kr-expanded-main">
-                                                                        <div className="okr-kr-title">{kr.title}</div>
-                                                                        {kr.description && (
-                                                                            <div className="okr-kr-description">{kr.description}</div>
-                                                                        )}
-                                                                        <div className="okr-kr-progress okr-progress-inline">
-                                                                            <div className="okr-progress-bar">
-                                                                                <div className="okr-progress-fill" style={{ width: `${Math.round(kr.progress)}%` }} />
+                                                <div className="okr-card-body ui-card-body">
+                                                    <div className="okr-keyresults-expanded">
+                                                        {objective.keyResults.length === 0 ? (
+                                                            <div className="okr-empty">No key results yet.</div>
+                                                        ) : (
+                                                            objective.keyResults.map((kr) => (
+                                                                <div key={kr.id} className="okr-kr-expanded">
+                                                                    <div className="okr-kr-expanded-header">
+                                                                        <div className="okr-kr-expanded-main">
+                                                                            <div className="okr-kr-title">{kr.title}</div>
+                                                                            {kr.description && (
+                                                                                <div className="okr-kr-description">{kr.description}</div>
+                                                                            )}
+                                                                            <div className="okr-kr-progress okr-progress-inline">
+                                                                                <div className="okr-progress-bar">
+                                                                                    <div className="okr-progress-fill" style={{ width: `${Math.round(kr.progress)}%` }} />
+                                                                                </div>
+                                                                                <div className="okr-progress-foot">{Math.round(kr.progress)}%</div>
                                                                             </div>
-                                                                            <div className="okr-progress-foot">{Math.round(kr.progress)}%</div>
+                                                                        </div>
+                                                                        <div className="okr-kr-date">
+                                                                            Updated {new Date(kr.updatedAt || kr.createdAt).toLocaleDateString()}
                                                                         </div>
                                                                     </div>
-                                                                    <div className="okr-kr-date">
-                                                                        Updated {new Date(kr.updatedAt || kr.createdAt).toLocaleDateString()}
-                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ))
-                                                    )}
+                                                            ))
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -6594,8 +6552,8 @@ const App: React.FC = () => {
                                             <div className={`okr-kr-list ${okrKrViewMode === 'cards' ? 'okr-kr-cards' : ''}`}>
                                                 {okrActiveObjective.keyResults.length === 0 && <div className="okr-empty">No key results yet.</div>}
                                                 {okrActiveObjective.keyResults.map((kr) => (
-                                                    <div key={kr.id} className="okr-kr-card">
-                                                        <div className="okr-kr-expanded-header okr-kr-detail-header">
+                                                    <div key={kr.id} className="okr-kr-card ui-card">
+                                                        <div className="okr-kr-card-header ui-card-header">
                                                             <div className="okr-kr-toprow">
                                                                 <div className="okr-kr-toprow-left">
                                                                     {krStatusEditingId === kr.id ? (
@@ -6661,6 +6619,8 @@ const App: React.FC = () => {
                                                                     </button>
                                                                 </div>
                                                             </div>
+                                                        </div>
+                                                        <div className="okr-kr-card-body ui-card-body">
                                                             <div className="okr-kr-expanded-main">
                                                                 <div className="okr-kr-title">{kr.title}</div>
                                                                 {kr.description && (
@@ -6707,9 +6667,6 @@ const App: React.FC = () => {
                                                 ))}
                                             </div>
                                         )}
-                                        <button className="btn btn-ghost btn-compact" onClick={() => navigateOkr(`/okr/review/${okrActiveObjective.id}`)}>
-                                            Start strategic review
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -6994,17 +6951,46 @@ const App: React.FC = () => {
                                 </label>
                                 <label>
                                     Owner
-                                    <select
-                                        value={objectiveDraft.ownerId}
-                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, ownerId: e.target.value }))}
-                                    >
-                                        <option value="">Unassigned</option>
-                                        {getMembersForTenant(activeTenantId).map((member) => (
-                                            <option key={member.userId} value={member.userId}>
-                                                {member.user?.name || member.user?.email || member.userId}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="member-select" data-member-dropdown="objective-owner">
+                                        <button
+                                            type="button"
+                                            className="member-select-trigger"
+                                            onClick={() =>
+                                                setOpenMemberDropdownId((prev) => (prev === 'objective-owner' ? null : 'objective-owner'))
+                                            }
+                                        >
+                                            {objectiveDraft.ownerId
+                                                ? getMemberLabel(activeTenantId, objectiveDraft.ownerId)
+                                                : 'Unassigned'}
+                                        </button>
+                                        {openMemberDropdownId === 'objective-owner' && (
+                                            <div className="member-select-dropdown">
+                                                <button
+                                                    type="button"
+                                                    className={`member-select-option${!objectiveDraft.ownerId ? ' active' : ''}`}
+                                                    onClick={() => {
+                                                        setObjectiveDraft((prev) => ({ ...prev, ownerId: '' }));
+                                                        setOpenMemberDropdownId(null);
+                                                    }}
+                                                >
+                                                    Unassigned
+                                                </button>
+                                                {getMembersForTenant(activeTenantId).map((member) => (
+                                                    <button
+                                                        key={member.userId}
+                                                        type="button"
+                                                        className={`member-select-option${objectiveDraft.ownerId === member.userId ? ' active' : ''}`}
+                                                        onClick={() => {
+                                                            setObjectiveDraft((prev) => ({ ...prev, ownerId: member.userId }));
+                                                            setOpenMemberDropdownId(null);
+                                                        }}
+                                                    >
+                                                        {member.user?.name || member.user?.email || member.userId}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </label>
                             </div>
                             <div className="panel-section">
@@ -7040,12 +7026,9 @@ const App: React.FC = () => {
                                     </select>
                                 </label>
                             </div>
+                        </div>
+                        <div className="panel-footer">
                             <div className="panel-actions">
-                                <div className="panel-actions-left">
-                                    <button className="btn btn-ghost btn-compact" onClick={() => setObjectiveComposerOpen(false)}>
-                                        Cancel
-                                    </button>
-                                </div>
                                 <div className="panel-actions-right">
                                     <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
                                         {objectiveEditId ? 'Save changes' : 'Create objective'}
@@ -7062,7 +7045,27 @@ const App: React.FC = () => {
                     <div className="scope-view">
                         {!activeTenantId ? (
                             <div className="empty-state">Select a huddle to build a scope window.</div>
-                        ) : scopeScreen === 'list' ? (
+                        ) : (
+                            <>
+                                <div className="scope-tabs">
+                                    {[
+                                        { key: 'current', label: 'Current' },
+                                        { key: 'review', label: 'Review' },
+                                        { key: 'history', label: 'History' },
+                                    ].map((tab) => (
+                                        <button
+                                            key={tab.key}
+                                            type="button"
+                                            className={`scope-tab${scopeTab === tab.key ? ' active' : ''}`}
+                                            onClick={() => setScopeTab(tab.key as any)}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                {scopeTab !== 'current' ? (
+                                    <div className="scope-empty">{scopeTab === 'review' ? 'Review coming soon.' : 'History coming soon.'}</div>
+                                ) : scopeScreen === 'list' ? (
                             <>
                                 {scopeWindows.length === 0 ? (
                                     <div className="scope-empty">No scope windows yet. Create one to start grouping tasks.</div>
@@ -7071,7 +7074,7 @@ const App: React.FC = () => {
                                         {scopeWindows.map((scopeWindow) => (
                                             <div
                                                 key={scopeWindow.id}
-                                                className={`scope-window-card${activeScopeId === scopeWindow.id ? ' active' : ''}`}
+                                                className={`scope-window-card ui-card${activeScopeId === scopeWindow.id ? ' active' : ''}`}
                                                 onClick={() => openScopeDetail(scopeWindow.id)}
                                                 role="button"
                                                 tabIndex={0}
@@ -7082,7 +7085,7 @@ const App: React.FC = () => {
                                                     }
                                                 }}
                                             >
-                                                <div className="scope-window-header">
+                                                <div className="scope-window-header ui-card-header">
                                                     <div>
                                                         <div className="scope-window-title">{scopeWindow.name}</div>
                                                         <div className="scope-window-meta">
@@ -7104,58 +7107,60 @@ const App: React.FC = () => {
                                                         </svg>
                                                     </button>
                                                 </div>
-                                                 {(() => {
-                                                    const scopedTasks = scopeWindow.taskIds
-                                                        .map((taskId) => scopeTaskById.get(taskId))
-                                                        .filter((task): task is TaskView => Boolean(task));
-                                                    const total = scopedTasks.length;
-                                                    const doneCount = scopedTasks.filter((task) => task.status === TaskStatus.DONE).length;
-                                                    const overdueCount = scopedTasks.filter((task) => {
-                                                        if (!task.dueDate) return false;
-                                                        if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
-                                                        return new Date(task.dueDate) < new Date();
-                                                    }).length;
-                                                    const progress = total ? Math.round((doneCount / total) * 100) : 0;
-                                                    const health = overdueCount > 0 ? 'overdue' : progress >= 80 ? 'good' : progress >= 50 ? 'ok' : 'risk';
-                                                    const healthLabel =
-                                                        health === 'overdue' ? 'Overdue' : health === 'good' ? 'On track' : health === 'ok' ? 'At risk' : 'Needs focus';
-                                                    return (
-                                                        <div className={`scope-window-health health-${health}`}>
-                                                            <div className="scope-window-progress">
-                                                                <div className="scope-window-progress-bar">
-                                                                    <span style={{ width: `${progress}%` }} />
+                                                <div className="scope-window-body ui-card-body">
+                                                    {(() => {
+                                                        const scopedTasks = scopeWindow.taskIds
+                                                            .map((taskId) => scopeTaskById.get(taskId))
+                                                            .filter((task): task is TaskView => Boolean(task));
+                                                        const total = scopedTasks.length;
+                                                        const doneCount = scopedTasks.filter((task) => task.status === TaskStatus.DONE).length;
+                                                        const overdueCount = scopedTasks.filter((task) => {
+                                                            if (!task.dueDate) return false;
+                                                            if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+                                                            return new Date(task.dueDate) < new Date();
+                                                        }).length;
+                                                        const progress = total ? Math.round((doneCount / total) * 100) : 0;
+                                                        const health = overdueCount > 0 ? 'overdue' : progress >= 80 ? 'good' : progress >= 50 ? 'ok' : 'risk';
+                                                        const healthLabel =
+                                                            health === 'overdue' ? 'Overdue' : health === 'good' ? 'On track' : health === 'ok' ? 'At risk' : 'Needs focus';
+                                                        return (
+                                                            <div className={`scope-window-health health-${health}`}>
+                                                                <div className="scope-window-progress">
+                                                                    <div className="scope-window-progress-bar">
+                                                                        <span style={{ width: `${progress}%` }} />
+                                                                    </div>
+                                                                    <span className="scope-window-progress-label">{progress}% done</span>
                                                                 </div>
-                                                                <span className="scope-window-progress-label">{progress}% done</span>
+                                                                <div className="scope-window-health-row">
+                                                                    <span className={`scope-window-health-pill ${health}`}>{healthLabel}</span>
+                                                                    <span className="scope-window-overdue">
+                                                                        {overdueCount} overdue
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                            <div className="scope-window-health-row">
-                                                                <span className={`scope-window-health-pill ${health}`}>{healthLabel}</span>
-                                                                <span className="scope-window-overdue">
-                                                                    {overdueCount} overdue
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                                {scopeWindow.description && (
-                                                    <div className="scope-window-description">{scopeWindow.description}</div>
-                                                )}
-                                                <div className="scope-window-actions">
-                                                    <button
-                                                        className="btn btn-ghost btn-compact"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            openScopeDetail(scopeWindow.id);
-                                                        }}
-                                                    >
-                                                        Open tasks
-                                                    </button>
+                                                        );
+                                                    })()}
+                                                    {scopeWindow.description && (
+                                                        <div className="scope-window-description">{scopeWindow.description}</div>
+                                                    )}
+                                                    <div className="scope-window-actions">
+                                                        <button
+                                                            className="btn btn-ghost btn-compact"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                openScopeDetail(scopeWindow.id);
+                                                            }}
+                                                        >
+                                                            Open tasks
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </>
-                        ) : activeScopeWindow ? (
+                                ) : activeScopeWindow ? (
                             <div className="scope-detail-panel">
                                 <div className="scope-board-panel">
                                     <div className="scope-board-toolbar">
@@ -7467,207 +7472,207 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                        ) : (
+                                ) : (
                             <div className="scope-empty">Select a scope window.</div>
+                                )}
+                            </>
                         )}
                     </div>
                 ) : view === 'dashboard' ? (
                     <div className="dashboard-panel">
                         {!activeTenantId ? (
-                            <div className="empty-state">Select a huddle to see the dashboard.</div>
+                            <div className="empty-state">Select a huddle to see Home.</div>
                         ) : (
-                            <>
-                                <div className="dashboard-stats">
-                                    <div className="dashboard-card dashboard-stat">
-                                        <div className="dashboard-stat-top">
-                                            <span className="dashboard-stat-label">Tasks completed</span>
-                                            <span className="dashboard-stat-icon">✓</span>
-                                        </div>
-                                        <div className="dashboard-stat-body">
-                                            <div className="dashboard-stat-value-row">
-                                                <div className="dashboard-stat-value">{dashboardSummary.doneCount}</div>
-                                                {renderChangeBadge(dashboardSummary.completionChange)}
-                                            </div>
-                                            <div className="dashboard-stat-meta">
-                                                {dashboardSummary.completionRate}% completion
-                                            </div>
-                                        </div>
+                            <div className="dashboard-visuals">
+                                <div className="dashboard-card dashboard-list ui-card">
+                                    <div className="dashboard-card-title ui-card-header">Scope</div>
+                                    <div className="dashboard-card-content ui-card-body">
+                                        {scopeWindows.length === 0 ? (
+                                            <div className="dashboard-empty">No scope windows yet.</div>
+                                        ) : (
+                                            scopeWindows.slice(0, 5).map((scopeWindow) => (
+                                                <button
+                                                    key={scopeWindow.id}
+                                                    className="dashboard-item"
+                                                    onClick={() => openScopeDetail(scopeWindow.id)}
+                                                >
+                                                    <div className="dashboard-item-title">{scopeWindow.name}</div>
+                                                    <div className="dashboard-item-meta">
+                                                        {getScopeDateLabel(scopeWindow)} · {scopeWindow.taskIds.length} tasks
+                                                    </div>
+                                                </button>
+                                            ))
+                                        )}
                                     </div>
-                                    <div className="dashboard-card dashboard-stat">
-                                        <div className="dashboard-stat-top">
-                                            <span className="dashboard-stat-label">Tasks in progress</span>
-                                            <span className="dashboard-stat-icon">⏳</span>
-                                        </div>
-                                        <div className="dashboard-stat-body">
-                                            <div className="dashboard-stat-value-row">
-                                                <div className="dashboard-stat-value">{dashboardSummary.openTasks}</div>
-                                                {renderChangeBadge(dashboardSummary.openChange)}
-                                            </div>
-                                            <div className="dashboard-stat-meta">
-                                                {dashboardSummary.dueSoonCount} due soon · {dashboardSummary.totalTasks} total
-                                            </div>
-                                        </div>
+                                </div>
+                                <div className="dashboard-card dashboard-list ui-card">
+                                    <div className="dashboard-card-title ui-card-header">My Focus</div>
+                                    <div className="dashboard-card-content ui-card-body">
+                                        {focusTasksToday.length === 0 ? (
+                                            <div className="dashboard-empty">Nothing due today.</div>
+                                        ) : (
+                                            focusTasksToday.slice(0, 6).map((task) => (
+                                                <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
+                                                    <div className="dashboard-item-title">{task.title}</div>
+                                                    <div className="dashboard-item-meta">
+                                                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                                                        <span>• {getBoardLabel(task.boardId)}</span>
+                                                    </div>
+                                                </button>
+                                            ))
+                                        )}
                                     </div>
-                                    <div className="dashboard-card dashboard-stat">
-                                        <div className="dashboard-stat-top">
-                                            <span className="dashboard-stat-label">Overdue tasks</span>
-                                            <span className="dashboard-stat-icon">⚠️</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : view === 'inbox' ? (
+                    <div className="dashboard-panel">
+                        {!activeTenantId ? (
+                            <div className="empty-state">Select a huddle to see Inbox.</div>
+                        ) : (
+                            <div className="dashboard-card dashboard-list ui-card">
+                                <div className="dashboard-card-title ui-card-header">
+                                    <div className="dashboard-card-title-row inbox-header-row">
+                                        <div className="inbox-header-left">
+                                            <span>Incoming</span>
+                                            <button
+                                                type="button"
+                                                className="info-icon tooltip-target"
+                                                data-tooltip="Unsortierte Arbeit. Entscheide was wichtig ist"
+                                                aria-label="Unsortierte Arbeit. Entscheide was wichtig ist"
+                                            >
+                                                ?
+                                            </button>
                                         </div>
-                                        <div className="dashboard-stat-body">
-                                            <div className="dashboard-stat-value-row">
-                                                <div className="dashboard-stat-value">{dashboardSummary.overdueCount}</div>
-                                                {renderChangeBadge(dashboardSummary.openChange)}
-                                            </div>
-                                            <div className="dashboard-stat-meta">
-                                                {dashboardSummary.dueSoonCount} due soon
-                                            </div>
+                                        <div className="inbox-header-actions">
+                                        <button
+                                            type="button"
+                                            className="btn btn-save btn-compact tooltip-target"
+                                            data-tooltip="Speichern"
+                                            aria-label="Speichern"
+                                            onClick={() => setInboxCaptureOpen(true)}
+                                        >
+                                            <span className="btn-save-icon">{saveIcon}</span>
+                                        </button>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="dashboard-visuals">
-                                    <div className="dashboard-card dashboard-line-card">
-                                        <div className="dashboard-line-header">
-                                            <div>
-                                                <div className="dashboard-line-title">Signal lines</div>
-                                                <div className="dashboard-line-value">
-                                                    {lineChartTotals.activity}
-                                                    <span>events / {lineRangeDays}d</span>
+                                <div className="dashboard-card-content ui-card-body">
+                                    {(() => {
+                                        const customItems = inboxCustomItems.filter((item) => !inboxHiddenIds.includes(item.id));
+                                        const taskItems = allTasks
+                                            .filter((task) => !inboxHiddenIds.includes(task.id))
+                                            .map((task) => ({
+                                                id: task.id,
+                                                title: task.title,
+                                                source: (task as any).source as string | undefined,
+                                                createdAt: task.createdAt || new Date().toISOString(),
+                                                suggestedAction: '',
+                                                kind: task.kinds?.[0] || 'Incoming'
+                                            }));
+                                        const inboxItems = [...customItems, ...taskItems];
+                                        return (
+                                            <div className="inbox-list">
+                                                <div className="inbox-intro">
+                                                    <span>Incoming → Decide → Place.</span>
+                                                    <span>No task-management hell.</span>
                                                 </div>
-                                            </div>
-                                            <div className="dashboard-line-actions">
-                                                <div className="dashboard-line-chip">Trends</div>
-                                                <div className="dashboard-line-controls" role="tablist" aria-label="Time range">
-                                                    {[30, 60, 90].map((range) => (
-                                                        <button
-                                                            key={`range-${range}`}
-                                                            className={`dashboard-line-range${lineRangeDays === range ? ' active' : ''}`}
-                                                            onClick={() => setLineRangeDays(range)}
-                                                            type="button"
-                                                            role="tab"
-                                                            aria-selected={lineRangeDays === range}
-                                                        >
-                                                            {range}d
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {renderLineChart([
-                                            {
-                                                key: 'activity',
-                                                label: 'Activity',
-                                                series: lineChartSeries.activity,
-                                                className: 'line-activity',
-                                            },
-                                            {
-                                                key: 'done',
-                                                label: 'Done',
-                                                series: lineChartSeries.done,
-                                                className: 'line-done',
-                                            },
-                                            {
-                                                key: 'open',
-                                                label: 'Open',
-                                                series: lineChartSeries.open,
-                                                className: 'line-open',
-                                            },
-                                            {
-                                                key: 'kr',
-                                                label: 'KRs',
-                                                series: lineChartSeries.kr,
-                                                className: 'line-kr',
-                                            },
-                                        ], {
-                                            labels: lineChartLabels,
-                                            hoverIndex: lineHoverIndex,
-                                            onHover: setLineHoverIndex,
-                                        })}
-                                        {lineChartLabels.length > 0 && (
-                                            <div className="dashboard-line-axis">
-                                                <span>{lineChartLabels[0]}</span>
-                                                <span>{lineChartLabels[Math.floor((lineChartLabels.length - 1) / 2)]}</span>
-                                                <span>{lineChartLabels[lineChartLabels.length - 1]}</span>
-                                            </div>
-                                        )}
-                                        <div className="dashboard-line-legend">
-                                            <span className="line-key line-activity">Activity</span>
-                                            <span className="line-key line-done">Done</span>
-                                            <span className="line-key line-open">Open</span>
-                                            <span className="line-key line-kr">KRs</span>
-                                        </div>
-                                    </div>
-                                    <div className="dashboard-card dashboard-list dashboard-attention-card">
-                                        <div className="dashboard-card-title">Needs attention</div>
-                                        {attentionTasks.length === 0 && (
-                                            <div className="dashboard-empty">No urgent todos.</div>
-                                        )}
-                                        <div className="dashboard-card-content">
-                                            {attentionTasks.map((task) => {
-                                                const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-                                                const now = new Date();
-                                                const soon = new Date();
-                                                soon.setDate(now.getDate() + 7);
-                                                const isOverdue = dueDate ? dueDate < now : false;
-                                                const isDueSoon = dueDate ? dueDate >= now && dueDate <= soon : false;
-                                                const badgeLabel = isOverdue ? 'Overdue' : isDueSoon ? 'Due soon' : task.status;
-                                                const badgeClass = isOverdue ? 'danger' : isDueSoon ? 'warning' : '';
-                                                return (
-                                                    <button key={task.id} className="dashboard-item" onClick={() => handleCardClick(task)}>
-                                                        <div className="dashboard-item-title">{task.title}</div>
-                                                        <div className="dashboard-item-meta">
-                                                            {dueDate ? dueDate.toLocaleDateString() : 'No due date'}
-                                                            <span className={`dashboard-badge ${badgeClass}`}>{badgeLabel}</span>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                    <div className="dashboard-card dashboard-list dashboard-activity-card">
-                                        <div className="dashboard-card-title">Activity feed</div>
-                                        {dashboardActivity.length === 0 ? (
-                                            <div className="dashboard-empty">No recent activity.</div>
-                                        ) : (
-                                            <div className="dashboard-card-content">
-                                                {dashboardActivity.map((entry) => {
-                                                    const actorInfo = getMemberInfo(entry.tenantId, entry.actorId);
-                                                    const boardLabel = getBoardLabel(entry.boardId);
+                                                {inboxItems.length === 0 && (
+                                                    <div className="dashboard-empty inbox-empty">
+                                                        <div className="inbox-empty-title">Inbox Zero</div>
+                                                        <div className="inbox-empty-text">No unplanned work right now.</div>
+                                                    </div>
+                                                )}
+                                                {inboxItems.map((task) => {
+                                                    const typeLabel = task.kind || 'Incoming';
+                                                    const sourceLabel = task.source;
+                                                    const createdLabel = task.createdAt
+                                                        ? new Date(task.createdAt).toLocaleDateString()
+                                                        : 'Just now';
+                                                    const moved = inboxMovedId === task.id;
                                                     return (
-                                                        <button
-                                                            key={entry.id}
-                                                            className="dashboard-item dashboard-activity-item"
-                                                            onClick={() => {
-                                                                const task = dashboardTasks.find((item) => item.id === entry.taskId);
-                                                                if (task) handleCardClick(task);
-                                                            }}
-                                                        >
-                                                            <span className="activity-avatar" aria-hidden="true">
-                                                                {actorInfo.avatarUrl ? (
-                                                                    <img src={actorInfo.avatarUrl} alt="" />
-                                                                ) : (
-                                                                    actorInfo.label.charAt(0).toUpperCase()
+                                                        <div key={task.id} className={`inbox-item${moved ? ' moved' : ''}`}>
+                                                            <div className="inbox-item-main">
+                                                                <div className="inbox-item-title">{task.title}</div>
+                                                                <div className="inbox-item-meta">
+                                                                    <span className="inbox-item-type">{typeLabel}</span>
+                                                                    <span className="inbox-item-dot">•</span>
+                                                                    <span className="inbox-item-time">{createdLabel}</span>
+                                                                    {sourceLabel && (
+                                                                        <>
+                                                                            <span className="inbox-item-dot">•</span>
+                                                                            <span className="inbox-item-source">{sourceLabel}</span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                                {task.suggestedAction && (
+                                                                    <div className="inbox-item-suggestion">
+                                                                        Suggested: {task.suggestedAction}
+                                                                    </div>
                                                                 )}
-                                                            </span>
-                                                            <div className="dashboard-activity-body">
-                                                                <div className="dashboard-item-title">{entry.title}</div>
-                                                                <div className="dashboard-item-meta">
-                                                                    {entry.message}
-                                                                </div>
-                                                                <div className="dashboard-activity-meta">
-                                                                    {actorInfo.label} · {entry.timestamp.toLocaleString()}
-                                                                    {boardLabel && <span> • {boardLabel}</span>}
-                                                                </div>
                                                             </div>
-                                                        </button>
+                                                            <div className="inbox-item-actions">
+                                                                <div className="inbox-action-group">
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-ghost btn-compact inbox-action"
+                                                                        onClick={() => {
+                                                                            setInboxScopeMenuId((prev) => (prev === task.id ? null : task.id));
+                                                                        }}
+                                                                    >
+                                                                        Add to Scope
+                                                                    </button>
+                                                                    {inboxScopeMenuId === task.id && (
+                                                                        <div className="inbox-action-menu" role="menu">
+                                                                            {['This Week', 'Next Week', 'Later'].map((option) => (
+                                                                                <button
+                                                                                    key={option}
+                                                                                    type="button"
+                                                                                    className="inbox-action-option"
+                                                                                    onClick={() => {
+                                                                                        setInboxScopeMenuId(null);
+                                                                                        setInboxMovedId(task.id);
+                                                                                        window.setTimeout(() => {
+                                                                                            setInboxMovedId((prev) => (prev === task.id ? null : prev));
+                                                                                            setInboxHiddenIds((prev) => prev.concat(task.id));
+                                                                                        }, 1200);
+                                                                                    }}
+                                                                                >
+                                                                                    {option}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-ghost btn-compact inbox-action"
+                                                                    onClick={() => setInboxHiddenIds((prev) => prev.concat(task.id))}
+                                                                >
+                                                                    Later
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-ghost btn-compact inbox-action"
+                                                                    onClick={() => setInboxHiddenIds((prev) => prev.concat(task.id))}
+                                                                >
+                                                                    Archive
+                                                                </button>
+                                                            </div>
+                                                            {moved && <div className="inbox-moved">Moved to Scope ✅</div>}
+                                                        </div>
                                                     );
                                                 })}
                                             </div>
-                                        )}
-                                    </div>
+                                        );
+                                    })()}
                                 </div>
-                            </>
+                            </div>
                         )}
                     </div>
+                ) : view === 'initiatives' ? (
+                    <div className="empty-state">Initiatives coming soon.</div>
                 ) : (
                     <>
                         <div className="filter-bar">
@@ -7675,8 +7680,16 @@ const App: React.FC = () => {
                                 className="view-switch"
                                 role="tablist"
                                 aria-label="View switcher"
-                                style={{ ['--active-index' as any]: view === 'kanban' ? 0 : 1 }}
+                                style={{ ['--active-index' as any]: view === 'kanban' ? 1 : view === 'timeline' ? 2 : 0 }}
                             >
+                                <button
+                                    className={`view-pill ${view === 'table' ? 'active' : ''}`}
+                                    onClick={() => setView('table')}
+                                    role="tab"
+                                    aria-selected={view === 'table'}
+                                >
+                                    List
+                                </button>
                                 <button
                                     className={`view-pill ${view === 'kanban' ? 'active' : ''}`}
                                     onClick={() => setView('kanban')}
@@ -7686,12 +7699,12 @@ const App: React.FC = () => {
                                     Board
                                 </button>
                                 <button
-                                    className={`view-pill ${view === 'table' ? 'active' : ''}`}
-                                    onClick={() => setView('table')}
+                                    className={`view-pill ${view === 'timeline' ? 'active' : ''}`}
+                                    onClick={() => setView('timeline')}
                                     role="tab"
-                                    aria-selected={view === 'table'}
+                                    aria-selected={view === 'timeline'}
                                 >
-                                    Table
+                                    Timeline
                                 </button>
                             </div>
                             <div className="filter-actions">
@@ -8044,6 +8057,8 @@ const App: React.FC = () => {
                                 })}
                                 </div>
                             </div>
+                        ) : view === 'timeline' ? (
+                            <div className="empty-state">Timeline view coming soon.</div>
                         ) : view === 'table' ? (
                             <div className="task-table-wrap">
                                 <table className="task-table">
@@ -8235,12 +8250,9 @@ const App: React.FC = () => {
                                         </label>
                                     </div>
                                 </div>
+                            </div>
+                            <div className="panel-footer">
                                 <div className="panel-actions">
-                                    <div className="panel-actions-left">
-                                        <button className="btn btn-ghost btn-compact" onClick={() => setIsScopeCreateOpen(false)}>
-                                            Cancel
-                                        </button>
-                                    </div>
                                     <div className="panel-actions-right">
                                         <button
                                             className="btn btn-secondary btn-compact"
@@ -8289,6 +8301,8 @@ const App: React.FC = () => {
                                     Delete task list
                                 </button>
                             </div>
+                        </div>
+                        <div className="panel-footer">
                             <div className="panel-actions">
                                 <div className="panel-actions-right">
                                     <button className="btn btn-ghost btn-compact" onClick={() => setIsBoardSettingsOpen(false)}>
@@ -8374,12 +8388,9 @@ const App: React.FC = () => {
                                     Delete scope window
                                 </button>
                             </div>
+                        </div>
+                        <div className="panel-footer">
                             <div className="panel-actions">
-                                <div className="panel-actions-left">
-                                    <button className="btn btn-ghost btn-compact" onClick={() => setIsScopeSettingsOpen(false)}>
-                                        Cancel
-                                    </button>
-                                </div>
                                 <div className="panel-actions-right">
                                     <button
                                         className="btn btn-primary btn-compact"
@@ -8462,38 +8473,52 @@ const App: React.FC = () => {
                                     </label>
                                 </div>
                             </div>
-                            <div className="panel-section">
-                                <div className="section-title">Members</div>
-                                <div className="assignee-grid">
-                                    {getMembersForTenant(activeTenantId).map((member) => {
-                                        const checked = krComposerDraft.assignees.includes(member.userId);
-                                        return (
-                                            <label key={member.userId} className="assignee-chip">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={checked}
-                                                    onChange={(e) => {
-                                                        const next = e.target.checked
-                                                            ? krComposerDraft.assignees.concat(member.userId)
-                                                            : krComposerDraft.assignees.filter((id) => id !== member.userId);
-                                                        setKrComposerDraft((prev) => ({ ...prev, assignees: next }));
-                                                    }}
-                                                />
-                                                <span>{member.user?.name || member.user?.email || member.userId}</span>
-                                            </label>
-                                        );
-                                    })}
-                                    {getMembersForTenant(activeTenantId).length === 0 && (
-                                        <div className="empty-state">No members in this huddle yet.</div>
-                                    )}
+                                <div className="panel-section">
+                                    <div className="section-title">Members</div>
+                                    <div className="member-select" data-member-dropdown="kr-assignees">
+                                        <button
+                                            type="button"
+                                            className="member-select-trigger"
+                                            onClick={() =>
+                                                setOpenMemberDropdownId((prev) => (prev === 'kr-assignees' ? null : 'kr-assignees'))
+                                            }
+                                        >
+                                            {krComposerDraft.assignees.length > 0
+                                                ? krComposerDraft.assignees
+                                                    .map((id) => getMemberLabel(activeTenantId, id))
+                                                    .join(', ')
+                                                : 'Select members'}
+                                        </button>
+                                        {openMemberDropdownId === 'kr-assignees' && (
+                                            <div className="member-select-dropdown">
+                                                {getMembersForTenant(activeTenantId).map((member) => {
+                                                    const checked = krComposerDraft.assignees.includes(member.userId);
+                                                    return (
+                                                        <button
+                                                            key={member.userId}
+                                                            type="button"
+                                                            className={`member-select-option${checked ? ' active' : ''}`}
+                                                            onClick={() => {
+                                                                const next = checked
+                                                                    ? krComposerDraft.assignees.filter((id) => id !== member.userId)
+                                                                    : krComposerDraft.assignees.concat(member.userId);
+                                                                setKrComposerDraft((prev) => ({ ...prev, assignees: next }));
+                                                            }}
+                                                        >
+                                                            {member.user?.name || member.user?.email || member.userId}
+                                                        </button>
+                                                    );
+                                                })}
+                                                {getMembersForTenant(activeTenantId).length === 0 && (
+                                                    <div className="member-select-empty">No members in this huddle yet.</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                        </div>
+                        <div className="panel-footer">
                             <div className="panel-actions">
-                                <div className="panel-actions-left">
-                                    <button className="btn btn-ghost btn-compact" onClick={closeKrComposer}>
-                                        Cancel
-                                    </button>
-                                </div>
                                 <div className="panel-actions-right">
                                     <button className="btn btn-primary btn-compact" onClick={handleKrComposerSubmit}>
                                         {krEditingId ? 'Save changes' : 'Create key result'}
@@ -8537,17 +8562,48 @@ const App: React.FC = () => {
                                     </label>
                                     <label>
                                         Owner
-                                        <select
-                                            value={objectiveDraft.ownerId}
-                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, ownerId: e.target.value }))}
-                                        >
-                                            <option value="">Unassigned</option>
-                                            {getMembersForTenant(activeTenantId).map((member) => (
-                                                <option key={member.userId} value={member.userId}>
-                                                    {member.user?.name || member.user?.email || member.userId}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="member-select" data-member-dropdown="objective-owner-settings">
+                                            <button
+                                                type="button"
+                                                className="member-select-trigger"
+                                                onClick={() =>
+                                                    setOpenMemberDropdownId((prev) =>
+                                                        prev === 'objective-owner-settings' ? null : 'objective-owner-settings'
+                                                    )
+                                                }
+                                            >
+                                                {objectiveDraft.ownerId
+                                                    ? getMemberLabel(activeTenantId, objectiveDraft.ownerId)
+                                                    : 'Unassigned'}
+                                            </button>
+                                            {openMemberDropdownId === 'objective-owner-settings' && (
+                                                <div className="member-select-dropdown">
+                                                    <button
+                                                        type="button"
+                                                        className={`member-select-option${!objectiveDraft.ownerId ? ' active' : ''}`}
+                                                        onClick={() => {
+                                                            setObjectiveDraft((prev) => ({ ...prev, ownerId: '' }));
+                                                            setOpenMemberDropdownId(null);
+                                                        }}
+                                                    >
+                                                        Unassigned
+                                                    </button>
+                                                    {getMembersForTenant(activeTenantId).map((member) => (
+                                                        <button
+                                                            key={member.userId}
+                                                            type="button"
+                                                            className={`member-select-option${objectiveDraft.ownerId === member.userId ? ' active' : ''}`}
+                                                            onClick={() => {
+                                                                setObjectiveDraft((prev) => ({ ...prev, ownerId: member.userId }));
+                                                                setOpenMemberDropdownId(null);
+                                                            }}
+                                                        >
+                                                            {member.user?.name || member.user?.email || member.userId}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </label>
                                     <label>
                                         Start date
@@ -8631,12 +8687,9 @@ const App: React.FC = () => {
                                     </button>
                                 )}
                             </div>
+                        </div>
+                        <div className="panel-footer">
                             <div className="panel-actions">
-                                <div className="panel-actions-left">
-                                    <button className="btn btn-ghost btn-compact" onClick={closeObjectiveSettings}>
-                                        Cancel
-                                    </button>
-                                </div>
                                 <div className="panel-actions-right">
                                     <button
                                         className="btn btn-secondary btn-compact"
@@ -8878,76 +8931,97 @@ const App: React.FC = () => {
                                 {!isPersonalTenant(newTaskHuddleId) && (
                                     <div className="form-group">
                                         <label>Owner</label>
-                                        <select
-                                            value={newTaskOwnerId || ''}
-                                            onChange={(e) => setNewTaskOwnerId(e.target.value || null)}
+                                        <div
+                                            className="member-select"
+                                            data-member-dropdown="new-task-owner"
                                         >
-                                            <option value="">Unassigned</option>
-                                            {getMembersForTenant(newTaskHuddleId).map((member) => (
-                                                <option key={member.userId} value={member.userId}>
-                                                    {member.user?.name || member.user?.email || member.userId}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            <button
+                                                type="button"
+                                                className="member-select-trigger"
+                                                onClick={() =>
+                                                    setOpenMemberDropdownId((prev) => (prev === 'new-task-owner' ? null : 'new-task-owner'))
+                                                }
+                                            >
+                                                {newTaskOwnerId
+                                                    ? getMemberLabel(newTaskHuddleId, newTaskOwnerId)
+                                                    : 'Unassigned'}
+                                            </button>
+                                            {openMemberDropdownId === 'new-task-owner' && (
+                                                <div className="member-select-dropdown">
+                                                    <button
+                                                        type="button"
+                                                        className={`member-select-option${!newTaskOwnerId ? ' active' : ''}`}
+                                                        onClick={() => {
+                                                            setNewTaskOwnerId(null);
+                                                            setOpenMemberDropdownId(null);
+                                                        }}
+                                                    >
+                                                        Unassigned
+                                                    </button>
+                                                    {getMembersForTenant(newTaskHuddleId).map((member) => (
+                                                        <button
+                                                            key={member.userId}
+                                                            type="button"
+                                                            className={`member-select-option${newTaskOwnerId === member.userId ? ' active' : ''}`}
+                                                            onClick={() => {
+                                                                setNewTaskOwnerId(member.userId);
+                                                                setOpenMemberDropdownId(null);
+                                                            }}
+                                                        >
+                                                            {member.user?.name || member.user?.email || member.userId}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
-                                <div className="form-group">
-                                    <label>Template</label>
-                                    <div className="template-picker">
-                                        <select
-                                            value={selectedTemplateId}
-                                            onChange={(e) => setSelectedTemplateId(e.target.value)}
-                                        >
-                                            <option value="">Choose template</option>
-                                            {settingsDraft?.taskTemplates?.map((template: any) => (
-                                                <option key={template.id} value={template.id}>
-                                                    {template.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary btn-compact"
-                                            onClick={() => {
-                                                const template = settingsDraft?.taskTemplates?.find((t: any) => t.id === selectedTemplateId);
-                                                if (!template) return;
-                                                setNewTask({
-                                                    ...newTask,
-                                                    title: template.title,
-                                                    priority: template.priority,
-                                                });
-                                                setNewTaskStatus(template.status as TaskStatus);
-                                            }}
-                                            disabled={!selectedTemplateId}
-                                        >
-                                            Apply
-                                        </button>
-                                    </div>
-                                </div>
                                 {!isPersonalTenant(newTaskHuddleId) && (
                                     <div className="form-group">
                                         <label>Members</label>
-                                        <div className="assignee-grid">
-                                            {getMembersForTenant(newTaskHuddleId).map((member) => {
-                                                const checked = newTaskAssignees.includes(member.userId);
-                                                return (
-                                                    <label key={member.userId} className="assignee-chip">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={checked}
-                                                            onChange={(e) => {
-                                                                const next = e.target.checked
-                                                                    ? newTaskAssignees.concat(member.userId)
-                                                                    : newTaskAssignees.filter((id) => id !== member.userId);
-                                                                setNewTaskAssignees(next);
-                                                            }}
-                                                        />
-                                                        <span>{member.user?.name || member.user?.email || member.userId}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                            {getMembersForTenant(newTaskHuddleId).length === 0 && (
-                                                <div className="empty-state">No members in this huddle yet.</div>
+                                        <div
+                                            className="member-select"
+                                            data-member-dropdown="new-task-assignees"
+                                        >
+                                            <button
+                                                type="button"
+                                                className="member-select-trigger"
+                                                onClick={() =>
+                                                    setOpenMemberDropdownId((prev) =>
+                                                        prev === 'new-task-assignees' ? null : 'new-task-assignees'
+                                                    )
+                                                }
+                                            >
+                                                {newTaskAssignees.length > 0
+                                                    ? newTaskAssignees
+                                                        .map((id) => getMemberLabel(newTaskHuddleId, id))
+                                                        .join(', ')
+                                                    : 'Select members'}
+                                            </button>
+                                            {openMemberDropdownId === 'new-task-assignees' && (
+                                                <div className="member-select-dropdown">
+                                                    {getMembersForTenant(newTaskHuddleId).map((member) => {
+                                                        const checked = newTaskAssignees.includes(member.userId);
+                                                        return (
+                                                            <button
+                                                                key={member.userId}
+                                                                type="button"
+                                                                className={`member-select-option${checked ? ' active' : ''}`}
+                                                                onClick={() => {
+                                                                    const next = checked
+                                                                        ? newTaskAssignees.filter((id) => id !== member.userId)
+                                                                        : newTaskAssignees.concat(member.userId);
+                                                                    setNewTaskAssignees(next);
+                                                                }}
+                                                            >
+                                                                {member.user?.name || member.user?.email || member.userId}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {getMembersForTenant(newTaskHuddleId).length === 0 && (
+                                                        <div className="member-select-empty">No members in this huddle yet.</div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -9166,15 +9240,143 @@ const App: React.FC = () => {
                             </div>
                             <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem 1.25rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                    <button type="button" className="btn btn-secondary" onClick={closeCreateTaskModal}>
-                                        Cancel
-                                    </button>
                                     <button type="submit" className="btn btn-primary">
                                         Speichern
                                     </button>
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {inboxCaptureOpen && (
+                <div className="modal-overlay" onClick={() => setInboxCaptureOpen(false)}>
+                    <div
+                        className="modal-content settings-modal"
+                        onClick={(event) => event.stopPropagation()}
+                        style={{ maxWidth: '560px', padding: 0 }}
+                    >
+                        <div className="panel-header">
+                            <div>
+                                <div className="panel-title">Capture inbox item</div>
+                                <div className="panel-subtitle">Add incoming work before sorting.</div>
+                            </div>
+                            <button className="panel-close" onClick={() => setInboxCaptureOpen(false)} aria-label="Close">
+                                ×
+                            </button>
+                        </div>
+                        <div className="panel-body">
+                                <div className="panel-section">
+                                    <label>
+                                        Title
+                                        <input
+                                            type="text"
+                                            value={inboxDraft.title}
+                                            onChange={(event) => setInboxDraft((prev) => ({ ...prev, title: event.target.value }))}
+                                            placeholder="New incoming item"
+                                        />
+                                    </label>
+                                    <div className="inbox-dropdown-row">
+                                        <label>
+                                            Source
+                                            <div className="filter-dropdown" ref={inboxSourceRef}>
+                                                <button
+                                                    type="button"
+                                                    className="filter-select"
+                                                    onClick={() => {
+                                                        setInboxSourceOpen((prev) => !prev);
+                                                        setInboxActionOpen(false);
+                                                    }}
+                                                    aria-expanded={inboxSourceOpen}
+                                                >
+                                                    {inboxDraft.source || 'Select source'}
+                                                </button>
+                                                {inboxSourceOpen && (
+                                                    <div className="filter-options" role="listbox">
+                                                        {inboxSourceOptions.map((source) => (
+                                                            <button
+                                                                key={source}
+                                                                type="button"
+                                                                className={`filter-option ${inboxDraft.source === source ? 'active' : ''}`}
+                                                                onClick={() => {
+                                                                    setInboxDraft((prev) => ({ ...prev, source }));
+                                                                    setInboxSourceOpen(false);
+                                                                }}
+                                                            >
+                                                                {source}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </label>
+                                        <label>
+                                            Suggested action
+                                            <div className="filter-dropdown" ref={inboxActionRef}>
+                                                <button
+                                                    type="button"
+                                                    className="filter-select"
+                                                    onClick={() => {
+                                                        setInboxActionOpen((prev) => !prev);
+                                                        setInboxSourceOpen(false);
+                                                    }}
+                                                    aria-expanded={inboxActionOpen}
+                                                >
+                                                    {inboxDraft.suggestedAction || 'Select action'}
+                                                </button>
+                                                {inboxActionOpen && (
+                                                    <div className="filter-options" role="listbox">
+                                                        {inboxActionOptions.map((action) => (
+                                                            <button
+                                                                key={action}
+                                                                type="button"
+                                                                className={`filter-option ${inboxDraft.suggestedAction === action ? 'active' : ''}`}
+                                                                onClick={() => {
+                                                                    setInboxDraft((prev) => ({ ...prev, suggestedAction: action }));
+                                                                    setInboxActionOpen(false);
+                                                                }}
+                                                            >
+                                                                {action}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                        </div>
+                        <div className="panel-footer">
+                            <div className="panel-actions">
+                                <div className="panel-actions-right">
+                                    <button
+                                        className="btn btn-save btn-compact tooltip-target"
+                                        data-tooltip="Speichern"
+                                        aria-label="Speichern"
+                                        onClick={() => {
+                                            if (!inboxDraft.title.trim()) return;
+                                            const now = new Date().toISOString();
+                                            setInboxCustomItems((prev) => [
+                                                {
+                                                    id: `inbox-${now}-${Math.random().toString(36).slice(2, 7)}`,
+                                                    title: inboxDraft.title.trim(),
+                                                    source: inboxDraft.source || undefined,
+                                                    suggestedAction: inboxDraft.suggestedAction || undefined,
+                                                    createdAt: now,
+                                                    kind: 'Incoming'
+                                                },
+                                                ...prev
+                                            ]);
+                                            setInboxDraft({ title: '', source: '', suggestedAction: '' });
+                                            setInboxCaptureOpen(false);
+                                        }}
+                                    >
+                                        <span className="btn-save-icon">{saveIcon}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -9769,43 +9971,93 @@ const App: React.FC = () => {
                                 {!isPersonalTenant(editTaskHuddleId) && (
                                     <div className="form-group">
                                         <label>Owner</label>
-                                        <select
-                                            value={editTaskOwnerId || ''}
-                                            onChange={(e) => setEditTaskOwnerId(e.target.value || null)}
-                                        >
-                                            <option value="">Unassigned</option>
-                                            {getMembersForTenant(editTaskHuddleId).map((member) => (
-                                                <option key={member.userId} value={member.userId}>
-                                                    {member.user?.name || member.user?.email || member.userId}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="member-select" data-member-dropdown="edit-task-owner">
+                                            <button
+                                                type="button"
+                                                className="member-select-trigger"
+                                                onClick={() =>
+                                                    setOpenMemberDropdownId((prev) =>
+                                                        prev === 'edit-task-owner' ? null : 'edit-task-owner'
+                                                    )
+                                                }
+                                            >
+                                                {editTaskOwnerId
+                                                    ? getMemberLabel(editTaskHuddleId, editTaskOwnerId)
+                                                    : 'Unassigned'}
+                                            </button>
+                                            {openMemberDropdownId === 'edit-task-owner' && (
+                                                <div className="member-select-dropdown">
+                                                    <button
+                                                        type="button"
+                                                        className={`member-select-option${!editTaskOwnerId ? ' active' : ''}`}
+                                                        onClick={() => {
+                                                            setEditTaskOwnerId(null);
+                                                            setOpenMemberDropdownId(null);
+                                                        }}
+                                                    >
+                                                        Unassigned
+                                                    </button>
+                                                    {getMembersForTenant(editTaskHuddleId).map((member) => (
+                                                        <button
+                                                            key={member.userId}
+                                                            type="button"
+                                                            className={`member-select-option${editTaskOwnerId === member.userId ? ' active' : ''}`}
+                                                            onClick={() => {
+                                                                setEditTaskOwnerId(member.userId);
+                                                                setOpenMemberDropdownId(null);
+                                                            }}
+                                                        >
+                                                            {member.user?.name || member.user?.email || member.userId}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 {!isPersonalTenant(editTaskHuddleId) && (
                                     <div className="form-group">
                                         <label>Members</label>
-                                        <div className="assignee-grid">
-                                            {getMembersForTenant(editTaskHuddleId).map((member) => {
-                                                const checked = editTaskAssignees.includes(member.userId);
-                                                return (
-                                                    <label key={member.userId} className="assignee-chip">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={checked}
-                                                            onChange={(e) => {
-                                                                const next = e.target.checked
-                                                                    ? editTaskAssignees.concat(member.userId)
-                                                                    : editTaskAssignees.filter((id) => id !== member.userId);
-                                                                setEditTaskAssignees(next);
-                                                            }}
-                                                        />
-                                                        <span>{member.user?.name || member.user?.email || member.userId}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                            {getMembersForTenant(editTaskHuddleId).length === 0 && (
-                                                <div className="empty-state">No members in this huddle yet.</div>
+                                        <div className="member-select" data-member-dropdown="edit-task-assignees">
+                                            <button
+                                                type="button"
+                                                className="member-select-trigger"
+                                                onClick={() =>
+                                                    setOpenMemberDropdownId((prev) =>
+                                                        prev === 'edit-task-assignees' ? null : 'edit-task-assignees'
+                                                    )
+                                                }
+                                            >
+                                                {editTaskAssignees.length > 0
+                                                    ? editTaskAssignees
+                                                        .map((id) => getMemberLabel(editTaskHuddleId, id))
+                                                        .join(', ')
+                                                    : 'Select members'}
+                                            </button>
+                                            {openMemberDropdownId === 'edit-task-assignees' && (
+                                                <div className="member-select-dropdown">
+                                                    {getMembersForTenant(editTaskHuddleId).map((member) => {
+                                                        const checked = editTaskAssignees.includes(member.userId);
+                                                        return (
+                                                            <button
+                                                                key={member.userId}
+                                                                type="button"
+                                                                className={`member-select-option${checked ? ' active' : ''}`}
+                                                                onClick={() => {
+                                                                    const next = checked
+                                                                        ? editTaskAssignees.filter((id) => id !== member.userId)
+                                                                        : editTaskAssignees.concat(member.userId);
+                                                                    setEditTaskAssignees(next);
+                                                                }}
+                                                            >
+                                                                {member.user?.name || member.user?.email || member.userId}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {getMembersForTenant(editTaskHuddleId).length === 0 && (
+                                                        <div className="member-select-empty">No members in this huddle yet.</div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -9935,9 +10187,6 @@ const App: React.FC = () => {
                             </div>
                             <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem 1.25rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                    <button type="button" className="btn btn-secondary" onClick={closeEditTaskModal}>
-                                        Cancel
-                                    </button>
                                     <button type="submit" className="btn btn-primary">
                                         Save Changes
                                     </button>
