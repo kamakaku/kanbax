@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Task, TaskId, TaskRepository, TenantId, TaskStatus, TaskPriority } from '@kanbax/domain';
 
 export class TaskRepositoryPostgres implements TaskRepository {
@@ -97,6 +97,35 @@ export class TaskRepositoryPostgres implements TaskRepository {
         });
 
         return records.map(this.mapToDomain);
+    }
+
+    async findFavoriteTaskIdsForUser(tenantId: TenantId, userId: string): Promise<string[]> {
+        const rows = await this.prisma.$queryRaw<Array<{ task_id: string }>>(Prisma.sql`
+            select task_id
+            from huddle_task_favorites
+            where tenant_id = ${tenantId} and user_id = ${userId}
+        `);
+        return rows.map((row) => row.task_id);
+    }
+
+    async setFavoriteForUser(
+        tenantId: TenantId,
+        taskId: TaskId,
+        userId: string,
+        isFavorite: boolean
+    ): Promise<void> {
+        if (isFavorite) {
+            await this.prisma.$executeRaw(Prisma.sql`
+                insert into huddle_task_favorites (tenant_id, task_id, user_id)
+                values (${tenantId}, ${taskId}, ${userId})
+                on conflict (tenant_id, task_id, user_id) do nothing
+            `);
+            return;
+        }
+        await this.prisma.$executeRaw(Prisma.sql`
+            delete from huddle_task_favorites
+            where tenant_id = ${tenantId} and task_id = ${taskId} and user_id = ${userId}
+        `);
     }
 
     private mapToDomain(record: any): Task {

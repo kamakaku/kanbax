@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import {
     TaskRepositoryPostgres,
     AuditEventRepositoryPostgres,
@@ -540,8 +540,21 @@ app.use(async (req, res, next) => {
         }
 
         next();
-    } catch (err) {
-        return res.status(401).json({ error: 'Invalid or expired token' });
+    } catch (err: any) {
+        const debug = {
+            message: err?.message,
+            code: err?.code,
+            issuer: SUPABASE_ISSUER,
+            tokenIssuer: (() => {
+                try {
+                    return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf8'))?.iss;
+                } catch {
+                    return 'unknown';
+                }
+            })(),
+        };
+        console.error('Auth verify failed', debug);
+        return res.status(401).json({ error: 'Invalid or expired token', debug });
     }
 });
 
@@ -1477,6 +1490,16 @@ app.patch('/me', async (req, res) => {
         },
     });
 
+    if (name !== undefined || avatarUrl !== undefined) {
+        await prisma.$executeRaw(Prisma.sql`
+            update huddle_inbox_items
+            set
+                creator_label = ${name ?? updated.name ?? null},
+                creator_avatar_url = ${avatarUrl ?? updated.avatarUrl ?? null}
+            where creator_id = ${user.id}
+        `);
+    }
+
     res.json({ user: updated });
 });
 
@@ -1553,6 +1576,34 @@ app.post('/teams', async (req, res) => {
     res.status(201).json({ tenant, membership });
 });
 
+app.patch('/teams/:tenantId', async (req, res) => {
+    const user = (req as any).user;
+    const tenantId = req.params.tenantId;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) return res.status(404).json({ error: 'Huddle not found' });
+    if (tenant.name === 'Personal') {
+        return res.status(400).json({ error: 'Private huddles cannot be renamed' });
+    }
+
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin) return res.status(403).json({ error: 'Forbidden' });
+    // Members can update scopes as part of collaboration
+
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Team name is required' });
+
+    const updated = await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { name },
+    });
+
+    res.json(updated);
+});
+
 app.get('/teams/:tenantId/members', async (req, res) => {
     const user = (req as any).user;
     const tenantId = req.params.tenantId;
@@ -1569,6 +1620,571 @@ app.get('/teams/:tenantId/members', async (req, res) => {
         orderBy: { createdAt: 'asc' },
     });
     res.json(members);
+});
+
+app.get('/teams/:tenantId/scopes', async (req, res) => {
+    const user = (req as any).user;
+    const tenantId = req.params.tenantId;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin) return res.status(403).json({ error: 'Forbidden' });
+    const isTeamAdmin = membership?.role === 'ADMIN' || membership?.role === 'OWNER';
+
+    try {
+        const visibilityFilter = isTeamAdmin || user.isSuperAdmin
+            ? Prisma.sql``
+            : Prisma.sql`
+              and (
+                visibility is null
+                or visibility = 'shared'
+                or created_by = ${user.id}
+              )
+            `;
+        const scopes = await prisma.$queryRaw<
+            Array<{
+                id: string;
+                name: string;
+                description: string | null;
+                start_date: Date | null;
+                end_date: Date | null;
+                task_ids: any;
+                created_at: Date;
+                visibility: string | null;
+                created_by: string | null;
+            }>
+        >(Prisma.sql`
+            select id, name, description, start_date, end_date, task_ids, created_at, visibility, created_by
+            from huddle_scopes
+            where tenant_id = ${tenantId}
+            ${visibilityFilter}
+            order by created_at asc
+        `);
+
+        const scopeIds = scopes.map((scope) => scope.id);
+        const memberRows = scopeIds.length > 0
+            ? await prisma.$queryRaw<Array<{ scope_id: string; user_id: string; role: string }>>(Prisma.sql`
+                select scope_id, user_id, role
+                from huddle_scope_members
+                where tenant_id = ${tenantId}
+                  and scope_id in (${Prisma.join(scopeIds)})
+            `)
+            : [];
+        const membersByScope = new Map<string, Array<{ userId: string; role: string }>>();
+        memberRows.forEach((row) => {
+            const list = membersByScope.get(row.scope_id) || [];
+            list.push({ userId: row.user_id, role: row.role });
+            membersByScope.set(row.scope_id, list);
+        });
+
+        res.json({
+            scopes: scopes.map((scope) => {
+                let taskIds: string[] = [];
+                if (Array.isArray(scope.task_ids)) {
+                    taskIds = scope.task_ids;
+                } else if (typeof scope.task_ids === 'string') {
+                    try {
+                        const parsed = JSON.parse(scope.task_ids);
+                        if (Array.isArray(parsed)) taskIds = parsed;
+                    } catch {
+                        taskIds = [];
+                    }
+                }
+                const members = membersByScope.get(scope.id) || [];
+                const creatorId = scope.created_by;
+                const hasCreator = creatorId && members.some((member) => member.userId === creatorId);
+                const normalizedMembers = hasCreator || !creatorId
+                    ? members
+                    : members.concat([{ userId: creatorId, role: 'ADMIN' }]);
+
+                const memberRole = normalizedMembers.find((member) => member.userId === user.id)?.role;
+                const role = user.isSuperAdmin || isTeamAdmin
+                    ? 'ADMIN'
+                    : creatorId && creatorId === user.id
+                        ? 'ADMIN'
+                        : memberRole || 'VIEWER';
+
+                const includeMembers = role === 'ADMIN' || user.isSuperAdmin || isTeamAdmin;
+                return {
+                    id: scope.id,
+                    name: scope.name,
+                    description: scope.description,
+                    startDate: scope.start_date ? scope.start_date.toISOString() : null,
+                    endDate: scope.end_date ? scope.end_date.toISOString() : null,
+                    taskIds,
+                    createdAt: scope.created_at.toISOString(),
+                    visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
+                    createdBy: scope.created_by,
+                    role,
+                    members: includeMembers ? normalizedMembers : undefined,
+                };
+            }),
+        });
+    } catch {
+        res.json({ scopes: [] });
+    }
+});
+
+app.put('/teams/:tenantId/scopes', async (req, res) => {
+    const user = (req as any).user;
+    const tenantId = req.params.tenantId;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin) return res.status(403).json({ error: 'Forbidden' });
+    const isTeamAdmin = membership?.role === 'ADMIN' || membership?.role === 'OWNER';
+    const isSuperAdmin = Boolean(user.isSuperAdmin);
+
+    const scopes = req.body?.scopes;
+    if (!Array.isArray(scopes)) return res.status(400).json({ error: 'Invalid scopes' });
+
+    const payload = scopes as Array<{
+        id: string;
+        name: string;
+        description?: string | null;
+        startDate?: string | null;
+        endDate?: string | null;
+        taskIds?: string[];
+        createdAt?: string;
+        visibility?: string;
+        createdBy?: string | null;
+        members?: Array<{ userId: string; role: string }>;
+    }>;
+    try {
+        const normalized = Array.from(
+            new Map(
+                payload
+                    .filter((scope) => scope?.id && scope?.name)
+                    .map((scope) => [scope.id, scope])
+            ).values()
+        );
+        const ids = normalized.map((scope) => scope.id);
+
+        const existingScopes = await prisma.$queryRaw<
+            Array<{
+                id: string;
+                name: string;
+                description: string | null;
+                start_date: Date | null;
+                end_date: Date | null;
+                task_ids: any;
+                created_at: Date;
+                visibility: string | null;
+                created_by: string | null;
+            }>
+        >(Prisma.sql`
+            select id, name, description, start_date, end_date, task_ids, created_at, visibility, created_by
+            from huddle_scopes
+            where tenant_id = ${tenantId}
+        `);
+        const existingById = new Map(existingScopes.map((row) => [row.id, row]));
+
+        const memberRows = await prisma.$queryRaw<Array<{ scope_id: string; user_id: string; role: string }>>(Prisma.sql`
+            select scope_id, user_id, role
+            from huddle_scope_members
+            where tenant_id = ${tenantId}
+              and user_id = ${user.id}
+        `);
+        const memberRoleByScope = new Map(memberRows.map((row) => [row.scope_id, row.role]));
+
+        const toUpsert = normalized.map((scope) => {
+            const existing = existingById.get(scope.id);
+            const memberRole = memberRoleByScope.get(scope.id);
+            const isCreator = existing?.created_by && existing.created_by === user.id;
+            const role = isSuperAdmin || isTeamAdmin || isCreator
+                ? 'ADMIN'
+                : memberRole || 'VIEWER';
+
+            const isAdmin = role === 'ADMIN';
+            const isMember = role === 'MEMBER';
+
+            if (!existing) {
+                return {
+                    ...scope,
+                    role: 'ADMIN',
+                    createdBy: user.id,
+                    name: scope.name,
+                    description: scope.description ?? null,
+                    startDate: scope.startDate ?? null,
+                    endDate: scope.endDate ?? null,
+                    visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
+                    taskIds: scope.taskIds || [],
+                    createdAt: scope.createdAt ?? new Date().toISOString(),
+                    members: scope.members,
+                };
+            }
+
+            const existingTaskIds: string[] = Array.isArray(existing.task_ids)
+                ? existing.task_ids
+                : typeof existing.task_ids === 'string'
+                    ? (() => {
+                        try {
+                            const parsed = JSON.parse(existing.task_ids);
+                            return Array.isArray(parsed) ? parsed : [];
+                        } catch {
+                            return [];
+                        }
+                    })()
+                    : [];
+            const incomingTaskIds = scope.taskIds || [];
+
+            if (role === 'VIEWER') {
+                const sameTasks = existingTaskIds.length === incomingTaskIds.length
+                    && existingTaskIds.every((id) => incomingTaskIds.includes(id));
+                if (!sameTasks) {
+                    throw new Error('Scope role does not permit editing items');
+                }
+                return {
+                    ...scope,
+                    role,
+                    name: existing.name,
+                    description: existing.description,
+                    startDate: existing.start_date ? existing.start_date.toISOString() : null,
+                    endDate: existing.end_date ? existing.end_date.toISOString() : null,
+                    visibility: existing.visibility === 'personal' ? 'personal' : 'shared',
+                    taskIds: existingTaskIds,
+                    createdBy: existing.created_by,
+                    createdAt: existing.created_at.toISOString(),
+                    members: scope.members,
+                };
+            }
+
+            if (isMember && !isAdmin) {
+                return {
+                    ...scope,
+                    role,
+                    name: existing.name,
+                    description: existing.description,
+                    startDate: existing.start_date ? existing.start_date.toISOString() : null,
+                    endDate: existing.end_date ? existing.end_date.toISOString() : null,
+                    visibility: existing.visibility === 'personal' ? 'personal' : 'shared',
+                    createdBy: existing.created_by,
+                    createdAt: existing.created_at.toISOString(),
+                    taskIds: incomingTaskIds,
+                    members: scope.members,
+                };
+            }
+
+            return {
+                ...scope,
+                role,
+                createdBy: existing.created_by || user.id,
+                visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
+                taskIds: incomingTaskIds,
+            };
+        });
+
+        const deletableIds = existingScopes
+            .filter((scope) => {
+                if (!ids.includes(scope.id)) {
+                    const memberRole = memberRoleByScope.get(scope.id);
+                    const isCreator = scope.created_by && scope.created_by === user.id;
+                    return isSuperAdmin || isTeamAdmin || isCreator || memberRole === 'ADMIN';
+                }
+                return false;
+            })
+            .map((scope) => scope.id);
+
+        const transactionSteps: any[] = [];
+        if (deletableIds.length > 0) {
+            transactionSteps.push(prisma.$executeRaw(Prisma.sql`
+                delete from huddle_scopes
+                where tenant_id = ${tenantId}
+                  and id in (${Prisma.join(deletableIds)})
+            `));
+            transactionSteps.push(prisma.$executeRaw(Prisma.sql`
+                delete from huddle_scope_members
+                where tenant_id = ${tenantId}
+                  and scope_id in (${Prisma.join(deletableIds)})
+            `));
+        }
+
+        if (ids.length === 0) {
+            if (transactionSteps.length > 0) {
+                await prisma.$transaction(transactionSteps);
+            }
+            return res.json({ scopes: [] });
+        }
+
+        transactionSteps.push(...toUpsert.map((scope) =>
+            prisma.$executeRaw(Prisma.sql`
+                insert into huddle_scopes
+                    (tenant_id, id, name, description, start_date, end_date, task_ids, created_at, visibility, created_by)
+                values
+                    (
+                        ${tenantId},
+                        ${scope.id},
+                        ${scope.name},
+                        ${scope.description ?? null},
+                        ${scope.startDate ? new Date(scope.startDate) : null},
+                        ${scope.endDate ? new Date(scope.endDate) : null},
+                        ${JSON.stringify(scope.taskIds || [])}::jsonb,
+                        ${scope.createdAt ? new Date(scope.createdAt) : new Date()},
+                        ${scope.visibility === 'personal' ? 'personal' : 'shared'},
+                        ${scope.createdBy || user.id}
+                    )
+                on conflict (tenant_id, id)
+                do update set
+                    name = excluded.name,
+                    description = excluded.description,
+                    start_date = excluded.start_date,
+                    end_date = excluded.end_date,
+                    task_ids = excluded.task_ids,
+                    created_at = excluded.created_at,
+                    visibility = case
+                        when huddle_scopes.created_by is null
+                             or huddle_scopes.created_by = ${user.id}
+                             or ${isSuperAdmin || isTeamAdmin}
+                            then excluded.visibility
+                        else huddle_scopes.visibility
+                    end,
+                    created_by = coalesce(huddle_scopes.created_by, excluded.created_by)
+            `)
+        ));
+
+        const memberUpdates = toUpsert.flatMap((scope) => {
+            const existingRole = memberRoleByScope.get(scope.id);
+            const canManage = isSuperAdmin || isTeamAdmin || existingRole === 'ADMIN' || scope.createdBy === user.id;
+            if (!canManage || !Array.isArray(scope.members)) return [];
+            const validMembers = scope.members
+                .filter((member) => member?.userId)
+                .map((member) => ({
+                    userId: member.userId,
+                    role: member.role === 'ADMIN' || member.role === 'MEMBER' ? member.role : 'VIEWER',
+                }));
+            const creatorId = scope.createdBy || user.id;
+            const withCreator = validMembers.some((member) => member.userId === creatorId)
+                ? validMembers
+                : validMembers.concat([{ userId: creatorId, role: 'ADMIN' }]);
+            const memberIds = withCreator.map((member) => member.userId);
+            return [
+                prisma.$executeRaw(Prisma.sql`
+                    delete from huddle_scope_members
+                    where tenant_id = ${tenantId}
+                      and scope_id = ${scope.id}
+                      and user_id not in (${Prisma.join(memberIds)})
+                `),
+                ...withCreator.map((member) =>
+                    prisma.$executeRaw(Prisma.sql`
+                        insert into huddle_scope_members (tenant_id, scope_id, user_id, role)
+                        values (${tenantId}, ${scope.id}, ${member.userId}, ${member.role})
+                        on conflict (tenant_id, scope_id, user_id)
+                        do update set role = excluded.role
+                    `)
+                ),
+            ];
+        });
+
+        await prisma.$transaction([...transactionSteps, ...memberUpdates]);
+
+        res.json({ scopes: toUpsert });
+    } catch (err: any) {
+        console.error('Failed to save scopes', { tenantId, message: err?.message });
+        const status = err?.message?.includes('role does not permit') ? 403 : 500;
+        res.status(status).json({ error: err?.message || 'Failed to save scopes' });
+    }
+});
+
+app.get('/teams/:tenantId/inbox', async (req, res) => {
+    const user = (req as any).user;
+    const tenantId = req.params.tenantId;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const items = await prisma.$queryRaw<
+            Array<{
+                id: string;
+                title: string;
+                description: string | null;
+                source: string | null;
+                suggested_action: string | null;
+                priority: string | null;
+                kind: string | null;
+                creator_id: string | null;
+                creator_label: string | null;
+                created_at: Date;
+                status: string;
+            }>
+        >(Prisma.sql`
+            select id, title, description, source, suggested_action, priority, kind,
+                   creator_id, creator_label, created_at, status
+            from huddle_inbox_items
+            where tenant_id = ${tenantId}
+              and creator_id = ${user.id}
+            order by created_at desc
+        `);
+        const statuses: Record<string, string> = {};
+        const mapped = items.map((item) => {
+            statuses[item.id] = item.status || 'eingang';
+            return {
+                id: item.id,
+                title: item.title,
+                description: item.description ?? undefined,
+                source: item.source ?? undefined,
+                suggestedAction: item.suggested_action ?? undefined,
+                priority: item.priority ?? undefined,
+                kind: item.kind ?? undefined,
+                creatorId: item.creator_id ?? undefined,
+                creatorLabel: item.creator_label ?? undefined,
+                creatorAvatarUrl: undefined,
+                createdAt: item.created_at.toISOString(),
+                tenantId,
+            };
+        });
+        res.json({ items: mapped, statuses });
+    } catch {
+        res.json({ items: [], statuses: {} });
+    }
+});
+
+app.put('/teams/:tenantId/inbox', async (req, res) => {
+    const user = (req as any).user;
+    const tenantId = req.params.tenantId;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+    const items = req.body?.items;
+    const statuses = req.body?.statuses;
+    if (!Array.isArray(items) || typeof statuses !== 'object') {
+        return res.status(400).json({ error: 'Invalid inbox payload' });
+    }
+
+    const payload = items as Array<any>;
+    const creatorLabel = user.name || user.email || 'User';
+    await prisma.$transaction([
+        prisma.$executeRaw(Prisma.sql`
+            delete from huddle_inbox_items
+            where tenant_id = ${tenantId}
+              and creator_id = ${user.id}
+        `),
+        ...payload.map((item) =>
+            prisma.$executeRaw(Prisma.sql`
+                insert into huddle_inbox_items
+                    (tenant_id, id, title, description, source, suggested_action, priority, kind,
+                     creator_id, creator_label, creator_avatar_url, created_at, status)
+                values
+                    (
+                        ${tenantId},
+                        ${item.id},
+                        ${item.title},
+                        ${item.description ?? null},
+                        ${item.source ?? null},
+                        ${item.suggestedAction ?? null},
+                        ${item.priority ?? null},
+                        ${item.kind ?? null},
+                        ${user.id},
+                        ${creatorLabel},
+                        ${null},
+                        ${item.createdAt ? new Date(item.createdAt) : new Date()},
+                        ${statuses?.[item.id] || 'eingang'}
+                    )
+            `)
+        ),
+    ]);
+
+    res.json({ items: payload, statuses });
+});
+
+app.get('/teams/:tenantId/timeline-overrides', async (req, res) => {
+    const user = (req as any).user;
+    const tenantId = req.params.tenantId;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const rows = await prisma.$queryRaw<
+            Array<{ task_id: string; date: Date; is_point: boolean; duration_days: number | null }>
+        >(Prisma.sql`
+            select task_id, date, is_point, duration_days
+            from huddle_timeline_overrides
+            where tenant_id = ${tenantId}
+        `);
+        const overrides = Object.fromEntries(
+            rows.map((row) => [
+                row.task_id,
+                {
+                    date: row.date.toISOString(),
+                    isPoint: row.is_point,
+                    durationDays: row.duration_days ?? undefined,
+                },
+            ])
+        );
+        res.json({ overrides });
+    } catch {
+        res.json({ overrides: {} });
+    }
+});
+
+app.put('/teams/:tenantId/timeline-overrides', async (req, res) => {
+    const user = (req as any).user;
+    const tenantId = req.params.tenantId;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const membership = await prisma.teamMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
+    if (!membership && !user.isSuperAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+    const overrides = req.body?.overrides;
+    if (!overrides || typeof overrides !== 'object') {
+        return res.status(400).json({ error: 'Invalid overrides' });
+    }
+
+    const entries = Object.entries(overrides);
+    const taskIds = entries.map(([taskId]) => taskId);
+    if (taskIds.length === 0) {
+        await prisma.$executeRaw(
+            Prisma.sql`delete from huddle_timeline_overrides where tenant_id = ${tenantId}`
+        );
+        return res.json({ overrides });
+    }
+
+    await prisma.$transaction([
+        prisma.$executeRaw(Prisma.sql`
+            delete from huddle_timeline_overrides
+            where tenant_id = ${tenantId}
+              and task_id not in (${Prisma.join(taskIds)})
+        `),
+        ...entries.map(([taskId, payload]) => {
+            const value = payload as any;
+            return prisma.$executeRaw(Prisma.sql`
+                insert into huddle_timeline_overrides
+                    (tenant_id, task_id, date, is_point, duration_days)
+                values
+                    (
+                        ${tenantId},
+                        ${taskId},
+                        ${new Date(value.date)},
+                        ${Boolean(value.isPoint)},
+                        ${value.durationDays ?? null}
+                    )
+                on conflict (tenant_id, task_id)
+                do update set
+                    date = excluded.date,
+                    is_point = excluded.is_point,
+                    duration_days = excluded.duration_days
+            `);
+        }),
+    ]);
+
+    res.json({ overrides });
 });
 
 app.post('/teams/:tenantId/invites', async (req, res) => {

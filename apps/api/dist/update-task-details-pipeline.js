@@ -88,6 +88,12 @@ export class UpdateTaskDetailsPipeline extends CommandPipeline {
                 actorId: command.principal.id,
             });
         });
+        if (command.payload.isFavorite !== undefined) {
+            const repoAny = this.repository;
+            if (typeof repoAny.setFavoriteForUser === 'function') {
+                await repoAny.setFavoriteForUser(command.tenantId, task.id, command.principal.id, command.payload.isFavorite);
+            }
+        }
         const updatedTask = {
             ...task,
             title: command.payload.title ?? task.title,
@@ -104,7 +110,7 @@ export class UpdateTaskDetailsPipeline extends CommandPipeline {
             checklist: nextChecklist,
             linkedTaskIds: command.payload.linkedTaskIds ?? task.linkedTaskIds,
             activityLog: nextActivityLog,
-            isFavorite: command.payload.isFavorite ?? task.isFavorite,
+            isFavorite: task.isFavorite,
             excludeFromAll: command.payload.excludeFromAll ?? task.excludeFromAll,
             updatedAt: new Date(),
             version: task.version + 1,

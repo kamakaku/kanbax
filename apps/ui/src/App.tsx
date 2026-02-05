@@ -23,6 +23,12 @@ const INBOX_ACTION_OPTIONS: DropdownOption[] = [
     { value: 'later', labelId: 'inbox.action.later', defaultMessage: 'Later' },
     { value: 'archive', labelId: 'inbox.action.archive', defaultMessage: 'Archive' }
 ];
+const INBOX_PRIORITY_OPTIONS: DropdownOption[] = [
+    { value: 'LOW', labelId: 'priority.low', defaultMessage: 'Low' },
+    { value: 'MEDIUM', labelId: 'priority.medium', defaultMessage: 'Medium' },
+    { value: 'HIGH', labelId: 'priority.high', defaultMessage: 'High' },
+    { value: 'CRITICAL', labelId: 'priority.critical', defaultMessage: 'Critical' }
+];
 
 const API_BASE = 'http://localhost:4000';
 const ARCHIVED_BOARD_ID = 'archived';
@@ -118,19 +124,35 @@ interface ScopeWindow {
     endDate?: string | null;
     taskIds: string[];
     createdAt: string;
+    visibility?: 'personal' | 'shared';
+    createdBy?: string | null;
+    role?: 'ADMIN' | 'MEMBER' | 'VIEWER';
+    members?: Array<{ userId: string; role: 'ADMIN' | 'MEMBER' | 'VIEWER' }>;
 }
 
 
 const INBOX_STORAGE_KEY = 'kanbax-inbox-items';
 const INBOX_STATUS_STORAGE_KEY = 'kanbax-inbox-statuses';
+const TIMELINE_OVERRIDE_KEY = 'kanbax-timeline-overrides';
 type InboxStatus = 'eingang' | 'spaeter' | 'bearbeitet' | 'archiv';
 type InboxView = InboxStatus;
+type TimelineOverride = { date: string; isPoint: boolean; durationDays?: number };
 const loadInboxStatuses = (): Record<string, InboxStatus> => {
     if (typeof window === 'undefined') return {};
     try {
         const stored = window.localStorage.getItem(INBOX_STATUS_STORAGE_KEY);
         if (!stored) return {};
         return JSON.parse(stored) as Record<string, InboxStatus>;
+    } catch {
+        return {};
+    }
+};
+const loadTimelineOverrides = (): Record<string, TimelineOverride> => {
+    if (typeof window === 'undefined') return {};
+    try {
+        const stored = window.localStorage.getItem(TIMELINE_OVERRIDE_KEY);
+        if (!stored) return {};
+        return JSON.parse(stored) as Record<string, TimelineOverride>;
     } catch {
         return {};
     }
@@ -153,6 +175,8 @@ const App: React.FC = () => {
         getOptionLabel(INBOX_SOURCE_OPTIONS, value, 'inbox.field.selectSource', 'Quelle wählen');
     const getActionLabel = (value?: string) =>
         getOptionLabel(INBOX_ACTION_OPTIONS, value, 'inbox.field.selectAction', 'Aktion wählen');
+    const getPriorityLabel = (value?: string) =>
+        getOptionLabel(INBOX_PRIORITY_OPTIONS, value, 'task.field.selectPriority', 'Priority wählen');
 
     const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'timeline' | 'calendar' | 'settings' | 'okr' | 'scope' | 'inbox' | 'initiatives'>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
@@ -183,8 +207,11 @@ const App: React.FC = () => {
     const [inboxCaptureOpen, setInboxCaptureOpen] = useState(false);
     const [inboxSourceOpen, setInboxSourceOpen] = useState(false);
     const [inboxActionOpen, setInboxActionOpen] = useState(false);
+    const [inboxPriorityOpen, setInboxPriorityOpen] = useState(false);
     const inboxSourceRef = useRef<HTMLDivElement | null>(null);
     const inboxActionRef = useRef<HTMLDivElement | null>(null);
+    const inboxScopeRef = useRef<HTMLDivElement | null>(null);
+    const inboxPriorityRef = useRef<HTMLDivElement | null>(null);
     const saveIcon = (
         <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" stroke="currentColor">
             <path d="M5 6.5V20h14V8.5L17.5 5H6a1 1 0 0 0-1 1.5z" />
@@ -199,12 +226,21 @@ const App: React.FC = () => {
         createdAt: string;
         suggestedAction?: string;
         description?: string;
+        priority?: TaskView['priority'];
         kind?: string;
         creatorLabel?: string;
         creatorAvatarUrl?: string;
         creatorId?: string;
         tenantId?: string | null;
     }>>([]);
+    const inboxSnapshotRef = useRef<{ items: typeof inboxCustomItems; statuses: Record<string, InboxStatus> }>({
+        items: [],
+        statuses: {},
+    });
+    const scopesFetchInFlightRef = useRef<Record<string, boolean>>({});
+    const timelineFetchInFlightRef = useRef<Record<string, boolean>>({});
+    const membersFetchInFlightRef = useRef<Record<string, boolean>>({});
+    const inboxSyncRef = useRef<{ tenantId: string | null; skipNextSave: boolean }>({ tenantId: null, skipNextSave: false });
     type InboxItemsUpdater = typeof inboxCustomItems | ((items: typeof inboxCustomItems) => typeof inboxCustomItems);
     const persistInboxItems = (itemsOrUpdater: InboxItemsUpdater) => {
         const nextItems =
@@ -226,6 +262,9 @@ const App: React.FC = () => {
             // ignore storage errors
         }
     };
+    useEffect(() => {
+        inboxSnapshotRef.current = { items: inboxCustomItems, statuses: inboxItemStatuses };
+    }, [inboxCustomItems, inboxItemStatuses]);
     const setInboxStatus = (id: string, status: InboxStatus) => {
         setInboxItemStatuses((prev) => {
             if (prev[id] === status) {
@@ -242,18 +281,175 @@ const App: React.FC = () => {
             setSelectedInboxId(null);
         }
     };
+    async function loadInboxForTenant(
+        tenantId: string,
+        localItems: typeof inboxCustomItems,
+        localStatuses: Record<string, InboxStatus>
+    ) {
+        try {
+            if (!session?.access_token) return;
+            inboxSyncRef.current = { tenantId, skipNextSave: true };
+            const res = await fetch(`${API_BASE}/teams/${tenantId}/inbox`, {
+                headers: getApiHeaders(true, tenantId),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const items = Array.isArray(data?.items) ? data.items : [];
+            const statuses = data?.statuses && typeof data.statuses === 'object' ? data.statuses : {};
+            const filteredLocal = localItems.filter((item) => !item.tenantId || item.tenantId === tenantId);
+            if (items.length === 0 && filteredLocal.length > 0) {
+                await saveInboxForTenant(tenantId, filteredLocal, localStatuses);
+                inboxSyncRef.current = { tenantId, skipNextSave: true };
+                setInboxCustomItems(filteredLocal);
+                setInboxItemStatuses(localStatuses);
+                return;
+            }
+            setInboxCustomItems(items);
+            setInboxItemStatuses(statuses);
+            try {
+                localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(items));
+                localStorage.setItem(INBOX_STATUS_STORAGE_KEY, JSON.stringify(statuses));
+            } catch {
+                // ignore storage errors
+            }
+        } catch {
+            // ignore
+        }
+    }
+
+    async function saveInboxForTenant(
+        tenantId: string,
+        items: typeof inboxCustomItems,
+        statuses: Record<string, InboxStatus>
+    ) {
+        try {
+            if (!session?.access_token) return;
+            const filteredItems = items.filter((item) => !item.tenantId || item.tenantId === tenantId);
+            const filteredIds = new Set(filteredItems.map((item) => item.id));
+            const filteredStatuses = Object.fromEntries(
+                Object.entries(statuses).filter(([id]) => filteredIds.has(id))
+            );
+            await fetch(`${API_BASE}/teams/${tenantId}/inbox`, {
+                method: 'PUT',
+                headers: getApiHeaders(true, tenantId),
+                body: JSON.stringify({
+                    items: filteredItems.map((item) => ({
+                        ...item,
+                        creatorAvatarUrl: undefined,
+                    })),
+                    statuses: filteredStatuses,
+                }),
+            });
+        } catch {
+            // ignore
+        }
+    }
+    const handleInboxAddToScope = async (
+        item: { id: string; title: string; description?: string; kind?: string; creatorId?: string; priority?: TaskView['priority'] },
+        scopeId: string
+    ) => {
+        if (!activeTenantId) return;
+        try {
+            const resolvedBoardId = resolveWritableBoardId(activeTenantId);
+            const res = await fetch(`${API_BASE}/commands/task/create`, {
+                method: 'POST',
+                headers: getApiHeaders(true, activeTenantId),
+                body: JSON.stringify({
+                    title: item.title,
+                    description: item.description || '',
+                    kinds: item.kind ? [item.kind] : [],
+                    status: TaskStatus.BACKLOG,
+                    priority: item.priority || (settingsDraft?.defaultPriority as TaskView['priority']) || 'MEDIUM',
+                    dueDate: undefined,
+                    attachments: [],
+                    ownerId: item.creatorId || userProfile?.id || undefined,
+                    assignees: [],
+                    boardId: resolvedBoardId,
+                    source: { type: 'MANUAL', createdBy: item.creatorId || userProfile?.id || 'inbox' }
+                })
+            });
+
+            if (!res.ok) {
+                let message = 'Failed to create task';
+                try {
+                    const err = await res.json();
+                    message = err?.error || message;
+                } catch {
+                    // ignore
+                }
+                throw new Error(message);
+            }
+
+            let createdTaskId: string | null = null;
+            let createdTask: TaskView | null = null;
+            try {
+                const data = await res.json();
+                createdTask = (data?.task || data) as TaskView;
+                createdTaskId = createdTask?.id || data?.taskId || null;
+            } catch {
+                createdTaskId = null;
+            }
+
+            if (createdTaskId) {
+                if (createdTask) {
+                    setTasksByTenant((prev) => {
+                        const current = prev[activeTenantId] || [];
+                        if (current.some((task) => task.id === createdTaskId)) return prev;
+                        return { ...prev, [activeTenantId]: [createdTask, ...current] };
+                    });
+                    setScopeTasksByTenant((prev) => {
+                        const current = prev[activeTenantId] || [];
+                        if (current.some((task) => task.id === createdTaskId)) return prev;
+                        return { ...prev, [activeTenantId]: [createdTask, ...current] };
+                    });
+                    setTasks((prev) => {
+                        if (prev.some((task) => task.id === createdTaskId)) return prev;
+                        return [createdTask, ...prev];
+                    });
+                }
+                handleScopeAddTask(scopeId, createdTaskId);
+            } else {
+                fetchData();
+            }
+
+            setInboxStatus(item.id, 'bearbeitet');
+            setInboxScopeMenuId(null);
+            setToastMessage(t('inbox.toast.addedToScope', 'Added to scope window'));
+        } catch (e: any) {
+            alert(e.message || 'Failed to add to scope');
+        }
+    };
+    const handleInboxEdit = (item: typeof inboxCustomItems[number]) => {
+        setInboxDraft({
+            title: item.title || '',
+            source: item.source || '',
+            suggestedAction: item.suggestedAction || '',
+            description: item.description || '',
+            priority: (item.priority as TaskView['priority']) || 'MEDIUM',
+        });
+        setInboxEditId(item.id);
+        setInboxCaptureOpen(true);
+    };
     const [inboxDraft, setInboxDraft] = useState({
         title: '',
         source: '',
         suggestedAction: '',
-        description: ''
+        description: '',
+        priority: 'MEDIUM'
     });
+    const [inboxEditId, setInboxEditId] = useState<string | null>(null);
     const handleClickOutside = (event: MouseEvent) => {
         if (inboxSourceOpen && inboxSourceRef.current && !inboxSourceRef.current.contains(event.target as Node)) {
             setInboxSourceOpen(false);
         }
         if (inboxActionOpen && inboxActionRef.current && !inboxActionRef.current.contains(event.target as Node)) {
             setInboxActionOpen(false);
+        }
+        if (inboxPriorityOpen && inboxPriorityRef.current && !inboxPriorityRef.current.contains(event.target as Node)) {
+            setInboxPriorityOpen(false);
+        }
+        if (inboxScopeMenuId && inboxScopeRef.current && !inboxScopeRef.current.contains(event.target as Node)) {
+            setInboxScopeMenuId(null);
         }
     };
 
@@ -290,23 +486,6 @@ const App: React.FC = () => {
         return () => window.removeEventListener('popstate', syncScopeFromUrl);
     }, []);
 
-    useEffect(() => {
-        try {
-            const raw = localStorage.getItem(INBOX_STORAGE_KEY);
-            if (raw) {
-                const parsed = JSON.parse(raw) as typeof inboxCustomItems;
-                persistInboxItems(parsed);
-            }
-        } catch {
-            // ignore
-        }
-    }, []);
-
-    useEffect(() => {
-        if (!selectedInboxId && inboxCustomItems.length > 0) {
-            setSelectedInboxId(inboxCustomItems[0].id);
-        }
-    }, [inboxCustomItems, selectedInboxId]);
     const [session, setSession] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [memberships, setMemberships] = useState<any[]>([]);
@@ -318,8 +497,50 @@ const App: React.FC = () => {
             return null;
         }
     });
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(INBOX_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw) as typeof inboxCustomItems;
+                const cleaned = parsed.map((item) => ({ ...item, creatorAvatarUrl: undefined }));
+                persistInboxItems(cleaned);
+            }
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!activeTenantId || !session?.access_token) return;
+        loadInboxForTenant(activeTenantId, inboxCustomItems, inboxItemStatuses);
+    }, [activeTenantId, session?.access_token]);
+    useEffect(() => {
+        if (!activeTenantId || !session?.access_token) return;
+        if (view !== 'inbox') return;
+        loadInboxForTenant(activeTenantId, inboxCustomItems, inboxItemStatuses);
+        const interval = window.setInterval(() => {
+            loadInboxForTenant(activeTenantId, inboxCustomItems, inboxItemStatuses);
+        }, 10000);
+        return () => window.clearInterval(interval);
+    }, [activeTenantId, session?.access_token, view]);
+
+    useEffect(() => {
+        if (!selectedInboxId && inboxCustomItems.length > 0) {
+            setSelectedInboxId(inboxCustomItems[0].id);
+        }
+    }, [inboxCustomItems, selectedInboxId]);
+    useEffect(() => {
+        if (!activeTenantId || !session?.access_token) return;
+        if (inboxSyncRef.current.skipNextSave && inboxSyncRef.current.tenantId === activeTenantId) {
+            inboxSyncRef.current = { tenantId: activeTenantId, skipNextSave: false };
+            return;
+        }
+        saveInboxForTenant(activeTenantId, inboxCustomItems, inboxItemStatuses);
+    }, [activeTenantId, inboxCustomItems, inboxItemStatuses, session?.access_token]);
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [teamNameInput, setTeamNameInput] = useState('');
+    const [huddleRenameInput, setHuddleRenameInput] = useState('');
+    const [huddleRenameSaving, setHuddleRenameSaving] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('MEMBER');
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -394,12 +615,20 @@ const App: React.FC = () => {
                     const existing = migrated[tenantId] || [];
                     value.forEach((window) => {
                         if (!existing.some((entry) => entry.id === window.id)) {
-                            existing.push(window);
+                            existing.push({
+                                ...window,
+                                visibility: window.visibility === 'personal' ? 'personal' : 'shared',
+                                createdBy: window.createdBy || null,
+                            });
                         }
                     });
                     migrated[tenantId] = existing;
                 } else {
-                    migrated[key] = value;
+                    migrated[key] = value.map((window) => ({
+                        ...window,
+                        visibility: window.visibility === 'personal' ? 'personal' : 'shared',
+                        createdBy: window.createdBy || null,
+                    }));
                 }
             });
             return migrated;
@@ -412,6 +641,7 @@ const App: React.FC = () => {
         description: '',
         startDate: '',
         endDate: '',
+        visibility: 'shared' as 'shared' | 'personal',
     });
     const [scopePickerOpenId, setScopePickerOpenId] = useState<string | null>(null);
     const [scopePickerQuery, setScopePickerQuery] = useState('');
@@ -423,17 +653,22 @@ const App: React.FC = () => {
     const [scopeFilterStatus, setScopeFilterStatus] = useState<'ALL' | TaskStatus>('ALL');
     const [scopePriorityFilterOpen, setScopePriorityFilterOpen] = useState(false);
     const [scopeStatusFilterOpen, setScopeStatusFilterOpen] = useState(false);
-    const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list'>('board');
+    const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list' | 'timeline'>('board');
     const [isScopeCreateOpen, setIsScopeCreateOpen] = useState(false);
     const [scopeTab, setScopeTab] = useState<'current' | 'review' | 'history'>('current');
     const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
+    const scopeSyncRef = useRef<{ tenantId: string | null; skipNextSave: boolean }>({ tenantId: null, skipNextSave: false });
     const [showScopeDropRow, setShowScopeDropRow] = useState(false);
     const [scopeSettingsDraft, setScopeSettingsDraft] = useState({
         name: '',
         description: '',
         startDate: '',
         endDate: '',
+        visibility: 'shared' as 'shared' | 'personal',
+        members: [] as Array<{ userId: string; role: 'ADMIN' | 'MEMBER' | 'VIEWER' }>,
     });
+    const [scopeMemberPickerId, setScopeMemberPickerId] = useState<string>('');
+    const [scopeMemberPickerRole, setScopeMemberPickerRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER'>('MEMBER');
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
     const [okrObjectives, setOkrObjectives] = useState<OkrObjective[]>([]);
     const [okrLoading, setOkrLoading] = useState(false);
@@ -518,6 +753,23 @@ const App: React.FC = () => {
     const [calendarImports, setCalendarImports] = useState<CalendarImport[]>([]);
     const [calendarLoading, setCalendarLoading] = useState(false);
     const [calendarError, setCalendarError] = useState<string | null>(null);
+    const [timelineRange, setTimelineRange] = useState<'auto' | 14 | 30 | 60 | 90>('auto');
+    const [timelineRangeOpen, setTimelineRangeOpen] = useState(false);
+    const timelineRangeRef = useRef<HTMLDivElement | null>(null);
+    const [timelineOverrides, setTimelineOverrides] = useState<Record<string, TimelineOverride>>(loadTimelineOverrides);
+    const timelineOverridesRef = useRef<Record<string, TimelineOverride>>({});
+    const timelineOverrideSyncRef = useRef<{ tenantId: string | null; skipNextSave: boolean }>({ tenantId: null, skipNextSave: false });
+    const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+    const [timelineDragTaskId, setTimelineDragTaskId] = useState<string | null>(null);
+    const [timelineDragOriginX, setTimelineDragOriginX] = useState(0);
+    const [timelineDragOriginDate, setTimelineDragOriginDate] = useState<Date | null>(null);
+    const [timelineDragOriginScroll, setTimelineDragOriginScroll] = useState(0);
+    const [timelineDragOffsetDays, setTimelineDragOffsetDays] = useState(0);
+    const [timelineDragIsPoint, setTimelineDragIsPoint] = useState(false);
+    const [timelineDragDurationDays, setTimelineDragDurationDays] = useState(1);
+    const [timelineDragMode, setTimelineDragMode] = useState<'move' | 'resize-start' | 'resize-end'>('move');
+    const [timelineDragOriginStart, setTimelineDragOriginStart] = useState<Date | null>(null);
+    const [timelineDragOriginDuration, setTimelineDragOriginDuration] = useState(1);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -543,6 +795,9 @@ const App: React.FC = () => {
             if (scopeStatusFilterOpen && scopeStatusFilterRef.current && !scopeStatusFilterRef.current.contains(target)) {
                 setScopeStatusFilterOpen(false);
             }
+            if (timelineRangeOpen && timelineRangeRef.current && !timelineRangeRef.current.contains(target)) {
+                setTimelineRangeOpen(false);
+            }
             if (openMemberDropdownId) {
                 const container = (target as HTMLElement).closest('[data-member-dropdown]');
                 if (!container) {
@@ -560,8 +815,59 @@ const App: React.FC = () => {
         statusFilterOpen,
         scopePriorityFilterOpen,
         scopeStatusFilterOpen,
+        timelineRangeOpen,
         openMemberDropdownId,
     ]);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            window.localStorage.setItem(TIMELINE_OVERRIDE_KEY, JSON.stringify(timelineOverrides));
+        } catch {
+            // ignore storage failures
+        }
+    }, [timelineOverrides]);
+    useEffect(() => {
+        timelineOverridesRef.current = timelineOverrides;
+    }, [timelineOverrides]);
+
+    async function loadTimelineOverridesForTenant(tenantId: string, localOverrides: Record<string, TimelineOverride>) {
+        try {
+            if (!session?.access_token) return;
+            if (timelineFetchInFlightRef.current[tenantId]) return;
+            timelineFetchInFlightRef.current[tenantId] = true;
+            timelineOverrideSyncRef.current = { tenantId, skipNextSave: true };
+            const res = await fetch(`${API_BASE}/teams/${tenantId}/timeline-overrides`, {
+                headers: getApiHeaders(true, tenantId),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const overrides = data?.overrides && typeof data.overrides === 'object' ? data.overrides : {};
+            if (Object.keys(overrides).length === 0 && Object.keys(localOverrides).length > 0) {
+                await saveTimelineOverridesForTenant(tenantId, localOverrides);
+                timelineOverrideSyncRef.current = { tenantId, skipNextSave: true };
+                setTimelineOverrides(localOverrides);
+                return;
+            }
+            setTimelineOverrides(overrides);
+        } catch {
+            // ignore
+        } finally {
+            timelineFetchInFlightRef.current[tenantId] = false;
+        }
+    }
+
+    async function saveTimelineOverridesForTenant(tenantId: string, overrides: Record<string, TimelineOverride>) {
+        try {
+            if (!session?.access_token) return;
+            await fetch(`${API_BASE}/teams/${tenantId}/timeline-overrides`, {
+                method: 'PUT',
+                headers: getApiHeaders(true, tenantId),
+                body: JSON.stringify({ overrides }),
+            });
+        } catch {
+            // ignore
+        }
+    }
     const [calendarImportFileName, setCalendarImportFileName] = useState('');
     const [calendarImportFile, setCalendarImportFile] = useState<File | null>(null);
     const [calendarImporting, setCalendarImporting] = useState(false);
@@ -661,7 +967,10 @@ const App: React.FC = () => {
         }
     }, [view]);
 
+    const fetchDataInFlightRef = useRef(false);
     const fetchData = async () => {
+        if (fetchDataInFlightRef.current) return;
+        fetchDataInFlightRef.current = true;
         try {
             setLoading(true);
             if (!session || !activeTenantId) {
@@ -757,6 +1066,7 @@ const App: React.FC = () => {
             setError(e.message);
         } finally {
             setLoading(false);
+            fetchDataInFlightRef.current = false;
         }
     };
 
@@ -1063,9 +1373,14 @@ const App: React.FC = () => {
             endDate: scopeDraft.endDate || null,
             taskIds: [],
             createdAt: new Date().toISOString(),
+            visibility: scopeDraft.visibility === 'personal' ? 'personal' : 'shared',
+            createdBy: userProfile?.id || session?.user?.id || null,
+            members: (userProfile?.id || session?.user?.id)
+                ? [{ userId: userProfile?.id || session?.user?.id || '', role: 'ADMIN' }]
+                : [],
         };
         updateScopeWindows((prev) => prev.concat(nextWindow));
-        setScopeDraft({ name: '', description: '', startDate: '', endDate: '' });
+        setScopeDraft({ name: '', description: '', startDate: '', endDate: '', visibility: 'shared' });
         setActiveScopeId(nextId);
         setIsScopeCreateOpen(false);
     };
@@ -1078,6 +1393,7 @@ const App: React.FC = () => {
     };
 
     const handleScopeAddTask = (windowId: string, taskId: string) => {
+        if (!canEditScopeById(windowId)) return;
         updateScopeWindows((prev) =>
             prev.map((window) =>
                 window.id === windowId && !window.taskIds.includes(taskId)
@@ -1088,6 +1404,7 @@ const App: React.FC = () => {
     };
 
     const handleScopeRemoveTask = (windowId: string, taskId: string) => {
+        if (!canEditScopeById(windowId)) return;
         if (!confirm('Remove this task from the scope window?')) return;
         updateScopeWindows((prev) =>
             prev.map((window) =>
@@ -1099,6 +1416,7 @@ const App: React.FC = () => {
     };
 
     const handleScopeDelete = (windowId: string) => {
+        if (!canManageScopeById(windowId)) return;
         if (!confirm('Delete this scope window and remove its task links?')) return;
         updateScopeWindows((prev) => prev.filter((window) => window.id !== windowId));
         setScopePickerOpenId((prev) => (prev === windowId ? null : prev));
@@ -1111,6 +1429,7 @@ const App: React.FC = () => {
     };
 
     const handleScopeDragOver = (event: React.DragEvent, windowId: string) => {
+        if (!canEditScopeById(windowId)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         setScopeDropTargetId(windowId);
@@ -1125,15 +1444,95 @@ const App: React.FC = () => {
     };
 
     const handleScopeDrop = (event: React.DragEvent, windowId: string) => {
+        if (!canEditScopeById(windowId)) return;
         event.preventDefault();
         const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId || '';
         if (!taskId) return;
         handleScopeAddTask(windowId, taskId);
         setScopeDropTargetId(null);
         setToastMessage('Added to scope window');
+        finalizeDrag();
+    };
+
+    const scopeDragTargetRef = useRef<string | null>(null);
+    const getScopeColumnStatus = (task: TaskView) =>
+        task.status === TaskStatus.BACKLOG ? TaskStatus.TODO : task.status;
+
+    const moveScopeTaskOrder = (
+        windowId: string,
+        taskId: string,
+        targetId: string | null,
+        targetStatus?: TaskStatus
+    ) => {
+        if (!canEditScopeById(windowId)) return;
+        updateScopeWindows((prev) =>
+            prev.map((window) => {
+                if (window.id !== windowId) return window;
+                const remaining = window.taskIds.filter((id) => id !== taskId);
+                let insertIndex = remaining.length;
+                if (targetId) {
+                    const targetIndex = remaining.indexOf(targetId);
+                    if (targetIndex >= 0) insertIndex = targetIndex;
+                } else if (targetStatus) {
+                    const lastIndex = remaining.reduce((acc, id, index) => {
+                        const task = scopeTaskById.get(id);
+                        if (!task) return acc;
+                        const columnStatus = getScopeColumnStatus(task);
+                        if (columnStatus === targetStatus) return index;
+                        return acc;
+                    }, -1);
+                    insertIndex = lastIndex >= 0 ? lastIndex + 1 : remaining.length;
+                }
+                const nextIds = remaining.slice();
+                nextIds.splice(insertIndex, 0, taskId);
+                return { ...window, taskIds: nextIds };
+            })
+        );
+    };
+
+    const handleScopeCardDragOver = (event: React.DragEvent, status: TaskStatus, targetId: string) => {
+        if (!canEditScopeById(activeScopeWindow?.id)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        if (!draggingTaskId || !activeScopeWindow) return;
+        if (!activeScopeWindow.taskIds.includes(draggingTaskId)) return;
+        const dragKey = `${status}:${targetId}`;
+        if (scopeDragTargetRef.current === dragKey) return;
+        scopeDragTargetRef.current = dragKey;
+        event.currentTarget.classList.add('drag-over-card');
+    };
+
+    const handleScopeCardDragLeave = (event: React.DragEvent) => {
+        const target = event.currentTarget as HTMLElement;
+        const related = event.relatedTarget as HTMLElement | null;
+        if (!related || !target.contains(related)) {
+            event.currentTarget.classList.remove('drag-over-card');
+        }
+    };
+
+    const handleScopeCardDrop = (event: React.DragEvent, status: TaskStatus, targetId: string) => {
+        if (!canEditScopeById(activeScopeWindow?.id)) return;
+        event.preventDefault();
+        event.currentTarget.classList.remove('drag-over-card');
+        const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId || '';
+        if (!taskId || !activeScopeWindow) return;
+        if (!activeScopeWindow.taskIds.includes(taskId)) return;
+        const sourceTask = scopeTaskById.get(taskId);
+        const normalizedStatus = status === TaskStatus.TODO ? TaskStatus.TODO : status;
+        const isSameColumn =
+            sourceTask &&
+            (sourceTask.status === normalizedStatus ||
+                (normalizedStatus === TaskStatus.TODO && sourceTask.status === TaskStatus.BACKLOG));
+        if (!isSameColumn) {
+            handleUpdateStatus(taskId, normalizedStatus);
+        }
+        moveScopeTaskOrder(activeScopeWindow.id, taskId, targetId, normalizedStatus);
+        scopeDragTargetRef.current = null;
+        finalizeDrag();
     };
 
     const handleScopeColumnDragOver = (event: React.DragEvent) => {
+        if (!canEditScopeById(activeScopeWindow?.id)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         event.currentTarget.classList.add('drag-over');
@@ -1148,15 +1547,24 @@ const App: React.FC = () => {
     };
 
     const handleScopeColumnDrop = (event: React.DragEvent, status: TaskStatus) => {
+        if (!canEditScopeById(activeScopeWindow?.id)) return;
         event.preventDefault();
         event.currentTarget.classList.remove('drag-over');
         const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId || '';
         if (!taskId || !activeScopeWindow) return;
         if (!activeScopeWindow.taskIds.includes(taskId)) return;
         const sourceTask = scopeTaskById.get(taskId);
-        if (sourceTask && sourceTask.status === status) return;
-        handleUpdateStatus(taskId, status);
-        setToastMessage(`Moved to ${status}`);
+        const normalizedStatus = status === TaskStatus.TODO ? TaskStatus.TODO : status;
+        const isSameColumn =
+            sourceTask &&
+            (sourceTask.status === normalizedStatus ||
+                (normalizedStatus === TaskStatus.TODO && sourceTask.status === TaskStatus.BACKLOG));
+        if (!isSameColumn) {
+            handleUpdateStatus(taskId, normalizedStatus);
+        }
+        moveScopeTaskOrder(activeScopeWindow.id, taskId, null, normalizedStatus);
+        setToastMessage(`Moved to ${normalizedStatus}`);
+        finalizeDrag();
     };
 
     const loadBoardsForHuddle = async (tenantId: string) => {
@@ -1796,7 +2204,17 @@ const App: React.FC = () => {
 
     const scopeTaskPool = useMemo(() => {
         if (!activeTenantId) return tasks || [];
-        return scopeTasksByTenant[activeTenantId] || tasksByTenant[activeTenantId] || tasks || [];
+        const fromScope = scopeTasksByTenant[activeTenantId] || [];
+        const fromTasks = tasksByTenant[activeTenantId] || [];
+        if (fromScope.length === 0 && fromTasks.length === 0) return tasks || [];
+        const merged = [...fromScope, ...fromTasks];
+        const seen = new Set<string>();
+        return merged.filter((task) => {
+            if (!task?.id) return false;
+            if (seen.has(task.id)) return false;
+            seen.add(task.id);
+            return true;
+        });
     }, [activeTenantId, scopeTasksByTenant, tasksByTenant, tasks]);
 
     const scopeTaskById = useMemo(() => {
@@ -2452,14 +2870,69 @@ const App: React.FC = () => {
     useEffect(() => {
         if (isTeamModalOpen && activeTenantId) {
             loadTeamMembers(activeTenantId);
+            const activeMembership = memberships.find((membership) => membership.tenantId === activeTenantId);
+            const currentName = activeMembership?.tenant?.name || '';
+            setHuddleRenameInput(currentName);
         }
-    }, [isTeamModalOpen, activeTenantId]);
+    }, [isTeamModalOpen, activeTenantId, memberships]);
 
     useEffect(() => {
-        if (activeTenantId) {
+        if (activeTenantId && session?.access_token) {
             loadMembersForHuddle(activeTenantId);
+            loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
         }
-    }, [activeTenantId]);
+    }, [activeTenantId, memberships, session?.access_token]);
+    useEffect(() => {
+        if (!activeTenantId || !session?.access_token) return;
+        loadTimelineOverridesForTenant(activeTenantId, timelineOverrides);
+    }, [activeTenantId, session?.access_token]);
+    useEffect(() => {
+        if (!activeTenantId || !session?.access_token) return;
+        if (timelineOverrideSyncRef.current.skipNextSave && timelineOverrideSyncRef.current.tenantId === activeTenantId) {
+            timelineOverrideSyncRef.current = { tenantId: activeTenantId, skipNextSave: false };
+            return;
+        }
+        saveTimelineOverridesForTenant(activeTenantId, timelineOverrides);
+    }, [activeTenantId, timelineOverrides, session?.access_token]);
+    useEffect(() => {
+        if (!activeTenantId || !session?.access_token) return;
+        const inboxChannel = supabase
+            .channel(`huddle-inbox-${activeTenantId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'huddle_inbox_items', filter: `tenant_id=eq.${activeTenantId}` },
+                () => {
+                    const snapshot = inboxSnapshotRef.current;
+                    loadInboxForTenant(activeTenantId, snapshot.items, snapshot.statuses);
+                }
+            )
+            .subscribe();
+        const scopesChannel = supabase
+            .channel(`huddle-scopes-${activeTenantId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'huddle_scopes', filter: `tenant_id=eq.${activeTenantId}` },
+                () => {
+                    loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
+                }
+            )
+            .subscribe();
+        const timelineChannel = supabase
+            .channel(`huddle-timeline-${activeTenantId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'huddle_timeline_overrides', filter: `tenant_id=eq.${activeTenantId}` },
+                () => {
+                    loadTimelineOverridesForTenant(activeTenantId, timelineOverridesRef.current);
+                }
+            )
+            .subscribe();
+        return () => {
+            supabase.removeChannel(inboxChannel);
+            supabase.removeChannel(scopesChannel);
+            supabase.removeChannel(timelineChannel);
+        };
+    }, [activeTenantId, session?.access_token]);
 
     useEffect(() => {
         if (newTaskHuddleId) {
@@ -2593,15 +3066,57 @@ const App: React.FC = () => {
         if (!boardId) return 'Tasks';
         return boardLabelById.get(boardId) || (boardId === ALL_BOARD_ID ? 'All tasks' : boardId);
     };
+    const getStatusLabel = (status: TaskStatus | string) => {
+        if (status === TaskStatus.TODO) return 'ToDo';
+        if (status === TaskStatus.IN_PROGRESS) return 'Doing';
+        if (status === TaskStatus.DONE) return 'Done';
+        if (status === TaskStatus.BACKLOG) return 'ToDo';
+        return String(status).replace(/_/g, ' ');
+    };
     const scopeKey = activeTenantId || null;
     const scopeWindows = useMemo(() => {
         if (!scopeKey) return [];
-        return scopeWindowsByBoard[scopeKey] || [];
-    }, [scopeKey, scopeWindowsByBoard]);
+        const raw = scopeWindowsByBoard[scopeKey] || [];
+        const currentUserId = userProfile?.id || session?.user?.id || '';
+        const isTeamAdminForScope = memberships.some(
+            (membership) =>
+                membership.tenantId === scopeKey
+                && (membership.role === 'OWNER' || membership.role === 'ADMIN')
+        );
+        return raw.filter((window) => {
+            if (window.visibility !== 'personal') return true;
+            if (userProfile?.isSuperAdmin || isTeamAdminForScope) return true;
+            if (!window.createdBy) return false;
+            return window.createdBy === currentUserId;
+        });
+    }, [scopeKey, scopeWindowsByBoard, userProfile?.id, userProfile?.isSuperAdmin, session?.user?.id, memberships]);
     const activeScopeWindow = useMemo(() => {
         if (!activeScopeId) return null;
         return scopeWindows.find((window) => window.id === activeScopeId) || null;
     }, [scopeWindows, activeScopeId]);
+    const isTeamAdminForTenant = memberships.some(
+        (membership) =>
+            membership.tenantId === activeTenantId
+            && (membership.role === 'OWNER' || membership.role === 'ADMIN')
+    );
+    const isSuperAdminForTenant = Boolean(userProfile?.isSuperAdmin);
+    const resolveScopeRole = (scopeId: string | null | undefined) => {
+        if (!scopeId) return (isTeamAdminForTenant || isSuperAdminForTenant) ? 'ADMIN' : 'VIEWER';
+        const scope = scopeWindows.find((window) => window.id === scopeId);
+        if (scope?.role) return scope.role;
+        return (isTeamAdminForTenant || isSuperAdminForTenant) ? 'ADMIN' : 'VIEWER';
+    };
+    const canEditScopeById = (scopeId: string | null | undefined) => {
+        const role = resolveScopeRole(scopeId);
+        return isTeamAdminForTenant || isSuperAdminForTenant || role === 'ADMIN' || role === 'MEMBER';
+    };
+    const canManageScopeById = (scopeId: string | null | undefined) => {
+        const role = resolveScopeRole(scopeId);
+        return isTeamAdminForTenant || isSuperAdminForTenant || role === 'ADMIN';
+    };
+    const activeScopeRole = resolveScopeRole(activeScopeWindow?.id);
+    const canManageActiveScope = canManageScopeById(activeScopeWindow?.id);
+    const canEditActiveScopeItems = canEditScopeById(activeScopeWindow?.id);
     const scopeStatuses = useMemo(() => [
         TaskStatus.BACKLOG,
         TaskStatus.TODO,
@@ -2626,6 +3141,84 @@ const App: React.FC = () => {
     const scopeListTasks = useMemo(() => {
         return scopeColumns.flatMap((column) => column.tasks);
     }, [scopeColumns]);
+    const scopeLabelOptions = useMemo(() => {
+        const labelSet = new Set<string>();
+        scopeListTasks.forEach((task) => {
+            (task.kinds || []).forEach((kind) => {
+                const value = String(kind || '').trim();
+                if (value) labelSet.add(value);
+            });
+        });
+        return Array.from(labelSet).sort((a, b) => a.localeCompare(b));
+    }, [scopeListTasks]);
+    const scopeVisibleTasks = useMemo(() => {
+        if (!activeScopeWindow) return [];
+        const scopeUserId = userProfile?.id || session?.user?.id || '';
+        return scopeListTasks.filter((task) => {
+            if (filterFavorites && !task.isFavorite) return false;
+            if (scopeFilterPriority !== 'ALL' && task.priority !== scopeFilterPriority) return false;
+            if (scopeDetailView === 'list' && scopeFilterStatus !== 'ALL' && task.status !== scopeFilterStatus) return false;
+            if (selectedLabelFilters.length > 0) {
+                const taskLabels = (task.kinds || []).map((kind) => String(kind));
+                const hasAny = selectedLabelFilters.some((label) => taskLabels.includes(label));
+                if (!hasAny) return false;
+            }
+            if (quickFilter !== 'ALL') {
+                const due = task.dueDate ? new Date(task.dueDate) : null;
+                if (quickFilter === 'MINE') {
+                    if (!scopeUserId) return false;
+                    const isMine = task.ownerId === scopeUserId || (task.assignees || []).includes(scopeUserId);
+                    if (!isMine) return false;
+                }
+                if (quickFilter === 'OVERDUE') {
+                    if (!due) return false;
+                    if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+                    if (due >= new Date()) return false;
+                }
+                if (quickFilter === 'WEEK') {
+                    if (!due) return false;
+                    const now = new Date();
+                    const end = new Date();
+                    end.setDate(now.getDate() + 7);
+                    if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
+                    if (due < now || due > end) return false;
+                }
+            }
+            const normalizedScopeFilter = filterText.trim().toLowerCase();
+            if (!normalizedScopeFilter) return true;
+            const haystack = [
+                task.title,
+                stripHtml(task.description || ''),
+                task.kinds.join(' ')
+            ]
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(normalizedScopeFilter);
+        });
+    }, [
+        activeScopeWindow,
+        scopeListTasks,
+        filterFavorites,
+        scopeFilterPriority,
+        scopeFilterStatus,
+        selectedLabelFilters,
+        quickFilter,
+        filterText,
+        scopeDetailView,
+        userProfile?.id,
+        session?.user?.id,
+    ]);
+    const scopeBoardColumns = useMemo(() => {
+        const statuses = [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
+        return statuses.map((status) => ({
+            status,
+            tasks: scopeVisibleTasks.filter((task) =>
+                status === TaskStatus.TODO
+                    ? task.status === TaskStatus.TODO || task.status === TaskStatus.BACKLOG
+                    : task.status === status
+            ),
+        }));
+    }, [scopeVisibleTasks]);
     const scopeAvailableTasks = useMemo(() => {
         if (!activeScopeWindow) return [];
         const scopedTaskSet = new Set(activeScopeWindow.taskIds);
@@ -2636,6 +3229,185 @@ const App: React.FC = () => {
         if (!query) return scopeAvailableTasks;
         return scopeAvailableTasks.filter((task) => task.title.toLowerCase().includes(query));
     }, [scopeAvailableTasks, scopePickerQuery]);
+    const getStartOfWeek = (date: Date) => {
+        const day = date.getDay();
+        const diff = (day === 0 ? -6 : 1) - day;
+        const start = new Date(date);
+        start.setDate(date.getDate() + diff);
+        start.setHours(0, 0, 0, 0);
+        return start;
+    };
+    const renderTimeline = (items: TaskView[], emptyLabel: string) => {
+        if (items.length === 0) {
+            return <div className="timeline-empty">{emptyLabel}</div>;
+        }
+        const dates = items.flatMap((task) => {
+            const override = timelineOverrides[task.id];
+            const created = task.createdAt ? new Date(task.createdAt) : null;
+            const overrideDue = override?.date ? new Date(override.date) : null;
+            const taskDue = task.dueDate ? new Date(task.dueDate) : null;
+            const effectiveDue = overrideDue || taskDue;
+            const baseDurationDays = taskDue && created
+                ? Math.max(1, Math.round((taskDue.getTime() - created.getTime()) / 86400000) + 1)
+                : 1;
+            const durationDays = override?.durationDays ?? baseDurationDays;
+            const fallbackDate = created || effectiveDue || new Date();
+            const start = effectiveDue
+                ? new Date(effectiveDue.getTime() - (durationDays - 1) * 86400000)
+                : fallbackDate;
+            const end = start ? new Date(start.getTime() + (durationDays - 1) * 86400000) : null;
+            return [start, end].filter(Boolean) as Date[];
+        });
+        const fallbackStart = getStartOfWeek(new Date());
+        const minDate = dates.length > 0 ? new Date(Math.min(...dates.map((d) => d.getTime()))) : fallbackStart;
+        const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map((d) => d.getTime()))) : fallbackStart;
+        const baseStart = timelineRange === 'auto' ? minDate : new Date();
+        const timelineStart = getStartOfWeek(baseStart);
+        const diffDays = Math.max(1, Math.ceil((maxDate.getTime() - timelineStart.getTime()) / 86400000) + 1);
+        const totalDays = timelineRange === 'auto'
+            ? Math.max(14, Math.min(31, diffDays))
+            : Number(timelineRange);
+        const timelineDays = Array.from({ length: totalDays }, (_, index) => {
+            const next = new Date(timelineStart);
+            next.setDate(timelineStart.getDate() + index);
+            return next;
+        });
+        const dayWidth = 44;
+        const toDayIndex = (date: Date) =>
+            Math.max(0, Math.min(timelineDays.length - 1, Math.floor((date.getTime() - timelineStart.getTime()) / 86400000)));
+        return (
+            <div className="timeline-view">
+                <div className="timeline-grid" style={{ ['--timeline-col' as any]: `${dayWidth}px` }}>
+                    <div className="timeline-shell">
+                        <div className="timeline-left">
+                            <div className="timeline-header-title">Tasks</div>
+                            <div className="timeline-left-rows">
+                                {items.map((task) => (
+                                    <div key={task.id} className="timeline-title">
+                                        {task.title}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="timeline-right">
+                            <div className="timeline-scroll" ref={timelineScrollRef}>
+                                <div className="timeline-header-days" style={{ ['--timeline-days' as any]: timelineDays.length }}>
+                                    {timelineDays.map((day, index) => {
+                                        const isMonthStart = day.getDate() === 1 || index === 0;
+                                        const monthLabel = isMonthStart
+                                            ? new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(day)
+                                            : '';
+                                        const weekday = new Intl.DateTimeFormat('de-DE', { weekday: 'short' }).format(day);
+                                        const dateLabel = String(day.getDate()).padStart(2, '0');
+                                        return (
+                                            <div key={day.toISOString()} className="timeline-day">
+                                                <div className="timeline-day-month">{monthLabel}</div>
+                                                <div className="timeline-day-row">
+                                                    <span className="timeline-day-weekday">{weekday}</span>
+                                                    <span className="timeline-day-date">{dateLabel}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="timeline-rows" style={{ ['--timeline-days' as any]: timelineDays.length }}>
+                                    {items.map((task) => {
+                                        const override = timelineOverrides[task.id];
+                                        const created = task.createdAt ? new Date(task.createdAt) : new Date();
+                                        const overrideDue = override?.date ? new Date(override.date) : null;
+                                        const taskDue = task.dueDate ? new Date(task.dueDate) : null;
+                                        const effectiveDue = overrideDue || taskDue;
+                                        const baseDurationDays = taskDue
+                                            ? Math.max(1, Math.round((taskDue.getTime() - created.getTime()) / 86400000) + 1)
+                                            : 1;
+                                        const durationDays = override?.durationDays ?? baseDurationDays;
+                                        const start = new Date((effectiveDue || created).getTime() - (durationDays - 1) * 86400000);
+                                        const startIndex = toDayIndex(start);
+                                        let span = Math.max(1, durationDays);
+                                        let dragOffset = timelineDragTaskId === task.id ? timelineDragOffsetDays : 0;
+                                        let leftIndex = startIndex;
+                                        if (timelineDragTaskId === task.id) {
+                                            if (timelineDragMode === 'resize-end') {
+                                                span = Math.max(1, durationDays + timelineDragOffsetDays);
+                                                dragOffset = 0;
+                                            } else if (timelineDragMode === 'resize-start') {
+                                                span = Math.max(1, durationDays - timelineDragOffsetDays);
+                                                leftIndex = startIndex + timelineDragOffsetDays;
+                                                dragOffset = 0;
+                                            }
+                                        }
+                                        const barStyle = {
+                                            left: `calc(${leftIndex + dragOffset} * var(--timeline-col))`,
+                                            width: `calc(${span} * var(--timeline-col))`,
+                                        } as React.CSSProperties;
+                                        return (
+                                            <div key={task.id} className="timeline-track">
+                                                <div
+                                                    className={`timeline-bar priority-${task.priority.toLowerCase()}${timelineDragTaskId === task.id ? ' dragging' : ''}`}
+                                                    style={barStyle}
+                                                    onMouseDown={(event) => {
+                                                        if (task.sourceType && task.sourceType !== 'MANUAL') return;
+                                                        event.preventDefault();
+                                                        setTimelineDragTaskId(task.id);
+                                                        setTimelineDragOriginX(event.clientX);
+                                                        setTimelineDragOriginDate(effectiveDue || created);
+                                                        setTimelineDragOriginStart(start);
+                                                        setTimelineDragOriginDuration(durationDays);
+                                                        setTimelineDragOriginScroll(timelineScrollRef.current?.scrollLeft || 0);
+                                                        setTimelineDragOffsetDays(0);
+                                                        setTimelineDragIsPoint(false);
+                                                        setTimelineDragDurationDays(durationDays);
+                                                        setTimelineDragMode('move');
+                                                    }}
+                                                >
+                                                    <div
+                                                        className="timeline-resize-handle left"
+                                                        onMouseDown={(event) => {
+                                                            if (task.sourceType && task.sourceType !== 'MANUAL') return;
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            setTimelineDragTaskId(task.id);
+                                                            setTimelineDragOriginX(event.clientX);
+                                                            setTimelineDragOriginDate(effectiveDue || created);
+                                                            setTimelineDragOriginStart(start);
+                                                            setTimelineDragOriginDuration(durationDays);
+                                                            setTimelineDragOriginScroll(timelineScrollRef.current?.scrollLeft || 0);
+                                                            setTimelineDragOffsetDays(0);
+                                                            setTimelineDragIsPoint(false);
+                                                            setTimelineDragDurationDays(durationDays);
+                                                            setTimelineDragMode('resize-start');
+                                                        }}
+                                                    />
+                                                    <div
+                                                        className="timeline-resize-handle right"
+                                                        onMouseDown={(event) => {
+                                                            if (task.sourceType && task.sourceType !== 'MANUAL') return;
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            setTimelineDragTaskId(task.id);
+                                                            setTimelineDragOriginX(event.clientX);
+                                                            setTimelineDragOriginDate(effectiveDue || created);
+                                                            setTimelineDragOriginStart(start);
+                                                            setTimelineDragOriginDuration(durationDays);
+                                                            setTimelineDragOriginScroll(timelineScrollRef.current?.scrollLeft || 0);
+                                                            setTimelineDragOffsetDays(0);
+                                                            setTimelineDragIsPoint(false);
+                                                            setTimelineDragDurationDays(durationDays);
+                                                            setTimelineDragMode('resize-end');
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
     useEffect(() => {
         if (!activeTenantId) {
             setActiveScopeId(null);
@@ -2694,13 +3466,22 @@ const App: React.FC = () => {
             description: activeScopeWindow.description || '',
             startDate: activeScopeWindow.startDate || '',
             endDate: activeScopeWindow.endDate || '',
+            visibility: activeScopeWindow.visibility === 'personal' ? 'personal' : 'shared',
+            members: (activeScopeWindow.members || []).map((member) => ({
+                userId: member.userId,
+                role: member.role,
+            })),
         });
+        setScopeMemberPickerId('');
+        setScopeMemberPickerRole('MEMBER');
     }, [isScopeSettingsOpen, activeScopeWindow]);
     const updateScopeWindows = (updater: (prev: ScopeWindow[]) => ScopeWindow[]) => {
         if (!scopeKey) return;
         setScopeWindowsByBoard((prev) => {
             const current = prev[scopeKey] || [];
             const next = updater(current);
+            // Persist immediately so scope taskIds are saved even if effects are skipped.
+            saveScopesForTenant(scopeKey, next);
             return { ...prev, [scopeKey]: next };
         });
     };
@@ -2737,6 +3518,8 @@ const App: React.FC = () => {
                         description: scopeSettingsDraft.description.trim() || null,
                         startDate: scopeSettingsDraft.startDate || null,
                         endDate: scopeSettingsDraft.endDate || null,
+                        visibility: scopeSettingsDraft.visibility,
+                        members: scopeSettingsDraft.members,
                     }
                     : window
             )
@@ -2972,6 +3755,17 @@ const App: React.FC = () => {
         };
     }, [memberships, activeTenantId]);
     const isActiveHuddleOwner = activeMembership?.role === 'OWNER' || activeMembership?.role === 'ADMIN';
+    const isSuperAdmin = Boolean(userProfile?.isSuperAdmin);
+    useEffect(() => {
+        if (!activeTenantId) return;
+        const scopes = scopeWindowsByBoard[activeTenantId];
+        if (!scopes) return;
+        if (scopeSyncRef.current.skipNextSave && scopeSyncRef.current.tenantId === activeTenantId) {
+            scopeSyncRef.current = { tenantId: activeTenantId, skipNextSave: false };
+            return;
+        }
+        saveScopesForTenant(activeTenantId, scopes);
+    }, [activeTenantId, scopeWindowsByBoard]);
     const allTasks = useMemo(() => {
         if (activeTenantId && tasksByTenant[activeTenantId]) {
             return tasksByTenant[activeTenantId] || [];
@@ -3106,13 +3900,32 @@ const App: React.FC = () => {
     const notificationSnapshotRef = useRef<Record<string, any>>({});
     const initializedHuddlesRef = useRef<Set<string>>(new Set());
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
-    const currentUserId = userProfile?.id || '';
+    const currentUserId = userProfile?.id || session?.user?.id || '';
+    const inboxItems = useMemo(() => {
+        const currentLabel = String(userProfile?.email || session?.user?.email || '');
+        const filteredCustom = activeTenantId
+            ? inboxCustomItems.filter((item) => !item.tenantId || item.tenantId === activeTenantId)
+            : inboxCustomItems;
+        return filteredCustom.filter((item) => {
+            if (!currentUserId) return false;
+            if (item.creatorId) return item.creatorId === currentUserId;
+            return item.creatorLabel ? item.creatorLabel === currentLabel : false;
+        });
+    }, [inboxCustomItems, activeTenantId, currentUserId, userProfile?.email, session?.user?.email]);
+    const inboxCounts = useMemo(() => {
+        const counts: Record<InboxStatus, number> = {
+            eingang: 0,
+            spaeter: 0,
+            bearbeitet: 0,
+            archiv: 0,
+        };
+        inboxItems.forEach((item) => {
+            const status = inboxItemStatuses[item.id] || 'eingang';
+            counts[status] += 1;
+        });
+        return counts;
+    }, [inboxItems, inboxItemStatuses]);
     const currentUserToken = (userProfile?.email || '').toLowerCase();
-    const resolveTaskCreatorId = (task: TaskView, fallbackId: string) => {
-        const createEntry = task.activityLog.find((entry) => entry.type === 'CREATE');
-        if (createEntry?.actorId) return createEntry.actorId;
-        return task.ownerId || fallbackId || '';
-    };
     const unreadCount = notifications.filter((item) => !item.read).length;
     const handleNotificationClick = (item: { id: string; taskId?: string; tenantId?: string }) => {
         setNotifications((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, read: true } : entry)));
@@ -3324,8 +4137,120 @@ const App: React.FC = () => {
         }
     };
 
+    async function loadScopesForTenant(tenantId: string, localFallback: ScopeWindow[] = []) {
+        try {
+            if (!session?.access_token) return;
+            if (scopesFetchInFlightRef.current[tenantId]) return;
+            scopesFetchInFlightRef.current[tenantId] = true;
+            scopeSyncRef.current = { tenantId, skipNextSave: true };
+            const res = await fetch(`${API_BASE}/teams/${tenantId}/scopes`, {
+                headers: getApiHeaders(true, tenantId),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const scopes = Array.isArray(data?.scopes)
+                ? data.scopes.map((scope: ScopeWindow) => ({
+                    ...scope,
+                    visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
+                    createdBy: scope.createdBy || null,
+                    role: scope.role || 'VIEWER',
+                    members: Array.isArray(scope.members)
+                        ? scope.members.map((member) => ({
+                            userId: member.userId,
+                            role: member.role === 'ADMIN' || member.role === 'MEMBER' ? member.role : 'VIEWER',
+                        }))
+                        : [],
+                }))
+                : [];
+            if (
+                scopes.length === 0
+                && localFallback.length > 0
+                && (isActiveHuddleOwner || isSuperAdmin)
+            ) {
+                await saveScopesForTenant(tenantId, localFallback);
+                scopeSyncRef.current = { tenantId, skipNextSave: true };
+                setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: localFallback }));
+                return;
+            }
+            setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: scopes }));
+        } catch {
+            // ignore
+        } finally {
+            scopesFetchInFlightRef.current[tenantId] = false;
+        }
+    }
+
+    const resolveLocalScopeFallback = (tenantId: string) => {
+        const direct = scopeWindowsByBoard[tenantId] || [];
+        if (direct.length > 0) return direct;
+        if (!memberships || memberships.length !== 1) return [];
+        const tenantIds = new Set(memberships.map((membership) => membership.tenantId));
+        const legacyScopes = Object.entries(scopeWindowsByBoard)
+            .filter(([key]) => !tenantIds.has(key))
+            .flatMap(([, scopes]) => scopes);
+        if (legacyScopes.length > 0) {
+            setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: legacyScopes }));
+        }
+        return legacyScopes;
+    };
+
+    async function saveScopesForTenant(tenantId: string, scopes: ScopeWindow[]) {
+        try {
+            if (!session?.access_token) return;
+            await fetch(`${API_BASE}/teams/${tenantId}/scopes`, {
+                method: 'PUT',
+                headers: getApiHeaders(true, tenantId),
+                body: JSON.stringify({
+                    scopes: scopes.map((scope) => ({
+                        ...scope,
+                        visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
+                        createdBy: scope.createdBy || null,
+                        members: Array.isArray(scope.members) ? scope.members : [],
+                    })),
+                }),
+            });
+        } catch {
+            // ignore
+        }
+    }
+
+    const handleRenameHuddle = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeTenantId) return;
+        const nextName = huddleRenameInput.trim();
+        if (!nextName) return;
+        setTeamError(null);
+        setHuddleRenameSaving(true);
+        try {
+            const res = await fetch(`${API_BASE}/teams/${activeTenantId}`, {
+                method: 'PATCH',
+                headers: getApiHeaders(true),
+                body: JSON.stringify({ name: nextName }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to rename huddle');
+            }
+            const updated = await res.json();
+            setMemberships((prev) =>
+                prev.map((membership) =>
+                    membership.tenantId === activeTenantId
+                        ? { ...membership, tenant: { ...(membership.tenant || {}), name: updated.name } }
+                        : membership
+                )
+            );
+            setToastMessage('Huddle renamed');
+        } catch (err: any) {
+            setTeamError(err.message);
+        } finally {
+            setHuddleRenameSaving(false);
+        }
+    };
+
     const loadMembersForHuddle = async (tenantId: string | null | undefined) => {
         if (!tenantId || huddleMembersByTenant[tenantId] || !session?.access_token) return;
+        if (membersFetchInFlightRef.current[tenantId]) return;
+        membersFetchInFlightRef.current[tenantId] = true;
         try {
             const res = await fetch(`${API_BASE}/teams/${tenantId}/members`, { headers: getApiHeaders(false) });
             if (!res.ok) throw new Error('Failed to load members');
@@ -3333,6 +4258,8 @@ const App: React.FC = () => {
             setHuddleMembersByTenant((prev) => ({ ...prev, [tenantId]: data }));
         } catch (err: any) {
             setTeamError(err.message);
+        } finally {
+            membersFetchInFlightRef.current[tenantId] = false;
         }
     };
 
@@ -3390,6 +4317,10 @@ const App: React.FC = () => {
             const data = await res.json();
             setUserProfile(data.user);
             setSettingsDraft(buildSettingsDraft(data.user));
+            if (activeTenantId) {
+                loadTeamMembers(activeTenantId);
+                loadInboxForTenant(activeTenantId, inboxCustomItems, inboxItemStatuses);
+            }
             setToastMessage('Settings saved');
         } catch (err: any) {
             setToastMessage(err.message);
@@ -3807,17 +4738,16 @@ const App: React.FC = () => {
         : tasks.filter((task) => task.status !== TaskStatus.ARCHIVED);
     const filteredTasks = baseBoardTasks.filter(matchesFilter);
     const visibleTasksForView = filteredTasks;
-    const syntheticKanbanColumns = useMemo(() => {
-        if (!isSpecialBoard) return [];
-        const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
-        return statuses.map((status) => ({
-            status,
-            tasks: baseBoardTasks.filter((task) => task.status === status),
-        }));
-    }, [baseBoardTasks, isSpecialBoard]);
     const kanbanColumns = isArchivedBoard
         ? [{ status: TaskStatus.ARCHIVED, tasks: visibleTasksForView }]
-        : (isSpecialBoard ? syntheticKanbanColumns : (board?.columns || []));
+        : [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE].map((status) => ({
+            status,
+            tasks: baseBoardTasks.filter((task) =>
+                status === TaskStatus.TODO
+                    ? task.status === TaskStatus.TODO || task.status === TaskStatus.BACKLOG
+                    : task.status === status
+            ),
+        }));
     const linkedToSet = new Set(tasks.flatMap((task) => task.linkedTaskIds));
     const normalizedSearch = filterText.trim().toLowerCase();
     const searchPool = normalizedSearch
@@ -3978,7 +4908,40 @@ const App: React.FC = () => {
         }
     };
 
+    const updateTaskStatusLocal = (taskId: string, newStatus: TaskStatus) => {
+        setTasks((prev) =>
+            prev.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task))
+        );
+        if (activeTenantId) {
+            setTasksByTenant((prev) => {
+                const list = prev[activeTenantId];
+                if (!list) return prev;
+                return {
+                    ...prev,
+                    [activeTenantId]: list.map((task) =>
+                        task.id === taskId ? { ...task, status: newStatus } : task
+                    ),
+                };
+            });
+            setScopeTasksByTenant((prev) => {
+                const list = prev[activeTenantId];
+                if (!list) return prev;
+                return {
+                    ...prev,
+                    [activeTenantId]: list.map((task) =>
+                        task.id === taskId ? { ...task, status: newStatus } : task
+                    ),
+                };
+            });
+        }
+    };
+
     const handleUpdateStatus = async (taskId: string, newStatus: TaskStatus) => {
+        const currentTask = tasks.find((task) => task.id === taskId);
+        const previousStatus = currentTask?.status;
+        if (previousStatus && previousStatus !== newStatus) {
+            updateTaskStatusLocal(taskId, newStatus);
+        }
         try {
             const res = await fetch(`${API_BASE}/commands/task/update-status`, {
                 method: 'POST',
@@ -3990,20 +4953,10 @@ const App: React.FC = () => {
                 const err = await res.json();
                 throw new Error(err.error || 'Failed to update status');
             }
-
-            fetchData();
-            if (view === 'scope' && activeTenantId) {
-                try {
-                    const scopeRes = await fetch(`${API_BASE}/tasks?boardId=all`, { headers: getApiHeaders(true, activeTenantId) });
-                    if (scopeRes.ok) {
-                        const data = await scopeRes.json();
-                        setScopeTasksByTenant((prev) => ({ ...prev, [activeTenantId]: data }));
-                    }
-                } catch {
-                    // ignore scope refresh errors
-                }
-            }
         } catch (e: any) {
+            if (previousStatus && previousStatus !== newStatus) {
+                updateTaskStatusLocal(taskId, previousStatus);
+            }
             alert(e.message);
         }
     };
@@ -4150,6 +5103,9 @@ const App: React.FC = () => {
             } else if (inboxCaptureOpen) {
                 setInboxCaptureOpen(false);
                 handled = true;
+            } else if (inboxPriorityOpen) {
+                setInboxPriorityOpen(false);
+                handled = true;
             } else if (isModalOpen) {
                 closeCreateTaskModal();
                 handled = true;
@@ -4201,6 +5157,9 @@ const App: React.FC = () => {
             } else if (isQuickPinsOpen) {
                 setIsQuickPinsOpen(false);
                 handled = true;
+            } else if (inboxScopeMenuId) {
+                setInboxScopeMenuId(null);
+                handled = true;
             } else if (scopePickerOpenId) {
                 setScopePickerOpenId(null);
                 handled = true;
@@ -4221,6 +5180,9 @@ const App: React.FC = () => {
                 handled = true;
             } else if (openMemberDropdownId) {
                 setOpenMemberDropdownId(null);
+                handled = true;
+            } else if (timelineRangeOpen) {
+                setTimelineRangeOpen(false);
                 handled = true;
             }
 
@@ -4259,6 +5221,9 @@ const App: React.FC = () => {
         scopeStatusFilterOpen,
         priorityFilterOpen,
         statusFilterOpen,
+        inboxPriorityOpen,
+        timelineRangeOpen,
+        inboxScopeMenuId,
         inboxSourceOpen,
         inboxActionOpen,
         closeCreateTaskModal,
@@ -4306,6 +5271,147 @@ const App: React.FC = () => {
         });
         return true;
     };
+
+    const updateTaskDueDateLocal = (tenantId: string, taskId: string, dueDate: string | null) => {
+        const nextDueDate = dueDate || null;
+        setTasksByTenant((prev) => {
+            const tenantTasks = prev[tenantId];
+            if (!tenantTasks) return prev;
+            return {
+                ...prev,
+                [tenantId]: tenantTasks.map((item) =>
+                    item.id === taskId ? { ...item, dueDate: nextDueDate } : item
+                ),
+            };
+        });
+        setScopeTasksByTenant((prev) => {
+            const tenantTasks = prev[tenantId];
+            if (!tenantTasks) return prev;
+            return {
+                ...prev,
+                [tenantId]: tenantTasks.map((item) =>
+                    item.id === taskId ? { ...item, dueDate: nextDueDate } : item
+                ),
+            };
+        });
+        setTasks((prev) =>
+            prev.map((item) => (item.id === taskId ? { ...item, dueDate: nextDueDate } : item))
+        );
+    };
+
+    useEffect(() => {
+        if (!timelineDragTaskId || !timelineDragOriginDate) return;
+        const dayWidth = 44;
+        const handleMove = (event: MouseEvent) => {
+            const scrollDelta =
+                (timelineScrollRef.current?.scrollLeft || 0) - timelineDragOriginScroll;
+            const deltaX = event.clientX - timelineDragOriginX + scrollDelta;
+            const offset = Math.round(deltaX / dayWidth);
+            setTimelineDragOffsetDays(offset);
+        };
+        const handleUp = async () => {
+            const task = taskById.get(timelineDragTaskId);
+            if (!task || !timelineDragOriginDate) {
+                setTimelineDragTaskId(null);
+                setTimelineDragOffsetDays(0);
+                return;
+            }
+            if (timelineDragOffsetDays !== 0) {
+                let nextDate = new Date(timelineDragOriginDate);
+                let nextDuration = timelineDragDurationDays;
+                if (!timelineDragIsPoint) {
+                    const originStart = timelineDragOriginStart || new Date(timelineDragOriginDate);
+                    const originDuration = timelineDragOriginDuration || timelineDragDurationDays;
+                    if (timelineDragMode === 'resize-end') {
+                        nextDuration = Math.max(1, originDuration + timelineDragOffsetDays);
+                        nextDate = new Date(originStart);
+                        nextDate.setDate(nextDate.getDate() + nextDuration - 1);
+                    } else if (timelineDragMode === 'resize-start') {
+                        nextDuration = Math.max(1, originDuration - timelineDragOffsetDays);
+                        nextDate = new Date(originStart);
+                        nextDate.setDate(nextDate.getDate() + originDuration - 1);
+                    } else {
+                        nextDate = new Date(timelineDragOriginDate);
+                        nextDate.setDate(nextDate.getDate() + timelineDragOffsetDays);
+                    }
+                } else {
+                    nextDate = new Date(timelineDragOriginDate);
+                    nextDate.setDate(nextDate.getDate() + timelineDragOffsetDays);
+                }
+                setTimelineOverrides((prev) => ({
+                    ...prev,
+                    [task.id]: {
+                        date: nextDate.toISOString(),
+                        isPoint: timelineDragIsPoint,
+                        durationDays: timelineDragIsPoint ? undefined : nextDuration,
+                    },
+                }));
+                const previousDueDate = task.dueDate || null;
+                const nextDueDate = nextDate.toISOString();
+                updateTaskDueDateLocal(task.tenantId, task.id, nextDueDate);
+                requestAnimationFrame(() => {
+                    setTimelineDragTaskId(null);
+                    setTimelineDragOffsetDays(0);
+                    setTimelineDragIsPoint(false);
+                    setTimelineDragDurationDays(1);
+                    setTimelineDragMode('move');
+                    setTimelineDragOriginStart(null);
+                    setTimelineDragOriginDuration(1);
+                });
+                try {
+                    const res = await fetch(`${API_BASE}/commands/task/update-details`, {
+                        method: 'POST',
+                        headers: getApiHeaders(true, task.tenantId),
+                        body: JSON.stringify({
+                            taskId: task.id,
+                            title: task.title,
+                            description: task.description,
+                            dueDate: nextDueDate,
+                        }),
+                    });
+                    if (!res.ok) {
+                        let message = 'Failed to update task';
+                        try {
+                            const err = await res.json();
+                            message = err?.error || message;
+                        } catch {
+                            // ignore
+                        }
+                        throw new Error(message);
+                    }
+                } catch (e: any) {
+                    updateTaskDueDateLocal(task.tenantId, task.id, previousDueDate);
+                    alert(e.message || 'Failed to update task');
+                }
+            } else {
+                setTimelineDragTaskId(null);
+                setTimelineDragOffsetDays(0);
+                setTimelineDragIsPoint(false);
+                setTimelineDragDurationDays(1);
+                setTimelineDragMode('move');
+                setTimelineDragOriginStart(null);
+                setTimelineDragOriginDuration(1);
+            }
+        };
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleUp, { once: true });
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleUp);
+        };
+    }, [
+        timelineDragTaskId,
+        timelineDragOriginDate,
+        timelineDragOriginX,
+        timelineDragOriginScroll,
+        timelineDragOffsetDays,
+        timelineDragIsPoint,
+        timelineDragDurationDays,
+        timelineDragMode,
+        timelineDragOriginStart,
+        timelineDragOriginDuration,
+        taskById,
+    ]);
 
     const handleNewKindAdd = () => {
         if (addKindValue(newKindInput, setNewTaskKinds)) {
@@ -4584,6 +5690,14 @@ const App: React.FC = () => {
         setIsDragging(true);
     };
 
+    const finalizeDrag = () => {
+        setDraggingTaskId(null);
+        lastDragTargetRef.current = null;
+        scopeDragTargetRef.current = null;
+        setScopeDropTargetId(null);
+        setTimeout(() => setIsDragging(false), 200);
+    };
+
     const onDragEnd = (e: React.DragEvent) => {
         document.querySelectorAll('.task-card.drag-over-card').forEach((el) => {
             el.classList.remove('drag-over-card');
@@ -4591,10 +5705,7 @@ const App: React.FC = () => {
         document.querySelectorAll('.kanban-column.drag-over').forEach((el) => {
             el.classList.remove('drag-over');
         });
-        setDraggingTaskId(null);
-        lastDragTargetRef.current = null;
-        setScopeDropTargetId(null);
-        setTimeout(() => setIsDragging(false), 200);
+        finalizeDrag();
     };
 
     const onDragOver = (e: React.DragEvent) => {
@@ -4631,6 +5742,7 @@ const App: React.FC = () => {
             if (targetId) {
                 moveTaskOrder(activeTenantId, activeBoardId, status, taskId, targetId);
             }
+            finalizeDrag();
             return;
         }
 
@@ -4641,6 +5753,7 @@ const App: React.FC = () => {
             persistOrder(activeTenantId, activeBoardId, next);
             return next;
         });
+        finalizeDrag();
     };
 
     const moveTaskOrder = (tenantId: string, boardId: string | null, status: TaskStatus, taskId: string, targetId: string | null) => {
@@ -4689,6 +5802,7 @@ const App: React.FC = () => {
     const onCardDrop = (e: React.DragEvent, status: TaskStatus, targetId: string) => {
         e.preventDefault();
         e.currentTarget.classList.remove('drag-over-card');
+        finalizeDrag();
     };
 
     if (!session) {
@@ -5196,6 +6310,15 @@ const App: React.FC = () => {
                                         </button>
                                     );
                                 })}
+                                <button
+                                    className="sidebar-huddle-item sidebar-huddle-settings"
+                                    onClick={() => {
+                                        setIsTeamModalOpen(true);
+                                        setIsHuddleMenuOpen(false);
+                                    }}
+                                >
+                                    <span className="sidebar-huddle-name">Huddle settings</span>
+                                </button>
                             </div>
                         )}
                     </div>
@@ -5493,7 +6616,7 @@ const App: React.FC = () => {
                         )}
                     </div>
                     <div
-                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'timeline' || view === 'scope' ? ' page-heading-dark' : ''}`}
+                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'timeline' ? ' page-heading-dark' : ''}`}
                     >
                         {!(view === 'okr' && okrScreen === 'objective') && (
                         <div className="page-heading-row">
@@ -5529,44 +6652,6 @@ const App: React.FC = () => {
                                         </button>
                                     )}
                                 </h1>
-                                {(view === 'kanban' || view === 'table' || view === 'timeline' || view === 'scope' || view === 'okr') && (
-                                    <div className="page-heading-meta">
-                                        <span className="page-heading-meta-label">{activeHuddleName || 'Huddle'}</span>
-                                        {view === 'kanban' || view === 'table' || view === 'timeline' ? (
-                                            <>
-                                                <span className="page-heading-dot">•</span>
-                                                <span className="page-heading-meta-label">
-                                                    {view === 'table' ? 'List view' : view === 'timeline' ? 'Timeline view' : 'Board view'}
-                                                </span>
-                                            </>
-                                        ) : null}
-                                        {view === 'okr' && (
-                                            <>
-                                                <span className="page-heading-dot">•</span>
-                                                <span className="page-heading-meta-label">Goals</span>
-                                            </>
-                                        )}
-                                        {view === 'scope' && (
-                                            <>
-                                                <span className="page-heading-dot">•</span>
-                                                <span className="page-heading-meta-label">Scope</span>
-                                                {scopeScreen === 'detail' && activeScopeWindow && (
-                                                    <>
-                                                        <span className="page-heading-dot">•</span>
-                                                        <span className="page-heading-meta-label">{getScopeDateLabel(activeScopeWindow)}</span>
-                                                        <span className="page-heading-dot">•</span>
-                                                        <span className="page-heading-meta-label">
-                                                            {activeScopeWindow.taskIds.length} tasks
-                                                        </span>
-                                                    </>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                                {view === 'scope' && scopeScreen === 'detail' && activeScopeWindow?.description && (
-                                    <div className="page-heading-description">{activeScopeWindow.description}</div>
-                                )}
                             </div>
                             {(view === 'kanban' || view === 'table' || view === 'timeline' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow) || (view === 'scope' && scopeScreen === 'list')) && (
                                 <div className="page-heading-actions">
@@ -5616,44 +6701,21 @@ const App: React.FC = () => {
                                             </button>
                                         </>
                                     )}
-                                    {view === 'scope' && scopeScreen === 'list' && (
-                                        <button
-                                            className="icon-action create"
-                                            disabled={!activeTenantId}
-                                            onClick={() => setIsScopeCreateOpen(true)}
-                                            data-tooltip="Scope Window erstellen"
-                                            aria-label="Scope Window erstellen"
-                                        >
-                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                                <path d="M12 5v14" />
-                                                <path d="M5 12h14" />
-                                            </svg>
-                                        </button>
-                                    )}
                                     {view === 'scope' && scopeScreen === 'detail' && activeScopeWindow && (
                                         <>
-                                            <button
-                                                className="icon-action settings"
-                                                onClick={() => setIsScopeSettingsOpen(true)}
-                                                data-tooltip="Scope Window settings"
-                                                aria-label="Scope Window settings"
-                                            >
-                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                    <circle cx="12" cy="12" r="3.5" />
-                                                    <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
-                                                </svg>
-                                            </button>
-                                            <button
-                                                className="icon-action create"
-                                                onClick={() => {
-                                                    setScopePickerQuery('');
-                                                    setScopePickerOpenId((prev) => (prev === activeScopeWindow.id ? null : activeScopeWindow.id));
-                                                }}
-                                                data-tooltip="Task zum Scope hinzufügen"
-                                                aria-label="Task zum Scope hinzufügen"
-                                            >
-                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-                                            </button>
+                                            {canManageActiveScope && (
+                                                <button
+                                                    className="icon-action settings"
+                                                    onClick={() => setIsScopeSettingsOpen(true)}
+                                                    data-tooltip="Scope Window settings"
+                                                    aria-label="Scope Window settings"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                        <circle cx="12" cy="12" r="3.5" />
+                                                        <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
+                                                    </svg>
+                                                </button>
+                                            )}
                                         </>
                                     )}
                                 </div>
@@ -5674,8 +6736,8 @@ const App: React.FC = () => {
                             }}
                         >
                             {[
-                                { key: 'eingang', label: 'Eingang' },
-                                { key: 'spaeter', label: 'Später' },
+                                { key: 'eingang', label: 'Eingang', count: inboxCounts.eingang },
+                                { key: 'spaeter', label: 'Später', count: inboxCounts.spaeter },
                                 { key: 'bearbeitet', label: 'Bearbeitet' },
                                 { key: 'archiv', label: 'Archiviert' }
                             ].map((tab) => (
@@ -5687,7 +6749,12 @@ const App: React.FC = () => {
                                     role="tab"
                                     aria-selected={inboxView === tab.key}
                                 >
-                                    {tab.label}
+                                    <span>{tab.label}</span>
+                                    {'count' in tab && typeof tab.count === 'number' && tab.count > 0 && (
+                                        <span className="view-pill-badge" aria-hidden="true">
+                                            {tab.count}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -6009,7 +7076,7 @@ const App: React.FC = () => {
                                                 >
                                                     <option value="BACKLOG">Backlog</option>
                                                     <option value="TODO">Todo</option>
-                                                    <option value="IN_PROGRESS">In progress</option>
+                                                    <option value="IN_PROGRESS">Doing</option>
                                                     <option value="DONE">Done</option>
                                                 </select>
                                             </label>
@@ -7211,334 +8278,236 @@ const App: React.FC = () => {
             )}
                     </div>
                     )
-                ) : view === 'scope' ? (
-                    <div className="scope-view">
+                
+
+) : view === 'scope' ? (
+                    <div className="dashboard-panel">
                         {!activeTenantId ? (
                             <div className="empty-state">Select a huddle to build a scope window.</div>
-                        ) : (
+                        ) : scopeScreen === 'detail' && activeScopeWindow ? (
                             <>
-                                <div className="scope-tabs">
-                                    {[
-                                        { key: 'current', label: 'Current' },
-                                        { key: 'review', label: 'Review' },
-                                        { key: 'history', label: 'History' },
-                                    ].map((tab) => (
+                                <div className="filter-bar">
+                                    <div
+                                        className="view-switch"
+                                        role="tablist"
+                                        aria-label="View switcher"
+                                        style={{
+                                            ['--active-index' as any]:
+                                                scopeDetailView === 'board' ? 1 : scopeDetailView === 'timeline' ? 2 : 0,
+                                            ['--segment-count' as any]: 3,
+                                        }}
+                                    >
                                         <button
-                                            key={tab.key}
-                                            type="button"
-                                            className={`scope-tab${scopeTab === tab.key ? ' active' : ''}`}
-                                            onClick={() => setScopeTab(tab.key as any)}
+                                            className={`view-pill ${scopeDetailView === 'list' ? 'active' : ''}`}
+                                            onClick={() => setScopeDetailView('list')}
+                                            role="tab"
+                                            aria-selected={scopeDetailView === 'list'}
                                         >
-                                            {tab.label}
+                                            List
                                         </button>
-                                    ))}
-                                </div>
-                                {scopeTab !== 'current' ? (
-                                    <div className="scope-empty">{scopeTab === 'review' ? 'Review coming soon.' : 'History coming soon.'}</div>
-                                ) : scopeScreen === 'list' ? (
-                            <>
-                                {scopeWindows.length === 0 ? (
-                                    <div className="scope-empty">No scope windows yet. Create one to start grouping tasks.</div>
-                                ) : (
-                                    <div className="scope-window-grid">
-                                        {scopeWindows.map((scopeWindow) => (
-                                            <div
-                                                key={scopeWindow.id}
-                                                className={`scope-window-card ui-card${activeScopeId === scopeWindow.id ? ' active' : ''}`}
-                                                onClick={() => openScopeDetail(scopeWindow.id)}
-                                                role="button"
-                                                tabIndex={0}
-                                                onKeyDown={(event) => {
-                                                    if (event.key === 'Enter' || event.key === ' ') {
-                                                        event.preventDefault();
-                                                        openScopeDetail(scopeWindow.id);
-                                                    }
-                                                }}
-                                            >
-                                                <div className="scope-window-header ui-card-header">
-                                                    <div>
-                                                        <div className="scope-window-title">{scopeWindow.name}</div>
-                                                        <div className="scope-window-meta">
-                                                            {getScopeDateLabel(scopeWindow)} · {scopeWindow.taskIds.length} tasks
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        className="icon-action delete"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            handleScopeDelete(scopeWindow.id);
-                                                        }}
-                                                        data-tooltip="Scope Window löschen"
-                                                        aria-label="Scope Window löschen"
-                                                    >
-                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                                            <path d="M6 6l12 12" />
-                                                            <path d="M18 6L6 18" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                                <div className="scope-window-body ui-card-body">
-                                                    {(() => {
-                                                        const scopedTasks = scopeWindow.taskIds
-                                                            .map((taskId) => scopeTaskById.get(taskId))
-                                                            .filter((task): task is TaskView => Boolean(task));
-                                                        const total = scopedTasks.length;
-                                                        const doneCount = scopedTasks.filter((task) => task.status === TaskStatus.DONE).length;
-                                                        const overdueCount = scopedTasks.filter((task) => {
-                                                            if (!task.dueDate) return false;
-                                                            if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
-                                                            return new Date(task.dueDate) < new Date();
-                                                        }).length;
-                                                        const progress = total ? Math.round((doneCount / total) * 100) : 0;
-                                                        const health = overdueCount > 0 ? 'overdue' : progress >= 80 ? 'good' : progress >= 50 ? 'ok' : 'risk';
-                                                        const healthLabel =
-                                                            health === 'overdue' ? 'Overdue' : health === 'good' ? 'On track' : health === 'ok' ? 'At risk' : 'Needs focus';
-                                                        return (
-                                                            <div className={`scope-window-health health-${health}`}>
-                                                                <div className="scope-window-progress">
-                                                                    <div className="scope-window-progress-bar">
-                                                                        <span style={{ width: `${progress}%` }} />
-                                                                    </div>
-                                                                    <span className="scope-window-progress-label">{progress}% done</span>
-                                                                </div>
-                                                                <div className="scope-window-health-row">
-                                                                    <span className={`scope-window-health-pill ${health}`}>{healthLabel}</span>
-                                                                    <span className="scope-window-overdue">
-                                                                        {overdueCount} overdue
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                    {scopeWindow.description && (
-                                                        <div className="scope-window-description">{scopeWindow.description}</div>
-                                                    )}
-                                                    <div className="scope-window-actions">
-                                                        <button
-                                                            className="btn btn-ghost btn-compact"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                openScopeDetail(scopeWindow.id);
-                                                            }}
-                                                        >
-                                                            Open tasks
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                        <button
+                                            className={`view-pill ${scopeDetailView === 'board' ? 'active' : ''}`}
+                                            onClick={() => setScopeDetailView('board')}
+                                            role="tab"
+                                            aria-selected={scopeDetailView === 'board'}
+                                        >
+                                            Board
+                                        </button>
+                                        <button
+                                            className={`view-pill ${scopeDetailView === 'timeline' ? 'active' : ''}`}
+                                            onClick={() => setScopeDetailView('timeline')}
+                                            role="tab"
+                                            aria-selected={scopeDetailView === 'timeline'}
+                                        >
+                                            Timeline
+                                        </button>
                                     </div>
-                                )}
-                            </>
-                                ) : activeScopeWindow ? (
-                            <div className="scope-detail-panel">
-                                <div className="scope-board-panel">
-                                    <div className="scope-board-toolbar">
-                                        <div className="scope-board-toolbar-left">
-                                            <div
-                                                className="view-switch scope-view-switch"
-                                                role="tablist"
-                                                aria-label="Scope view switcher"
-                                                style={{ ['--active-index' as any]: scopeDetailView === 'board' ? 0 : 1 }}
-                                            >
+                                    <div className="filter-actions">
+                                        <div className="filter-quick">
+                                            {[
+                                                { key: 'MINE', label: 'My tasks' },
+                                                { key: 'OVERDUE', label: 'Overdue' },
+                                                { key: 'WEEK', label: 'This week' }
+                                            ].map((item) => (
                                                 <button
-                                                    className={`view-pill ${scopeDetailView === 'board' ? 'active' : ''}`}
-                                                    onClick={() => setScopeDetailView('board')}
-                                                    role="tab"
-                                                    aria-selected={scopeDetailView === 'board'}
+                                                    key={item.key}
+                                                    type="button"
+                                                    className={`filter-quick-pill${quickFilter === item.key ? ' active' : ''}`}
+                                                    onClick={() => setQuickFilter((prev) => (prev === item.key ? 'ALL' : (item.key as any)))}
                                                 >
-                                                    Board
+                                                    {item.label}
                                                 </button>
-                                                <button
-                                                    className={`view-pill ${scopeDetailView === 'list' ? 'active' : ''}`}
-                                                    onClick={() => setScopeDetailView('list')}
-                                                    role="tab"
-                                                    aria-selected={scopeDetailView === 'list'}
-                                                >
-                                                    Table
-                                                </button>
-                                            </div>
+                                            ))}
                                         </div>
-                                        <div className="scope-board-toolbar-right">
-                                            <div className="scope-filter-row">
-                                                <div className="filter-dropdown" ref={scopePriorityFilterRef}>
-                                                    <button
-                                                        type="button"
-                                                        className="filter-select"
-                                                        onClick={() => setScopePriorityFilterOpen((prev) => !prev)}
-                                                        aria-haspopup="listbox"
-                                                        aria-expanded={scopePriorityFilterOpen}
-                                                    >
-                                                        {scopeFilterPriority === 'ALL' ? 'All priorities' : scopeFilterPriority}
-                                                    </button>
-                                                    {scopePriorityFilterOpen && (
-                                                        <div className="filter-options" role="listbox">
-                                                            {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => (
-                                                                <button
-                                                                    key={value}
-                                                                    type="button"
-                                                                    className={`filter-option ${scopeFilterPriority === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
-                                                                    onClick={() => {
-                                                                        setScopeFilterPriority(value);
-                                                                        setScopePriorityFilterOpen(false);
-                                                                    }}
-                                                                    role="option"
-                                                                    aria-selected={scopeFilterPriority === value}
-                                                                >
-                                                                    {value === 'ALL' ? 'All priorities' : value}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="filter-dropdown" ref={scopeStatusFilterRef}>
-                                                    <button
-                                                        type="button"
-                                                        className="filter-select"
-                                                        onClick={() => setScopeStatusFilterOpen((prev) => !prev)}
-                                                        aria-haspopup="listbox"
-                                                        aria-expanded={scopeStatusFilterOpen}
-                                                    >
-                                                        {scopeFilterStatus === 'ALL' ? 'All statuses' : scopeFilterStatus}
-                                                    </button>
-                                                    {scopeStatusFilterOpen && (
-                                                        <div className="filter-options" role="listbox">
-                                                            {['ALL', ...scopeStatuses].map((value) => (
-                                                                <button
-                                                                    key={value}
-                                                                    type="button"
-                                                                    className={`filter-option ${scopeFilterStatus === value ? 'active' : ''}`}
-                                                                    onClick={() => {
-                                                                        setScopeFilterStatus(value as TaskStatus | 'ALL');
-                                                                        setScopeStatusFilterOpen(false);
-                                                                    }}
-                                                                    role="option"
-                                                                    aria-selected={scopeFilterStatus === value}
-                                                                >
-                                                                    {value === 'ALL' ? 'All statuses' : value}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {(scopeFilterPriority !== 'ALL' || scopeFilterStatus !== 'ALL') && (
-                                                    <button
-                                                        className="btn btn-ghost btn-compact scope-filter-reset"
-                                                        onClick={() => {
-                                                            setScopeFilterPriority('ALL');
-                                                            setScopeFilterStatus('ALL');
-                                                        }}
-                                                    >
-                                                        Reset filters
-                                                    </button>
+                                        {scopeDetailView === 'timeline' && (
+                                            <div className="filter-dropdown" ref={timelineRangeRef}>
+                                                <button
+                                                    type="button"
+                                                    className="filter-select"
+                                                    onClick={() => setTimelineRangeOpen((prev) => !prev)}
+                                                    aria-haspopup="listbox"
+                                                    aria-expanded={timelineRangeOpen}
+                                                >
+                                                    {timelineRange === 'auto' ? 'Auto range' : `${timelineRange} days`}
+                                                </button>
+                                                {timelineRangeOpen && (
+                                                    <div className="filter-options" role="listbox">
+                                                        {[
+                                                            { value: 'auto', label: 'Auto range' },
+                                                            { value: 14, label: '14 days' },
+                                                            { value: 30, label: '30 days' },
+                                                            { value: 60, label: '60 days' },
+                                                            { value: 90, label: '90 days' },
+                                                        ].map((option) => (
+                                                            <button
+                                                                key={option.value}
+                                                                type="button"
+                                                                className={`filter-option ${timelineRange === option.value ? 'active' : ''}`}
+                                                                onClick={() => {
+                                                                    setTimelineRange(option.value as any);
+                                                                    setTimelineRangeOpen(false);
+                                                                }}
+                                                                role="option"
+                                                                aria-selected={timelineRange === option.value}
+                                                            >
+                                                                {option.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
-                                        </div>
-                                    </div>
-                                    {scopePickerOpenId === activeScopeWindow.id && (
-                                        <div className="scope-task-picker">
-                                            <div className="scope-task-picker-header">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search tasks"
-                                                    value={scopePickerQuery}
-                                                    onChange={(event) => setScopePickerQuery(event.target.value)}
-                                                />
-                                                <button
-                                                    className="btn btn-ghost btn-compact"
-                                                    onClick={() => {
-                                                        setScopePickerOpenId(null);
-                                                        setScopePickerQuery('');
-                                                    }}
-                                                >
-                                                    Done
-                                                </button>
-                                            </div>
-                                            <div className="scope-task-picker-list">
-                                                {filteredScopeAvailableTasks.length === 0 ? (
-                                                    <div className="scope-task-empty">No tasks left to add.</div>
-                                                ) : (
-                                                    filteredScopeAvailableTasks.map((task) => (
+                                        )}
+                                        <div className="filter-dropdown" ref={scopePriorityFilterRef}>
+                                            <button
+                                                type="button"
+                                                className="filter-select"
+                                                onClick={() => setScopePriorityFilterOpen((prev) => !prev)}
+                                                aria-haspopup="listbox"
+                                                aria-expanded={scopePriorityFilterOpen}
+                                            >
+                                                {scopeFilterPriority === 'ALL' ? 'All priorities' : scopeFilterPriority}
+                                            </button>
+                                            {scopePriorityFilterOpen && (
+                                                <div className="filter-options" role="listbox">
+                                                    {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => (
                                                         <button
-                                                            key={task.id}
+                                                            key={value}
                                                             type="button"
-                                                            className="scope-task-option"
-                                                            onClick={() => handleScopeAddTask(activeScopeWindow.id, task.id)}
+                                                            className={`filter-option ${scopeFilterPriority === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
+                                                            onClick={() => {
+                                                                setScopeFilterPriority(value);
+                                                                setScopePriorityFilterOpen(false);
+                                                            }}
+                                                            role="option"
+                                                            aria-selected={scopeFilterPriority === value}
                                                         >
-                                                            <div className="scope-task-option-main">
-                                                                <div className="scope-task-option-title">{task.title}</div>
-                                                                <div className="scope-task-option-meta">
-                                                                    {task.status} · {getBoardLabel(task.boardId)} · {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
-                                                                </div>
-                                                            </div>
-                                                            <span className="scope-task-option-add">Add</span>
+                                                            {value === 'ALL' ? 'All priorities' : value}
                                                         </button>
-                                                    ))
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {scopeDetailView === 'list' && (
+                                            <div className="filter-dropdown" ref={scopeStatusFilterRef}>
+                                                <button
+                                                    type="button"
+                                                    className="filter-select"
+                                                    onClick={() => setScopeStatusFilterOpen((prev) => !prev)}
+                                                    aria-haspopup="listbox"
+                                                    aria-expanded={scopeStatusFilterOpen}
+                                                >
+                                                    {scopeFilterStatus === 'ALL' ? 'All statuses' : scopeFilterStatus}
+                                                </button>
+                                                {scopeStatusFilterOpen && (
+                                                    <div className="filter-options" role="listbox">
+                                                        {['ALL', TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE].map((value) => (
+                                                            <button
+                                                                key={value}
+                                                                type="button"
+                                                                className={`filter-option ${scopeFilterStatus === value ? 'active' : ''}`}
+                                                                onClick={() => {
+                                                                    setScopeFilterStatus(value as any);
+                                                                    setScopeStatusFilterOpen(false);
+                                                                }}
+                                                                role="option"
+                                                                aria-selected={scopeFilterStatus === value}
+                                                            >
+                                                                {value === 'ALL' ? 'All statuses' : value}
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
+                                        )}
+                                        <div className="filter-dropdown" ref={labelFilterRef}>
+                                            <button
+                                                type="button"
+                                                className="filter-select"
+                                                onClick={() => setLabelFilterOpen((prev) => !prev)}
+                                                aria-haspopup="listbox"
+                                                aria-expanded={labelFilterOpen}
+                                            >
+                                                {selectedLabelFilters.length > 0
+                                                    ? `Labels (${selectedLabelFilters.length})`
+                                                    : 'All labels'}
+                                            </button>
+                                            {labelFilterOpen && (
+                                                <div className="filter-options filter-options-multi" role="listbox">
+                                                    {scopeLabelOptions.length === 0 && (
+                                                        <div className="filter-empty">No labels found</div>
+                                                    )}
+                                                    {scopeLabelOptions.map((label) => {
+                                                        const active = selectedLabelFilters.includes(label);
+                                                        return (
+                                                            <button
+                                                                key={label}
+                                                                type="button"
+                                                                className={`filter-option ${active ? 'active' : ''}`}
+                                                                onClick={() => {
+                                                                    setSelectedLabelFilters((prev) =>
+                                                                        prev.includes(label)
+                                                                            ? prev.filter((item) => item !== label)
+                                                                            : prev.concat(label)
+                                                                    );
+                                                                }}
+                                                                role="option"
+                                                                aria-selected={active}
+                                                            >
+                                                                <span>{label}</span>
+                                                                {active && <span className="filter-option-check">✓</span>}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {selectedLabelFilters.length > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            className="filter-option filter-option-clear"
+                                                            onClick={() => setSelectedLabelFilters([])}
+                                                        >
+                                                            Clear selection
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                    {scopeDetailView === 'list' ? (
-                                        scopeListTasks.length === 0 ? (
-                                            <div className="scope-task-empty">No tasks in this scope window.</div>
-                                        ) : (
-                                            <div className="task-table-wrap">
-                                                <table className="task-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Title</th>
-                                                            <th>Status</th>
-                                                            <th>Due</th>
-                                                            <th>Tasks</th>
-                                                            <th>Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {scopeListTasks.map((task) => {
-                                                            const dueStatus = getDueStatus(task);
-                                                            const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
-                                                            const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
-                                                            const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
-                                                            const boardLabel = task.boardId ? getBoardLabel(task.boardId) : '—';
-                                                            return (
-                                                                <tr
-                                                                    key={task.id}
-                                                                    className={`task-table-row${dueStatusClass}`}
-                                                                    onClick={() => handleCardClick(task)}
-                                                                >
-                                                                    <td>{task.title}</td>
-                                                                    <td>{task.status}</td>
-                                                                    <td>
-                                                                        <div className={`task-table-due${dueStatusClass}`}>
-                                                                            <span className="task-table-due-date">{dueDateLabel}</span>
-                                                                            {dueLabel && <span className="task-table-due-badge">{dueLabel}</span>}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td>{boardLabel}</td>
-                                                                    <td>
-                                                                        <div className="table-actions">
-                                                                            <button
-                                                                                type="button"
-                                                                                className="scope-task-remove"
-                                                                                onClick={(event) => {
-                                                                                    event.stopPropagation();
-                                                                                    handleScopeRemoveTask(activeScopeWindow.id, task.id);
-                                                                                }}
-                                                                            >
-                                                                                Remove
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )
-                                    ) : (
-                                        <div className="kanban-board scope-kanban-board">
-                                            {scopeColumns.map((column) => (
+                                        <label
+                                            className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`}
+                                            data-tooltip="Nur Favoriten"
+                                            aria-label="Nur Favoriten"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={filterFavorites}
+                                                onChange={(e) => setFilterFavorites(e.target.checked)}
+                                            />
+                                            <span className="filter-favorites-icon" aria-hidden="true">★</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                {scopeDetailView === 'board' ? (
+                                    <div className="kanban-board-wrap">
+                                        <div className="kanban-board">
+                                            {scopeBoardColumns.map((column) => (
                                                 <div
                                                     key={column.status}
                                                     className="kanban-column"
@@ -7547,105 +8516,428 @@ const App: React.FC = () => {
                                                     onDrop={(event) => handleScopeColumnDrop(event, column.status)}
                                                 >
                                                     <div className="column-header">
-                                                        <span>{column.status}</span>
+                                                                            <span>{getStatusLabel(column.status)}</span>
                                                         <span>{column.tasks.length}</span>
                                                     </div>
                                                     <div className="column-content">
-                                                        {column.tasks.length === 0 ? (
-                                                            <div className="scope-column-empty">No tasks</div>
-                                                        ) : (
-                                                            column.tasks.map((task) => {
-                                                                const dueStatus = getDueStatus(task);
-                                                                const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
-                                                                const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
-                                                                const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
-                                                                const isScopeDraggable = task.sourceType ? task.sourceType === 'MANUAL' : true;
-                                                                const boardLabel = getBoardLabel(task.boardId);
-                                                                return (
-                                                                    <div
-                                                                        key={task.id}
-                                                                        className={`task-card scope-task-card${isScopeDraggable ? ' task-card-draggable' : ''}`}
-                                                                        onClick={() => handleCardClick(task)}
-                                                                        draggable={isScopeDraggable}
-                                                                        onDragStart={(event) => (isScopeDraggable ? onDragStart(event, task.id) : event.preventDefault())}
-                                                                        onDragEnd={onDragEnd}
-                                                                    >
-                                                                        <div className="task-card-content">
-                                                                <div className="task-card-topbar">
-                                                                <div className={`task-card-due${dueStatusClass}`}>
-                                                                                    <span className="task-card-due-icon" aria-hidden="true">
-                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                            <path d="M5 4v16" />
-                                                                                            <path d="M5 4h11l-2 4 2 4H5" />
-                                                                                        </svg>
+                                                        {column.tasks.map((task) => {
+                                                            const checklistDone = task.checklist.filter((item) => item.done).length;
+                                                            const checklistTotal = task.checklist.length;
+                                                            const linkedCount = task.linkedTaskIds.length;
+                                                            const isChecklistComplete = checklistTotal > 0 && checklistDone === checklistTotal;
+                                                            const isLinkedFromOther = linkedToSet.has(task.id);
+                                                            const isDraggable = task.sourceType ? task.sourceType === 'MANUAL' : true;
+                                                            const dueStatus = getDueStatus(task);
+                                                            const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
+                                                            const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
+                                                            const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
+                                                            const cardStatusClass = dueStatus === 'overdue' ? ' task-card-overdue' : dueStatus === 'due-soon' ? ' task-card-due-soon' : '';
+                                                            const taskCardStyle: React.CSSProperties = {
+                                                                cursor: isDraggable ? 'grab' : 'default',
+                                                                userSelect: 'none',
+                                                                ['WebkitUserDrag' as any]: isDraggable ? 'element' : 'auto',
+                                                                pointerEvents: 'auto',
+                                                            };
+                                                            return (
+                                                                <div
+                                                                    key={task.id}
+                                                                    className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}${cardStatusClass}`}
+                                                                    style={taskCardStyle}
+                                                                    draggable={isDraggable && canEditActiveScopeItems}
+                                                                    onDragStart={(e) => (isDraggable && canEditActiveScopeItems ? onDragStart(e, task.id) : e.preventDefault())}
+                                                                    onDragEnd={onDragEnd}
+                                                                    onDragOver={(e) => handleScopeCardDragOver(e, column.status, task.id)}
+                                                                    onDragLeave={handleScopeCardDragLeave}
+                                                                    onDrop={(e) => handleScopeCardDrop(e, column.status, task.id)}
+                                                                    onClick={() => handleCardClick(task)}
+                                                                >
+                                                                    <div className="task-card-content">
+                                                                        <div className="task-card-topbar">
+                                                                            <div className={`task-card-due${dueStatusClass}`}>
+                                                                                <span className="task-card-due-icon" aria-hidden="true">
+                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                        <path d="M5 4v16" />
+                                                                                        <path d="M5 4h11l-2 4 2 4H5" />
+                                                                                    </svg>
+                                                                                </span>
+                                                                                <span className="task-card-due-date">{dueDateLabel}</span>
+                                                                                {dueLabel && <span className="task-card-due-badge">{dueLabel}</span>}
+                                                                            </div>
+                                                                            <span
+                                                                                className={`badge badge-priority-${task.priority.toLowerCase()} tooltip-target`}
+                                                                                data-tooltip={`Priority: ${task.priority}`}
+                                                                            >
+                                                                                {task.priority}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="task-card-header">
+                                                                            <div className="task-title-row">
+                                                                                {isLinkedFromOther && (
+                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
+                                                                                        <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
+                                                                                        <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
+                                                                                    </svg>
+                                                                                )}
+                                                                                {task.title}
+                                                                            </div>
+                                                                            <button
+                                                                                type="button"
+                                                                                className={`favorite-badge favorite-badge-button${task.isFavorite ? ' active' : ''}`}
+                                                                                onClick={(event) => {
+                                                                                    event.stopPropagation();
+                                                                                    toggleFavorite(task);
+                                                                                }}
+                                                                                title={task.isFavorite ? 'Unfavorite' : 'Favorite'}
+                                                                                aria-label={task.isFavorite ? 'Unfavorite task' : 'Favorite task'}
+                                                                            >
+                                                                                {task.isFavorite ? '★' : '☆'}
+                                                                            </button>
+                                                                        </div>
+                                                                        {task.description && (
+                                                                            <div className="task-card-description">{stripHtml(task.description)}</div>
+                                                                        )}
+                                                                        <hr className="card-divider" />
+                                                                        <div className="task-card-footer">
+                                                                            <div className="task-card-kinds">
+                                                                                {task.kinds.map((kind) => (
+                                                                                    <span key={kind} className="badge task-kind-badge">
+                                                                                        {kind}
                                                                                     </span>
-                                                                                    <span className="task-card-due-date">{dueDateLabel}</span>
-                                                                                    {dueLabel && <span className="task-card-due-badge">{dueLabel}</span>}
-                                                                                </div>
-                                                                                <div className={`priority-bubble priority-${task.priority.toLowerCase()}`}>
-                                                                                    <span
-                                                                                        className={`priority-line tooltip-target ${task.priority === 'CRITICAL' ? 'priority-line-critical' : ''}`}
-                                                                                        aria-hidden="true"
-                                                                                        data-tooltip={`Priority: ${task.priority}`}
-                                                                                    />
-                                                                                </div>
+                                                                                ))}
                                                                             </div>
-                                                                            <div className="task-card-header">
-                                                                                <div className="task-title-row">{task.title}</div>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className={`favorite-badge favorite-badge-button${task.isFavorite ? ' active' : ''}`}
-                                                                                    onClick={(event) => {
-                                                                                        event.stopPropagation();
-                                                                                        toggleFavorite(task);
-                                                                                    }}
-                                                                                    title={task.isFavorite ? 'Unfavorite' : 'Favorite'}
-                                                                                    aria-label={task.isFavorite ? 'Unfavorite task' : 'Favorite task'}
-                                                                                >
-                                                                                    {task.isFavorite ? '★' : '☆'}
-                                                                                </button>
-                                                                            </div>
-                                                                            {task.description && (
-                                                                                <div className="task-card-description">{stripHtml(task.description)}</div>
-                                                                            )}
-                                                                            <div className="scope-card-footer">
-                                                                                <div className="task-card-kinds">
-                                                                                    {task.kinds.map((kind) => (
-                                                                                        <span key={kind} className="badge task-kind-badge">
-                                                                                            {kind}
-                                                                                        </span>
-                                                                                    ))}
-                                                                                    {boardLabel && (
-                                                                    <span className="scope-task-origin">Tasks: {boardLabel}</span>
+                                                                            <div className="task-card-people">
+                                                                                {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
+                                                                                {task.assignees.length > 0 &&
+                                                                                    renderAvatarStack(
+                                                                                        task.tenantId,
+                                                                                        task.assignees.filter((id) => id !== task.ownerId)
                                                                                     )}
-                                                                                </div>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="scope-task-remove"
-                                                                                    onClick={(event) => {
-                                                                                        event.stopPropagation();
-                                                                                        handleScopeRemoveTask(activeScopeWindow.id, task.id);
-                                                                                    }}
-                                                                                >
-                                                                                    Remove
-                                                                                </button>
+                                                                            </div>
+                                                                            <div className="task-card-icons">
+                                                                                {checklistTotal > 0 && (
+                                                                                    <span className={isChecklistComplete ? 'icon-badge checklist-complete' : 'icon-badge'}>
+                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                            <path d="M4 6h16M4 12h16M4 18h10" />
+                                                                                            <path d="M18 17l2 2 4-4" />
+                                                                                        </svg>
+                                                                                        {checklistDone}/{checklistTotal}
+                                                                                    </span>
+                                                                                )}
+                                                                                {task.comments.length > 0 && (
+                                                                                    <span className="icon-badge">
+                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                                                                                        </svg>
+                                                                                        {task.comments.length}
+                                                                                    </span>
+                                                                                )}
+                                                                                {linkedCount > 0 && (
+                                                                                    <span className="icon-badge">
+                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
+                                                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
+                                                                                        </svg>
+                                                                                        {linkedCount}
+                                                                                    </span>
+                                                                                )}
+                                                                                {task.attachments.length > 0 && (
+                                                                                    <span className="icon-badge">
+                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                            <path d="M21.5 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 1 1 5 5l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.9-7.9" />
+                                                                                        </svg>
+                                                                                        {task.attachments.length}
+                                                                                    </span>
+                                                                                )}
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                );
-                                                            })
-                                                        )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
+                                ) : scopeDetailView === 'timeline' ? (
+                                    renderTimeline(scopeVisibleTasks, 'No tasks to show on timeline.')
                                 ) : (
-                            <div className="scope-empty">Select a scope window.</div>
+                                    <div className="task-table-wrap">
+                                        <table className="task-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Title</th>
+                                                    <th>People</th>
+                                                    <th>Status</th>
+                                                    <th>Art</th>
+                                                    <th>Priority</th>
+                                                    <th>Due</th>
+                                                    <th>Source</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {scopeVisibleTasks.map((task) => {
+                                                    const dueStatus = getDueStatus(task);
+                                                    const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
+                                                    const dueDateLabel = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
+                                                    const dueStatusClass = dueStatus === 'overdue' ? ' overdue' : dueStatus === 'due-soon' ? ' due-soon' : '';
+                                                    return (
+                                                        <React.Fragment key={task.id}>
+                                                            <tr className={`task-table-row${dueStatusClass}`} onClick={() => openDetailsModal(task)}>
+                                                                <td>{task.title}</td>
+                                                                <td>
+                                                                    <div className="task-card-people">
+                                                                        {task.ownerId && renderAvatarStack(task.tenantId, [task.ownerId])}
+                                                                        {task.assignees.length > 0 &&
+                                                                            renderAvatarStack(
+                                                                                task.tenantId,
+                                                                                task.assignees.filter((id) => id !== task.ownerId)
+                                                                            )}
+                                                                    </div>
+                                                                </td>
+                                                                <td>{task.status}</td>
+                                                                <td>{task.kinds.length > 0 ? task.kinds.join(', ') : '—'}</td>
+                                                                <td>
+                                                                    <span className={`badge badge-priority-${task.priority.toLowerCase()}`}>
+                                                                        {task.priority}
+                                                                    </span>
+                                                                </td>
+                                                                <td>
+                                                                    <div className={`task-table-due${dueStatusClass}`}>
+                                                                        <span className="task-table-due-date">{dueDateLabel}</span>
+                                                                        {dueLabel && <span className="task-table-due-badge">{dueLabel}</span>}
+                                                                    </div>
+                                                                </td>
+                                                                <td>{task.sourceIndicator || '—'}</td>
+                                                                <td>
+                                                                    <div className="table-actions">
+                                                                        {task.sourceType === 'MANUAL' && (
+                                                                            <button
+                                                                                className="icon-action settings"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    openEditModal(task);
+                                                                                }}
+                                                                                data-tooltip="Task bearbeiten"
+                                                                                aria-label="Task bearbeiten"
+                                                                            >
+                                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                    <path d="M12 20h9" />
+                                                                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                                                                                </svg>
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="icon-action"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setExpandedTableTaskId((prev) => (prev === task.id ? null : task.id));
+                                                                            }}
+                                                                            data-tooltip="Details ausklappen"
+                                                                            aria-label="Details ausklappen"
+                                                                        >
+                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                                                <path d="M6 9l6 6 6-6" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                            {expandedTableTaskId === task.id && (
+                                                                <tr className="task-table-details">
+                                                                    <td colSpan={8}>
+                                                                        <div className="table-details-grid">
+                                                                            <div className="table-details-span">
+                                                                                <div className="table-details-label">Description</div>
+                                                                                <div className="table-details-text">
+                                                                                    {task.description ? stripHtml(task.description) : '—'}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className="table-details-label">Members</div>
+                                                                                <div className="table-details-text">
+                                                                                    {task.assignees.length > 0
+                                                                                        ? task.assignees.map((id) => getMemberLabel(task.tenantId, id)).join(', ')
+                                                                                        : '—'}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className="table-details-label">Checklist</div>
+                                                                                <div className="table-details-text">
+                                                                                    {task.checklist.length > 0
+                                                                                        ? `${task.checklist.filter((item) => item.done).length}/${task.checklist.length} done`
+                                                                                        : '—'}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className="table-details-label">Linked tasks</div>
+                                                                                <div className="table-details-text">
+                                                                                    {task.linkedTaskIds.length > 0 ? task.linkedTaskIds.length : '—'}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className="table-details-label">Attachments</div>
+                                                                                <div className="table-details-text">
+                                                                                    {task.attachments.length > 0 ? task.attachments.length : '—'}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
                             </>
+                        ) : (
+                            <div className="dashboard-card dashboard-list ui-card">
+                                <div className="dashboard-card-title ui-card-header">
+                                    <div className="dashboard-card-title-row inbox-header-row">
+                                        <div className="inbox-header-left">
+                                            <span>Scope Windows</span>
+                                        </div>
+                                        <div className="inbox-header-actions">
+                                            <button
+                                                type="button"
+                                                className="btn btn-save btn-compact tooltip-target"
+                                                data-tooltip="Scope erstellen"
+                                                aria-label="Scope erstellen"
+                                                onClick={() => setIsScopeCreateOpen(true)}
+                                            >
+                                                <span className="btn-save-icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" stroke="currentColor">
+                                                        <path d="M12 5v14M5 12h14" />
+                                                    </svg>
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="dashboard-card-content ui-card-body">
+                                    <div className="inbox-layout scope-inbox-layout">
+                                        <div className="inbox-sidebar scope-inbox-sidebar">
+                                            {scopeWindows.length === 0 ? (
+                                                <div className="scope-empty">Noch keine Scope Windows.</div>
+                                            ) : (
+                                                scopeWindows.map((scopeWindow) => (
+                                                    <button
+                                                        key={scopeWindow.id}
+                                                        type="button"
+                                                        className={`inbox-sidebar-item scope-sidebar-item${activeScopeId === scopeWindow.id ? ' active' : ''}`}
+                                                        onClick={() => {
+                                                            setActiveScopeId(scopeWindow.id);
+                                                            setScopeScreen('list');
+                                                            setScopeRouteId(null);
+                                                            updateScopeUrl(null, 'replace');
+                                                        }}
+                                                    >
+                                                        <div className="inbox-avatar">{getInitials(scopeWindow.name)}</div>
+                                                        <div className="inbox-sidebar-body">
+                                                            <div className="inbox-sidebar-title">{scopeWindow.name}</div>
+                                                            <div className="inbox-sidebar-meta">
+                                                                <div className="inbox-sidebar-meta-date">{getScopeDateLabel(scopeWindow)}</div>
+                                                                {scopeWindow.taskIds.length} tasks
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                        <div className="inbox-detail scope-detail">
+                                            {!activeScopeWindow ? (
+                                                <div className="scope-empty scope-empty-cta">
+                                                    <div className="scope-empty-title">Scope auswählen</div>
+                                                    <div className="scope-empty-text">Wähle links ein Scope Window aus.</div>
+                                                </div>
+                                            ) : (
+                                                <div className="scope-preview-card ui-card">
+                                                    <div className="ui-card-header">
+                                                        <div>
+                                                            <div className="scope-preview-title">{activeScopeWindow.name}</div>
+                                                            <div className="scope-preview-meta">
+                                                                {getScopeDateLabel(activeScopeWindow)} · {activeScopeWindow.taskIds.length} tasks
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            className="icon-action scope-toggle inbox-action tooltip-target"
+                                                            onClick={() => openScopeDetail(activeScopeWindow.id)}
+                                                            data-tooltip="Zu den Scope-Details"
+                                                            aria-label="Zu den Scope-Details"
+                                                        >
+                                                            <span className="inbox-action-icon" aria-hidden="true">
+                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                    <path d="M9 6l6 6-6 6" />
+                                                                </svg>
+                                                            </span>
+                                                        </button>
+                                                    </div>
+                                                    <div className="ui-card-body scope-mini-board-wrapper">
+                                                        <div className="scope-mini-board">
+                                                            {(() => {
+                                                                const scopedTasks = activeScopeWindow.taskIds
+                                                                    .map((taskId) => scopeTaskById.get(taskId))
+                                                                    .filter((task): task is TaskView => Boolean(task));
+                                                                const backlogTasks = scopedTasks.filter((task) => task.status === TaskStatus.BACKLOG);
+                                                                const todoTasks = scopedTasks.filter((task) => task.status === TaskStatus.TODO);
+                                                                const doingTasks = scopedTasks.filter((task) => task.status === TaskStatus.IN_PROGRESS);
+                                                                const doneTasks = scopedTasks.filter((task) => task.status === TaskStatus.DONE);
+                                                                const todoList = [...backlogTasks, ...todoTasks];
+                                                                const columns: Array<{
+                                                                    key: string;
+                                                                    label: string;
+                                                                    tasks: TaskView[];
+                                                                    status: TaskStatus;
+                                                                }> = [
+                                                                    { key: 'todo', label: 'ToDos', tasks: todoList, status: TaskStatus.TODO },
+                                                                    { key: 'doing', label: 'Doing', tasks: doingTasks, status: TaskStatus.IN_PROGRESS },
+                                                                    { key: 'done', label: 'Done', tasks: doneTasks, status: TaskStatus.DONE },
+                                                                ];
+                                                                return columns.map((column) => (
+                                                                    <div key={column.key} className="scope-mini-column">
+                                                                        <div className="scope-mini-column-title">{column.label}</div>
+                                                                        <div
+                                                                            className="scope-mini-column-list"
+                                                                            onDragOver={handleScopeColumnDragOver}
+                                                                            onDragLeave={handleScopeColumnDragLeave}
+                                                                            onDrop={(event) => handleScopeColumnDrop(event, column.status)}
+                                                                        >
+                                                                            {column.tasks.length === 0 ? (
+                                                                                <div className="scope-mini-empty">Keine Tasks</div>
+                                                                            ) : (
+                                                                                column.tasks.map((task) => (
+                                                                                    <div
+                                                                                        key={task.id}
+                                                                                        className="scope-mini-card"
+                                                                                        draggable
+                                                                                        onDragStart={(event) => onDragStart(event, task.id)}
+                                                                                        onDragEnd={onDragEnd}
+                                                                                    >
+                                                                                        <div className="scope-mini-card-title">{task.title}</div>
+                                                                                        <div className="scope-mini-card-meta">
+                                                                                            {task.priority}
+                                                                                            {task.dueDate ? ` • ${new Date(task.dueDate).toLocaleDateString()}` : ''}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ));
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 ) : view === 'dashboard' ? (
@@ -7743,23 +9035,6 @@ const App: React.FC = () => {
                                 </div>
                                 <div className="dashboard-card-content ui-card-body">
                                     {(() => {
-                                        const customItems = inboxCustomItems;
-                                        const taskItems = allTasks.map((task) => {
-                                            const creatorId = resolveTaskCreatorId(task, currentUserId);
-                                            const creatorInfo = getMemberInfo(task.tenantId, creatorId || undefined);
-                                            return {
-                                                id: task.id,
-                                                title: task.title,
-                                                source: (task as any).source as string | undefined,
-                                                createdAt: task.createdAt || new Date().toISOString(),
-                                                suggestedAction: '',
-                                                description: task.description || undefined,
-                                                kind: task.kinds?.[0] || 'Incoming',
-                                                creatorLabel: creatorInfo.label,
-                                                creatorAvatarUrl: creatorInfo.avatarUrl
-                                            };
-                                        });
-                                        const inboxItems = [...customItems, ...taskItems];
                                         const filteredInboxItems = inboxItems.filter((item) => {
                                             const status = inboxItemStatuses[item.id] || 'eingang';
                                             if (inboxView === 'eingang') return status === 'eingang';
@@ -7787,7 +9062,9 @@ const App: React.FC = () => {
                                                             : 'Just now';
                                                         const moved = inboxMovedId === task.id;
                                                         const avatarLabel = task.creatorLabel || typeLabel || task.title;
-                                                        const avatarInitials = getInitials(avatarLabel);
+                                                        const memberInfo = getMemberInfo(activeTenantId, task.creatorId);
+                                                        const avatarUrl = memberInfo.avatarUrl || '';
+                                                        const avatarInitials = getInitials(memberInfo.label || avatarLabel);
                                                         return (
                                                             <button
                                                                 key={task.id}
@@ -7798,12 +9075,12 @@ const App: React.FC = () => {
                                                                 onClick={() => setSelectedInboxId(task.id)}
                                                             >
                                                                 <div
-                                                                    className={`inbox-avatar${task.creatorAvatarUrl ? ' has-image' : ''} tooltip-target`}
-                                                                    aria-label={avatarLabel}
-                                                                    data-tooltip={avatarLabel}
+                                                                    className={`inbox-avatar${avatarUrl ? ' has-image' : ''} tooltip-target`}
+                                                                    aria-label={memberInfo.label || avatarLabel}
+                                                                    data-tooltip={memberInfo.label || avatarLabel}
                                                                 >
-                                                                    {task.creatorAvatarUrl ? (
-                                                                        <img src={task.creatorAvatarUrl} alt={avatarLabel} />
+                                                                    {avatarUrl ? (
+                                                                        <img src={avatarUrl} alt={memberInfo.label || avatarLabel} />
                                                                     ) : (
                                                                         avatarInitials
                                                                     )}
@@ -7811,9 +9088,16 @@ const App: React.FC = () => {
                                                                 <div className="inbox-sidebar-body">
                                                                     <div className="inbox-sidebar-title">{task.title}</div>
                                                                     <div className="inbox-sidebar-meta">
-                                                                        <span>{typeLabel}</span>
-                                                                        <span>•</span>
                                                                         <span>{createdLabel}</span>
+                                                                        {task.priority && (
+                                                                            <span
+                                                                                className={`badge badge-priority-${String(
+                                                                                    task.priority
+                                                                                ).toLowerCase()}`}
+                                                                            >
+                                                                                {task.priority}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </button>
@@ -7826,65 +9110,101 @@ const App: React.FC = () => {
                                                             <div className="inbox-detail-body">
                                                                 <div className="inbox-detail-topbar">
                                                                     <div className="inbox-detail-user">
-                                                                        <div
-                                                                            className={`inbox-avatar${
-                                                                                selectedItem.creatorAvatarUrl ? ' has-image' : ''
-                                                                            } tooltip-target`}
-                                                                            aria-label={selectedItem.creatorLabel || selectedItem.title}
-                                                                            data-tooltip={selectedItem.creatorLabel || selectedItem.title}
+                                                                        {(() => {
+                                                                            const memberInfo = getMemberInfo(activeTenantId, selectedItem.creatorId);
+                                                                            const avatarUrl = memberInfo.avatarUrl || '';
+                                                                            const label = memberInfo.label || selectedItem.creatorLabel || selectedItem.title;
+                                                                            return (
+                                                                                <div
+                                                                                    className={`inbox-avatar${avatarUrl ? ' has-image' : ''} tooltip-target`}
+                                                                                    aria-label={label}
+                                                                                    data-tooltip={label}
+                                                                                >
+                                                                                    {avatarUrl ? (
+                                                                                        <img src={avatarUrl} alt={label} />
+                                                                                    ) : (
+                                                                                        getInitials(label)
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                        {selectedItem.priority && (
+                                                                        <span
+                                                                            className={`badge badge-priority-${String(
+                                                                                selectedItem.priority
+                                                                            ).toLowerCase()}`}
                                                                         >
-                                                                            {selectedItem.creatorAvatarUrl ? (
-                                                                                <img
-                                                                                    src={selectedItem.creatorAvatarUrl}
-                                                                                    alt={selectedItem.creatorLabel || selectedItem.title}
-                                                                                />
-                                                                            ) : (
-                                                                                getInitials(selectedItem.creatorLabel || selectedItem.title)
-                                                                            )}
-                                                                        </div>
-                                                                        <span className="inbox-detail-user-label">
-                                                                            {selectedItem.creatorLabel || t('inbox.meta.owner', 'Owner')}
+                                                                            {selectedItem.priority}
                                                                         </span>
+                                                                    )}
                                                                     </div>
-                                                                    <div className="inbox-detail-topbar-actions">
-                                                                        <button
-                                                                            type="button"
-                                                                            className="icon-action scope-toggle inbox-action tooltip-target"
-                                                                            data-tooltip={t('inbox.action.addScopeTooltip', 'Zum Scope hinzufügen')}
-                                                                            aria-label={t('inbox.action.addScope', 'Zum Scope hinzufügen')}
-                                                                            onClick={() => {
-                                                                                setInboxStatus(selectedItem.id, 'bearbeitet');
-                                                                                setInboxScopeMenuId((prev) =>
-                                                                                    prev === selectedItem.id ? null : selectedItem.id
-                                                                                );
-                                                                            }}
-                                                                        >
-                                                                            <span className="inbox-action-icon" aria-hidden="true">
-                                                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
-                                                                                    <circle cx="12" cy="12" r="7.5"></circle>
-                                                                                    <circle cx="12" cy="12" r="2.5"></circle>
-                                                                                    <path d="M12 4v3"></path>
-                                                                                    <path d="M12 17v3"></path>
-                                                                                    <path d="M4 12h3"></path>
-                                                                                    <path d="M17 12h3"></path>
-                                                                                </svg>
-                                                                            </span>
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="icon-action inbox-action tooltip-target"
-                                                                            data-tooltip={t('inbox.action.laterTooltip', 'Later')}
-                                                                            aria-label={t('inbox.action.later', 'Later')}
-                                                                            onClick={() => setInboxStatus(selectedItem.id, 'spaeter')}
-                                                                        >
-                                                                            <span className="inbox-action-icon" aria-hidden="true">
-                                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                    <circle cx="12" cy="12" r="7" />
-                                                                                    <path d="M12 7v5l3 3" />
-                                                                                </svg>
-                                                                            </span>
-                                                                        </button>
+                                                                <div className="inbox-detail-topbar-actions">
+                                                                    {inboxView === 'eingang' && (
+                                                                        <div className="filter-dropdown inbox-scope-dropdown" ref={inboxScopeRef}>
+                                                                            <button
+                                                                                type="button"
+                                                                                    className="icon-action scope-toggle inbox-action tooltip-target"
+                                                                                    data-tooltip={t('inbox.action.addScopeTooltip', 'Zum Scope hinzufügen')}
+                                                                                    aria-label={t('inbox.action.addScope', 'Zum Scope hinzufügen')}
+                                                                                    onClick={() => {
+                                                                                        setInboxScopeMenuId((prev) =>
+                                                                                            prev === selectedItem.id ? null : selectedItem.id
+                                                                                        );
+                                                                                    }}
+                                                                                >
+                                                                                    <span className="inbox-action-icon" aria-hidden="true">
+                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                                                                            <circle cx="12" cy="12" r="7.5"></circle>
+                                                                                            <circle cx="12" cy="12" r="2.5"></circle>
+                                                                                            <path d="M12 4v3"></path>
+                                                                                            <path d="M12 17v3"></path>
+                                                                                            <path d="M4 12h3"></path>
+                                                                                            <path d="M17 12h3"></path>
+                                                                                        </svg>
+                                                                                    </span>
+                                                                                </button>
+                                                                                {inboxScopeMenuId === selectedItem.id && (
+                                                                                    <div className="filter-options" role="listbox">
+                                                                                        {scopeWindows.length === 0 ? (
+                                                                                            <div className="filter-empty">
+                                                                                                {t('scope.empty.title', 'No scopes yet')}
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            scopeWindows.map((window) => (
+                                                                                                <button
+                                                                                                    key={window.id}
+                                                                                                    type="button"
+                                                                                                    className="filter-option"
+                                                                                                    onClick={() => handleInboxAddToScope(selectedItem, window.id)}
+                                                                                                >
+                                                                                                    <span>{window.name}</span>
+                                                                                                    <span className="filter-option-meta">
+                                                                                                        {getScopeDateLabel(window)}
+                                                                                                    </span>
+                                                                                                </button>
+                                                                                            ))
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
                                                                         {inboxView === 'eingang' && (
+                                                                            <button
+                                                                                type="button"
+                                                                                className="icon-action inbox-action tooltip-target"
+                                                                                data-tooltip={t('inbox.action.laterTooltip', 'Later')}
+                                                                                aria-label={t('inbox.action.later', 'Later')}
+                                                                                onClick={() => setInboxStatus(selectedItem.id, 'spaeter')}
+                                                                            >
+                                                                                <span className="inbox-action-icon" aria-hidden="true">
+                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                        <circle cx="12" cy="12" r="7" />
+                                                                                        <path d="M12 7v5l3 3" />
+                                                                                    </svg>
+                                                                                </span>
+                                                                            </button>
+                                                                        )}
+                                                                        {(inboxView === 'eingang' || inboxView === 'spaeter' || inboxView === 'bearbeitet') && (
                                                                             <button
                                                                                 type="button"
                                                                                 className="icon-action inbox-action tooltip-target"
@@ -7936,6 +9256,21 @@ const App: React.FC = () => {
                                                                         </span>
                                                                     </button>
                                                                 )}
+                                                                {(inboxView === 'eingang' || inboxView === 'spaeter') && selectedItem && (
+                                                                        <button
+                                                                            className="icon-action inbox-action tooltip-target inbox-action-edit"
+                                                                            data-tooltip="Bearbeiten"
+                                                                            aria-label="Bearbeiten"
+                                                                            onClick={() => handleInboxEdit(selectedItem)}
+                                                                        >
+                                                                            <span className="inbox-action-icon" aria-hidden="true">
+                                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                    <path d="M4 20h4l10-10-4-4L4 16v4z" />
+                                                                                    <path d="M14 6l4 4" />
+                                                                                </svg>
+                                                                            </span>
+                                                                        </button>
+                                                                    )}
                                                             </div>
                                                         </div>
                                                                 <div className="inbox-detail-meta" role="list">
@@ -7990,7 +9325,10 @@ const App: React.FC = () => {
                                 className="view-switch"
                                 role="tablist"
                                 aria-label="View switcher"
-                                style={{ ['--active-index' as any]: view === 'kanban' ? 1 : view === 'timeline' ? 2 : 0 }}
+                                style={{
+                                    ['--active-index' as any]: view === 'kanban' ? 1 : view === 'timeline' ? 2 : 0,
+                                    ['--segment-count' as any]: 3,
+                                }}
                             >
                                 <button
                                     className={`view-pill ${view === 'table' ? 'active' : ''}`}
@@ -8034,6 +9372,44 @@ const App: React.FC = () => {
                                         </button>
                                     ))}
                                 </div>
+                                {view === 'timeline' && (
+                                    <div className="filter-dropdown" ref={timelineRangeRef}>
+                                        <button
+                                            type="button"
+                                            className="filter-select"
+                                            onClick={() => setTimelineRangeOpen((prev) => !prev)}
+                                            aria-haspopup="listbox"
+                                            aria-expanded={timelineRangeOpen}
+                                        >
+                                            {timelineRange === 'auto' ? 'Auto range' : `${timelineRange} days`}
+                                        </button>
+                                        {timelineRangeOpen && (
+                                            <div className="filter-options" role="listbox">
+                                                {[
+                                                    { value: 'auto', label: 'Auto range' },
+                                                    { value: 14, label: '14 days' },
+                                                    { value: 30, label: '30 days' },
+                                                    { value: 60, label: '60 days' },
+                                                    { value: 90, label: '90 days' },
+                                                ].map((option) => (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        className={`filter-option ${timelineRange === option.value ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setTimelineRange(option.value as any);
+                                                            setTimelineRangeOpen(false);
+                                                        }}
+                                                        role="option"
+                                                        aria-selected={timelineRange === option.value}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="filter-dropdown" ref={priorityFilterRef}>
                                     <button
                                         type="button"
@@ -8222,7 +9598,7 @@ const App: React.FC = () => {
                                         onDrop={(e) => onDrop(e, column.status)}
                                     >
                                         <div className="column-header">
-                                            <span>{column.status}</span>
+                                            <span>{getStatusLabel(column.status)}</span>
                                             <span>{displayTasks.length}</span>
                                         </div>
                                         <div className="column-content">
@@ -8249,8 +9625,8 @@ const App: React.FC = () => {
                                                     <div
                                                         className={`task-card${isDraggable ? ' task-card-draggable' : ''}${draggingTaskId === task.id ? ' dragging' : ''}${cardStatusClass}`}
                                                         style={taskCardStyle}
-                                                        draggable={isDraggable}
-                                                        onDragStart={(e) => (isDraggable ? onDragStart(e, task.id) : e.preventDefault())}
+                                                        draggable={isDraggable && canEditActiveScopeItems}
+                                                        onDragStart={(e) => (isDraggable && canEditActiveScopeItems ? onDragStart(e, task.id) : e.preventDefault())}
                                                         onDragEnd={onDragEnd}
                                                         onDragOver={(e) => onCardDragOver(e, column.status, task.id)}
                                                         onDragLeave={onCardDragLeave}
@@ -8268,13 +9644,12 @@ const App: React.FC = () => {
                                                                 <span className="task-card-due-date">{dueDateLabel}</span>
                                                                 {dueLabel && <span className="task-card-due-badge">{dueLabel}</span>}
                                                             </div>
-                                                                <div className={`priority-bubble priority-${task.priority.toLowerCase()}`}>
-                                                            <span
-                                                                className={`priority-line tooltip-target ${task.priority === 'CRITICAL' ? 'priority-line-critical' : ''}`}
-                                                                aria-hidden="true"
-                                                                data-tooltip={`Priority: ${task.priority}`}
-                                                            />
-                                                                </div>
+                                                                <span
+                                                                    className={`badge badge-priority-${task.priority.toLowerCase()} tooltip-target`}
+                                                                    data-tooltip={`Priority: ${task.priority}`}
+                                                                >
+                                                                    {task.priority}
+                                                                </span>
                                                             </div>
                                                             <div className="task-card-header">
                                                                 <div className="task-title-row">
@@ -8368,7 +9743,7 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                         ) : view === 'timeline' ? (
-                            <div className="empty-state">Timeline view coming soon.</div>
+                            renderTimeline(visibleTasksForView, 'No tasks to show on timeline.')
                         ) : view === 'table' ? (
                             <div className="task-table-wrap">
                                 <table className="task-table">
@@ -8533,6 +9908,8 @@ const App: React.FC = () => {
                                                 onChange={(event) => setScopeDraft((prev) => ({ ...prev, name: event.target.value }))}
                                             />
                                         </label>
+                                    </div>
+                                    <div className="scope-create-grid">
                                         <label>
                                             Start date
                                             <input
@@ -8548,6 +9925,21 @@ const App: React.FC = () => {
                                                 value={scopeDraft.endDate}
                                                 onChange={(event) => setScopeDraft((prev) => ({ ...prev, endDate: event.target.value }))}
                                             />
+                                        </label>
+                                        <label>
+                                            Visibility
+                                            <select
+                                                value={scopeDraft.visibility}
+                                                onChange={(event) =>
+                                                    setScopeDraft((prev) => ({
+                                                        ...prev,
+                                                        visibility: event.target.value === 'personal' ? 'personal' : 'shared',
+                                                    }))
+                                                }
+                                            >
+                                                <option value="shared">Shared</option>
+                                                <option value="personal">Personal</option>
+                                            </select>
                                         </label>
                                         <label className="scope-create-span">
                                             Notes
@@ -8676,6 +10068,133 @@ const App: React.FC = () => {
                                     <div className="form-error">End date must be after start date.</div>
                                 )}
                                 <div className="member-meta">Huddle: {activeHuddleName || '—'}</div>
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Visibility</div>
+                                <div className="member-meta">
+                                    {(() => {
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                <select
+                                                    value={scopeSettingsDraft.visibility}
+                                                    onChange={(event) =>
+                                                        setScopeSettingsDraft((prev) => ({
+                                                            ...prev,
+                                                            visibility: event.target.value === 'personal' ? 'personal' : 'shared',
+                                                        }))
+                                                    }
+                                                >
+                                                    <option value="shared">Shared</option>
+                                                    <option value="personal">Personal</option>
+                                                </select>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Members</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        <select
+                                            value={scopeMemberPickerId}
+                                            onChange={(event) => setScopeMemberPickerId(event.target.value)}
+                                        >
+                                            <option value="">Select member</option>
+                                            {getMembersForTenant(activeTenantId)
+                                                .filter((member) => !scopeSettingsDraft.members.some((entry) => entry.userId === member.userId))
+                                                .map((member) => (
+                                                    <option key={member.userId} value={member.userId}>
+                                                        {member.user?.name || member.user?.email || member.userId}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                        <select
+                                            value={scopeMemberPickerRole}
+                                            onChange={(event) =>
+                                                setScopeMemberPickerRole(
+                                                    event.target.value === 'ADMIN'
+                                                        ? 'ADMIN'
+                                                        : event.target.value === 'MEMBER'
+                                                            ? 'MEMBER'
+                                                            : 'VIEWER'
+                                                )
+                                            }
+                                        >
+                                            <option value="ADMIN">Admin</option>
+                                            <option value="MEMBER">Member</option>
+                                            <option value="VIEWER">Viewer</option>
+                                        </select>
+                                        <button
+                                            className="btn btn-secondary btn-compact"
+                                            type="button"
+                                            disabled={!scopeMemberPickerId}
+                                            onClick={() => {
+                                                if (!scopeMemberPickerId) return;
+                                                setScopeSettingsDraft((prev) => ({
+                                                    ...prev,
+                                                    members: prev.members.concat({
+                                                        userId: scopeMemberPickerId,
+                                                        role: scopeMemberPickerRole,
+                                                    }),
+                                                }));
+                                                setScopeMemberPickerId('');
+                                                setScopeMemberPickerRole('MEMBER');
+                                            }}
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                    {scopeSettingsDraft.members.length === 0 ? (
+                                        <div className="member-meta">No members yet.</div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            {scopeSettingsDraft.members.map((member) => (
+                                                <div key={member.userId} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
+                                                    <span className="member-meta">{getMemberLabel(activeTenantId, member.userId)}</span>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                        <select
+                                                            value={member.role}
+                                                            onChange={(event) =>
+                                                                setScopeSettingsDraft((prev) => ({
+                                                                    ...prev,
+                                                                    members: prev.members.map((entry) =>
+                                                                        entry.userId === member.userId
+                                                                            ? {
+                                                                                ...entry,
+                                                                                role: event.target.value === 'ADMIN'
+                                                                                    ? 'ADMIN'
+                                                                                    : event.target.value === 'MEMBER'
+                                                                                        ? 'MEMBER'
+                                                                                        : 'VIEWER',
+                                                                            }
+                                                                            : entry
+                                                                    ),
+                                                                }))
+                                                            }
+                                                        >
+                                                            <option value="ADMIN">Admin</option>
+                                                            <option value="MEMBER">Member</option>
+                                                            <option value="VIEWER">Viewer</option>
+                                                        </select>
+                                                        <button
+                                                            className="btn btn-ghost btn-compact"
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setScopeSettingsDraft((prev) => ({
+                                                                    ...prev,
+                                                                    members: prev.members.filter((entry) => entry.userId !== member.userId),
+                                                                }))
+                                                            }
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div className="panel-section panel-danger">
                                 <div className="panel-danger-row">
@@ -9040,6 +10559,28 @@ const App: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
+
+                            {(isActiveHuddleOwner || isSuperAdmin) && (
+                                <div className="panel-section">
+                                    <div className="section-title">Rename huddle</div>
+                                    {isPersonalActive ? (
+                                        <div className="empty-state">Private huddles cannot be renamed.</div>
+                                    ) : (
+                                        <form className="inline-form" onSubmit={handleRenameHuddle}>
+                                            <input
+                                                type="text"
+                                                placeholder="Huddle name"
+                                                value={huddleRenameInput}
+                                                onChange={(e) => setHuddleRenameInput(e.target.value)}
+                                                required
+                                            />
+                                            <button className="btn btn-primary" type="submit" disabled={huddleRenameSaving}>
+                                                {huddleRenameSaving ? 'Saving...' : 'Save'}
+                                            </button>
+                                        </form>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="panel-section">
                                 <div className="section-title">Create a new huddle</div>
@@ -9561,7 +11102,10 @@ const App: React.FC = () => {
             )}
 
             {inboxCaptureOpen && (
-                <div className="modal-overlay" onClick={() => setInboxCaptureOpen(false)}>
+                <div className="modal-overlay" onClick={() => {
+                    setInboxCaptureOpen(false);
+                    setInboxEditId(null);
+                }}>
                     <div
                         className="modal-content settings-modal"
                         onClick={(event) => event.stopPropagation()}
@@ -9572,7 +11116,10 @@ const App: React.FC = () => {
                                 <div className="panel-title">Capture inbox item</div>
                                 <div className="panel-subtitle">Add incoming work before sorting.</div>
                             </div>
-                            <button className="panel-close" onClick={() => setInboxCaptureOpen(false)} aria-label="Close">
+                            <button className="panel-close" onClick={() => {
+                                setInboxCaptureOpen(false);
+                                setInboxEditId(null);
+                            }} aria-label="Close">
                                 ×
                             </button>
                         </div>
@@ -9606,6 +11153,7 @@ const App: React.FC = () => {
                                                     onClick={() => {
                                                         setInboxSourceOpen((prev) => !prev);
                                                         setInboxActionOpen(false);
+                                                        setInboxPriorityOpen(false);
                                                     }}
                                                     aria-expanded={inboxSourceOpen}
                                                 >
@@ -9639,6 +11187,7 @@ const App: React.FC = () => {
                                                     onClick={() => {
                                                         setInboxActionOpen((prev) => !prev);
                                                         setInboxSourceOpen(false);
+                                                        setInboxPriorityOpen(false);
                                                     }}
                                                     aria-expanded={inboxActionOpen}
                                                 >
@@ -9665,6 +11214,42 @@ const App: React.FC = () => {
                                                 )}
                                             </div>
                                         </label>
+                                        <label>
+                                            {t('task.field.priority', 'Priority')}
+                                            <div className="filter-dropdown" ref={inboxPriorityRef}>
+                                                <button
+                                                    type="button"
+                                                    className="filter-select"
+                                                    onClick={() => {
+                                                        setInboxActionOpen(false);
+                                                        setInboxSourceOpen(false);
+                                                        setInboxPriorityOpen((prev) => !prev);
+                                                    }}
+                                                    aria-expanded={inboxPriorityOpen}
+                                                >
+                                                    {inboxDraft.priority
+                                                        ? getPriorityLabel(inboxDraft.priority)
+                                                        : t('task.field.selectPriority', 'Priority wählen')}
+                                                </button>
+                                                {inboxPriorityOpen && (
+                                                    <div className="filter-options" role="listbox">
+                                                        {INBOX_PRIORITY_OPTIONS.map((priority) => (
+                                                            <button
+                                                                key={priority.value}
+                                                                type="button"
+                                                                className={`filter-option ${inboxDraft.priority === priority.value ? 'active' : ''}`}
+                                                                onClick={() => {
+                                                                    setInboxDraft((prev) => ({ ...prev, priority: priority.value }));
+                                                                    setInboxPriorityOpen(false);
+                                                                }}
+                                                            >
+                                                                {t(priority.labelId, priority.defaultMessage)}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </label>
                                     </div>
                                 </div>
                         </div>
@@ -9678,25 +11263,44 @@ const App: React.FC = () => {
                                         onClick={() => {
                                             if (!inboxDraft.title.trim()) return;
                                         const now = new Date().toISOString();
-                                        const creatorInfo = getMemberInfo(activeTenantId, currentUserId || undefined);
-                                        persistInboxItems((prev) => [
-                                            {
-                                                id: `inbox-${now}-${Math.random().toString(36).slice(2, 7)}`,
-                                                title: inboxDraft.title.trim(),
-                                                source: inboxDraft.source || undefined,
-                                                suggestedAction: inboxDraft.suggestedAction || undefined,
-                                                description: inboxDraft.description.trim() || undefined,
-                                                createdAt: now,
-                                                kind: 'Incoming',
-                                                creatorLabel: creatorInfo.label,
-                                                creatorAvatarUrl: creatorInfo.avatarUrl,
-                                                creatorId: currentUserId || undefined,
-                                                tenantId: activeTenantId || null
-                                            },
-                                            ...prev
-                                        ]);
-                                            setInboxDraft({ title: '', source: '', suggestedAction: '', description: '' });
+                                        const creatorInfo = getMemberInfo(activeTenantId, currentUserId || session?.user?.id || undefined);
+                                        if (inboxEditId) {
+                                            persistInboxItems((prev) =>
+                                                prev.map((item) =>
+                                                    item.id === inboxEditId
+                                                        ? {
+                                                            ...item,
+                                                            title: inboxDraft.title.trim(),
+                                                            source: inboxDraft.source || undefined,
+                                                            suggestedAction: inboxDraft.suggestedAction || undefined,
+                                                            description: inboxDraft.description.trim() || undefined,
+                                                            priority: (inboxDraft.priority as TaskView['priority']) || 'MEDIUM',
+                                                        }
+                                                        : item
+                                                )
+                                            );
+                                        } else {
+                                            persistInboxItems((prev) => [
+                                                {
+                                                    id: `inbox-${now}-${Math.random().toString(36).slice(2, 7)}`,
+                                                    title: inboxDraft.title.trim(),
+                                                    source: inboxDraft.source || undefined,
+                                                    suggestedAction: inboxDraft.suggestedAction || undefined,
+                                                    description: inboxDraft.description.trim() || undefined,
+                                                    priority: (inboxDraft.priority as TaskView['priority']) || 'MEDIUM',
+                                                    createdAt: now,
+                                                    kind: 'Incoming',
+                                                    creatorLabel: creatorInfo.label,
+                                                    creatorAvatarUrl: undefined,
+                                                    creatorId: currentUserId || session?.user?.id || undefined,
+                                                    tenantId: activeTenantId || null
+                                                },
+                                                ...prev
+                                            ]);
+                                        }
+                                            setInboxDraft({ title: '', source: '', suggestedAction: '', description: '', priority: 'MEDIUM' });
                                             setInboxCaptureOpen(false);
+                                            setInboxEditId(null);
                                         }}
                                     >
                                         <span className="btn-save-icon">{saveIcon}</span>

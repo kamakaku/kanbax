@@ -8,5 +8,6 @@ export declare class QueryService {
     getBoards(principal: Principal): Promise<BoardView[]>;
     getAuditEvents(principal: Principal): Promise<AuditEventView[]>;
     private mapToTaskView;
+    private getFavoriteSet;
 }
 //# sourceMappingURL=query-service.d.ts.map

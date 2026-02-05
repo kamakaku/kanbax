@@ -19,17 +19,21 @@ export class QueryService {
         // Here we use the existing repository and map to views.
         if (boardId === 'all') {
             const tasks = await this.taskRepository.findAllByTenant(principal.tenantId);
+            const favoriteSet = await this.getFavoriteSet(principal);
             return tasks
                 .filter((task) => !task.excludeFromAll)
-                .map(t => this.mapToTaskView(t));
+                .map(t => this.mapToTaskView(t, favoriteSet));
         }
         const tasks = await this.taskRepository.findAllByBoardId(boardId, principal.tenantId);
-        return tasks.map(t => this.mapToTaskView(t));
+        const favoriteSet = await this.getFavoriteSet(principal);
+        return tasks.map(t => this.mapToTaskView(t, favoriteSet));
     }
 
     async getTaskById(id: string, principal: Principal): Promise<TaskView | null> {
         const task = await this.taskRepository.findById(id, principal.tenantId);
-        return task ? this.mapToTaskView(task) : null;
+        if (!task) return null;
+        const favoriteSet = await this.getFavoriteSet(principal);
+        return this.mapToTaskView(task, favoriteSet);
     }
 
     async getBoards(principal: Principal): Promise<BoardView[]> {
@@ -66,7 +70,7 @@ export class QueryService {
         }));
     }
 
-    private mapToTaskView(task: any): TaskView {
+    private mapToTaskView(task: any, favoriteSet?: Set<string> | null): TaskView {
         let sourceIndicator = 'Manual';
         if (task.source.type === 'JIRA') sourceIndicator = task.source.issueKey;
         if (task.source.type === 'EMAIL') sourceIndicator = 'Email';
@@ -90,11 +94,20 @@ export class QueryService {
             checklist: task.checklist ?? [],
             linkedTaskIds: task.linkedTaskIds ?? [],
             activityLog: task.activityLog ?? [],
-            isFavorite: task.isFavorite ?? false,
+            isFavorite: favoriteSet ? favoriteSet.has(task.id) : (task.isFavorite ?? false),
             sourceType: task.source.type,
             sourceIndicator,
             createdAt: task.createdAt,
             updatedAt: task.updatedAt
         };
+    }
+
+    private async getFavoriteSet(principal: Principal): Promise<Set<string> | null> {
+        const repoAny = this.taskRepository as any;
+        if (typeof repoAny.findFavoriteTaskIdsForUser !== 'function') {
+            return null;
+        }
+        const favorites = await repoAny.findFavoriteTaskIdsForUser(principal.tenantId, principal.id);
+        return new Set(favorites);
     }
 }

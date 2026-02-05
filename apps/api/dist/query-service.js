@@ -11,16 +11,21 @@ export class QueryService {
         // Here we use the existing repository and map to views.
         if (boardId === 'all') {
             const tasks = await this.taskRepository.findAllByTenant(principal.tenantId);
+            const favoriteSet = await this.getFavoriteSet(principal);
             return tasks
                 .filter((task) => !task.excludeFromAll)
-                .map(t => this.mapToTaskView(t));
+                .map(t => this.mapToTaskView(t, favoriteSet));
         }
         const tasks = await this.taskRepository.findAllByBoardId(boardId, principal.tenantId);
-        return tasks.map(t => this.mapToTaskView(t));
+        const favoriteSet = await this.getFavoriteSet(principal);
+        return tasks.map(t => this.mapToTaskView(t, favoriteSet));
     }
     async getTaskById(id, principal) {
         const task = await this.taskRepository.findById(id, principal.tenantId);
-        return task ? this.mapToTaskView(task) : null;
+        if (!task)
+            return null;
+        const favoriteSet = await this.getFavoriteSet(principal);
+        return this.mapToTaskView(task, favoriteSet);
     }
     async getBoards(principal) {
         const tasks = await this.taskRepository.findAllByBoardId('default-board', principal.tenantId);
@@ -52,7 +57,7 @@ export class QueryService {
             outcome: e.policyDecision?.outcome || 'ALLOW'
         }));
     }
-    mapToTaskView(task) {
+    mapToTaskView(task, favoriteSet) {
         let sourceIndicator = 'Manual';
         if (task.source.type === 'JIRA')
             sourceIndicator = task.source.issueKey;
@@ -77,12 +82,20 @@ export class QueryService {
             checklist: task.checklist ?? [],
             linkedTaskIds: task.linkedTaskIds ?? [],
             activityLog: task.activityLog ?? [],
-            isFavorite: task.isFavorite ?? false,
+            isFavorite: favoriteSet ? favoriteSet.has(task.id) : (task.isFavorite ?? false),
             sourceType: task.source.type,
             sourceIndicator,
             createdAt: task.createdAt,
             updatedAt: task.updatedAt
         };
+    }
+    async getFavoriteSet(principal) {
+        const repoAny = this.taskRepository;
+        if (typeof repoAny.findFavoriteTaskIdsForUser !== 'function') {
+            return null;
+        }
+        const favorites = await repoAny.findFavoriteTaskIdsForUser(principal.tenantId, principal.id);
+        return new Set(favorites);
     }
 }
 //# sourceMappingURL=query-service.js.map

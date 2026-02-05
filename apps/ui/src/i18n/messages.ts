@@ -17,6 +17,7 @@ export const messages = {
         'inbox.action.backToInbox': 'Zum Eingang',
         'inbox.action.moveToInbox': 'Zum Eingang',
         'inbox.action.moveToInboxTooltip': 'Zurück in den Eingang',
+        'inbox.meta.owner': 'Owner',
         'inbox.action.moved': 'In Scope verschoben ✅',
         'inbox.view.incoming': 'Eingang',
         'inbox.view.later': 'Später',
@@ -43,7 +44,12 @@ export const messages = {
         'inbox.source.idea': 'Idee',
         'inbox.source.external': 'Externe Anfrage',
         'inbox.action.thisWeek': 'Diese Woche',
-        'inbox.action.nextWeek': 'Nächste Woche'
+        'inbox.action.nextWeek': 'Nächste Woche',
+        'priority.high': 'Hoch',
+        'priority.medium': 'Mittel',
+        'priority.low': 'Niedrig',
+        'priority.critical': 'Kritisch',
+        'task.field.priority': 'Priorität'
     }
 } as const;
 

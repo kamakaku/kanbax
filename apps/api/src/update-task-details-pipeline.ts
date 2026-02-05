@@ -133,6 +133,18 @@ export class UpdateTaskDetailsPipeline extends CommandPipeline<UpdateTaskDetails
             });
         });
 
+        if (command.payload.isFavorite !== undefined) {
+            const repoAny = this.repository as any;
+            if (typeof repoAny.setFavoriteForUser === 'function') {
+                await repoAny.setFavoriteForUser(
+                    command.tenantId,
+                    task.id,
+                    command.principal.id,
+                    command.payload.isFavorite
+                );
+            }
+        }
+
         const updatedTask: Task = {
             ...task,
             title: command.payload.title ?? task.title,
@@ -149,7 +161,7 @@ export class UpdateTaskDetailsPipeline extends CommandPipeline<UpdateTaskDetails
             checklist: nextChecklist,
             linkedTaskIds: command.payload.linkedTaskIds ?? task.linkedTaskIds,
             activityLog: nextActivityLog,
-            isFavorite: command.payload.isFavorite ?? task.isFavorite,
+            isFavorite: task.isFavorite,
             excludeFromAll: command.payload.excludeFromAll ?? task.excludeFromAll,
             updatedAt: new Date(),
             version: task.version + 1,
