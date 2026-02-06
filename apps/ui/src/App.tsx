@@ -8211,40 +8211,42 @@ const App: React.FC = () => {
                                     <div className="okr-focus-section">
                                         <div className="okr-section-title">Key results</div>
                                         <div className="okr-section-toolbar">
-                                            <div
-                                                className="view-switch okr-view-switch okr-view-switch-three"
-                                                role="tablist"
-                                                aria-label="Key results view switcher"
-                                                style={{
-                                                    ['--active-index' as any]:
-                                                        okrKrViewMode === 'list' ? 0 : okrKrViewMode === 'cards' ? 1 : 2,
-                                                    ['--segment-count' as any]: 3,
-                                                }}
-                                            >
-                                                <button
-                                                    className={`view-pill ${okrKrViewMode === 'list' ? 'active' : ''}`}
-                                                    onClick={() => setOkrKrViewMode('list')}
-                                                    role="tab"
-                                                    aria-selected={okrKrViewMode === 'list'}
+                                            <div className="filter-bar">
+                                                <div
+                                                    className="view-switch okr-view-switch okr-view-switch-three"
+                                                    role="tablist"
+                                                    aria-label="Key results view switcher"
+                                                    style={{
+                                                        ['--active-index' as any]:
+                                                            okrKrViewMode === 'list' ? 0 : okrKrViewMode === 'cards' ? 1 : 2,
+                                                        ['--segment-count' as any]: 3,
+                                                    }}
                                                 >
-                                                    Liste
-                                                </button>
-                                                <button
-                                                    className={`view-pill ${okrKrViewMode === 'cards' ? 'active' : ''}`}
-                                                    onClick={() => setOkrKrViewMode('cards')}
-                                                    role="tab"
-                                                    aria-selected={okrKrViewMode === 'cards'}
-                                                >
-                                                    Cards
-                                                </button>
-                                                <button
-                                                    className={`view-pill ${okrKrViewMode === 'table' ? 'active' : ''}`}
-                                                    onClick={() => setOkrKrViewMode('table')}
-                                                    role="tab"
-                                                    aria-selected={okrKrViewMode === 'table'}
-                                                >
-                                                    Table
-                                                </button>
+                                                    <button
+                                                        className={`view-pill ${okrKrViewMode === 'list' ? 'active' : ''}`}
+                                                        onClick={() => setOkrKrViewMode('list')}
+                                                        role="tab"
+                                                        aria-selected={okrKrViewMode === 'list'}
+                                                    >
+                                                        Liste
+                                                    </button>
+                                                    <button
+                                                        className={`view-pill ${okrKrViewMode === 'cards' ? 'active' : ''}`}
+                                                        onClick={() => setOkrKrViewMode('cards')}
+                                                        role="tab"
+                                                        aria-selected={okrKrViewMode === 'cards'}
+                                                    >
+                                                        Cards
+                                                    </button>
+                                                    <button
+                                                        className={`view-pill ${okrKrViewMode === 'table' ? 'active' : ''}`}
+                                                        onClick={() => setOkrKrViewMode('table')}
+                                                        role="tab"
+                                                        aria-selected={okrKrViewMode === 'table'}
+                                                    >
+                                                        Table
+                                                    </button>
+                                                </div>
                                             </div>
                                             {!okrActiveObjective.readOnly && (
                                                 <button
@@ -8568,28 +8570,30 @@ const App: React.FC = () => {
                         {okrScreen === 'library' && (
                             <div className="okr-pulse">
                                 <div className="okr-pulse-toolbar">
-                                    <div
-                                        className="view-switch okr-view-switch"
-                                        role="tablist"
-                                        aria-label="Objectives view switcher"
-                                        style={{ ['--active-index' as any]: okrObjectiveViewMode === 'list' ? 0 : 1 }}
-                                    >
-                                        <button
-                                            className={`view-pill ${okrObjectiveViewMode === 'list' ? 'active' : ''}`}
-                                            onClick={() => setOkrObjectiveViewMode('list')}
-                                            role="tab"
-                                            aria-selected={okrObjectiveViewMode === 'list'}
+                                    <div className="filter-bar">
+                                        <div
+                                            className="view-switch okr-view-switch"
+                                            role="tablist"
+                                            aria-label="Objectives view switcher"
+                                            style={{ ['--active-index' as any]: okrObjectiveViewMode === 'list' ? 0 : 1 }}
                                         >
-                                            Liste
-                                        </button>
-                                        <button
-                                            className={`view-pill ${okrObjectiveViewMode === 'cards' ? 'active' : ''}`}
-                                            onClick={() => setOkrObjectiveViewMode('cards')}
-                                            role="tab"
-                                            aria-selected={okrObjectiveViewMode === 'cards'}
-                                        >
-                                            Cards
-                                        </button>
+                                            <button
+                                                className={`view-pill ${okrObjectiveViewMode === 'list' ? 'active' : ''}`}
+                                                onClick={() => setOkrObjectiveViewMode('list')}
+                                                role="tab"
+                                                aria-selected={okrObjectiveViewMode === 'list'}
+                                            >
+                                                Liste
+                                            </button>
+                                            <button
+                                                className={`view-pill ${okrObjectiveViewMode === 'cards' ? 'active' : ''}`}
+                                                onClick={() => setOkrObjectiveViewMode('cards')}
+                                                role="tab"
+                                                aria-selected={okrObjectiveViewMode === 'cards'}
+                                            >
+                                                Cards
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="okr-pulse-actions">
                                         <button className="btn btn-primary btn-compact" onClick={() => setObjectiveComposerOpen(true)}>
@@ -8762,357 +8766,389 @@ const App: React.FC = () => {
                             </div>
                         )}
 
-            {objectiveComposerOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content settings-modal">
-                        <div className="panel-header">
-                            <div>
-                                <div className="panel-title">{objectiveEditId ? 'Objective bearbeiten' : 'Objective erstellen'}</div>
-                                <div className="panel-subtitle">Create the objective details.</div>
+                        {objectiveComposerOpen && (
+                            <div className="modal-overlay">
+                                <div className="modal-content settings-modal">
+                                    <div className="panel-header">
+                                        <div>
+                                            <div className="panel-title">{objectiveEditId ? 'Objective bearbeiten' : 'Objective erstellen'}</div>
+                                            <div className="panel-subtitle">Create the objective details.</div>
+                                        </div>
+                                        <button className="panel-close" onClick={() => setObjectiveComposerOpen(false)} aria-label="Close">
+                                            ×
+                                        </button>
+                                    </div>
+                                    <div className="panel-body">
+                                        <div className="panel-section">
+                                            <div className="section-title">Details</div>
+                                            <label>
+                                                Objective title
+                                                <input
+                                                    type="text"
+                                                    value={objectiveDraft.title}
+                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                                    placeholder="Deliver a calmer onboarding experience"
+                                                />
+                                            </label>
+                                            <label>
+                                                Description
+                                                <textarea
+                                                    value={objectiveDraft.description}
+                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, description: e.target.value }))}
+                                                    placeholder="Short context for this objective"
+                                                    rows={3}
+                                                />
+                                            </label>
+                                            <label>
+                                                Owner
+                                                <div className="member-select" data-member-dropdown="objective-owner">
+                                                    <button
+                                                        type="button"
+                                                        className="member-select-trigger"
+                                                        onClick={() =>
+                                                            setOpenMemberDropdownId((prev) => (prev === 'objective-owner' ? null : 'objective-owner'))
+                                                        }
+                                                    >
+                                                        {objectiveDraft.ownerId
+                                                            ? getMemberLabel(activeTenantId, objectiveDraft.ownerId)
+                                                            : 'Unassigned'}
+                                                    </button>
+                                                    {openMemberDropdownId === 'objective-owner' && (
+                                                        <div className="member-select-dropdown">
+                                                            <button
+                                                                type="button"
+                                                                className={`member-select-option${!objectiveDraft.ownerId ? ' active' : ''}`}
+                                                                onClick={() => {
+                                                                    setObjectiveDraft((prev) => ({ ...prev, ownerId: '' }));
+                                                                    setOpenMemberDropdownId(null);
+                                                                }}
+                                                            >
+                                                                Unassigned
+                                                            </button>
+                                                            {getMembersForTenant(activeTenantId).map((member) => (
+                                                                <button
+                                                                    key={member.userId}
+                                                                    type="button"
+                                                                    className={`member-select-option${objectiveDraft.ownerId === member.userId ? ' active' : ''}`}
+                                                                    onClick={() => {
+                                                                        setObjectiveDraft((prev) => ({ ...prev, ownerId: member.userId }));
+                                                                        setOpenMemberDropdownId(null);
+                                                                    }}
+                                                                >
+                                                                    {member.user?.name || member.user?.email || member.userId}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </label>
+                                        </div>
+                                        <div className="panel-section">
+                                            <div className="section-title">Timeline</div>
+                                            <div className="objective-row">
+                                                <label>
+                                                    Start date
+                                                    <input
+                                                        type="date"
+                                                        value={objectiveDraft.startDate}
+                                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, startDate: e.target.value }))}
+                                                    />
+                                                </label>
+                                                <label>
+                                                    End date
+                                                    <input
+                                                        type="date"
+                                                        value={objectiveDraft.endDate}
+                                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, endDate: e.target.value }))}
+                                                    />
+                                                </label>
+                                            </div>
+                                            <label>
+                                                Status
+                                                <select
+                                                    value={objectiveDraft.status}
+                                                    onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, status: e.target.value }))}
+                                                >
+                                                    <option value="ACTIVE">Active</option>
+                                                    <option value="AT_RISK">At risk</option>
+                                                    <option value="PAUSED">Paused</option>
+                                                    <option value="DONE">Done</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="panel-footer">
+                                        <div className="panel-actions">
+                                            <div className="panel-actions-right">
+                                                <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
+                                                    {objectiveEditId ? 'Save changes' : 'Create objective'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <button className="panel-close" onClick={() => setObjectiveComposerOpen(false)} aria-label="Close">
-                                ×
-                            </button>
-                        </div>
-                        <div className="panel-body">
-                            <div className="panel-section">
-                                <div className="section-title">Details</div>
-                                <label>
-                                    Objective title
-                                    <input
-                                        type="text"
-                                        value={objectiveDraft.title}
-                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, title: e.target.value }))}
-                                        placeholder="Deliver a calmer onboarding experience"
-                                    />
-                                </label>
-                                <label>
-                                    Description
-                                    <textarea
-                                        value={objectiveDraft.description}
-                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, description: e.target.value }))}
-                                        placeholder="Short context for this objective"
-                                        rows={3}
-                                    />
-                                </label>
-                                <label>
-                                    Owner
-                                    <div className="member-select" data-member-dropdown="objective-owner">
+                        )}
+                    </div>
+                )
+            ) : view === 'scope' ? (
+                <>
+                    {activeTenantId && scopeScreen === 'detail' && activeScopeWindow && (
+                        <div className="filter-bar">
+                            <div
+                                className="view-switch"
+                                role="tablist"
+                                aria-label="View switcher"
+                                style={{
+                                    ['--active-index' as any]:
+                                        scopeDetailView === 'board' ? 1 : scopeDetailView === 'timeline' ? 2 : 0,
+                                    ['--segment-count' as any]: 3,
+                                }}
+                            >
+                                <button
+                                    className={`view-pill ${scopeDetailView === 'list' ? 'active' : ''}`}
+                                    onClick={() => setScopeDetailView('list')}
+                                    role="tab"
+                                    aria-selected={scopeDetailView === 'list'}
+                                >
+                                    List
+                                </button>
+                                <button
+                                    className={`view-pill ${scopeDetailView === 'board' ? 'active' : ''}`}
+                                    onClick={() => setScopeDetailView('board')}
+                                    role="tab"
+                                    aria-selected={scopeDetailView === 'board'}
+                                >
+                                    Board
+                                </button>
+                                <button
+                                    className={`view-pill ${scopeDetailView === 'timeline' ? 'active' : ''}`}
+                                    onClick={() => setScopeDetailView('timeline')}
+                                    role="tab"
+                                    aria-selected={scopeDetailView === 'timeline'}
+                                >
+                                    Timeline
+                                </button>
+                            </div>
+                            <div className="filter-actions">
+                                <div className="filter-quick">
+                                    {[
+                                        { key: 'MINE', label: 'My tasks' },
+                                        { key: 'OVERDUE', label: 'Overdue' },
+                                        { key: 'WEEK', label: 'This week' }
+                                    ].map((item) => (
+                                        <button
+                                            key={item.key}
+                                            type="button"
+                                            className={`filter-quick-pill${quickFilter === item.key ? ' active' : ''}`}
+                                            onClick={() => setQuickFilter((prev) => (prev === item.key ? 'ALL' : (item.key as any)))}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                {scopeDetailView === 'timeline' && (
+                                    <div className="filter-dropdown" ref={timelineRangeRef}>
                                         <button
                                             type="button"
-                                            className="member-select-trigger"
-                                            onClick={() =>
-                                                setOpenMemberDropdownId((prev) => (prev === 'objective-owner' ? null : 'objective-owner'))
-                                            }
+                                            className="filter-select"
+                                            onClick={() => setTimelineRangeOpen((prev) => !prev)}
+                                            aria-haspopup="listbox"
+                                            aria-expanded={timelineRangeOpen}
                                         >
-                                            {objectiveDraft.ownerId
-                                                ? getMemberLabel(activeTenantId, objectiveDraft.ownerId)
-                                                : 'Unassigned'}
+                                            {timelineRange === 'auto' ? 'Auto range' : `${timelineRange} days`}
                                         </button>
-                                        {openMemberDropdownId === 'objective-owner' && (
-                                            <div className="member-select-dropdown">
-                                                <button
-                                                    type="button"
-                                                    className={`member-select-option${!objectiveDraft.ownerId ? ' active' : ''}`}
-                                                    onClick={() => {
-                                                        setObjectiveDraft((prev) => ({ ...prev, ownerId: '' }));
-                                                        setOpenMemberDropdownId(null);
-                                                    }}
-                                                >
-                                                    Unassigned
-                                                </button>
-                                                {getMembersForTenant(activeTenantId).map((member) => (
+                                        {timelineRangeOpen && (
+                                            <div className="filter-options" role="listbox">
+                                                {[
+                                                    { value: 'auto', label: 'Auto range' },
+                                                    { value: 14, label: '14 days' },
+                                                    { value: 30, label: '30 days' },
+                                                    { value: 60, label: '60 days' },
+                                                    { value: 90, label: '90 days' },
+                                                ].map((option) => (
                                                     <button
-                                                        key={member.userId}
+                                                        key={option.value}
                                                         type="button"
-                                                        className={`member-select-option${objectiveDraft.ownerId === member.userId ? ' active' : ''}`}
+                                                        className={`filter-option ${timelineRange === option.value ? 'active' : ''}`}
                                                         onClick={() => {
-                                                            setObjectiveDraft((prev) => ({ ...prev, ownerId: member.userId }));
-                                                            setOpenMemberDropdownId(null);
+                                                            setTimelineRange(option.value as any);
+                                                            setTimelineRangeOpen(false);
                                                         }}
+                                                        role="option"
+                                                        aria-selected={timelineRange === option.value}
                                                     >
-                                                        {member.user?.name || member.user?.email || member.userId}
+                                                        {option.label}
                                                     </button>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
-                                </label>
-                            </div>
-                            <div className="panel-section">
-                                <div className="section-title">Timeline</div>
-                                <div className="objective-row">
-                                    <label>
-                                        Start date
-                                        <input
-                                            type="date"
-                                            value={objectiveDraft.startDate}
-                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, startDate: e.target.value }))}
-                                        />
-                                    </label>
-                                    <label>
-                                        End date
-                                        <input
-                                            type="date"
-                                            value={objectiveDraft.endDate}
-                                            onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, endDate: e.target.value }))}
-                                        />
-                                    </label>
-                                </div>
-                                <label>
-                                    Status
-                                    <select
-                                        value={objectiveDraft.status}
-                                        onChange={(e) => setObjectiveDraft((prev) => ({ ...prev, status: e.target.value }))}
+                                )}
+                                <div className="filter-dropdown" ref={scopePriorityFilterRef}>
+                                    <button
+                                        type="button"
+                                        className="filter-select"
+                                        onClick={() => setScopePriorityFilterOpen((prev) => !prev)}
+                                        aria-haspopup="listbox"
+                                        aria-expanded={scopePriorityFilterOpen}
                                     >
-                                        <option value="ACTIVE">Active</option>
-                                        <option value="AT_RISK">At risk</option>
-                                        <option value="PAUSED">Paused</option>
-                                        <option value="DONE">Done</option>
-                                    </select>
+                                        {scopeFilterPriority === 'ALL' ? 'All priorities' : scopeFilterPriority}
+                                    </button>
+                                    {scopePriorityFilterOpen && (
+                                        <div className="filter-options" role="listbox">
+                                            {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => (
+                                                <button
+                                                    key={value}
+                                                    type="button"
+                                                    className={`filter-option ${scopeFilterPriority === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
+                                                    onClick={() => {
+                                                        setScopeFilterPriority(value);
+                                                        setScopePriorityFilterOpen(false);
+                                                    }}
+                                                    role="option"
+                                                    aria-selected={scopeFilterPriority === value}
+                                                >
+                                                    {value === 'ALL' ? 'All priorities' : value}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                {scopeDetailView === 'list' && (
+                                    <div className="filter-dropdown" ref={scopeStatusFilterRef}>
+                                        <button
+                                            type="button"
+                                            className="filter-select"
+                                            onClick={() => setScopeStatusFilterOpen((prev) => !prev)}
+                                            aria-haspopup="listbox"
+                                            aria-expanded={scopeStatusFilterOpen}
+                                        >
+                                            {scopeFilterStatus === 'ALL' ? 'All statuses' : scopeFilterStatus}
+                                        </button>
+                                        {scopeStatusFilterOpen && (
+                                            <div className="filter-options" role="listbox">
+                                                {['ALL', TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE].map((value) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        className={`filter-option ${scopeFilterStatus === value ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setScopeFilterStatus(value as any);
+                                                            setScopeStatusFilterOpen(false);
+                                                        }}
+                                                        role="option"
+                                                        aria-selected={scopeFilterStatus === value}
+                                                    >
+                                                        {value === 'ALL' ? 'All statuses' : value}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="filter-dropdown" ref={labelFilterRef}>
+                                    <button
+                                        type="button"
+                                        className="filter-select"
+                                        onClick={() => setLabelFilterOpen((prev) => !prev)}
+                                        aria-haspopup="listbox"
+                                        aria-expanded={labelFilterOpen}
+                                    >
+                                        {selectedLabelFilters.length > 0
+                                            ? `Labels (${selectedLabelFilters.length})`
+                                            : 'All labels'}
+                                    </button>
+                                    {labelFilterOpen && (
+                                        <div className="filter-options filter-options-multi" role="listbox">
+                                            {scopeLabelOptions.length === 0 && (
+                                                <div className="filter-empty">No labels found</div>
+                                            )}
+                                            {scopeLabelOptions.map((label) => {
+                                                const active = selectedLabelFilters.includes(label);
+                                                return (
+                                                    <button
+                                                        key={label}
+                                                        type="button"
+                                                        className={`filter-option ${active ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            setSelectedLabelFilters((prev) =>
+                                                                prev.includes(label)
+                                                                    ? prev.filter((item) => item !== label)
+                                                                    : prev.concat(label)
+                                                            );
+                                                        }}
+                                                        role="option"
+                                                        aria-selected={active}
+                                                    >
+                                                        <span>{label}</span>
+                                                        {active && <span className="filter-option-check">✓</span>}
+                                                    </button>
+                                                );
+                                            })}
+                                            {selectedLabelFilters.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="filter-option filter-option-clear"
+                                                    onClick={() => setSelectedLabelFilters([])}
+                                                >
+                                                    Clear selection
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                <label
+                                    className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`}
+                                    data-tooltip="Nur Favoriten"
+                                    aria-label="Nur Favoriten"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={filterFavorites}
+                                        onChange={(e) => setFilterFavorites(e.target.checked)}
+                                    />
+                                    <span className="filter-favorites-icon" aria-hidden="true">★</span>
                                 </label>
                             </div>
                         </div>
-                        <div className="panel-footer">
-                            <div className="panel-actions">
-                                <div className="panel-actions-right">
-                                    <button className="btn btn-secondary btn-compact" onClick={handleObjectiveComposerSubmit}>
-                                        {objectiveEditId ? 'Save changes' : 'Create objective'}
-                                    </button>
-                                </div>
+                    )}
+                    {activeTenantId && !(scopeScreen === 'detail' && activeScopeWindow) && (
+                        <div className="filter-bar">
+                            <div
+                                className="view-switch"
+                                role="tablist"
+                                aria-label="Scope filter"
+                                style={{
+                                    ['--active-index' as any]: scopeTab === 'completed' ? 1 : 0,
+                                    ['--segment-count' as any]: 2,
+                                    alignSelf: 'flex-start'
+                                }}
+                            >
+                                <button
+                                    className={`view-pill ${scopeTab === 'current' ? 'active' : ''}`}
+                                    onClick={() => setScopeTab('current')}
+                                    role="tab"
+                                    aria-selected={scopeTab === 'current'}
+                                >
+                                    Aktuell
+                                </button>
+                                <button
+                                    className={`view-pill ${scopeTab === 'completed' ? 'active' : ''}`}
+                                    onClick={() => setScopeTab('completed')}
+                                    role="tab"
+                                    aria-selected={scopeTab === 'completed'}
+                                >
+                                    Beendet
+                                </button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
-                    </div>
-                    )
-                
-
-) : view === 'scope' ? (
+                    )}
                     <div className="dashboard-panel">
                         {!activeTenantId ? (
                             <div className="empty-state">Select a huddle to build a scope window.</div>
                         ) : scopeScreen === 'detail' && activeScopeWindow ? (
                             <>
-                                <div className="filter-bar">
-                                    <div
-                                        className="view-switch"
-                                        role="tablist"
-                                        aria-label="View switcher"
-                                        style={{
-                                            ['--active-index' as any]:
-                                                scopeDetailView === 'board' ? 1 : scopeDetailView === 'timeline' ? 2 : 0,
-                                            ['--segment-count' as any]: 3,
-                                        }}
-                                    >
-                                        <button
-                                            className={`view-pill ${scopeDetailView === 'list' ? 'active' : ''}`}
-                                            onClick={() => setScopeDetailView('list')}
-                                            role="tab"
-                                            aria-selected={scopeDetailView === 'list'}
-                                        >
-                                            List
-                                        </button>
-                                        <button
-                                            className={`view-pill ${scopeDetailView === 'board' ? 'active' : ''}`}
-                                            onClick={() => setScopeDetailView('board')}
-                                            role="tab"
-                                            aria-selected={scopeDetailView === 'board'}
-                                        >
-                                            Board
-                                        </button>
-                                        <button
-                                            className={`view-pill ${scopeDetailView === 'timeline' ? 'active' : ''}`}
-                                            onClick={() => setScopeDetailView('timeline')}
-                                            role="tab"
-                                            aria-selected={scopeDetailView === 'timeline'}
-                                        >
-                                            Timeline
-                                        </button>
-                                    </div>
-                                    <div className="filter-actions">
-                                        <div className="filter-quick">
-                                            {[
-                                                { key: 'MINE', label: 'My tasks' },
-                                                { key: 'OVERDUE', label: 'Overdue' },
-                                                { key: 'WEEK', label: 'This week' }
-                                            ].map((item) => (
-                                                <button
-                                                    key={item.key}
-                                                    type="button"
-                                                    className={`filter-quick-pill${quickFilter === item.key ? ' active' : ''}`}
-                                                    onClick={() => setQuickFilter((prev) => (prev === item.key ? 'ALL' : (item.key as any)))}
-                                                >
-                                                    {item.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        {scopeDetailView === 'timeline' && (
-                                            <div className="filter-dropdown" ref={timelineRangeRef}>
-                                                <button
-                                                    type="button"
-                                                    className="filter-select"
-                                                    onClick={() => setTimelineRangeOpen((prev) => !prev)}
-                                                    aria-haspopup="listbox"
-                                                    aria-expanded={timelineRangeOpen}
-                                                >
-                                                    {timelineRange === 'auto' ? 'Auto range' : `${timelineRange} days`}
-                                                </button>
-                                                {timelineRangeOpen && (
-                                                    <div className="filter-options" role="listbox">
-                                                        {[
-                                                            { value: 'auto', label: 'Auto range' },
-                                                            { value: 14, label: '14 days' },
-                                                            { value: 30, label: '30 days' },
-                                                            { value: 60, label: '60 days' },
-                                                            { value: 90, label: '90 days' },
-                                                        ].map((option) => (
-                                                            <button
-                                                                key={option.value}
-                                                                type="button"
-                                                                className={`filter-option ${timelineRange === option.value ? 'active' : ''}`}
-                                                                onClick={() => {
-                                                                    setTimelineRange(option.value as any);
-                                                                    setTimelineRangeOpen(false);
-                                                                }}
-                                                                role="option"
-                                                                aria-selected={timelineRange === option.value}
-                                                            >
-                                                                {option.label}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div className="filter-dropdown" ref={scopePriorityFilterRef}>
-                                            <button
-                                                type="button"
-                                                className="filter-select"
-                                                onClick={() => setScopePriorityFilterOpen((prev) => !prev)}
-                                                aria-haspopup="listbox"
-                                                aria-expanded={scopePriorityFilterOpen}
-                                            >
-                                                {scopeFilterPriority === 'ALL' ? 'All priorities' : scopeFilterPriority}
-                                            </button>
-                                            {scopePriorityFilterOpen && (
-                                                <div className="filter-options" role="listbox">
-                                                    {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => (
-                                                        <button
-                                                            key={value}
-                                                            type="button"
-                                                            className={`filter-option ${scopeFilterPriority === value ? 'active' : ''} filter-option-${value.toLowerCase()}`}
-                                                            onClick={() => {
-                                                                setScopeFilterPriority(value);
-                                                                setScopePriorityFilterOpen(false);
-                                                            }}
-                                                            role="option"
-                                                            aria-selected={scopeFilterPriority === value}
-                                                        >
-                                                            {value === 'ALL' ? 'All priorities' : value}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                        {scopeDetailView === 'list' && (
-                                            <div className="filter-dropdown" ref={scopeStatusFilterRef}>
-                                                <button
-                                                    type="button"
-                                                    className="filter-select"
-                                                    onClick={() => setScopeStatusFilterOpen((prev) => !prev)}
-                                                    aria-haspopup="listbox"
-                                                    aria-expanded={scopeStatusFilterOpen}
-                                                >
-                                                    {scopeFilterStatus === 'ALL' ? 'All statuses' : scopeFilterStatus}
-                                                </button>
-                                                {scopeStatusFilterOpen && (
-                                                    <div className="filter-options" role="listbox">
-                                                        {['ALL', TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE].map((value) => (
-                                                            <button
-                                                                key={value}
-                                                                type="button"
-                                                                className={`filter-option ${scopeFilterStatus === value ? 'active' : ''}`}
-                                                                onClick={() => {
-                                                                    setScopeFilterStatus(value as any);
-                                                                    setScopeStatusFilterOpen(false);
-                                                                }}
-                                                                role="option"
-                                                                aria-selected={scopeFilterStatus === value}
-                                                            >
-                                                                {value === 'ALL' ? 'All statuses' : value}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div className="filter-dropdown" ref={labelFilterRef}>
-                                            <button
-                                                type="button"
-                                                className="filter-select"
-                                                onClick={() => setLabelFilterOpen((prev) => !prev)}
-                                                aria-haspopup="listbox"
-                                                aria-expanded={labelFilterOpen}
-                                            >
-                                                {selectedLabelFilters.length > 0
-                                                    ? `Labels (${selectedLabelFilters.length})`
-                                                    : 'All labels'}
-                                            </button>
-                                            {labelFilterOpen && (
-                                                <div className="filter-options filter-options-multi" role="listbox">
-                                                    {scopeLabelOptions.length === 0 && (
-                                                        <div className="filter-empty">No labels found</div>
-                                                    )}
-                                                    {scopeLabelOptions.map((label) => {
-                                                        const active = selectedLabelFilters.includes(label);
-                                                        return (
-                                                            <button
-                                                                key={label}
-                                                                type="button"
-                                                                className={`filter-option ${active ? 'active' : ''}`}
-                                                                onClick={() => {
-                                                                    setSelectedLabelFilters((prev) =>
-                                                                        prev.includes(label)
-                                                                            ? prev.filter((item) => item !== label)
-                                                                            : prev.concat(label)
-                                                                    );
-                                                                }}
-                                                                role="option"
-                                                                aria-selected={active}
-                                                            >
-                                                                <span>{label}</span>
-                                                                {active && <span className="filter-option-check">✓</span>}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                    {selectedLabelFilters.length > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            className="filter-option filter-option-clear"
-                                                            onClick={() => setSelectedLabelFilters([])}
-                                                        >
-                                                            Clear selection
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <label
-                                            className={`filter-checkbox filter-favorites ${filterFavorites ? 'active' : ''}`}
-                                            data-tooltip="Nur Favoriten"
-                                            aria-label="Nur Favoriten"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={filterFavorites}
-                                                onChange={(e) => setFilterFavorites(e.target.checked)}
-                                            />
-                                            <span className="filter-favorites-icon" aria-hidden="true">★</span>
-                                        </label>
-                                    </div>
-                                </div>
                                 {scopeDetailView === 'board' ? (
                                     <div className="kanban-board-wrap">
                                         <div className="kanban-board">
@@ -9405,34 +9441,6 @@ const App: React.FC = () => {
                             </>
                         ) : (
                             <>
-                            <div
-                                className="view-switch"
-                                role="tablist"
-                                aria-label="Scope filter"
-                                style={{
-                                    ['--active-index' as any]: scopeTab === 'completed' ? 1 : 0,
-                                    ['--segment-count' as any]: 2,
-                                    marginBottom: '0.75rem',
-                                    alignSelf: 'flex-start'
-                                }}
-                            >
-                                <button
-                                    className={`view-pill ${scopeTab === 'current' ? 'active' : ''}`}
-                                    onClick={() => setScopeTab('current')}
-                                    role="tab"
-                                    aria-selected={scopeTab === 'current'}
-                                >
-                                    Aktuell
-                                </button>
-                                <button
-                                    className={`view-pill ${scopeTab === 'completed' ? 'active' : ''}`}
-                                    onClick={() => setScopeTab('completed')}
-                                    role="tab"
-                                    aria-selected={scopeTab === 'completed'}
-                                >
-                                    Beendet
-                                </button>
-                            </div>
                             <div className="dashboard-card dashboard-list ui-card">
                             
                                                 <div className="dashboard-card-title ui-card-header">
@@ -9593,6 +9601,7 @@ const App: React.FC = () => {
                             </>
                         )}
                     </div>
+                </>
                 ) : view === 'dashboard' ? (
                     <div className="dashboard-panel">
                         {!activeTenantId ? (
@@ -9757,211 +9766,209 @@ const App: React.FC = () => {
                                                         );
                                                     })}
                                                 </div>
-                                                <div className="inbox-detail">
-                                                    {selectedItem ? (
-                                                        <div className="inbox-detail">
-                                                            <div className="inbox-detail-body">
-                                                                <div className="inbox-detail-topbar">
-                                                                    <div className="inbox-detail-user">
-                                                                        {(() => {
-                                                                            const memberInfo = getMemberInfo(activeTenantId, selectedItem.creatorId);
-                                                                            const avatarUrl = memberInfo.avatarUrl || '';
-                                                                            const label = memberInfo.label || selectedItem.creatorLabel || selectedItem.title;
-                                                                            return (
-                                                                                <div
-                                                                                    className={`inbox-avatar${avatarUrl ? ' has-image' : ''} tooltip-target`}
-                                                                                    aria-label={label}
-                                                                                    data-tooltip={label}
-                                                                                >
-                                                                                    {avatarUrl ? (
-                                                                                        <img src={avatarUrl} alt={label} />
-                                                                                    ) : (
-                                                                                        getInitials(label)
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                        {selectedItem.priority && (
-                                                                        <span
-                                                                            className={`badge badge-priority-${String(
-                                                                                selectedItem.priority
-                                                                            ).toLowerCase()}`}
-                                                                        >
-                                                                            {selectedItem.priority}
-                                                                        </span>
-                                                                    )}
-                                                                    </div>
-                                                                <div className="inbox-detail-topbar-actions">
-                                                                    {inboxView === 'eingang' && (
-                                                                        <div className="filter-dropdown inbox-scope-dropdown" ref={inboxScopeRef}>
-                                                                            <button
-                                                                                type="button"
-                                                                                    className="icon-action scope-toggle inbox-action tooltip-target"
-                                                                                    data-tooltip={t('inbox.action.addScopeTooltip', 'Zum Scope hinzufügen')}
-                                                                                    aria-label={t('inbox.action.addScope', 'Zum Scope hinzufügen')}
-                                                                                    onClick={() => {
-                                                                                        setInboxScopeMenuId((prev) =>
-                                                                                            prev === selectedItem.id ? null : selectedItem.id
-                                                                                        );
-                                                                                    }}
-                                                                                >
-                                                                                    <span className="inbox-action-icon" aria-hidden="true">
-                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
-                                                                                            <circle cx="12" cy="12" r="7.5"></circle>
-                                                                                            <circle cx="12" cy="12" r="2.5"></circle>
-                                                                                            <path d="M12 4v3"></path>
-                                                                                            <path d="M12 17v3"></path>
-                                                                                            <path d="M4 12h3"></path>
-                                                                                            <path d="M17 12h3"></path>
-                                                                                        </svg>
-                                                                                    </span>
-                                                                                </button>
-                                                                                {inboxScopeMenuId === selectedItem.id && (
-                                                                                    <div className="filter-options" role="listbox">
-                                                                                        {scopeWindows.length === 0 ? (
-                                                                                            <div className="filter-empty">
-                                                                                                {t('scope.empty.title', 'No scopes yet')}
-                                                                                            </div>
-                                                                                        ) : (
-                                                                                            scopeWindows.map((window) => (
-                                                                                                <button
-                                                                                                    key={window.id}
-                                                                                                    type="button"
-                                                                                                    className="filter-option"
-                                                                                                    onClick={() => handleInboxAddToScope(selectedItem, window.id)}
-                                                                                                >
-                                                                                                    <span>{window.name}</span>
-                                                                                                    <span className="filter-option-meta">
-                                                                                                        {getScopeDateLabel(window)}
-                                                                                                    </span>
-                                                                                                </button>
-                                                                                            ))
-                                                                                        )}
-                                                                                    </div>
+                                                {selectedItem ? (
+                                                    <div className="inbox-detail">
+                                                        <div className="inbox-detail-body">
+                                                            <div className="inbox-detail-topbar">
+                                                                <div className="inbox-detail-user">
+                                                                    {(() => {
+                                                                        const memberInfo = getMemberInfo(activeTenantId, selectedItem.creatorId);
+                                                                        const avatarUrl = memberInfo.avatarUrl || '';
+                                                                        const label = memberInfo.label || selectedItem.creatorLabel || selectedItem.title;
+                                                                        return (
+                                                                            <div
+                                                                                className={`inbox-avatar${avatarUrl ? ' has-image' : ''} tooltip-target`}
+                                                                                aria-label={label}
+                                                                                data-tooltip={label}
+                                                                            >
+                                                                                {avatarUrl ? (
+                                                                                    <img src={avatarUrl} alt={label} />
+                                                                                ) : (
+                                                                                    getInitials(label)
                                                                                 )}
                                                                             </div>
-                                                                        )}
-                                                                        {inboxView === 'eingang' && (
-                                                                            <button
-                                                                                type="button"
-                                                                                className="icon-action inbox-action tooltip-target"
-                                                                                data-tooltip={t('inbox.action.laterTooltip', 'Later')}
-                                                                                aria-label={t('inbox.action.later', 'Later')}
-                                                                                onClick={() => setInboxStatus(selectedItem.id, 'spaeter')}
-                                                                            >
-                                                                                <span className="inbox-action-icon" aria-hidden="true">
-                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                        <circle cx="12" cy="12" r="7" />
-                                                                                        <path d="M12 7v5l3 3" />
-                                                                                    </svg>
-                                                                                </span>
-                                                                            </button>
-                                                                        )}
-                                                                        {(inboxView === 'eingang' || inboxView === 'spaeter' || inboxView === 'bearbeitet') && (
-                                                                            <button
-                                                                                type="button"
-                                                                                className="icon-action inbox-action tooltip-target"
-                                                                                data-tooltip={t('inbox.action.archiveTooltip', 'Archive')}
-                                                                                aria-label={t('inbox.action.archive', 'Archive')}
-                                                                                onClick={() => setInboxStatus(selectedItem.id, 'archiv')}
-                                                                            >
-                                                                                <span className="inbox-action-icon" aria-hidden="true">
-                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                        <path d="M4 7h16" />
-                                                                                        <path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
-                                                                                        <path d="M9 11h6" />
-                                                                                    </svg>
-                                                                                </span>
-                                                                            </button>
-                                                                        )}
-                                                                        {inboxView === 'archiv' && (
-                                                                            <button
-                                                                        type="button"
-                                                                        className="icon-action inbox-action tooltip-target"
-                                                                        data-tooltip={t('inbox.action.backTooltip', 'Back to inbox')}
-                                                                        aria-label={t('inbox.action.backToInbox', 'Zum Eingang')}
-                                                                        onClick={() => {
-                                                                            setInboxStatus(selectedItem.id, 'eingang');
-                                                                            setSelectedInboxId(null);
-                                                                        }}
+                                                                        );
+                                                                    })()}
+                                                                    {selectedItem.priority && (
+                                                                    <span
+                                                                        className={`badge badge-priority-${String(
+                                                                            selectedItem.priority
+                                                                        ).toLowerCase()}`}
                                                                     >
-                                                                        <span className="inbox-action-icon" aria-hidden="true">
-                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                <path d="M14 7l-5 5 5 5" />
-                                                                                <path d="M19 12H9" />
-                                                                            </svg>
-                                                                        </span>
-                                                                    </button>
+                                                                        {selectedItem.priority}
+                                                                    </span>
                                                                 )}
-                                                                {inboxView === 'spaeter' && (
-                                                                    <button
-                                                                        type="button"
-                                                                        className="icon-action inbox-action tooltip-target"
-                                                                        data-tooltip={t('inbox.action.moveToInboxTooltip', 'Zurück in den Eingang')}
-                                                                        aria-label={t('inbox.action.moveToInbox', 'Zur Eingang')}
-                                                                        onClick={() => setInboxStatus(selectedItem.id, 'eingang')}
-                                                                    >
-                                                                        <span className="inbox-action-icon" aria-hidden="true">
-                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                <path d="M9 12h8" />
-                                                                                <path d="M12 7l-5 5 5 5" />
-                                                                            </svg>
-                                                                        </span>
-                                                                    </button>
-                                                                )}
-                                                                {(inboxView === 'eingang' || inboxView === 'spaeter') && selectedItem && (
+                                                                </div>
+                                                            <div className="inbox-detail-topbar-actions">
+                                                                {inboxView === 'eingang' && (
+                                                                    <div className="filter-dropdown inbox-scope-dropdown" ref={inboxScopeRef}>
                                                                         <button
-                                                                            className="icon-action inbox-action tooltip-target inbox-action-edit"
-                                                                            data-tooltip="Bearbeiten"
-                                                                            aria-label="Bearbeiten"
-                                                                            onClick={() => handleInboxEdit(selectedItem)}
+                                                                            type="button"
+                                                                                className="icon-action scope-toggle inbox-action tooltip-target"
+                                                                                data-tooltip={t('inbox.action.addScopeTooltip', 'Zum Scope hinzufügen')}
+                                                                                aria-label={t('inbox.action.addScope', 'Zum Scope hinzufügen')}
+                                                                                onClick={() => {
+                                                                                    setInboxScopeMenuId((prev) =>
+                                                                                        prev === selectedItem.id ? null : selectedItem.id
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <span className="inbox-action-icon" aria-hidden="true">
+                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                                                                        <circle cx="12" cy="12" r="7.5"></circle>
+                                                                                        <circle cx="12" cy="12" r="2.5"></circle>
+                                                                                        <path d="M12 4v3"></path>
+                                                                                        <path d="M12 17v3"></path>
+                                                                                        <path d="M4 12h3"></path>
+                                                                                        <path d="M17 12h3"></path>
+                                                                                    </svg>
+                                                                                </span>
+                                                                            </button>
+                                                                            {inboxScopeMenuId === selectedItem.id && (
+                                                                                <div className="filter-options" role="listbox">
+                                                                                    {scopeWindows.length === 0 ? (
+                                                                                        <div className="filter-empty">
+                                                                                            {t('scope.empty.title', 'No scopes yet')}
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        scopeWindows.map((window) => (
+                                                                                            <button
+                                                                                                key={window.id}
+                                                                                                type="button"
+                                                                                                className="filter-option"
+                                                                                                onClick={() => handleInboxAddToScope(selectedItem, window.id)}
+                                                                                            >
+                                                                                                <span>{window.name}</span>
+                                                                                                <span className="filter-option-meta">
+                                                                                                    {getScopeDateLabel(window)}
+                                                                                                </span>
+                                                                                            </button>
+                                                                                        ))
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                    {inboxView === 'eingang' && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="icon-action inbox-action tooltip-target"
+                                                                            data-tooltip={t('inbox.action.laterTooltip', 'Later')}
+                                                                            aria-label={t('inbox.action.later', 'Later')}
+                                                                            onClick={() => setInboxStatus(selectedItem.id, 'spaeter')}
                                                                         >
                                                                             <span className="inbox-action-icon" aria-hidden="true">
                                                                                 <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                    <path d="M4 20h4l10-10-4-4L4 16v4z" />
-                                                                                    <path d="M14 6l4 4" />
+                                                                                    <circle cx="12" cy="12" r="7" />
+                                                                                    <path d="M12 7v5l3 3" />
                                                                                 </svg>
                                                                             </span>
                                                                         </button>
                                                                     )}
-                                                            </div>
-                                                        </div>
-                                                                <div className="inbox-detail-meta" role="list">
-                                                                    {selectedItem.source && (
-                                                                        <span className="inbox-detail-extra" role="listitem">
-                                                                            <strong>{t('inbox.field.source', 'Source')}:</strong>{' '}
-                                                                            {getSourceLabel(selectedItem.source)}
-                                                                        </span>
+                                                                    {(inboxView === 'eingang' || inboxView === 'spaeter' || inboxView === 'bearbeitet') && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="icon-action inbox-action tooltip-target"
+                                                                            data-tooltip={t('inbox.action.archiveTooltip', 'Archive')}
+                                                                            aria-label={t('inbox.action.archive', 'Archive')}
+                                                                            onClick={() => setInboxStatus(selectedItem.id, 'archiv')}
+                                                                        >
+                                                                            <span className="inbox-action-icon" aria-hidden="true">
+                                                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                    <path d="M4 7h16" />
+                                                                                    <path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
+                                                                                    <path d="M9 11h6" />
+                                                                                </svg>
+                                                                            </span>
+                                                                        </button>
                                                                     )}
-                                                                    {selectedItem.suggestedAction && (
-                                                                        <span className="inbox-detail-extra" role="listitem">
-                                                                            <strong>{t('inbox.field.action', 'Suggested action')}:</strong>{' '}
-                                                                            {getActionLabel(selectedItem.suggestedAction)}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <div className="inbox-detail-header">
-                                                                    <h3>{selectedItem.title}</h3>
-                                                                    <span className="inbox-detail-date">
-                                                                        {new Date(selectedItem.createdAt).toLocaleDateString()}
+                                                                    {inboxView === 'archiv' && (
+                                                                        <button
+                                                                    type="button"
+                                                                    className="icon-action inbox-action tooltip-target"
+                                                                    data-tooltip={t('inbox.action.backTooltip', 'Back to inbox')}
+                                                                    aria-label={t('inbox.action.backToInbox', 'Zum Eingang')}
+                                                                    onClick={() => {
+                                                                        setInboxStatus(selectedItem.id, 'eingang');
+                                                                        setSelectedInboxId(null);
+                                                                    }}
+                                                                >
+                                                                    <span className="inbox-action-icon" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <path d="M14 7l-5 5 5 5" />
+                                                                            <path d="M19 12H9" />
+                                                                        </svg>
                                                                     </span>
-                                                                </div>
-                                                                {selectedItem.description && (
-                                                                    <p className="inbox-detail-description">{selectedItem.description}</p>
+                                                                </button>
+                                                            )}
+                                                            {inboxView === 'spaeter' && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="icon-action inbox-action tooltip-target"
+                                                                    data-tooltip={t('inbox.action.moveToInboxTooltip', 'Zurück in den Eingang')}
+                                                                    aria-label={t('inbox.action.moveToInbox', 'Zur Eingang')}
+                                                                    onClick={() => setInboxStatus(selectedItem.id, 'eingang')}
+                                                                >
+                                                                    <span className="inbox-action-icon" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <path d="M9 12h8" />
+                                                                            <path d="M12 7l-5 5 5 5" />
+                                                                        </svg>
+                                                                    </span>
+                                                                </button>
+                                                            )}
+                                                            {(inboxView === 'eingang' || inboxView === 'spaeter') && selectedItem && (
+                                                                    <button
+                                                                        className="icon-action inbox-action tooltip-target inbox-action-edit"
+                                                                        data-tooltip="Bearbeiten"
+                                                                        aria-label="Bearbeiten"
+                                                                        onClick={() => handleInboxEdit(selectedItem)}
+                                                                    >
+                                                                        <span className="inbox-action-icon" aria-hidden="true">
+                                                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                                <path d="M4 20h4l10-10-4-4L4 16v4z" />
+                                                                                <path d="M14 6l4 4" />
+                                                                            </svg>
+                                                                        </span>
+                                                                    </button>
+                                                                )}
+                                                        </div>
+                                                    </div>
+                                                            <div className="inbox-detail-meta" role="list">
+                                                                {selectedItem.source && (
+                                                                    <span className="inbox-detail-extra" role="listitem">
+                                                                        <strong>{t('inbox.field.source', 'Source')}:</strong>{' '}
+                                                                        {getSourceLabel(selectedItem.source)}
+                                                                    </span>
+                                                                )}
+                                                                {selectedItem.suggestedAction && (
+                                                                    <span className="inbox-detail-extra" role="listitem">
+                                                                        <strong>{t('inbox.field.action', 'Suggested action')}:</strong>{' '}
+                                                                        {getActionLabel(selectedItem.suggestedAction)}
+                                                                    </span>
                                                                 )}
                                                             </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="inbox-empty-detail">
-                                                            <div className="inbox-empty-title">
-                                                                {t('inbox.empty.title', 'Inbox Zero')}
+                                                            <div className="inbox-detail-header">
+                                                                <h3>{selectedItem.title}</h3>
+                                                                <span className="inbox-detail-date">
+                                                                    {new Date(selectedItem.createdAt).toLocaleDateString()}
+                                                                </span>
                                                             </div>
-                                                            <div className="inbox-empty-text">
-                                                                {t('inbox.empty.text', 'No unplanned work right now.')}
-                                                            </div>
+                                                            {selectedItem.description && (
+                                                                <p className="inbox-detail-description">{selectedItem.description}</p>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="inbox-empty-detail">
+                                                        <div className="inbox-empty-title">
+                                                            {t('inbox.empty.title', 'Inbox Zero')}
+                                                        </div>
+                                                        <div className="inbox-empty-text">
+                                                            {t('inbox.empty.text', 'No unplanned work right now.')}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })()}
@@ -9970,7 +9977,39 @@ const App: React.FC = () => {
                         )}
                     </div>
                 ) : view === 'initiatives' ? (
-                    <div className="dashboard-panel initiatives-shell">
+                    <>
+                        {activeTenantId && initiativeScreen !== 'detail' && (
+                            <div className="filter-bar">
+                                <div
+                                    className="view-switch"
+                                    role="tablist"
+                                    aria-label="Initiative filter"
+                                    style={{
+                                        ['--active-index' as any]: initiativeTab === 'CLOSED' ? 1 : 0,
+                                        ['--segment-count' as any]: 2,
+                                        alignSelf: 'flex-start'
+                                    }}
+                                >
+                                    <button
+                                        className={`view-pill ${initiativeTab === 'ACTIVE' ? 'active' : ''}`}
+                                        onClick={() => setInitiativeTab('ACTIVE')}
+                                        role="tab"
+                                        aria-selected={initiativeTab === 'ACTIVE'}
+                                    >
+                                        Aktuell
+                                    </button>
+                                    <button
+                                        className={`view-pill ${initiativeTab === 'CLOSED' ? 'active' : ''}`}
+                                        onClick={() => setInitiativeTab('CLOSED')}
+                                        role="tab"
+                                        aria-selected={initiativeTab === 'CLOSED'}
+                                    >
+                                        Beendet
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <div className="dashboard-panel initiatives-shell">
                         {!activeTenantId ? (
                             <div className="empty-state">Select a huddle to manage initiatives.</div>
                         ) : initiativeScreen === 'detail' && activeInitiative ? (
@@ -10094,61 +10133,61 @@ const App: React.FC = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="scope-section">
-                                        <div className="scope-section-title">Progress</div>
-                                        <div className="scope-section-content">
-                                            <div className="initiative-progress">
-                                                <div className="initiative-progress-row">
-                                                    <div>
-                                                        <div className="initiative-progress-label">Task completion</div>
-                                                        <div className="initiative-progress-value">
-                                                            {activeInitiativeMetrics?.doneTasks ?? 0} / {activeInitiativeMetrics?.totalTasks ?? 0} done
+                                        <div className="scope-section">
+                                            <div className="scope-section-title">Progress</div>
+                                            <div className="scope-section-content">
+                                                <div className="initiative-progress">
+                                                    <div className="initiative-progress-row">
+                                                        <div>
+                                                            <div className="initiative-progress-label">Task completion</div>
+                                                            <div className="initiative-progress-value">
+                                                                {activeInitiativeMetrics?.doneTasks ?? 0} / {activeInitiativeMetrics?.totalTasks ?? 0} done
+                                                            </div>
+                                                        </div>
+                                                        <div className="initiative-progress-percent">
+                                                            {activeInitiativeMetrics?.taskCompletion ?? 0}%
                                                         </div>
                                                     </div>
-                                                    <div className="initiative-progress-percent">
-                                                        {activeInitiativeMetrics?.taskCompletion ?? 0}%
+                                                    <div className="initiative-progress-bar">
+                                                        <span
+                                                            className="initiative-progress-fill"
+                                                            style={{ width: `${activeInitiativeMetrics?.taskCompletion ?? 0}%` }}
+                                                        />
                                                     </div>
-                                                </div>
-                                                <div className="initiative-progress-bar">
-                                                    <span
-                                                        className="initiative-progress-fill"
-                                                        style={{ width: `${activeInitiativeMetrics?.taskCompletion ?? 0}%` }}
-                                                    />
-                                                </div>
-                                                <div className="initiative-progress-row">
-                                                    <div>
-                                                        <div className="initiative-progress-label">Scope completion</div>
-                                                        <div className="initiative-progress-value">
-                                                            {activeInitiativeMetrics?.closedScopes ?? 0} / {activeInitiativeMetrics?.totalScopes ?? 0} closed
+                                                    <div className="initiative-progress-row">
+                                                        <div>
+                                                            <div className="initiative-progress-label">Scope completion</div>
+                                                            <div className="initiative-progress-value">
+                                                                {activeInitiativeMetrics?.closedScopes ?? 0} / {activeInitiativeMetrics?.totalScopes ?? 0} closed
+                                                            </div>
+                                                        </div>
+                                                        <div className="initiative-progress-percent">
+                                                            {activeInitiativeMetrics?.scopeCompletion ?? 0}%
                                                         </div>
                                                     </div>
-                                                    <div className="initiative-progress-percent">
-                                                        {activeInitiativeMetrics?.scopeCompletion ?? 0}%
+                                                    <div className="initiative-progress-bar">
+                                                        <span
+                                                            className="initiative-progress-fill"
+                                                            style={{ width: `${activeInitiativeMetrics?.scopeCompletion ?? 0}%` }}
+                                                        />
                                                     </div>
-                                                </div>
-                                                <div className="initiative-progress-bar">
-                                                    <span
-                                                        className="initiative-progress-fill"
-                                                        style={{ width: `${activeInitiativeMetrics?.scopeCompletion ?? 0}%` }}
-                                                    />
-                                                </div>
-                                                <div className="initiative-progress-stats">
-                                                    <div className="initiative-progress-stat">
-                                                        <span>Total scopes</span>
-                                                        <strong>{activeInitiativeMetrics?.totalScopes ?? 0}</strong>
-                                                    </div>
-                                                    <div className="initiative-progress-stat">
-                                                        <span>Active scopes</span>
-                                                        <strong>{activeInitiativeMetrics?.activeScopes ?? 0}</strong>
-                                                    </div>
-                                                    <div className="initiative-progress-stat">
-                                                        <span>Open tasks</span>
-                                                        <strong>{activeInitiativeMetrics?.openTasks ?? 0}</strong>
-                                                    </div>
-                                                    <div className="initiative-progress-stat">
-                                                        <span>Done tasks</span>
-                                                        <strong>{activeInitiativeMetrics?.doneTasks ?? 0}</strong>
+                                                    <div className="initiative-progress-stats">
+                                                        <div className="initiative-progress-stat">
+                                                            <span>Total scopes</span>
+                                                            <strong>{activeInitiativeMetrics?.totalScopes ?? 0}</strong>
+                                                        </div>
+                                                        <div className="initiative-progress-stat">
+                                                            <span>Active scopes</span>
+                                                            <strong>{activeInitiativeMetrics?.activeScopes ?? 0}</strong>
+                                                        </div>
+                                                        <div className="initiative-progress-stat">
+                                                            <span>Open tasks</span>
+                                                            <strong>{activeInitiativeMetrics?.openTasks ?? 0}</strong>
+                                                        </div>
+                                                        <div className="initiative-progress-stat">
+                                                            <span>Done tasks</span>
+                                                            <strong>{activeInitiativeMetrics?.doneTasks ?? 0}</strong>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -10158,34 +10197,6 @@ const App: React.FC = () => {
                             </div>
                         ) : (
                             <>
-                                <div
-                                    className="view-switch"
-                                    role="tablist"
-                                    aria-label="Initiative filter"
-                                    style={{
-                                        ['--active-index' as any]: initiativeTab === 'CLOSED' ? 1 : 0,
-                                        ['--segment-count' as any]: 2,
-                                        marginBottom: '0.75rem',
-                                        alignSelf: 'flex-start'
-                                    }}
-                                >
-                                    <button
-                                        className={`view-pill ${initiativeTab === 'ACTIVE' ? 'active' : ''}`}
-                                        onClick={() => setInitiativeTab('ACTIVE')}
-                                        role="tab"
-                                        aria-selected={initiativeTab === 'ACTIVE'}
-                                    >
-                                        Aktuell
-                                    </button>
-                                    <button
-                                        className={`view-pill ${initiativeTab === 'CLOSED' ? 'active' : ''}`}
-                                        onClick={() => setInitiativeTab('CLOSED')}
-                                        role="tab"
-                                        aria-selected={initiativeTab === 'CLOSED'}
-                                    >
-                                        Beendet
-                                    </button>
-                                </div>
                                 <div className="dashboard-card dashboard-list ui-card">
                                     <div className="dashboard-card-title ui-card-header">
                                         <div className="dashboard-card-title-row inbox-header-row">
@@ -10255,9 +10266,6 @@ const App: React.FC = () => {
                                                                         <span className="scope-task-origin"><span>Ziel:</span> {initiative.goal}</span>
                                                                     )}
                                                                 </div>
-                                                                <div className="scope-window-description">
-                                                                    {initiative.description || 'No description yet.'}
-                                                                </div>
                                                                 <div className="scope-window-health">
                                                                     <div className="scope-window-progress">
                                                                         <div className="scope-window-progress-bar">
@@ -10287,11 +10295,11 @@ const App: React.FC = () => {
                             </>
                         )}
                     </div>
+                </>
                 ) : (
                     <>
                         <div className="filter-bar">
-                            <div
-                                className="view-switch"
+                                <div className="view-switch"
                                 role="tablist"
                                 aria-label="View switcher"
                                 style={{
