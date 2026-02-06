@@ -116,6 +116,19 @@ interface CalendarImport {
     createdAt: string;
 }
 
+type InitiativeStatus = 'ACTIVE' | 'CLOSED';
+
+interface Initiative {
+    id: string;
+    name: string;
+    goal?: string | null;
+    description?: string | null;
+    ownerId?: string | null;
+    status: InitiativeStatus;
+    createdAt: string;
+    closedAt?: string | null;
+}
+
 interface ScopeWindow {
     id: string;
     name: string;
@@ -126,6 +139,11 @@ interface ScopeWindow {
     createdAt: string;
     visibility?: 'personal' | 'shared';
     createdBy?: string | null;
+    completionStatus?: 'YES' | 'PARTIAL' | 'NO' | null;
+    completionComment?: string | null;
+    completedAt?: string | null;
+    completedBy?: string | null;
+    initiativeId?: string | null;
     role?: 'ADMIN' | 'MEMBER' | 'VIEWER';
     members?: Array<{ userId: string; role: 'ADMIN' | 'MEMBER' | 'VIEWER' }>;
 }
@@ -134,6 +152,7 @@ interface ScopeWindow {
 const INBOX_STORAGE_KEY = 'kanbax-inbox-items';
 const INBOX_STATUS_STORAGE_KEY = 'kanbax-inbox-statuses';
 const TIMELINE_OVERRIDE_KEY = 'kanbax-timeline-overrides';
+const INITIATIVES_STORAGE_KEY = 'kanbax-initiatives';
 type InboxStatus = 'eingang' | 'spaeter' | 'bearbeitet' | 'archiv';
 type InboxView = InboxStatus;
 type TimelineOverride = { date: string; isPoint: boolean; durationDays?: number };
@@ -153,6 +172,16 @@ const loadTimelineOverrides = (): Record<string, TimelineOverride> => {
         const stored = window.localStorage.getItem(TIMELINE_OVERRIDE_KEY);
         if (!stored) return {};
         return JSON.parse(stored) as Record<string, TimelineOverride>;
+    } catch {
+        return {};
+    }
+};
+const loadInitiatives = (): Record<string, Initiative[]> => {
+    if (typeof window === 'undefined') return {};
+    try {
+        const stored = window.localStorage.getItem(INITIATIVES_STORAGE_KEY);
+        if (!stored) return {};
+        return JSON.parse(stored) as Record<string, Initiative[]>;
     } catch {
         return {};
     }
@@ -451,6 +480,9 @@ const App: React.FC = () => {
         if (inboxScopeMenuId && inboxScopeRef.current && !inboxScopeRef.current.contains(event.target as Node)) {
             setInboxScopeMenuId(null);
         }
+        if (scopeInitiativeOpen && scopeInitiativeRef.current && !scopeInitiativeRef.current.contains(event.target as Node)) {
+            setScopeInitiativeOpen(false);
+        }
     };
 
     useEffect(() => {
@@ -484,6 +516,23 @@ const App: React.FC = () => {
         syncScopeFromUrl();
         window.addEventListener('popstate', syncScopeFromUrl);
         return () => window.removeEventListener('popstate', syncScopeFromUrl);
+    }, []);
+    useEffect(() => {
+        const syncInitiativeFromUrl = () => {
+            const params = new URLSearchParams(window.location.search);
+            const initiativeParam = params.get('initiative');
+            if (initiativeParam) {
+                setInitiativeRouteId(initiativeParam);
+                setView('initiatives');
+                setInitiativeScreen('detail');
+            } else {
+                setInitiativeRouteId(null);
+                setInitiativeScreen('list');
+            }
+        };
+        syncInitiativeFromUrl();
+        window.addEventListener('popstate', syncInitiativeFromUrl);
+        return () => window.removeEventListener('popstate', syncInitiativeFromUrl);
     }, []);
 
     const [session, setSession] = useState<any>(null);
@@ -601,6 +650,8 @@ const App: React.FC = () => {
     const [boardMenuOpen, setBoardMenuOpen] = useState(false);
     const [okrMenuOpen, setOkrMenuOpen] = useState(false);
     const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
+    const [initiativeMenuOpen, setInitiativeMenuOpen] = useState(false);
+    const [initiativesByTenant, setInitiativesByTenant] = useState<Record<string, Initiative[]>>(() => loadInitiatives());
     const [scopeWindowsByBoard, setScopeWindowsByBoard] = useState<Record<string, ScopeWindow[]>>(() => {
         try {
             const raw = localStorage.getItem('kanbax-scope-windows');
@@ -619,6 +670,7 @@ const App: React.FC = () => {
                                 ...window,
                                 visibility: window.visibility === 'personal' ? 'personal' : 'shared',
                                 createdBy: window.createdBy || null,
+                                initiativeId: window.initiativeId ?? null,
                             });
                         }
                     });
@@ -628,6 +680,7 @@ const App: React.FC = () => {
                         ...window,
                         visibility: window.visibility === 'personal' ? 'personal' : 'shared',
                         createdBy: window.createdBy || null,
+                        initiativeId: window.initiativeId ?? null,
                     }));
                 }
             });
@@ -655,8 +708,18 @@ const App: React.FC = () => {
     const [scopeStatusFilterOpen, setScopeStatusFilterOpen] = useState(false);
     const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list' | 'timeline'>('board');
     const [isScopeCreateOpen, setIsScopeCreateOpen] = useState(false);
-    const [scopeTab, setScopeTab] = useState<'current' | 'review' | 'history'>('current');
+    const [scopeTab, setScopeTab] = useState<'current' | 'completed'>('current');
     const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
+    const [initiativeScreen, setInitiativeScreen] = useState<'list' | 'detail'>('list');
+    const [initiativeRouteId, setInitiativeRouteId] = useState<string | null>(null);
+    const [activeInitiativeId, setActiveInitiativeId] = useState<string | null>(null);
+    const [initiativeTab, setInitiativeTab] = useState<'ACTIVE' | 'CLOSED'>('ACTIVE');
+    const [isInitiativeCreateOpen, setIsInitiativeCreateOpen] = useState(false);
+    const [initiativeDraft, setInitiativeDraft] = useState({ name: '', goal: '', description: '', ownerId: '' });
+    const [initiativeScopePickerId, setInitiativeScopePickerId] = useState('');
+    const [initiativeScopeCreateForId, setInitiativeScopeCreateForId] = useState<string | null>(null);
+    const [initiativeEditId, setInitiativeEditId] = useState<string | null>(null);
+    const [scopeInitiativeOpen, setScopeInitiativeOpen] = useState(false);
     const scopeSyncRef = useRef<{ tenantId: string | null; skipNextSave: boolean }>({ tenantId: null, skipNextSave: false });
     const [showScopeDropRow, setShowScopeDropRow] = useState(false);
     const [scopeSettingsDraft, setScopeSettingsDraft] = useState({
@@ -669,6 +732,10 @@ const App: React.FC = () => {
     });
     const [scopeMemberPickerId, setScopeMemberPickerId] = useState<string>('');
     const [scopeMemberPickerRole, setScopeMemberPickerRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER'>('MEMBER');
+    const [scopeCompletionStatus, setScopeCompletionStatus] = useState<'' | 'YES' | 'PARTIAL' | 'NO'>('');
+    const [scopeCompletionComment, setScopeCompletionComment] = useState('');
+    const [scopeCompletionTargetId, setScopeCompletionTargetId] = useState('');
+    const [isScopeCloseOpen, setIsScopeCloseOpen] = useState(false);
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
     const [okrObjectives, setOkrObjectives] = useState<OkrObjective[]>([]);
     const [okrLoading, setOkrLoading] = useState(false);
@@ -746,6 +813,7 @@ const App: React.FC = () => {
     const statusFilterRef = useRef<HTMLDivElement | null>(null);
     const scopePriorityFilterRef = useRef<HTMLDivElement | null>(null);
     const scopeStatusFilterRef = useRef<HTMLDivElement | null>(null);
+    const scopeInitiativeRef = useRef<HTMLDivElement | null>(null);
     const [openMemberDropdownId, setOpenMemberDropdownId] = useState<string | null>(null);
     const [calendarDate, setCalendarDate] = useState(() => new Date());
     const [calendarSelectedDate, setCalendarSelectedDate] = useState(() => new Date());
@@ -968,6 +1036,7 @@ const App: React.FC = () => {
     }, [view]);
 
     const fetchDataInFlightRef = useRef(false);
+    const fetchDataPendingRef = useRef(false);
     const fetchData = async () => {
         if (fetchDataInFlightRef.current) return;
         fetchDataInFlightRef.current = true;
@@ -996,14 +1065,9 @@ const App: React.FC = () => {
                 }
             })();
             const fallbackBoardId = boardsData[0]?.id || null;
-            const isStoredSpecial = storedBoardId === ARCHIVED_BOARD_ID
-                || storedBoardId === ALL_BOARD_ID
-                || storedBoardId === OWN_BOARD_ID;
-            const nextBoardId = isStoredSpecial
+            const nextBoardId = (storedBoardId && boardsData.some((b: BoardView) => b.id === storedBoardId))
                 ? storedBoardId
-                : (storedBoardId && boardsData.some((b: BoardView) => b.id === storedBoardId))
-                    ? storedBoardId
-                    : fallbackBoardId;
+                : fallbackBoardId;
             setActiveBoardId(nextBoardId);
             if (nextBoardId) {
                 try {
@@ -1013,23 +1077,13 @@ const App: React.FC = () => {
                 }
             }
 
-            const tasksBoardId = nextBoardId === ARCHIVED_BOARD_ID
-                || nextBoardId === ALL_BOARD_ID
-                || nextBoardId === OWN_BOARD_ID
-                ? 'all'
-                : (nextBoardId || '');
+            const tasksBoardId = nextBoardId || '';
             const tasksRes = await fetch(`${API_BASE}/tasks?boardId=${encodeURIComponent(tasksBoardId)}`, { headers: getApiHeaders() });
             if (!tasksRes.ok) throw new Error('Failed to fetch tasks');
             const tasksData = await tasksRes.json();
 
             const currentUserId = userProfile?.id || session?.user?.id || '';
-            const scopedTasks = nextBoardId === OWN_BOARD_ID && currentUserId
-                ? tasksData.filter((task: TaskView) =>
-                    task.ownerId === currentUserId || (task.assignees || []).includes(currentUserId)
-                )
-                : tasksData;
-
-            setTasks(scopedTasks);
+            setTasks(tasksData);
             if (activeTenantId) {
                 setTasksByTenant((prev) => {
                     const existing = prev[activeTenantId];
@@ -1039,7 +1093,7 @@ const App: React.FC = () => {
                     return { ...prev, [activeTenantId]: tasksData };
                 });
             }
-            const selectedBoard = (nextBoardId && nextBoardId !== ARCHIVED_BOARD_ID && nextBoardId !== ALL_BOARD_ID && nextBoardId !== OWN_BOARD_ID)
+            const selectedBoard = nextBoardId
                 ? boardsData.find((b: BoardView) => b.id === nextBoardId) || boardsData[0] || null
                 : null;
             setBoard(selectedBoard);
@@ -1067,7 +1121,18 @@ const App: React.FC = () => {
         } finally {
             setLoading(false);
             fetchDataInFlightRef.current = false;
+            if (fetchDataPendingRef.current) {
+                fetchDataPendingRef.current = false;
+                fetchData();
+            }
         }
+    };
+    const triggerFetchData = () => {
+        if (fetchDataInFlightRef.current) {
+            fetchDataPendingRef.current = true;
+            return;
+        }
+        fetchData();
     };
 
     const parsePolicyNotice = (err: any) => {
@@ -1355,6 +1420,12 @@ const App: React.FC = () => {
         setScopeRouteId(null);
         updateScopeUrl(null, 'replace');
     };
+    const handleInitiativesNavClick = () => {
+        setView('initiatives');
+        setInitiativeScreen('list');
+        setInitiativeRouteId(null);
+        updateInitiativeUrl(null, 'replace');
+    };
 
     const handleSidebarBoardSelect = (boardId: string) => {
         handleBoardChange(boardId);
@@ -1375,6 +1446,11 @@ const App: React.FC = () => {
             createdAt: new Date().toISOString(),
             visibility: scopeDraft.visibility === 'personal' ? 'personal' : 'shared',
             createdBy: userProfile?.id || session?.user?.id || null,
+            completionStatus: null,
+            completionComment: null,
+            completedAt: null,
+            completedBy: null,
+            initiativeId: initiativeScopeCreateForId || null,
             members: (userProfile?.id || session?.user?.id)
                 ? [{ userId: userProfile?.id || session?.user?.id || '', role: 'ADMIN' }]
                 : [],
@@ -1383,13 +1459,105 @@ const App: React.FC = () => {
         setScopeDraft({ name: '', description: '', startDate: '', endDate: '', visibility: 'shared' });
         setActiveScopeId(nextId);
         setIsScopeCreateOpen(false);
+        setInitiativeScopeCreateForId(null);
     };
 
     const openScopeDetail = (scopeId: string) => {
+        setView('scope');
         setActiveScopeId(scopeId);
         setScopeScreen('detail');
         setScopeRouteId(scopeId);
         updateScopeUrl(scopeId, 'push');
+    };
+    const openInitiativeDetail = (initiativeId: string) => {
+        setActiveInitiativeId(initiativeId);
+        setInitiativeScreen('detail');
+        setInitiativeRouteId(initiativeId);
+        updateInitiativeUrl(initiativeId, 'push');
+    };
+    const handleInitiativeCreate = () => {
+        if (!activeTenantId) return;
+        const trimmedName = initiativeDraft.name.trim();
+        if (!trimmedName) return;
+        const now = new Date().toISOString();
+        const nextInitiative: Initiative = {
+            id: createInitiativeId(),
+            name: trimmedName,
+            goal: initiativeDraft.goal.trim() || null,
+            description: initiativeDraft.description.trim() || null,
+            ownerId: initiativeDraft.ownerId || userProfile?.id || session?.user?.id || null,
+            status: 'ACTIVE',
+            createdAt: now,
+            closedAt: null,
+        };
+        updateInitiatives(activeTenantId, (prev) => prev.concat(nextInitiative));
+        setInitiativeDraft({ name: '', goal: '', description: '', ownerId: '' });
+        setIsInitiativeCreateOpen(false);
+        setInitiativeTab('ACTIVE');
+        openInitiativeDetail(nextInitiative.id);
+    };
+    const handleInitiativeUpdate = () => {
+        if (!activeTenantId || !initiativeEditId) return;
+        const trimmedName = initiativeDraft.name.trim();
+        if (!trimmedName) return;
+        updateInitiatives(activeTenantId, (prev) =>
+            prev.map((initiative) =>
+                initiative.id === initiativeEditId
+                    ? {
+                        ...initiative,
+                        name: trimmedName,
+                        goal: initiativeDraft.goal.trim() || null,
+                        description: initiativeDraft.description.trim() || null,
+                        ownerId: initiativeDraft.ownerId || null,
+                    }
+                    : initiative
+            )
+        );
+        setInitiativeEditId(null);
+        setInitiativeDraft({ name: '', goal: '', description: '', ownerId: '' });
+        setIsInitiativeCreateOpen(false);
+    };
+    const handleInitiativeClose = (initiativeId: string) => {
+        if (!activeTenantId) return;
+        updateInitiatives(activeTenantId, (prev) =>
+            prev.map((initiative) =>
+                initiative.id === initiativeId
+                    ? { ...initiative, status: 'CLOSED', closedAt: new Date().toISOString() }
+                    : initiative
+            )
+        );
+        if (initiativeTab === 'ACTIVE') {
+            setInitiativeTab('CLOSED');
+        }
+    };
+    const handleInitiativeReopen = (initiativeId: string) => {
+        if (!activeTenantId) return;
+        updateInitiatives(activeTenantId, (prev) =>
+            prev.map((initiative) =>
+                initiative.id === initiativeId
+                    ? { ...initiative, status: 'ACTIVE', closedAt: null }
+                    : initiative
+            )
+        );
+        if (initiativeTab === 'CLOSED') {
+            setInitiativeTab('ACTIVE');
+        }
+    };
+    const handleInitiativeDelete = (initiativeId: string) => {
+        if (!activeTenantId) return;
+        if (!confirm('Delete this initiative and unlink its scopes?')) return;
+        updateInitiatives(activeTenantId, (prev) => prev.filter((initiative) => initiative.id !== initiativeId));
+        updateScopeWindows((prev) =>
+            prev.map((scope) =>
+                scope.initiativeId === initiativeId ? { ...scope, initiativeId: null } : scope
+            )
+        );
+        if (activeInitiativeId === initiativeId) {
+            setActiveInitiativeId(null);
+            setInitiativeScreen('list');
+            setInitiativeRouteId(null);
+            updateInitiativeUrl(null, 'replace');
+        }
     };
 
     const handleScopeAddTask = (windowId: string, taskId: string) => {
@@ -1398,6 +1566,17 @@ const App: React.FC = () => {
             prev.map((window) =>
                 window.id === windowId && !window.taskIds.includes(taskId)
                     ? { ...window, taskIds: window.taskIds.concat(taskId) }
+                    : window
+            )
+        );
+    };
+
+    const setScopeInitiative = (scopeId: string, initiativeId: string | null) => {
+        if (!canManageScopeById(scopeId)) return;
+        updateScopeWindows((prev) =>
+            prev.map((window) =>
+                window.id === scopeId
+                    ? { ...window, initiativeId: initiativeId || null }
                     : window
             )
         );
@@ -2596,6 +2775,13 @@ const App: React.FC = () => {
             // ignore
         }
     }, [scopeWindowsByBoard]);
+    useEffect(() => {
+        try {
+            localStorage.setItem(INITIATIVES_STORAGE_KEY, JSON.stringify(initiativesByTenant));
+        } catch {
+            // ignore
+        }
+    }, [initiativesByTenant]);
 
     useEffect(() => {
         if (view === 'okr') {
@@ -2604,7 +2790,8 @@ const App: React.FC = () => {
     }, [view, session, activeTenantId, activeBoardId]);
 
     useEffect(() => {
-        if (view !== 'scope' || !activeTenantId || !session?.access_token) return;
+        if (!activeTenantId || !session?.access_token) return;
+        if (view !== 'scope' && !activeScopeId) return;
         let cancelled = false;
         const loadScopeTasks = async () => {
             try {
@@ -2622,7 +2809,8 @@ const App: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [view, activeTenantId, session?.access_token]);
+    }, [view, activeScopeId, activeTenantId, session?.access_token]);
+
 
     useEffect(() => {
         try {
@@ -2894,6 +3082,10 @@ const App: React.FC = () => {
         }
         saveTimelineOverridesForTenant(activeTenantId, timelineOverrides);
     }, [activeTenantId, timelineOverrides, session?.access_token]);
+    const scopeBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+    const tasksBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+    const scopeTasksFetchInFlightRef = useRef<Record<string, boolean>>({});
+
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
         const inboxChannel = supabase
@@ -2917,6 +3109,16 @@ const App: React.FC = () => {
                 }
             )
             .subscribe();
+        const scopeMembersChannel = supabase
+            .channel(`huddle-scope-members-${activeTenantId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'huddle_scope_members', filter: `tenant_id=eq.${activeTenantId}` },
+                () => {
+                    loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
+                }
+            )
+            .subscribe();
         const timelineChannel = supabase
             .channel(`huddle-timeline-${activeTenantId}`)
             .on(
@@ -2927,10 +3129,67 @@ const App: React.FC = () => {
                 }
             )
             .subscribe();
+        const scopeBroadcastChannel = supabase
+            .channel(`huddle-scopes-broadcast-${activeTenantId}`, {
+                config: { broadcast: { ack: true, self: false } },
+            })
+            .on('broadcast', { event: 'scope-update' }, () => {
+                loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
+            })
+            .subscribe();
+        scopeBroadcastChannelRef.current = scopeBroadcastChannel;
+        const tasksBroadcastChannel = supabase
+            .channel(`huddle-tasks-broadcast-${activeTenantId}`, {
+                config: { broadcast: { ack: true, self: false } },
+            })
+            .on('broadcast', { event: 'task-update' }, () => {
+                triggerFetchData();
+                refreshScopeTasksForTenant(activeTenantId);
+            })
+            .subscribe();
+        tasksBroadcastChannelRef.current = tasksBroadcastChannel;
+        const tasksChannel = supabase
+            .channel(`huddle-tasks-${activeTenantId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'Task', filter: `tenantId=eq.${activeTenantId}` },
+                () => {
+                    triggerFetchData();
+                }
+            )
+            .subscribe();
+        const tasksLowerChannel = supabase
+            .channel(`huddle-tasks-lower-${activeTenantId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'task', filter: `tenantId=eq.${activeTenantId}` },
+                () => {
+                    triggerFetchData();
+                }
+            )
+            .subscribe();
+        const favoritesChannel = supabase
+            .channel(`huddle-task-favorites-${activeTenantId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'huddle_task_favorites', filter: `tenant_id=eq.${activeTenantId}` },
+                () => {
+                    triggerFetchData();
+                }
+            )
+            .subscribe();
         return () => {
             supabase.removeChannel(inboxChannel);
             supabase.removeChannel(scopesChannel);
+            supabase.removeChannel(scopeMembersChannel);
             supabase.removeChannel(timelineChannel);
+            supabase.removeChannel(scopeBroadcastChannel);
+            supabase.removeChannel(tasksChannel);
+            supabase.removeChannel(tasksLowerChannel);
+            supabase.removeChannel(favoritesChannel);
+            supabase.removeChannel(tasksBroadcastChannel);
+            scopeBroadcastChannelRef.current = null;
+            tasksBroadcastChannelRef.current = null;
         };
     }, [activeTenantId, session?.access_token]);
 
@@ -3046,6 +3305,21 @@ const App: React.FC = () => {
             window.history.pushState({}, '', url);
         }
     };
+    const updateInitiativeUrl = (initiativeId: string | null, mode: 'push' | 'replace' = 'push') => {
+        const params = new URLSearchParams(window.location.search);
+        if (initiativeId) {
+            params.set('initiative', initiativeId);
+        } else {
+            params.delete('initiative');
+        }
+        const next = params.toString();
+        const url = `${window.location.pathname}${next ? `?${next}` : ''}`;
+        if (mode === 'replace') {
+            window.history.replaceState({}, '', url);
+        } else {
+            window.history.pushState({}, '', url);
+        }
+    };
     const boardLabelById = useMemo(() => {
         const list = activeTenantId ? (boardsByTenant[activeTenantId] || boards) : boards;
         const map = new Map<string, string>();
@@ -3094,6 +3368,90 @@ const App: React.FC = () => {
         if (!activeScopeId) return null;
         return scopeWindows.find((window) => window.id === activeScopeId) || null;
     }, [scopeWindows, activeScopeId]);
+    const initiatives = useMemo(() => {
+        if (!activeTenantId) return [];
+        return initiativesByTenant[activeTenantId] || [];
+    }, [activeTenantId, initiativesByTenant]);
+    const initiativeLookup = useMemo(() => {
+        return new Map(initiatives.map((initiative) => [initiative.id, initiative]));
+    }, [initiatives]);
+    const initiativeOptions = useMemo(() => {
+        return [...initiatives].sort((a, b) => {
+            if (a.status !== b.status) {
+                return a.status === 'ACTIVE' ? -1 : 1;
+            }
+            return a.name.localeCompare(b.name);
+        });
+    }, [initiatives]);
+    const filteredInitiatives = useMemo(() => {
+        return initiatives.filter((initiative) => initiative.status === initiativeTab);
+    }, [initiatives, initiativeTab]);
+    const activeInitiative = useMemo(() => {
+        if (!activeInitiativeId) return null;
+        return initiatives.find((initiative) => initiative.id === activeInitiativeId) || null;
+    }, [initiatives, activeInitiativeId]);
+    const initiativeMetricsById = useMemo(() => {
+        const map = new Map<string, {
+            totalScopes: number;
+            activeScopes: number;
+            closedScopes: number;
+            totalTasks: number;
+            doneTasks: number;
+            openTasks: number;
+            taskCompletion: number;
+            scopeCompletion: number;
+        }>();
+        initiatives.forEach((initiative) => {
+            const scopesForInitiative = scopeWindows.filter((scope) => scope.initiativeId === initiative.id);
+            const totalScopes = scopesForInitiative.length;
+            const closedScopes = scopesForInitiative.filter((scope) => Boolean(scope.completionStatus)).length;
+            const activeScopes = Math.max(0, totalScopes - closedScopes);
+            const taskIdSet = new Set<string>();
+            scopesForInitiative.forEach((scope) => {
+                scope.taskIds.forEach((taskId) => taskIdSet.add(taskId));
+            });
+            let totalTasks = 0;
+            let doneTasks = 0;
+            let openTasks = 0;
+            taskIdSet.forEach((taskId) => {
+                const task = scopeTaskById.get(taskId);
+                if (!task) return;
+                totalTasks += 1;
+                if (task.status === TaskStatus.DONE) {
+                    doneTasks += 1;
+                } else if (task.status !== TaskStatus.ARCHIVED) {
+                    openTasks += 1;
+                }
+            });
+            const taskCompletion = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+            const scopeCompletion = totalScopes ? Math.round((closedScopes / totalScopes) * 100) : 0;
+            map.set(initiative.id, {
+                totalScopes,
+                activeScopes,
+                closedScopes,
+                totalTasks,
+                doneTasks,
+                openTasks,
+                taskCompletion,
+                scopeCompletion,
+            });
+        });
+        return map;
+    }, [initiatives, scopeWindows, scopeTaskById]);
+    const activeInitiativeMetrics = useMemo(() => {
+        if (!activeInitiativeId) return null;
+        return initiativeMetricsById.get(activeInitiativeId) || null;
+    }, [initiativeMetricsById, activeInitiativeId]);
+    const initiativeScopes = useMemo(() => {
+        if (!activeInitiativeId) return [];
+        return scopeWindows.filter((scope) => scope.initiativeId === activeInitiativeId);
+    }, [scopeWindows, activeInitiativeId]);
+    const initiativeScopeOptions = useMemo(() => {
+        if (!activeInitiativeId) return [];
+        return scopeWindows.filter(
+            (scope) => scope.initiativeId !== activeInitiativeId && !scope.completionStatus
+        );
+    }, [scopeWindows, activeInitiativeId]);
     const isTeamAdminForTenant = memberships.some(
         (membership) =>
             membership.tenantId === activeTenantId
@@ -3107,16 +3465,26 @@ const App: React.FC = () => {
         return (isTeamAdminForTenant || isSuperAdminForTenant) ? 'ADMIN' : 'VIEWER';
     };
     const canEditScopeById = (scopeId: string | null | undefined) => {
+        if (scopeId) {
+            const scope = scopeWindows.find((window) => window.id === scopeId);
+            if (scope?.completionStatus) return false;
+        }
         const role = resolveScopeRole(scopeId);
         return isTeamAdminForTenant || isSuperAdminForTenant || role === 'ADMIN' || role === 'MEMBER';
     };
     const canManageScopeById = (scopeId: string | null | undefined) => {
+        if (scopeId) {
+            const scope = scopeWindows.find((window) => window.id === scopeId);
+            if (scope?.completionStatus) return false;
+        }
         const role = resolveScopeRole(scopeId);
         return isTeamAdminForTenant || isSuperAdminForTenant || role === 'ADMIN';
     };
     const activeScopeRole = resolveScopeRole(activeScopeWindow?.id);
     const canManageActiveScope = canManageScopeById(activeScopeWindow?.id);
     const canEditActiveScopeItems = canEditScopeById(activeScopeWindow?.id);
+    const isActiveScopeCompleted = Boolean(activeScopeWindow?.completionStatus);
+    const isScopeReadOnly = view === 'scope' && isActiveScopeCompleted;
     const scopeStatuses = useMemo(() => [
         TaskStatus.BACKLOG,
         TaskStatus.TODO,
@@ -3151,6 +3519,12 @@ const App: React.FC = () => {
         });
         return Array.from(labelSet).sort((a, b) => a.localeCompare(b));
     }, [scopeListTasks]);
+    const filteredScopeWindows = useMemo(() => {
+        if (scopeTab === 'completed') {
+            return scopeWindows.filter((scope) => Boolean(scope.completionStatus));
+        }
+        return scopeWindows.filter((scope) => !scope.completionStatus);
+    }, [scopeTab, scopeWindows]);
     const scopeVisibleTasks = useMemo(() => {
         if (!activeScopeWindow) return [];
         const scopeUserId = userProfile?.id || session?.user?.id || '';
@@ -3208,6 +3582,14 @@ const App: React.FC = () => {
         userProfile?.id,
         session?.user?.id,
     ]);
+    const scopeOpenTaskIds = useMemo(() => {
+        if (!activeScopeWindow) return [];
+        return activeScopeWindow.taskIds.filter((taskId) => {
+            const task = scopeTaskById.get(taskId);
+            if (!task) return false;
+            return task.status !== TaskStatus.DONE && task.status !== TaskStatus.ARCHIVED;
+        });
+    }, [activeScopeWindow, scopeTaskById]);
     const scopeBoardColumns = useMemo(() => {
         const statuses = [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
         return statuses.map((status) => ({
@@ -3413,18 +3795,35 @@ const App: React.FC = () => {
             setActiveScopeId(null);
             return;
         }
-        if (scopeWindows.length === 0) {
+        if (filteredScopeWindows.length === 0) {
             setActiveScopeId(null);
             return;
         }
-        if (!activeScopeId || !scopeWindows.some((window) => window.id === activeScopeId)) {
-            setActiveScopeId(scopeWindows[0].id);
+        if (!activeScopeId || !filteredScopeWindows.some((window) => window.id === activeScopeId)) {
+            setActiveScopeId(filteredScopeWindows[0].id);
         }
-    }, [activeTenantId, scopeWindows, activeScopeId]);
+    }, [activeTenantId, filteredScopeWindows, activeScopeId]);
+    useEffect(() => {
+        if (!activeTenantId) {
+            setActiveInitiativeId(null);
+            return;
+        }
+        if (filteredInitiatives.length === 0) {
+            setActiveInitiativeId(null);
+            return;
+        }
+        if (!activeInitiativeId || !filteredInitiatives.some((initiative) => initiative.id === activeInitiativeId)) {
+            setActiveInitiativeId(filteredInitiatives[0].id);
+        }
+    }, [activeTenantId, filteredInitiatives, activeInitiativeId]);
     useEffect(() => {
         setScopePickerOpenId(null);
         setScopePickerQuery('');
+        setScopeInitiativeOpen(false);
     }, [activeScopeId]);
+    useEffect(() => {
+        setInitiativeScopePickerId('');
+    }, [activeInitiativeId]);
     useEffect(() => {
         if (!activeTenantId || scopeWindows.length === 0) {
             setScopeScreen('list');
@@ -3434,6 +3833,15 @@ const App: React.FC = () => {
             setScopeScreen('list');
         }
     }, [activeTenantId, scopeWindows.length, activeScopeWindow, scopeScreen]);
+    useEffect(() => {
+        if (!activeTenantId || initiatives.length === 0) {
+            setInitiativeScreen('list');
+            return;
+        }
+        if (initiativeScreen === 'detail' && !activeInitiative) {
+            setInitiativeScreen('list');
+        }
+    }, [activeTenantId, initiatives.length, activeInitiative, initiativeScreen]);
     useEffect(() => {
         if (!scopeRouteId) return;
         if (scopeWindows.length === 0) return;
@@ -3448,11 +3856,30 @@ const App: React.FC = () => {
         setScopeScreen('list');
     }, [scopeRouteId, scopeWindows]);
     useEffect(() => {
+        if (!initiativeRouteId) return;
+        if (initiatives.length === 0) return;
+        const match = initiatives.find((initiative) => initiative.id === initiativeRouteId);
+        if (match) {
+            setActiveInitiativeId(match.id);
+            setInitiativeScreen('detail');
+            return;
+        }
+        setInitiativeRouteId(null);
+        updateInitiativeUrl(null, 'replace');
+        setInitiativeScreen('list');
+    }, [initiativeRouteId, initiatives]);
+    useEffect(() => {
         if (view !== 'scope' && scopeRouteId) {
             setScopeRouteId(null);
             updateScopeUrl(null, 'replace');
         }
     }, [view, scopeRouteId]);
+    useEffect(() => {
+        if (view !== 'initiatives' && initiativeRouteId) {
+            setInitiativeRouteId(null);
+            updateInitiativeUrl(null, 'replace');
+        }
+    }, [view, initiativeRouteId]);
     useEffect(() => {
         if (scopeScreen !== 'detail') {
             setScopePriorityFilterOpen(false);
@@ -3475,6 +3902,22 @@ const App: React.FC = () => {
         setScopeMemberPickerId('');
         setScopeMemberPickerRole('MEMBER');
     }, [isScopeSettingsOpen, activeScopeWindow]);
+    useEffect(() => {
+        if (!activeScopeWindow) {
+            setScopeCompletionStatus('');
+            setScopeCompletionComment('');
+            setScopeCompletionTargetId('');
+            return;
+        }
+        setScopeCompletionStatus(activeScopeWindow.completionStatus || '');
+        setScopeCompletionComment(activeScopeWindow.completionComment || '');
+        setScopeCompletionTargetId('');
+    }, [activeScopeWindow]);
+    useEffect(() => {
+        if (!isScopeCreateOpen) {
+            setInitiativeScopeCreateForId(null);
+        }
+    }, [isScopeCreateOpen]);
     const updateScopeWindows = (updater: (prev: ScopeWindow[]) => ScopeWindow[]) => {
         if (!scopeKey) return;
         setScopeWindowsByBoard((prev) => {
@@ -3483,6 +3926,19 @@ const App: React.FC = () => {
             // Persist immediately so scope taskIds are saved even if effects are skipped.
             saveScopesForTenant(scopeKey, next);
             return { ...prev, [scopeKey]: next };
+        });
+    };
+    const createInitiativeId = () => {
+        if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+            return crypto.randomUUID();
+        }
+        return `initiative-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    };
+    const updateInitiatives = (tenantId: string, updater: (prev: Initiative[]) => Initiative[]) => {
+        setInitiativesByTenant((prev) => {
+            const current = prev[tenantId] || [];
+            const next = updater(current);
+            return { ...prev, [tenantId]: next };
         });
     };
     const createScopeId = () => {
@@ -3526,6 +3982,60 @@ const App: React.FC = () => {
         );
         setIsScopeSettingsOpen(false);
     };
+    const refreshScopeTasksForTenant = async (tenantId: string) => {
+        try {
+            if (!session?.access_token) return;
+            if (scopeTasksFetchInFlightRef.current[tenantId]) return;
+            scopeTasksFetchInFlightRef.current[tenantId] = true;
+            const res = await fetch(`${API_BASE}/tasks?boardId=all`, { headers: getApiHeaders(true, tenantId) });
+            if (!res.ok) return;
+            const data = await res.json();
+            setScopeTasksByTenant((prev) => ({ ...prev, [tenantId]: data }));
+        } catch {
+            // ignore
+        } finally {
+            scopeTasksFetchInFlightRef.current[tenantId] = false;
+        }
+    };
+    const handleScopeClose = () => {
+        if (!activeScopeWindow) return;
+        if (!canManageScopeById(activeScopeWindow.id)) return;
+        if (!scopeCompletionStatus) {
+            alert('Bitte Ziel erreicht auswählen.');
+            return;
+        }
+        if (scopeOpenTaskIds.length > 0 && !scopeCompletionTargetId) {
+            alert('Bitte einen Ziel-Scope für offene Tasks auswählen.');
+            return;
+        }
+        const nowIso = new Date().toISOString();
+        const actorId = userProfile?.id || session?.user?.id || null;
+        const targetId = scopeCompletionTargetId;
+        const openIds = scopeOpenTaskIds;
+        updateScopeWindows((prev) =>
+            prev.map((window) => {
+                if (window.id === activeScopeWindow.id) {
+                    const remaining = window.taskIds.filter((id) => !openIds.includes(id));
+                    return {
+                        ...window,
+                        taskIds: remaining,
+                        completionStatus: scopeCompletionStatus,
+                        completionComment: scopeCompletionComment.trim() || null,
+                        completedAt: window.completedAt || nowIso,
+                        completedBy: actorId,
+                    };
+                }
+                if (targetId && window.id === targetId && openIds.length > 0) {
+                    const nextIds = window.taskIds.concat(openIds.filter((id) => !window.taskIds.includes(id)));
+                    return { ...window, taskIds: nextIds };
+                }
+                return window;
+            })
+        );
+        setScopeCompletionTargetId('');
+        setToastMessage('Scope abgeschlossen');
+        setIsScopeCloseOpen(false);
+    };
     const sidebarBoardItems = useMemo(() => {
         const list = activeTenantId ? (boardsByTenant[activeTenantId] || boards) : boards;
         const items: Array<{ id: string; name: string }> = [];
@@ -3534,25 +4044,22 @@ const App: React.FC = () => {
                 items.push(item);
             }
         };
-        pushUnique({ id: ALL_BOARD_ID, name: 'All tasks' });
-        pushUnique({ id: OWN_BOARD_ID, name: 'My tickets' });
         (Array.isArray(list) ? list : []).forEach((boardItem) => {
             if (boardItem?.id) {
                 pushUnique({ id: boardItem.id, name: boardItem.name || 'Tasks' });
             }
         });
-        pushUnique({ id: ARCHIVED_BOARD_ID, name: 'Archived' });
         return items;
     }, [activeTenantId, boardsByTenant, boards]);
     const getWritableBoards = (tenantId?: string | null) => {
         const list = tenantId
             ? (boardsByTenant[tenantId] || (tenantId === activeTenantId ? boards : []))
             : boards;
-        return (list || []).filter((item) => item.id !== ALL_BOARD_ID && item.id !== OWN_BOARD_ID);
+        return list || [];
     };
     const resolveWritableBoardId = (tenantId?: string | null) => {
         const list = getWritableBoards(tenantId);
-        if (tenantId === activeTenantId && activeBoardId && activeBoardId !== ALL_BOARD_ID && activeBoardId !== OWN_BOARD_ID && activeBoardId !== ARCHIVED_BOARD_ID) {
+        if (tenantId === activeTenantId && activeBoardId && activeBoardId !== ARCHIVED_BOARD_ID) {
             if (list.some((item) => item.id === activeBoardId)) return activeBoardId;
         }
         return list[0]?.id || 'default-board';
@@ -3865,16 +4372,6 @@ const App: React.FC = () => {
         const items: Array<{ label: string; onClick?: () => void }> = [
             { label: huddleLabel, onClick: () => setView('dashboard') },
         ];
-        if (view === 'okr') {
-            items.push({ label: 'OKRs', onClick: () => navigateOkr('/okr') });
-            if (okrScreen === 'objective' && okrActiveObjective) {
-                items.push({ label: okrActiveObjective.title, onClick: () => openObjectiveFocus(okrActiveObjective.id) });
-            }
-            if (okrScreen === 'review' && okrActiveObjective) {
-                items.push({ label: 'Review' });
-            }
-            return items;
-        }
         if (view === 'dashboard') items.push({ label: 'Dashboard', onClick: () => setView('dashboard') });
         if (view === 'calendar') items.push({ label: 'Calendar', onClick: () => setView('calendar') });
         if (view === 'scope') {
@@ -3892,11 +4389,26 @@ const App: React.FC = () => {
             }
             return items;
         }
+        if (view === 'initiatives') {
+            items.push({
+                label: 'Initiatives',
+                onClick: () => {
+                    setView('initiatives');
+                    setInitiativeScreen('list');
+                    setInitiativeRouteId(null);
+                    updateInitiativeUrl(null, 'replace');
+                }
+            });
+            if (initiativeScreen === 'detail' && activeInitiative) {
+                items.push({ label: activeInitiative.name });
+            }
+            return items;
+        }
         if (view === 'table') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'list') items.push({ label: activeBoard?.name ? `Table · ${activeBoard.name}` : 'Table', onClick: () => setView('table') });
         if (view === 'kanban') items.push({ label: activeBoard?.name || 'Tasks', onClick: () => setView('kanban') });
         return items;
-    }, [view, activeHuddleName, okrScreen, okrActiveObjective, activeBoard?.name, scopeScreen, activeScopeWindow]);
+    }, [view, activeHuddleName, activeBoard?.name, scopeScreen, activeScopeWindow, initiativeScreen, activeInitiative]);
     const notificationSnapshotRef = useRef<Record<string, any>>({});
     const initializedHuddlesRef = useRef<Set<string>>(new Set());
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
@@ -4148,11 +4660,19 @@ const App: React.FC = () => {
             });
             if (!res.ok) return;
             const data = await res.json();
+            const localInitiativeMap = new Map<string, string | null>(
+                localFallback.map((scope) => [scope.id, scope.initiativeId ?? null])
+            );
             const scopes = Array.isArray(data?.scopes)
                 ? data.scopes.map((scope: ScopeWindow) => ({
                     ...scope,
                     visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
                     createdBy: scope.createdBy || null,
+                    completionStatus: scope.completionStatus || null,
+                    completionComment: scope.completionComment || null,
+                    completedAt: scope.completedAt || null,
+                    completedBy: scope.completedBy || null,
+                    initiativeId: localInitiativeMap.get(scope.id) ?? scope.initiativeId ?? null,
                     role: scope.role || 'VIEWER',
                     members: Array.isArray(scope.members)
                         ? scope.members.map((member) => ({
@@ -4197,7 +4717,7 @@ const App: React.FC = () => {
     async function saveScopesForTenant(tenantId: string, scopes: ScopeWindow[]) {
         try {
             if (!session?.access_token) return;
-            await fetch(`${API_BASE}/teams/${tenantId}/scopes`, {
+            const res = await fetch(`${API_BASE}/teams/${tenantId}/scopes`, {
                 method: 'PUT',
                 headers: getApiHeaders(true, tenantId),
                 body: JSON.stringify({
@@ -4205,10 +4725,21 @@ const App: React.FC = () => {
                         ...scope,
                         visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
                         createdBy: scope.createdBy || null,
+                        completionStatus: scope.completionStatus || null,
+                        completionComment: scope.completionComment || null,
+                        completedAt: scope.completedAt || null,
+                        completedBy: scope.completedBy || null,
                         members: Array.isArray(scope.members) ? scope.members : [],
                     })),
                 }),
             });
+            if (res.ok) {
+                await scopeBroadcastChannelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'scope-update',
+                    payload: { tenantId },
+                });
+            }
         } catch {
             // ignore
         }
@@ -4953,6 +5484,13 @@ const App: React.FC = () => {
                 const err = await res.json();
                 throw new Error(err.error || 'Failed to update status');
             }
+            if (activeTenantId) {
+                await tasksBroadcastChannelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'task-update',
+                    payload: { tenantId: activeTenantId, taskId },
+                });
+            }
         } catch (e: any) {
             if (previousStatus && previousStatus !== newStatus) {
                 updateTaskStatusLocal(taskId, previousStatus);
@@ -5008,6 +5546,7 @@ const App: React.FC = () => {
 
     const openEditModal = (task: TaskView) => {
         if (task.sourceType !== 'MANUAL') return;
+        if (view === 'scope' && activeScopeWindow?.completionStatus) return;
         setEditingTaskId(task.id);
         setEditTaskTenantOriginal(task.tenantId);
         setEditTaskHuddleId(task.tenantId);
@@ -6053,7 +6592,7 @@ const App: React.FC = () => {
                                                         className="quick-pin quick-pin-panel-item"
                                                         onClick={() => {
                                                             setView('kanban');
-                                                            setActiveBoardId(task.boardId || ALL_BOARD_ID);
+                                                            setActiveBoardId(task.boardId || activeBoardId || 'default-board');
                                                             setPendingTaskOpen({ taskId: task.id, tenantId: task.tenantId || activeTenantId || '' });
                                                             setIsFocusDropdownOpen(false);
                                                         }}
@@ -6104,7 +6643,7 @@ const App: React.FC = () => {
                                                     const task = allTasks.find((item) => item.id === pin.id);
                                                     if (!task) return;
                                                     setView('kanban');
-                                                    setActiveBoardId(task.boardId || ALL_BOARD_ID);
+                                                    setActiveBoardId(task.boardId || activeBoardId || 'default-board');
                                                     setPendingTaskOpen({ taskId: task.id, tenantId: task.tenantId || activeTenantId || '' });
                                                     setIsQuickPinsOpen(false);
                                                 }}
@@ -6353,20 +6892,6 @@ const App: React.FC = () => {
                                 <span className="sidebar-nav-label">Inbox</span>
                             </button>
                             <button
-                                className={`sidebar-nav-item ${view === 'kanban' || view === 'table' || view === 'timeline' ? 'active' : ''}`}
-                                onClick={handleBoardNavClick}
-                                data-tooltip="Work"
-                            >
-                                <span className="sidebar-nav-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
-                                        <rect x="3.5" y="4" width="7" height="16" rx="2" />
-                                        <rect x="13.5" y="4" width="7" height="9" rx="2" />
-                                        <path d="M13.5 16h7" />
-                                    </svg>
-                                </span>
-                                <span className="sidebar-nav-label">Work</span>
-                            </button>
-                            <button
                                 className={`sidebar-nav-item ${view === 'scope' ? 'active' : ''}`}
                                 onClick={handleScopeNavClick}
                                 data-tooltip="Scope"
@@ -6385,7 +6910,7 @@ const App: React.FC = () => {
                             </button>
                             <button
                                 className={`sidebar-nav-item ${view === 'initiatives' ? 'active' : ''}`}
-                                onClick={() => setView('initiatives')}
+                                onClick={handleInitiativesNavClick}
                                 data-tooltip="Initiatives"
                             >
                                 <span className="sidebar-nav-icon" aria-hidden="true">
@@ -6395,19 +6920,6 @@ const App: React.FC = () => {
                                     </svg>
                                 </span>
                                 <span className="sidebar-nav-label">Initiatives</span>
-                            </button>
-                            <button
-                                className={`sidebar-nav-item ${view === 'okr' ? 'active' : ''}`}
-                                onClick={handleOkrNavClick}
-                                data-tooltip="Goals"
-                            >
-                                <span className="sidebar-nav-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
-                                        <circle cx="12" cy="12" r="8" />
-                                        <path d="M12 6v6l4 2" />
-                                    </svg>
-                                </span>
-                                <span className="sidebar-nav-label">Goals</span>
                             </button>
                         </div>
                     </div>
@@ -6484,7 +6996,7 @@ const App: React.FC = () => {
                                 </span>
                             ))}
                         </div>
-                        {(view === 'kanban' || view === 'table' || view === 'timeline' || view === 'okr' || view === 'scope') && (
+                        {(view === 'kanban' || view === 'table' || view === 'timeline' || view === 'scope' || view === 'initiatives') && (
                             <div className="page-breadcrumb-actions">
                                 {(view === 'kanban' || view === 'table') && (
                                     <span className="board-switch-inline">
@@ -6526,42 +7038,48 @@ const App: React.FC = () => {
                                         )}
                                     </span>
                                 )}
-                                {view === 'okr' && (
+                                {view === 'initiatives' && (
                                     <span className="board-switch-inline">
                                         <button
                                             type="button"
                                             className="board-switch-trigger-icon"
-                                            onClick={() => setOkrMenuOpen((prev) => !prev)}
+                                            onClick={() => setInitiativeMenuOpen((prev) => !prev)}
                                         >
                                             <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
                                                 <path d="M6 9l6 6 6-6" />
                                             </svg>
                                         </button>
-                                        {okrMenuOpen && (
+                                        {initiativeMenuOpen && (
                                             <div className="board-switch-menu">
                                                 <button
                                                     type="button"
-                                                    className="board-switch-item create"
+                                                    className={`board-switch-item ${initiativeScreen === 'list' ? 'active' : ''}`}
                                                     onClick={() => {
-                                                        setOkrMenuOpen(false);
-                                                        setObjectiveComposerOpen(true);
+                                                        setInitiativeMenuOpen(false);
+                                                        setInitiativeScreen('list');
+                                                        setInitiativeRouteId(null);
+                                                        updateInitiativeUrl(null, 'replace');
                                                     }}
                                                 >
-                                                    + Objective erstellen
+                                                    Initiative list
                                                 </button>
-                                                {objectiveViews.map((objective) => (
-                                                    <button
-                                                        key={objective.id}
-                                                        type="button"
-                                                        className={`board-switch-item ${objective.id === okrActiveObjective?.id ? 'active' : ''}`}
-                                                        onClick={() => {
-                                                            setOkrMenuOpen(false);
-                                                            openObjectiveFocus(objective.id);
-                                                        }}
-                                                    >
-                                                        {objective.title}
-                                                    </button>
-                                                ))}
+                                                {initiatives.length === 0 ? (
+                                                    <div className="board-switch-empty">No initiatives yet.</div>
+                                                ) : (
+                                                    initiatives.map((initiative) => (
+                                                        <button
+                                                            key={initiative.id}
+                                                            type="button"
+                                                            className={`board-switch-item ${initiative.id === activeInitiativeId ? 'active' : ''}`}
+                                                            onClick={() => {
+                                                                setInitiativeMenuOpen(false);
+                                                                openInitiativeDetail(initiative.id);
+                                                            }}
+                                                        >
+                                                            {initiative.name}
+                                                        </button>
+                                                    ))
+                                                )}
                                             </div>
                                         )}
                                     </span>
@@ -6616,9 +7134,11 @@ const App: React.FC = () => {
                         )}
                     </div>
                     <div
-                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'timeline' ? ' page-heading-dark' : ''}`}
+                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'dashboard' || view === 'initiatives' || view === 'inbox' || view === 'timeline' || view === 'scope' ? ' page-heading-dark' : ''}${
+                            view === 'initiatives' && initiativeScreen === 'detail' ? ' page-heading-hidden' : ''
+                        }`}
                     >
-                        {!(view === 'okr' && okrScreen === 'objective') && (
+                        {!(view === 'okr' && okrScreen === 'objective') && !(view === 'initiatives' && initiativeScreen === 'detail') && (
                         <div className="page-heading-row">
                             <div className="page-heading-title">
                                 <h1>
@@ -6652,6 +7172,56 @@ const App: React.FC = () => {
                                         </button>
                                     )}
                                 </h1>
+                                {view === 'scope' && scopeScreen === 'detail' && activeScopeWindow && (
+                                    <div className="page-heading-meta scope-meta">
+                                        <div className="scope-meta-item">
+                                            <span className="scope-meta-label">Zeitraum</span>
+                                            <span className="scope-meta-value">{getScopeDateLabel(activeScopeWindow)}</span>
+                                        </div>
+                                        <div className="scope-meta-item">
+                                            <span className="scope-meta-label">Sichtb.</span>
+                                            <span className="scope-meta-value">
+                                                {activeScopeWindow.visibility === 'personal' ? 'Personal' : 'Shared'}
+                                            </span>
+                                        </div>
+                                        <div className="scope-meta-item">
+                                            <span className="scope-meta-label">Members</span>
+                                            <span className="scope-meta-value">{activeScopeWindow.members?.length || 0}</span>
+                                        </div>
+                                        <div className="scope-meta-item">
+                                            <span className="scope-meta-label">Rolle</span>
+                                            <span className="scope-meta-value">{activeScopeWindow.role || 'VIEWER'}</span>
+                                        </div>
+                                        {activeScopeWindow.createdBy && (
+                                            <div className="scope-meta-item">
+                                                <span className="scope-meta-label">Owner</span>
+                                                <span className="scope-meta-value">
+                                                    {getMemberInfo(activeTenantId, activeScopeWindow.createdBy).label}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {activeScopeWindow.completionStatus && (
+                                            <div className="scope-meta-item">
+                                                <span className="scope-meta-label">Abschluss</span>
+                                                <span className="scope-meta-value">
+                                                    {activeScopeWindow.completionStatus === 'YES'
+                                                        ? 'Ja'
+                                                        : activeScopeWindow.completionStatus === 'PARTIAL'
+                                                            ? 'Teilweise'
+                                                            : 'Nein'}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {activeScopeWindow.completedAt && (
+                                            <div className="scope-meta-item">
+                                                <span className="scope-meta-label">Abgeschlossen am</span>
+                                                <span className="scope-meta-value">
+                                                    {new Date(activeScopeWindow.completedAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             {(view === 'kanban' || view === 'table' || view === 'timeline' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow) || (view === 'scope' && scopeScreen === 'list')) && (
                                 <div className="page-heading-actions">
@@ -6713,6 +7283,18 @@ const App: React.FC = () => {
                                                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
                                                         <circle cx="12" cy="12" r="3.5" />
                                                         <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3.7a7 7 0 0 0-1.6-1l-.3-2.4H9.3l-.3 2.4a7 7 0 0 0-1.6 1l-2.3-.7-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-.7a7 7 0 0 0 1.6 1l.3 2.4h5.4l.3-2.4a7 7 0 0 0 1.6-1l2.3.7 2-3.5-2-1.5a7 7 0 0 0 .1-1z" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                            {canManageActiveScope && (
+                                                <button
+                                                    className="icon-action"
+                                                    onClick={() => setIsScopeCloseOpen(true)}
+                                                    data-tooltip="Scope abschließen"
+                                                    aria-label="Scope abschließen"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                        <path d="M5 12l5 5 9-9" />
                                                     </svg>
                                                 </button>
                                             )}
@@ -8712,7 +9294,7 @@ const App: React.FC = () => {
                                                                 <td>{task.sourceIndicator || '—'}</td>
                                                                 <td>
                                                                     <div className="table-actions">
-                                                                        {task.sourceType === 'MANUAL' && (
+                                                                        {task.sourceType === 'MANUAL' && !isActiveScopeCompleted && (
                                                                             <button
                                                                                 className="icon-action settings"
                                                                                 onClick={(e) => {
@@ -8795,17 +9377,47 @@ const App: React.FC = () => {
                                 )}
                             </>
                         ) : (
+                            <>
+                            <div
+                                className="view-switch"
+                                role="tablist"
+                                aria-label="Scope filter"
+                                style={{
+                                    ['--active-index' as any]: scopeTab === 'completed' ? 1 : 0,
+                                    ['--segment-count' as any]: 2,
+                                    marginBottom: '0.75rem',
+                                    alignSelf: 'flex-start'
+                                }}
+                            >
+                                <button
+                                    className={`view-pill ${scopeTab === 'current' ? 'active' : ''}`}
+                                    onClick={() => setScopeTab('current')}
+                                    role="tab"
+                                    aria-selected={scopeTab === 'current'}
+                                >
+                                    Aktuell
+                                </button>
+                                <button
+                                    className={`view-pill ${scopeTab === 'completed' ? 'active' : ''}`}
+                                    onClick={() => setScopeTab('completed')}
+                                    role="tab"
+                                    aria-selected={scopeTab === 'completed'}
+                                >
+                                    Beendet
+                                </button>
+                            </div>
                             <div className="dashboard-card dashboard-list ui-card">
-                                <div className="dashboard-card-title ui-card-header">
-                                    <div className="dashboard-card-title-row inbox-header-row">
-                                        <div className="inbox-header-left">
-                                            <span>Scope Windows</span>
-                                        </div>
-                                        <div className="inbox-header-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-save btn-compact tooltip-target"
-                                                data-tooltip="Scope erstellen"
+                            
+                                                <div className="dashboard-card-title ui-card-header">
+                                                    <div className="dashboard-card-title-row inbox-header-row">
+                                                        <div className="inbox-header-left">
+                                                            <span>Scope Windows</span>
+                                                        </div>
+                                                        <div className="inbox-header-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-save btn-compact tooltip-target"
+                                                                data-tooltip="Scope erstellen"
                                                 aria-label="Scope erstellen"
                                                 onClick={() => setIsScopeCreateOpen(true)}
                                             >
@@ -8819,17 +9431,17 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="dashboard-card-content ui-card-body">
-                                    <div className="inbox-layout scope-inbox-layout">
-                                        <div className="inbox-sidebar scope-inbox-sidebar">
-                                            {scopeWindows.length === 0 ? (
-                                                <div className="scope-empty">Noch keine Scope Windows.</div>
-                                            ) : (
-                                                scopeWindows.map((scopeWindow) => (
-                                                    <button
-                                                        key={scopeWindow.id}
-                                                        type="button"
-                                                        className={`inbox-sidebar-item scope-sidebar-item${activeScopeId === scopeWindow.id ? ' active' : ''}`}
-                                                        onClick={() => {
+                                        <div className="inbox-layout scope-inbox-layout">
+                                            <div className="inbox-sidebar scope-inbox-sidebar">
+                                                {filteredScopeWindows.length === 0 ? (
+                                                    <div className="scope-empty">Noch keine Scope Windows.</div>
+                                                ) : (
+                                                    filteredScopeWindows.map((scopeWindow) => (
+                                                        <button
+                                                            key={scopeWindow.id}
+                                                            type="button"
+                                                            className={`inbox-sidebar-item scope-sidebar-item${activeScopeId === scopeWindow.id ? ' active' : ''}`}
+                                                            onClick={() => {
                                                             setActiveScopeId(scopeWindow.id);
                                                             setScopeScreen('list');
                                                             setScopeRouteId(null);
@@ -8837,16 +9449,21 @@ const App: React.FC = () => {
                                                         }}
                                                     >
                                                         <div className="inbox-avatar">{getInitials(scopeWindow.name)}</div>
-                                                        <div className="inbox-sidebar-body">
-                                                            <div className="inbox-sidebar-title">{scopeWindow.name}</div>
-                                                            <div className="inbox-sidebar-meta">
-                                                                <div className="inbox-sidebar-meta-date">{getScopeDateLabel(scopeWindow)}</div>
-                                                                {scopeWindow.taskIds.length} tasks
+                                                            <div className="inbox-sidebar-body">
+                                                                <div className="inbox-sidebar-title">{scopeWindow.name}</div>
+                                                                <div className="inbox-sidebar-meta">
+                                                                    <div className="inbox-sidebar-meta-date">{getScopeDateLabel(scopeWindow)}</div>
+                                                                    {scopeWindow.initiativeId && initiativeLookup.get(scopeWindow.initiativeId) && (
+                                                                        <div className="inbox-sidebar-meta-date">
+                                                                            Initiative: {initiativeLookup.get(scopeWindow.initiativeId)?.name}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="inbox-sidebar-meta-date">{scopeWindow.taskIds.length} tasks</div>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </button>
-                                                ))
-                                            )}
+                                                        </button>
+                                                    ))
+                                                )}
                                         </div>
                                         <div className="inbox-detail scope-detail">
                                             {!activeScopeWindow ? (
@@ -8862,6 +9479,14 @@ const App: React.FC = () => {
                                                             <div className="scope-preview-meta">
                                                                 {getScopeDateLabel(activeScopeWindow)} · {activeScopeWindow.taskIds.length} tasks
                                                             </div>
+                                                            {activeScopeWindow.initiativeId
+                                                                && initiativeLookup.get(activeScopeWindow.initiativeId)?.status === 'ACTIVE' && (
+                                                                <div className="scope-preview-meta">
+                                                                    <span className="dashboard-badge">
+                                                                        Initiative: {initiativeLookup.get(activeScopeWindow.initiativeId)?.name}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <button
                                                             type="button"
@@ -8938,6 +9563,7 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+                            </>
                         )}
                     </div>
                 ) : view === 'dashboard' ? (
@@ -9317,7 +9943,371 @@ const App: React.FC = () => {
                         )}
                     </div>
                 ) : view === 'initiatives' ? (
-                    <div className="empty-state">Initiatives coming soon.</div>
+                    <div className="dashboard-panel initiatives-shell">
+                        {!activeTenantId ? (
+                            <div className="empty-state">Select a huddle to manage initiatives.</div>
+                        ) : initiativeScreen === 'detail' && activeInitiative ? (
+                            <div className="initiative-detail">
+                                <div className="scope-detail-header">
+                                    <div>
+                                        <div className="scope-detail-title">{activeInitiative.name}</div>
+                                        <div className="scope-detail-meta">
+                                            <span className="dashboard-badge">
+                                                {activeInitiative.status === 'ACTIVE' ? 'Active' : 'Closed'}
+                                            </span>
+                                            <span className="page-heading-dot">·</span>
+                                            <span>
+                                                Owner:{' '}
+                                                {activeInitiative.ownerId
+                                                    ? getMemberLabel(activeTenantId, activeInitiative.ownerId)
+                                                    : 'Unassigned'}
+                                            </span>
+                                            {activeInitiative.closedAt && (
+                                                <span className="page-heading-dot">·</span>
+                                            )}
+                                            {activeInitiative.closedAt && (
+                                                <span>
+                                                    Closed {new Date(activeInitiative.closedAt).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                        <div className="scope-detail-actions">
+                                        <button
+                                            type="button"
+                                            className="icon-action"
+                                            onClick={() => {
+                                                setInitiativeDraft({
+                                                    name: activeInitiative.name,
+                                                    goal: activeInitiative.goal || '',
+                                                    description: activeInitiative.description || '',
+                                                    ownerId: activeInitiative.ownerId || '',
+                                                });
+                                                setInitiativeEditId(activeInitiative.id);
+                                                setIsInitiativeCreateOpen(true);
+                                            }}
+                                            data-tooltip="Initiative bearbeiten"
+                                            aria-label="Initiative bearbeiten"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                <path d="M12 20h9" />
+                                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="scope-detail-body">
+                                    <div className="initiative-detail-grid">
+                                        <div className="scope-section">
+                                            <div className="scope-section-title">Goal / Outcome</div>
+                                            <div className="scope-section-content">
+                                                <div className="table-details-grid">
+                                                    <div>
+                                                        <div className="table-details-label">Ziel</div>
+                                                        <div className="table-details-text">
+                                                            {activeInitiative.goal || 'Kein Ziel definiert.'}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="table-details-label">Description</div>
+                                                        <div className="table-details-text">
+                                                            {activeInitiative.description || 'No description yet.'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="scope-section">
+                                        <div
+                                            className="scope-section-title"
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}
+                                        >
+                                            <span>Scopes in this initiative</span>
+                                            <div className="filter-dropdown">
+                                                <button
+                                                    type="button"
+                                                    className="icon-action create"
+                                                    onClick={() =>
+                                                        setInitiativeScopePickerId((prev) =>
+                                                            prev === activeInitiative.id ? '' : activeInitiative.id
+                                                        )
+                                                    }
+                                                    aria-haspopup="listbox"
+                                                    aria-expanded={initiativeScopePickerId === activeInitiative.id}
+                                                    data-tooltip="Scope hinzufügen"
+                                                    aria-label="Scope hinzufügen"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                        <path d="M12 5v14" />
+                                                        <path d="M5 12h14" />
+                                                    </svg>
+                                                </button>
+                                                {initiativeScopePickerId === activeInitiative.id && (
+                                                    <div className="filter-options" role="listbox">
+                                                        <button
+                                                            type="button"
+                                                            className="filter-option"
+                                                            onClick={() => {
+                                                                setInitiativeScopeCreateForId(activeInitiative.id);
+                                                                setIsScopeCreateOpen(true);
+                                                                setInitiativeScopePickerId('');
+                                                            }}
+                                                        >
+                                                            <span>Scope erstellen</span>
+                                                            <span className="filter-option-meta">Neuen Scope anlegen</span>
+                                                        </button>
+                                                        <div className="filter-option filter-option-clear" aria-hidden="true">
+                                                            Vorhandene Scopes
+                                                        </div>
+                                                        {initiativeScopeOptions.length === 0 ? (
+                                                            <div className="filter-empty">Keine Scopes zum Hinzufügen.</div>
+                                                        ) : (
+                                                            initiativeScopeOptions.map((scope) => (
+                                                                <button
+                                                                    key={scope.id}
+                                                                    type="button"
+                                                                    className="filter-option"
+                                                                    onClick={() => {
+                                                                        setScopeInitiative(scope.id, activeInitiative.id);
+                                                                        setInitiativeScopePickerId('');
+                                                                    }}
+                                                                >
+                                                                    <span>{scope.name}</span>
+                                                                    <span className="filter-option-meta">
+                                                                        {getScopeDateLabel(scope)}
+                                                                    </span>
+                                                                </button>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="scope-section-content">
+                                                <div className="scope-section-list">
+                                                    {initiativeScopes.length === 0 ? (
+                                                        <div className="scope-empty">No scopes linked yet.</div>
+                                                    ) : (
+                                                        initiativeScopes.map((scope) => (
+                                                            <button
+                                                                key={scope.id}
+                                                                type="button"
+                                                                className="scope-section-item"
+                                                                onClick={() => openScopeDetail(scope.id)}
+                                                            >
+                                                                <div className="scope-section-main">
+                                                                    <div className="scope-section-item-title">{scope.name}</div>
+                                                                    <div className="scope-section-item-meta">
+                                                                        <span className="scope-section-chip">
+                                                                            {getScopeDateLabel(scope)}
+                                                                        </span>
+                                                                        <span className="scope-section-chip">
+                                                                            {scope.taskIds.length} tasks
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <span className={`scope-section-status${scope.completionStatus ? ' done' : ''}`}>
+                                                                    {scope.completionStatus ? 'Completed' : 'Active'}
+                                                                </span>
+                                                            </button>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="scope-section">
+                                        <div className="scope-section-title">Progress</div>
+                                        <div className="scope-section-content">
+                                            <div className="initiative-progress">
+                                                <div className="initiative-progress-row">
+                                                    <div>
+                                                        <div className="initiative-progress-label">Task completion</div>
+                                                        <div className="initiative-progress-value">
+                                                            {activeInitiativeMetrics?.doneTasks ?? 0} / {activeInitiativeMetrics?.totalTasks ?? 0} done
+                                                        </div>
+                                                    </div>
+                                                    <div className="initiative-progress-percent">
+                                                        {activeInitiativeMetrics?.taskCompletion ?? 0}%
+                                                    </div>
+                                                </div>
+                                                <div className="initiative-progress-bar">
+                                                    <span
+                                                        className="initiative-progress-fill"
+                                                        style={{ width: `${activeInitiativeMetrics?.taskCompletion ?? 0}%` }}
+                                                    />
+                                                </div>
+                                                <div className="initiative-progress-row">
+                                                    <div>
+                                                        <div className="initiative-progress-label">Scope completion</div>
+                                                        <div className="initiative-progress-value">
+                                                            {activeInitiativeMetrics?.closedScopes ?? 0} / {activeInitiativeMetrics?.totalScopes ?? 0} closed
+                                                        </div>
+                                                    </div>
+                                                    <div className="initiative-progress-percent">
+                                                        {activeInitiativeMetrics?.scopeCompletion ?? 0}%
+                                                    </div>
+                                                </div>
+                                                <div className="initiative-progress-bar">
+                                                    <span
+                                                        className="initiative-progress-fill"
+                                                        style={{ width: `${activeInitiativeMetrics?.scopeCompletion ?? 0}%` }}
+                                                    />
+                                                </div>
+                                                <div className="initiative-progress-stats">
+                                                    <div className="initiative-progress-stat">
+                                                        <span>Total scopes</span>
+                                                        <strong>{activeInitiativeMetrics?.totalScopes ?? 0}</strong>
+                                                    </div>
+                                                    <div className="initiative-progress-stat">
+                                                        <span>Active scopes</span>
+                                                        <strong>{activeInitiativeMetrics?.activeScopes ?? 0}</strong>
+                                                    </div>
+                                                    <div className="initiative-progress-stat">
+                                                        <span>Open tasks</span>
+                                                        <strong>{activeInitiativeMetrics?.openTasks ?? 0}</strong>
+                                                    </div>
+                                                    <div className="initiative-progress-stat">
+                                                        <span>Done tasks</span>
+                                                        <strong>{activeInitiativeMetrics?.doneTasks ?? 0}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div
+                                    className="view-switch"
+                                    role="tablist"
+                                    aria-label="Initiative filter"
+                                    style={{
+                                        ['--active-index' as any]: initiativeTab === 'CLOSED' ? 1 : 0,
+                                        ['--segment-count' as any]: 2,
+                                        marginBottom: '0.75rem',
+                                        alignSelf: 'flex-start'
+                                    }}
+                                >
+                                    <button
+                                        className={`view-pill ${initiativeTab === 'ACTIVE' ? 'active' : ''}`}
+                                        onClick={() => setInitiativeTab('ACTIVE')}
+                                        role="tab"
+                                        aria-selected={initiativeTab === 'ACTIVE'}
+                                    >
+                                        Aktuell
+                                    </button>
+                                    <button
+                                        className={`view-pill ${initiativeTab === 'CLOSED' ? 'active' : ''}`}
+                                        onClick={() => setInitiativeTab('CLOSED')}
+                                        role="tab"
+                                        aria-selected={initiativeTab === 'CLOSED'}
+                                    >
+                                        Beendet
+                                    </button>
+                                </div>
+                                <div className="dashboard-card dashboard-list ui-card">
+                                    <div className="dashboard-card-title ui-card-header">
+                                        <div className="dashboard-card-title-row inbox-header-row">
+                                            <div className="inbox-header-left">
+                                                <span>Initiatives</span>
+                                            </div>
+                                            <div className="inbox-header-actions">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-save btn-compact tooltip-target"
+                                                    data-tooltip="Initiative erstellen"
+                                                    aria-label="Initiative erstellen"
+                                                    onClick={() => setIsInitiativeCreateOpen(true)}
+                                                >
+                                                    <span className="btn-save-icon">
+                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" stroke="currentColor">
+                                                            <path d="M12 5v14M5 12h14" />
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="dashboard-card-content ui-card-body">
+                                        {filteredInitiatives.length === 0 ? (
+                                            <div className="empty-state">
+                                                <div className="inbox-empty-title">Keine Initiativen</div>
+                                                <div className="inbox-empty-text">
+                                                    Erstelle deine erste Initiative, um deine Scopes zu bündeln.
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="scope-window-grid">
+                                                {filteredInitiatives.map((initiative) => {
+                                                    const metrics = initiativeMetricsById.get(initiative.id);
+                                                    return (
+                                                        <button
+                                                            key={initiative.id}
+                                                            type="button"
+                                                            className={`scope-window-card${activeInitiativeId === initiative.id ? ' active' : ''}`}
+                                                            onClick={() => openInitiativeDetail(initiative.id)}
+                                                        >
+                                                            <div className="ui-card-body scope-window-body">
+                                                                <div className="scope-window-header">
+                                                                    <div>
+                                                                        <div className="scope-window-title">{initiative.name}</div>
+                                                                        <div className={`scope-window-meta scope-window-meta-${initiative.status.toLowerCase()}`}>
+                                                                            {initiative.status === 'ACTIVE' ? 'Active' : 'Closed'}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="scope-detail-actions">
+                                                                        <span className="dashboard-badge">
+                                                                            {metrics?.totalScopes ?? 0} scopes
+                                                                        </span>
+                                                                        <span className="dashboard-badge">
+                                                                            {metrics?.totalTasks ?? 0} tasks
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="scope-card-footer">
+                                                                    <div className="task-card-people">
+                                                                        {initiative.ownerId
+                                                                            ? renderAvatarStack(activeTenantId, [initiative.ownerId])
+                                                                            : null}
+                                                                    </div>
+                                                                    {initiative.goal && (
+                                                                        <span className="scope-task-origin"><span>Ziel:</span> {initiative.goal}</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="scope-window-description">
+                                                                    {initiative.description || 'No description yet.'}
+                                                                </div>
+                                                                <div className="scope-window-health">
+                                                                    <div className="scope-window-progress">
+                                                                        <div className="scope-window-progress-bar">
+                                                                            <span style={{ width: `${metrics?.taskCompletion ?? 0}%` }} />
+                                                                        </div>
+                                                                        <div className="scope-window-progress-label">
+                                                                            {metrics?.taskCompletion ?? 0}% tasks done
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="scope-window-health-row">
+                                                                        <span>Open</span>
+                                                                        <span>{metrics?.openTasks ?? 0}</span>
+                                                                    </div>
+                                                                    <div className="scope-window-health-row">
+                                                                        <span>Closed scopes</span>
+                                                                        <span>{metrics?.closedScopes ?? 0}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 ) : (
                     <>
                         <div className="filter-bar">
@@ -9957,11 +10947,172 @@ const App: React.FC = () => {
                                 <div className="panel-actions">
                                     <div className="panel-actions-right">
                                         <button
-                                            className="btn btn-secondary btn-compact"
+                                            className="btn btn-save btn-compact"
                                             onClick={handleScopeCreate}
                                             disabled={!scopeDraft.name.trim() || !scopeKey}
+                                            aria-label="Create scope window"
                                         >
-                                            Create scope window
+                                            <span className="btn-save-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                    <path d="M4 4h12l4 4v12H4z" />
+                                                    <path d="M7 4v6h8V4" />
+                                                    <path d="M7 14h10v6H7z" />
+                                                </svg>
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {isInitiativeCreateOpen && (
+                    <div className="modal-overlay">
+                        <div className="modal-content settings-modal">
+                            <div className="panel-header">
+                                <div>
+                                    <div className="panel-title">{initiativeEditId ? 'Edit initiative' : 'Create initiative'}</div>
+                                    <div className="panel-subtitle">
+                                        {initiativeEditId ? 'Update goal, owner, and description.' : 'Define the WHY for upcoming scopes.'}
+                                    </div>
+                                </div>
+                                <button
+                                    className="panel-close"
+                                    onClick={() => {
+                                        setIsInitiativeCreateOpen(false);
+                                        setInitiativeEditId(null);
+                                        setInitiativeDraft({ name: '', goal: '', description: '', ownerId: '' });
+                                    }}
+                                    aria-label="Close"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <div className="panel-body">
+                                <div className="panel-section">
+                                    <div className="section-title">Details</div>
+                                    <div className="scope-create-grid">
+                                        <label>
+                                            Title
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Accelerate onboarding"
+                                                value={initiativeDraft.name}
+                                                onChange={(event) =>
+                                                    setInitiativeDraft((prev) => ({ ...prev, name: event.target.value }))
+                                                }
+                                            />
+                                        </label>
+                                    </div>
+                                    <div className="scope-create-grid">
+                                        <label>
+                                            Ziel
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Improve activation rate"
+                                                value={initiativeDraft.goal}
+                                                onChange={(event) =>
+                                                    setInitiativeDraft((prev) => ({ ...prev, goal: event.target.value }))
+                                                }
+                                            />
+                                        </label>
+                                        <label>
+                                            Owner
+                                            <select
+                                                value={initiativeDraft.ownerId}
+                                                onChange={(event) =>
+                                                    setInitiativeDraft((prev) => ({ ...prev, ownerId: event.target.value }))
+                                                }
+                                            >
+                                                <option value="">Unassigned</option>
+                                                {getMembersForTenant(activeTenantId).map((member) => (
+                                                    <option key={member.userId} value={member.userId}>
+                                                        {member.user?.name || member.user?.email || member.userId}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                    </div>
+                                    <div className="scope-create-grid">
+                                        <label className="scope-create-span">
+                                            Description
+                                            <textarea
+                                                rows={3}
+                                                placeholder="Optional outcome description."
+                                                value={initiativeDraft.description}
+                                                onChange={(event) =>
+                                                    setInitiativeDraft((prev) => ({ ...prev, description: event.target.value }))
+                                                }
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                                {initiativeEditId && (
+                                    <div className="panel-section">
+                                        <div className="section-title">Status</div>
+                                        <div className="panel-text">
+                                            {initiativeLookup.get(initiativeEditId)?.status === 'ACTIVE'
+                                                ? 'Initiative is active.'
+                                                : 'Initiative is closed.'}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                            {initiativeLookup.get(initiativeEditId)?.status === 'ACTIVE' ? (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-secondary btn-compact"
+                                                    onClick={() => handleInitiativeClose(initiativeEditId)}
+                                                >
+                                                    Close Initiative
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-secondary btn-compact"
+                                                    onClick={() => handleInitiativeReopen(initiativeEditId)}
+                                                >
+                                                    Reopen Initiative
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                {initiativeEditId && (
+                                    <div className="panel-section panel-danger">
+                                        <div className="section-title">Danger zone</div>
+                                        <div className="panel-text">
+                                            Delete this initiative and unlink its scopes.
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="btn btn-delete btn-compact"
+                                            onClick={() => {
+                                                handleInitiativeDelete(initiativeEditId);
+                                                setIsInitiativeCreateOpen(false);
+                                                setInitiativeEditId(null);
+                                                setInitiativeDraft({ name: '', goal: '', description: '', ownerId: '' });
+                                            }}
+                                        >
+                                            Delete Initiative
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="panel-footer">
+                                <div className="panel-actions">
+                                    <div className="panel-actions-right">
+                                        <button
+                                            className="btn btn-save btn-compact"
+                                            onClick={initiativeEditId ? handleInitiativeUpdate : handleInitiativeCreate}
+                                            disabled={!initiativeDraft.name.trim()}
+                                            aria-label={initiativeEditId ? 'Save changes' : 'Create initiative'}
+                                        >
+                                            <span className="btn-save-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                    <path d="M4 4h12l4 4v12H4z" />
+                                                    <path d="M7 4v6h8V4" />
+                                                    <path d="M7 14h10v6H7z" />
+                                                </svg>
+                                            </span>
                                         </button>
                                     </div>
                                 </div>
@@ -10090,6 +11241,62 @@ const App: React.FC = () => {
                                             </div>
                                         );
                                     })()}
+                                </div>
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Initiative</div>
+                                <div className="member-meta" ref={scopeInitiativeRef} style={{ position: 'relative' }}>
+                                    <div className="filter-dropdown">
+                                        <button
+                                            type="button"
+                                            className="filter-select"
+                                            onClick={() => {
+                                                if (!canManageActiveScope || isActiveScopeCompleted) return;
+                                                setScopeInitiativeOpen((prev) => !prev);
+                                            }}
+                                            aria-haspopup="listbox"
+                                            aria-expanded={scopeInitiativeOpen}
+                                            disabled={!canManageActiveScope || isActiveScopeCompleted}
+                                        >
+                                            {activeScopeWindow.initiativeId
+                                                ? initiativeLookup.get(activeScopeWindow.initiativeId)?.name || 'Initiative'
+                                                : 'Keine'}
+                                        </button>
+                                        {scopeInitiativeOpen && (
+                                            <div className="filter-options" role="listbox">
+                                                <button
+                                                    type="button"
+                                                    className={`filter-option${!activeScopeWindow.initiativeId ? ' active' : ''}`}
+                                                    onClick={() => {
+                                                        setScopeInitiative(activeScopeWindow.id, null);
+                                                        setScopeInitiativeOpen(false);
+                                                    }}
+                                                >
+                                                    Keine
+                                                </button>
+                                                {initiativeOptions.length === 0 ? (
+                                                    <div className="filter-empty">Noch keine Initiativen.</div>
+                                                ) : (
+                                                    initiativeOptions.map((initiative) => (
+                                                        <button
+                                                            key={initiative.id}
+                                                            type="button"
+                                                            className={`filter-option${activeScopeWindow.initiativeId === initiative.id ? ' active' : ''}`}
+                                                            onClick={() => {
+                                                                setScopeInitiative(activeScopeWindow.id, initiative.id);
+                                                                setScopeInitiativeOpen(false);
+                                                            }}
+                                                        >
+                                                            <span>{initiative.name}</span>
+                                                            <span className="filter-option-meta">
+                                                                {initiative.status === 'ACTIVE' ? 'Aktiv' : 'Beendet'}
+                                                            </span>
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             <div className="panel-section">
@@ -10222,11 +11429,104 @@ const App: React.FC = () => {
                             <div className="panel-actions">
                                 <div className="panel-actions-right">
                                     <button
-                                        className="btn btn-primary btn-compact"
+                                        className="btn btn-save btn-compact"
                                         onClick={handleScopeSettingsSave}
                                         disabled={!scopeSettingsDraft.name.trim() || scopeSettingsDateInvalid}
+                                        aria-label="Save changes"
                                     >
-                                        Save changes
+                                        <span className="btn-save-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                <path d="M4 4h12l4 4v12H4z" />
+                                                <path d="M7 4v6h8V4" />
+                                                <path d="M7 14h10v6H7z" />
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isScopeCloseOpen && activeScopeWindow && (
+                <div className="modal-overlay">
+                    <div className="modal-content settings-modal">
+                        <div className="panel-header">
+                            <div>
+                                <div className="panel-title">Scope abschließen</div>
+                                <div className="panel-subtitle">Ergebnis festhalten und offene Tasks verschieben.</div>
+                            </div>
+                            <button className="panel-close" onClick={() => setIsScopeCloseOpen(false)} aria-label="Close">×</button>
+                        </div>
+                        <div className="panel-body">
+                            <div className="panel-section">
+                                <div className="section-title">Ziel</div>
+                                <div className="scope-close-grid">
+                                    <label className="scope-close-field">
+                                        <span>Ziel erreicht?</span>
+                                        <select
+                                            value={scopeCompletionStatus}
+                                            onChange={(event) => setScopeCompletionStatus(event.target.value as any)}
+                                        >
+                                            <option value="">Auswählen</option>
+                                            <option value="YES">Ja</option>
+                                            <option value="PARTIAL">Teilweise</option>
+                                            <option value="NO">Nein</option>
+                                        </select>
+                                    </label>
+                                    <label className="scope-close-field scope-close-field-span">
+                                        <span>Kommentar (optional)</span>
+                                        <textarea
+                                            rows={3}
+                                            value={scopeCompletionComment}
+                                            onChange={(event) => setScopeCompletionComment(event.target.value)}
+                                            placeholder="Kurze Einordnung zum Ergebnis"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="panel-section">
+                                <div className="section-title">Offene Tasks</div>
+                                <div className="scope-close-row">
+                                    <div className="scope-close-open">
+                                        <span>Offene Tasks</span>
+                                        <strong>{scopeOpenTaskIds.length}</strong>
+                                    </div>
+                                    <label className="scope-close-field">
+                                        <span>Verschieben nach</span>
+                                        <select
+                                            value={scopeCompletionTargetId}
+                                            onChange={(event) => setScopeCompletionTargetId(event.target.value)}
+                                            disabled={scopeOpenTaskIds.length === 0}
+                                        >
+                                            <option value="">
+                                                {scopeOpenTaskIds.length === 0 ? 'Keine offenen Tasks' : 'Scope auswählen'}
+                                            </option>
+                                            {scopeWindows
+                                                .filter((scope) => scope.id !== activeScopeWindow.id)
+                                                .map((scope) => (
+                                                    <option key={scope.id} value={scope.id}>
+                                                        {scope.name}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="panel-footer">
+                            <div className="panel-actions">
+                                <div className="panel-actions-right">
+                                    <button className="btn btn-ghost btn-compact" onClick={() => setIsScopeCloseOpen(false)}>
+                                        Close
+                                    </button>
+                                    <button
+                                        className="btn btn-primary btn-compact"
+                                        onClick={handleScopeClose}
+                                        disabled={!canManageScopeById(activeScopeWindow.id)}
+                                    >
+                                        Abschließen
                                     </button>
                                 </div>
                             </div>
@@ -11091,8 +12391,14 @@ const App: React.FC = () => {
                             </div>
                             <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem 1.25rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                    <button type="submit" className="btn btn-primary">
-                                        Speichern
+                                    <button type="submit" className="btn btn-save" aria-label="Speichern">
+                                        <span className="btn-save-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                <path d="M4 4h12l4 4v12H4z" />
+                                                <path d="M7 4v6h8V4" />
+                                                <path d="M7 14h10v6H7z" />
+                                            </svg>
+                                        </span>
                                     </button>
                                 </div>
                             </div>
@@ -11332,7 +12638,7 @@ const App: React.FC = () => {
                                 >
                                     {selectedTask.isFavorite ? '★' : '☆'}
                                 </button>
-                                {selectedTask.sourceType === 'MANUAL' && (
+                                {selectedTask.sourceType === 'MANUAL' && !isScopeReadOnly && (
                                     <>
                                         <button
                                             className="icon-btn"
@@ -11461,32 +12767,6 @@ const App: React.FC = () => {
                                         {incomingLinkedTasks.length > 0
                                             ? incomingLinkedTasks.map((task) => task.title).join(', ')
                                             : '—'}
-                                    </span>
-                                </div>
-                                <div className="detail-row">
-                                    <span className="detail-label">
-                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
-                                            <path d="M4 7h16" />
-                                            <path d="M4 12h10" />
-                                            <path d="M4 17h13" />
-                                        </svg>
-                                        All tasks
-                                    </span>
-                                    <span className="detail-value">
-                                        <span className="detail-toggle-row">
-                                            <button
-                                                type="button"
-                                                className={`detail-toggle ${selectedTask.excludeFromAll ? '' : 'active'}`}
-                                                onClick={() => submitTaskUpdate({ excludeFromAll: !selectedTask.excludeFromAll })}
-                                                disabled={selectedTask.sourceType !== 'MANUAL'}
-                                                aria-label="Show in All tasks"
-                                            >
-                                                <span className="detail-toggle-knob" />
-                                            </button>
-                                            <span className="detail-toggle-text">
-                                                {selectedTask.excludeFromAll ? 'Hidden' : 'Shown'}
-                                            </span>
-                                        </span>
                                     </span>
                                 </div>
                             </div>

@@ -1560,7 +1560,8 @@ app.get('/teams/:tenantId/scopes', async (req, res) => {
               )
             `;
         const scopes = await prisma.$queryRaw(Prisma.sql `
-            select id, name, description, start_date, end_date, task_ids, created_at, visibility, created_by
+            select id, name, description, start_date, end_date, task_ids, created_at, visibility, created_by,
+                   completion_status, completion_comment, completed_at, completed_by
             from huddle_scopes
             where tenant_id = ${tenantId}
             ${visibilityFilter}
@@ -1620,6 +1621,10 @@ app.get('/teams/:tenantId/scopes', async (req, res) => {
                     createdAt: scope.created_at.toISOString(),
                     visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
                     createdBy: scope.created_by,
+                    completionStatus: scope.completion_status,
+                    completionComment: scope.completion_comment,
+                    completedAt: scope.completed_at ? scope.completed_at.toISOString() : null,
+                    completedBy: scope.completed_by,
                     role,
                     members: includeMembers ? normalizedMembers : undefined,
                 };
@@ -1774,9 +1779,13 @@ app.put('/teams/:tenantId/scopes', async (req, res) => {
             }
             return res.json({ scopes: [] });
         }
-        transactionSteps.push(...toUpsert.map((scope) => prisma.$executeRaw(Prisma.sql `
+        transactionSteps.push(...toUpsert.map((scope) => {
+            const existingRole = memberRoleByScope.get(scope.id);
+            const canManageCompletion = isSuperAdmin || isTeamAdmin || existingRole === 'ADMIN' || scope.createdBy === user.id;
+            return (prisma.$executeRaw(Prisma.sql `
                 insert into huddle_scopes
-                    (tenant_id, id, name, description, start_date, end_date, task_ids, created_at, visibility, created_by)
+                    (tenant_id, id, name, description, start_date, end_date, task_ids, created_at, visibility, created_by,
+                     completion_status, completion_comment, completed_at, completed_by)
                 values
                     (
                         ${tenantId},
@@ -1788,7 +1797,11 @@ app.put('/teams/:tenantId/scopes', async (req, res) => {
                         ${JSON.stringify(scope.taskIds || [])}::jsonb,
                         ${scope.createdAt ? new Date(scope.createdAt) : new Date()},
                         ${scope.visibility === 'personal' ? 'personal' : 'shared'},
-                        ${scope.createdBy || user.id}
+                        ${scope.createdBy || user.id},
+                        ${scope.completionStatus ?? null},
+                        ${scope.completionComment ?? null},
+                        ${scope.completedAt ? new Date(scope.completedAt) : null},
+                        ${scope.completedBy ?? null}
                     )
                 on conflict (tenant_id, id)
                 do update set
@@ -1805,8 +1818,25 @@ app.put('/teams/:tenantId/scopes', async (req, res) => {
                             then excluded.visibility
                         else huddle_scopes.visibility
                     end,
-                    created_by = coalesce(huddle_scopes.created_by, excluded.created_by)
-            `)));
+                    created_by = coalesce(huddle_scopes.created_by, excluded.created_by),
+                    completion_status = case
+                        when ${canManageCompletion} then excluded.completion_status
+                        else huddle_scopes.completion_status
+                    end,
+                    completion_comment = case
+                        when ${canManageCompletion} then excluded.completion_comment
+                        else huddle_scopes.completion_comment
+                    end,
+                    completed_at = case
+                        when ${canManageCompletion} then excluded.completed_at
+                        else huddle_scopes.completed_at
+                    end,
+                    completed_by = case
+                        when ${canManageCompletion} then excluded.completed_by
+                        else huddle_scopes.completed_by
+                    end
+            `));
+        }));
         const memberUpdates = toUpsert.flatMap((scope) => {
             const existingRole = memberRoleByScope.get(scope.id);
             const canManage = isSuperAdmin || isTeamAdmin || existingRole === 'ADMIN' || scope.createdBy === user.id;
