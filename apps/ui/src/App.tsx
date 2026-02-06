@@ -5809,8 +5809,12 @@ const App: React.FC = () => {
         return true;
     };
 
-    const updateTaskDueDateLocal = (tenantId: string, taskId: string, dueDate: string | null) => {
-        const nextDueDate = dueDate || null;
+    const updateTaskDueDateLocal = (tenantId: string, taskId: string, dueDate: string | Date | null) => {
+        const nextDueDate = dueDate
+            ? typeof dueDate === 'string'
+                ? new Date(dueDate)
+                : dueDate
+            : undefined;
         setTasksByTenant((prev) => {
             const tenantTasks = prev[tenantId];
             if (!tenantTasks) return prev;
