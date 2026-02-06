@@ -12,6 +12,7 @@
     "clean": "tsc -b --clean"
   },
   "devDependencies": {
+    "@types/node": "^20.14.15",
     "prisma": "5.22.0",
     "typescript": "^5.3.3"
   },
