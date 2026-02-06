@@ -3329,8 +3329,6 @@ const App: React.FC = () => {
             }
         });
         map.set(ARCHIVED_BOARD_ID, 'Archived');
-        map.set(ALL_BOARD_ID, 'All tasks');
-        map.set(OWN_BOARD_ID, 'My tickets');
         if (!map.has('default-board')) {
             map.set('default-board', 'Main Tasks');
         }
@@ -3338,7 +3336,7 @@ const App: React.FC = () => {
     }, [activeTenantId, boardsByTenant, boards]);
     const getBoardLabel = (boardId?: string | null) => {
         if (!boardId) return 'Tasks';
-        return boardLabelById.get(boardId) || (boardId === ALL_BOARD_ID ? 'All tasks' : boardId);
+        return boardLabelById.get(boardId) || boardId;
     };
     const getStatusLabel = (status: TaskStatus | string) => {
         if (status === TaskStatus.TODO) return 'ToDo';
@@ -6738,15 +6736,6 @@ const App: React.FC = () => {
                                     <button
                                         className="user-menu-item"
                                         onClick={() => {
-                                            setView('kanban');
-                                            setIsUserMenuOpen(false);
-                                        }}
-                                    >
-                                        Work
-                                    </button>
-                                    <button
-                                        className="user-menu-item"
-                                        onClick={() => {
                                             setView('scope');
                                             setScopeScreen('list');
                                             setScopeRouteId(null);
@@ -6755,15 +6744,6 @@ const App: React.FC = () => {
                                         }}
                                     >
                                         Scope
-                                    </button>
-                                    <button
-                                        className="user-menu-item"
-                                        onClick={() => {
-                                            navigateOkr('/okr');
-                                            setIsUserMenuOpen(false);
-                                        }}
-                                    >
-                                        Goals
                                     </button>
                                     <button
                                         className="user-menu-item"
@@ -6939,47 +6919,7 @@ const App: React.FC = () => {
                 </div>
             </aside>
 
-            <main className="main-content">
-                {loading && (
-                    <div className="loading-strip">Syncing huddle…</div>
-                )}
-                {isPersonalActive && !hasSharedHuddles && !dismissHuddleCta && (
-                    <div className="huddle-cta">
-                        <div>
-                            <div className="huddle-cta-title">Share work with a huddle</div>
-                            <div className="huddle-cta-text">Create a shared huddle for your team while keeping your private tasks separate.</div>
-                        </div>
-                        <div className="huddle-cta-actions">
-                            <button className="btn btn-primary btn-compact" onClick={() => setIsTeamModalOpen(true)}>
-                                Create shared huddle
-                            </button>
-                            <button className="btn btn-ghost btn-compact" onClick={() => setDismissHuddleCta(true)}>
-                                Dismiss
-                            </button>
-                        </div>
-                    </div>
-                )}
-                {invites.length > 0 && (
-                    <div className="invite-banner">
-                        <div>
-                            <div className="invite-title">Huddle invitations</div>
-                            <div className="invite-text">You have {invites.length} pending invitation{invites.length > 1 ? 's' : ''}.</div>
-                        </div>
-                        <button className="btn btn-ghost btn-compact" onClick={() => setIsInvitesModalOpen(true)}>
-                            View invites
-                        </button>
-                    </div>
-                )}
-                {!activeTenantId && (
-                    <div className="team-warning">
-                        <div>
-                            <strong>No huddle selected.</strong> Create or join a huddle to start managing tasks.
-                        </div>
-                        <button className="btn btn-ghost btn-compact" onClick={() => setIsTeamModalOpen(true)}>
-                            Create huddle
-                        </button>
-                    </div>
-                )}
+            <div className="content-shell">
                 <div className="page-heading-wrap">
                     <div className="page-breadcrumbs-row">
                         <div className="page-breadcrumbs">
@@ -7134,11 +7074,9 @@ const App: React.FC = () => {
                         )}
                     </div>
                     <div
-                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'dashboard' || view === 'initiatives' || view === 'inbox' || view === 'timeline' || view === 'scope' ? ' page-heading-dark' : ''}${
-                            view === 'initiatives' && initiativeScreen === 'detail' ? ' page-heading-hidden' : ''
-                        }`}
+                        className={`page-heading${view === 'kanban' || view === 'table' || view === 'dashboard' || view === 'initiatives' || view === 'inbox' || view === 'timeline' || view === 'scope' ? ' page-heading-style' : ''}`}
                     >
-                        {!(view === 'okr' && okrScreen === 'objective') && !(view === 'initiatives' && initiativeScreen === 'detail') && (
+                        {!(view === 'okr' && okrScreen === 'objective') && (
                         <div className="page-heading-row">
                             <div className="page-heading-title">
                                 <h1>
@@ -7152,11 +7090,11 @@ const App: React.FC = () => {
                                             ? 'Calendar'
                                             : view === 'inbox'
                                                 ? 'Inbox'
-                                                : view === 'initiatives'
-                                                    ? 'Initiatives'
-                                            : view === 'scope'
-                                                ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope')
-                                                : (activeBoard?.name || activeHuddleName || 'Work')}
+                                        : view === 'initiatives'
+                                            ? (initiativeScreen === 'detail' && activeInitiative ? activeInitiative.name : 'Initiatives')
+                                        : view === 'scope'
+                                            ? (scopeScreen === 'detail' && activeScopeWindow ? activeScopeWindow.name : 'Scope')
+                                            : (activeBoard?.name || activeHuddleName || 'Work')}
                                     {view === 'scope' && (
                                         <button
                                             type="button"
@@ -7219,6 +7157,28 @@ const App: React.FC = () => {
                                                     {new Date(activeScopeWindow.completedAt).toLocaleDateString()}
                                                 </span>
                                             </div>
+                                        )}
+                                    </div>
+                                )}
+                                {view === 'initiatives' && initiativeScreen === 'detail' && activeInitiative && (
+                                    <div className="page-heading-meta initiative-meta">
+                                        <span className="dashboard-badge">
+                                            {activeInitiative.status === 'ACTIVE' ? 'Active' : 'Closed'}
+                                        </span>
+                                        <span className="page-heading-dot">·</span>
+                                        <span>
+                                            Owner:{' '}
+                                            {activeInitiative.ownerId
+                                                ? getMemberLabel(activeTenantId, activeInitiative.ownerId)
+                                                : 'Unassigned'}
+                                        </span>
+                                        {activeInitiative.closedAt && (
+                                            <span className="page-heading-dot">·</span>
+                                        )}
+                                        {activeInitiative.closedAt && (
+                                            <span>
+                                                Closed {new Date(activeInitiative.closedAt).toLocaleDateString()}
+                                            </span>
                                         )}
                                     </div>
                                 )}
@@ -7302,10 +7262,77 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             )}
+                            {view === 'initiatives' && initiativeScreen === 'detail' && activeInitiative && (
+                                <div className="page-heading-actions">
+                                    <button
+                                        type="button"
+                                        className="icon-action"
+                                        onClick={() => {
+                                            setInitiativeDraft({
+                                                name: activeInitiative.name,
+                                                goal: activeInitiative.goal || '',
+                                                description: activeInitiative.description || '',
+                                                ownerId: activeInitiative.ownerId || '',
+                                            });
+                                            setInitiativeEditId(activeInitiative.id);
+                                            setIsInitiativeCreateOpen(true);
+                                        }}
+                                        data-tooltip="Initiative bearbeiten"
+                                        aria-label="Initiative bearbeiten"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                            <path d="M12 20h9" />
+                                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         )}
                     </div>
                 </div>
+            <main className="main-content">
+                {loading && (
+                    <div className="loading-strip">Syncing huddle…</div>
+                )}
+                {isPersonalActive && !hasSharedHuddles && !dismissHuddleCta && (
+                    <div className="huddle-cta">
+                        <div>
+                            <div className="huddle-cta-title">Share work with a huddle</div>
+                            <div className="huddle-cta-text">Create a shared huddle for your team while keeping your private tasks separate.</div>
+                        </div>
+                        <div className="huddle-cta-actions">
+                            <button className="btn btn-primary btn-compact" onClick={() => setIsTeamModalOpen(true)}>
+                                Create shared huddle
+                            </button>
+                            <button className="btn btn-ghost btn-compact" onClick={() => setDismissHuddleCta(true)}>
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {invites.length > 0 && (
+                    <div className="invite-banner">
+                        <div>
+                            <div className="invite-title">Huddle invitations</div>
+                            <div className="invite-text">You have {invites.length} pending invitation{invites.length > 1 ? 's' : ''}.</div>
+                        </div>
+                        <button className="btn btn-ghost btn-compact" onClick={() => setIsInvitesModalOpen(true)}>
+                            View invites
+                        </button>
+                    </div>
+                )}
+                {!activeTenantId && (
+                    <div className="team-warning">
+                        <div>
+                            <strong>No huddle selected.</strong> Create or join a huddle to start managing tasks.
+                        </div>
+                        <button className="btn btn-ghost btn-compact" onClick={() => setIsTeamModalOpen(true)}>
+                            Create huddle
+                        </button>
+                    </div>
+                )}
+
                 {view === 'inbox' && (
                     <div className="filter-bar inbox-filter-bar">
                         <div
@@ -9948,54 +9975,6 @@ const App: React.FC = () => {
                             <div className="empty-state">Select a huddle to manage initiatives.</div>
                         ) : initiativeScreen === 'detail' && activeInitiative ? (
                             <div className="initiative-detail">
-                                <div className="scope-detail-header">
-                                    <div>
-                                        <div className="scope-detail-title">{activeInitiative.name}</div>
-                                        <div className="scope-detail-meta">
-                                            <span className="dashboard-badge">
-                                                {activeInitiative.status === 'ACTIVE' ? 'Active' : 'Closed'}
-                                            </span>
-                                            <span className="page-heading-dot">·</span>
-                                            <span>
-                                                Owner:{' '}
-                                                {activeInitiative.ownerId
-                                                    ? getMemberLabel(activeTenantId, activeInitiative.ownerId)
-                                                    : 'Unassigned'}
-                                            </span>
-                                            {activeInitiative.closedAt && (
-                                                <span className="page-heading-dot">·</span>
-                                            )}
-                                            {activeInitiative.closedAt && (
-                                                <span>
-                                                    Closed {new Date(activeInitiative.closedAt).toLocaleDateString()}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                        <div className="scope-detail-actions">
-                                        <button
-                                            type="button"
-                                            className="icon-action"
-                                            onClick={() => {
-                                                setInitiativeDraft({
-                                                    name: activeInitiative.name,
-                                                    goal: activeInitiative.goal || '',
-                                                    description: activeInitiative.description || '',
-                                                    ownerId: activeInitiative.ownerId || '',
-                                                });
-                                                setInitiativeEditId(activeInitiative.id);
-                                                setIsInitiativeCreateOpen(true);
-                                            }}
-                                            data-tooltip="Initiative bearbeiten"
-                                            aria-label="Initiative bearbeiten"
-                                        >
-                                            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                <path d="M12 20h9" />
-                                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
                                 <div className="scope-detail-body">
                                     <div className="initiative-detail-grid">
                                         <div className="scope-section">
@@ -11122,6 +11101,7 @@ const App: React.FC = () => {
                 )}
                 
             </main>
+            </div>
 
             {isBoardSettingsOpen && (
                 <div className="modal-overlay">
