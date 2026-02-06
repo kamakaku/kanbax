@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "prisma generate --schema packages/infrastructure/prisma/schema.prisma && tsc -b",
+    "build": "prisma generate --schema packages/infrastructure/prisma/schema.prisma && tsc -b && pnpm --filter @kanbax/ui build",
     "clean": "tsc -b --clean"
   },
   "devDependencies": {
