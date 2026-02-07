@@ -151,6 +151,7 @@ interface ScopeWindow {
 
 const INBOX_STORAGE_KEY = 'kanbax-inbox-items';
 const INBOX_STATUS_STORAGE_KEY = 'kanbax-inbox-statuses';
+const INBOX_PLANNED_STORAGE_KEY = 'kanbax-inbox-planned-scopes';
 const TIMELINE_OVERRIDE_KEY = 'kanbax-timeline-overrides';
 const INITIATIVES_STORAGE_KEY = 'kanbax-initiatives';
 type InboxStatus = 'eingang' | 'spaeter' | 'bearbeitet' | 'archiv';
@@ -292,7 +293,17 @@ const App: React.FC = () => {
         creatorAvatarUrl?: string;
         creatorId?: string;
         tenantId?: string | null;
+        plannedScopeId?: string | null;
     }>>([]);
+    const [inboxPlannedScopes, setInboxPlannedScopes] = useState<Record<string, string>>(() => {
+        if (typeof window === 'undefined') return {};
+        try {
+            const raw = localStorage.getItem(INBOX_PLANNED_STORAGE_KEY);
+            return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+        } catch {
+            return {};
+        }
+    });
     const inboxSnapshotRef = useRef<{ items: typeof inboxCustomItems; statuses: Record<string, InboxStatus> }>({
         items: [],
         statuses: {},
@@ -318,6 +329,15 @@ const App: React.FC = () => {
         if (typeof window === 'undefined') return;
         try {
             window.localStorage.setItem(INBOX_STATUS_STORAGE_KEY, JSON.stringify(nextStatuses));
+        } catch {
+            // ignore storage errors
+        }
+    };
+    const persistInboxPlannedScopes = (next: Record<string, string>) => {
+        setInboxPlannedScopes(next);
+        if (typeof window === 'undefined') return;
+        try {
+            window.localStorage.setItem(INBOX_PLANNED_STORAGE_KEY, JSON.stringify(next));
         } catch {
             // ignore storage errors
         }
@@ -357,6 +377,7 @@ const App: React.FC = () => {
             const items = Array.isArray(data?.items) ? data.items : [];
             const statuses = data?.statuses && typeof data.statuses === 'object' ? data.statuses : {};
             const filteredLocal = localItems.filter((item) => !item.tenantId || item.tenantId === tenantId);
+            const localById = new Map(filteredLocal.map((item) => [item.id, item]));
             if (items.length === 0 && filteredLocal.length > 0) {
                 await saveInboxForTenant(tenantId, filteredLocal, localStatuses);
                 inboxSyncRef.current = { tenantId, skipNextSave: true };
@@ -364,10 +385,15 @@ const App: React.FC = () => {
                 setInboxItemStatuses(localStatuses);
                 return;
             }
-            setInboxCustomItems(items);
+            const mergedItems = items.map((item) => {
+                const local = localById.get(item.id);
+                const plannedScopeId = item.plannedScopeId || local?.plannedScopeId || inboxPlannedScopes[item.id];
+                return plannedScopeId ? { ...item, plannedScopeId } : item;
+            });
+            setInboxCustomItems(mergedItems);
             setInboxItemStatuses(statuses);
             try {
-                localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(items));
+                localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(mergedItems));
                 localStorage.setItem(INBOX_STATUS_STORAGE_KEY, JSON.stringify(statuses));
             } catch {
                 // ignore storage errors
@@ -472,6 +498,12 @@ const App: React.FC = () => {
                 fetchData();
             }
 
+            persistInboxItems((items) =>
+                items.map((entry) =>
+                    entry.id === item.id ? { ...entry, plannedScopeId: scopeId } : entry
+                )
+            );
+            persistInboxPlannedScopes({ ...inboxPlannedScopes, [item.id]: scopeId });
             setInboxStatus(item.id, 'bearbeitet');
             setInboxScopeMenuId(null);
             setToastMessage(t('inbox.toast.addedToScope', 'Added to scope window'));
@@ -3521,6 +3553,7 @@ const App: React.FC = () => {
         if (scopeId) {
             const scope = scopeWindows.find((window) => window.id === scopeId);
             if (scope?.completionStatus) return false;
+            if (scopeId.startsWith(WEEKLY_SCOPE_PREFIX)) return true;
         }
         const role = resolveScopeRole(scopeId);
         return isTeamAdminForTenant || isSuperAdminForTenant || role === 'ADMIN' || role === 'MEMBER';
@@ -3728,7 +3761,15 @@ const App: React.FC = () => {
                             <div className="timeline-left-rows">
                                 {items.map((task) => (
                                     <div key={task.id} className="timeline-title">
-                                        {task.title}
+                                        <span className="timeline-title-text">{task.title}</span>
+                                        <span className="timeline-title-meta">
+                                            <span className={`badge badge-priority-${task.priority.toLowerCase()}`}>
+                                                {task.priority}
+                                            </span>
+                                            <span className="badge">
+                                                {getStatusLabel(task.status)}
+                                            </span>
+                                        </span>
                                     </div>
                                 ))}
                             </div>
@@ -4150,11 +4191,20 @@ const App: React.FC = () => {
         const list = tenantId
             ? (boardsByTenant[tenantId] || (tenantId === activeTenantId ? boards : []))
             : boards;
-        return list || [];
+        const safeList = (list || []).filter(
+            (item) => item?.id !== ARCHIVED_BOARD_ID && item?.id !== ALL_BOARD_ID && item?.id !== OWN_BOARD_ID
+        );
+        return safeList;
     };
     const resolveWritableBoardId = (tenantId?: string | null) => {
         const list = getWritableBoards(tenantId);
-        if (tenantId === activeTenantId && activeBoardId && activeBoardId !== ARCHIVED_BOARD_ID) {
+        if (
+            tenantId === activeTenantId
+            && activeBoardId
+            && activeBoardId !== ARCHIVED_BOARD_ID
+            && activeBoardId !== ALL_BOARD_ID
+            && activeBoardId !== OWN_BOARD_ID
+        ) {
             if (list.some((item) => item.id === activeBoardId)) return activeBoardId;
         }
         return list[0]?.id || 'default-board';
@@ -9813,6 +9863,7 @@ const App: React.FC = () => {
                                                         </div>
                                                     )}
                                                     {filteredInboxItems.map((task) => {
+                                                        const status = inboxItemStatuses[task.id] || 'eingang';
                                                         const typeLabel = task.kind || t('inbox.incoming', 'Incoming');
                                                         const createdLabel = task.createdAt
                                                             ? new Date(task.createdAt).toLocaleDateString()
@@ -9822,6 +9873,12 @@ const App: React.FC = () => {
                                                         const memberInfo = getMemberInfo(activeTenantId, task.creatorId);
                                                         const avatarUrl = memberInfo.avatarUrl || '';
                                                         const avatarInitials = getInitials(memberInfo.label || avatarLabel);
+                                                        const plannedScope =
+                                                            task.plannedScopeId
+                                                                ? (scopeWindowsByBoard[activeTenantId] || []).find(
+                                                                    (window) => window.id === task.plannedScopeId
+                                                                )
+                                                                : null;
                                                         return (
                                                             <button
                                                                 key={task.id}
@@ -10078,6 +10135,31 @@ const App: React.FC = () => {
                                                                         {getActionLabel(selectedItem.suggestedAction)}
                                                                     </span>
                                                                 )}
+                                                                {(() => {
+                                                                    const plannedScopeId =
+                                                                        selectedItem.plannedScopeId || inboxPlannedScopes[selectedItem.id];
+                                                                    if (inboxView !== 'bearbeitet' || !plannedScopeId) return null;
+                                                                    const plannedScopeName =
+                                                                        (scopeWindowsByBoard[activeTenantId] || []).find(
+                                                                            (window) => window.id === plannedScopeId
+                                                                        )?.name || plannedScopeId;
+                                                                    return (
+                                                                        <span className="inbox-detail-extra" role="listitem">
+                                                                            <strong>Verschoben nach:</strong>{' '}
+                                                                            <button
+                                                                                type="button"
+                                                                                className="badge"
+                                                                                onClick={() => {
+                                                                                    openScopeDetail(plannedScopeId);
+                                                                                    setView('scope');
+                                                                                    setInboxView('bearbeitet');
+                                                                                }}
+                                                                            >
+                                                                                {plannedScopeName}
+                                                                            </button>
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                             <div className="inbox-detail-header">
                                                                 <h3>{selectedItem.title}</h3>

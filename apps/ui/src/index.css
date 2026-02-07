@@ -5519,6 +5519,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  transform: scale(1);
 }
 
 .task-card-draggable {
@@ -5860,6 +5861,20 @@ textarea::placeholder {
   font-size: 0.6rem;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   width: fit-content;
+}
+
+button.badge {
+  cursor: pointer;
+  background: #ffffff;
+  transition: var(--transition-smooth);
+}
+
+button.badge:hover,
+button.badge:focus-visible {
+  background: var(--accent-secondary);
+  color: var(--accent-primary);
+  border-color: var(--accent-secondary);
+  outline: none;
 }
 
 .badge-priority-high {
@@ -6862,12 +6877,34 @@ textarea::placeholder {
 .timeline-title {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   min-height: 28px;
   font-size: 0.85rem;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.timeline-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-title-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.55rem;
+  color: var(--text-secondary);
+}
+
+.timeline-title-meta .badge {
+  font-size: 0.5rem;
+  padding: 0.05rem 0.3rem;
 }
 
 .timeline-track {
@@ -7649,10 +7686,19 @@ textarea::placeholder {
   filter: saturate(0.6);
 }
 
-.draggable-task-card:hover {
+.draggable-task-card:hover{
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 1px rgba(224, 254, 14, 0.35), 0 0 18px rgba(224, 254, 14, 0.12);
   border-left-color: var(--accent-primary);
+}
+
+.draggable-task-card .task-card-content{
+  transition: transform 0.2s ease;
+  transform: scale(1);
+}
+
+.draggable-task-card:hover .task-card-content{
+  transform: scale(1.01);
 }
 
 .draggable-task-card.drag-over-card {
