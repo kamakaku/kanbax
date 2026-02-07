@@ -4196,6 +4196,10 @@ textarea::placeholder {
   color: var(--text-secondary);
 }
 
+.dashboard-badge-week{
+  display: block;
+}
+
 .dashboard-badge.danger {
   color: #b91c1c;
   border-color: rgba(185, 28, 28, 0.35);
@@ -5904,12 +5908,12 @@ textarea::placeholder {
 
 .modal-content {
   background: var(--bg-secondary);
-  padding: 2rem;
+  padding: 0;
   border-radius: 0;
   border: 1px solid var(--border-color);
   width: 100%;
-  max-width: 500px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-width: 520px;
+  box-shadow: none;
   height: calc(100vh - 2rem);
   animation: slide-in-right 240ms ease-out;
   position: relative;
@@ -5920,6 +5924,121 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   padding: 0;
+}
+
+.settings-modal .panel-header {
+  background: var(--bg-secondary);
+  background-image: none;
+}
+
+.settings-modal .panel-body {
+  gap: 0;
+}
+
+.settings-modal .panel-section {
+  background: transparent;
+  border: 0;
+  padding: 1rem 0;
+}
+
+.settings-modal .panel-section + .panel-section {
+  border-top: 1px solid var(--border-color);
+}
+
+.settings-modal .panel-section.panel-danger {
+  background: transparent;
+}
+
+/* Unified panel styling */
+.panel-header {
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-right: 3rem;
+  z-index: 2;
+  background-image: none;
+}
+
+.panel-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.panel-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.panel-body {
+  padding: 1rem 1.2rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-section {
+  border: 0;
+  padding: 1rem 0;
+  background: transparent;
+  backdrop-filter: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.panel-section + .panel-section {
+  border-top: 1px solid var(--border-color);
+}
+
+.panel-footer {
+  padding: 0.75rem 1.2rem;
+  border-top: 1px solid var(--border-color);
+  background: #ffffff;
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  position: static;
+  margin-top: 0;
+  background: transparent;
+}
+
+.panel-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 0;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: var(--transition-smooth);
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+}
+
+.panel-close:hover {
+  background: var(--accent-secondary);
+  color: var(--accent-primary);
+  border-color: var(--accent-secondary);
 }
 
 @keyframes slide-in-right {
@@ -5970,9 +6089,7 @@ textarea::placeholder {
 
 .comments-panel {
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
   padding: 1rem;
-  margin-top: 1rem;
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -6066,11 +6183,11 @@ textarea::placeholder {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  margin: 1rem 0 0.75rem;
+  margin: 1rem 0 0;
   padding: 4px;
   background: #ffffff;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-bottom: 0;
   position: relative;
   height: 32px;
 }
@@ -6975,10 +7092,13 @@ textarea::placeholder {
 
 .detail-section {
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
   padding: 1rem;
   margin-top: 1rem;
   background: rgba(255, 255, 255, 0.02);
+}
+
+.detail-tabs + .detail-section {
+  margin-top: 0;
 }
 
 .detail-section-title {
@@ -6989,13 +7109,13 @@ textarea::placeholder {
 
 .detail-rows {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
 }
 
 .detail-row {
   display: grid;
-  grid-template-columns: 170px 1fr;
+  grid-template-columns: 100px 1fr;
   align-items: center;
   gap: 1rem;
   font-size: 0.9rem;
@@ -7223,7 +7343,6 @@ textarea::placeholder {
 
 .checklist-panel {
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
   padding: 1rem;
   margin-top: 1rem;
   background: rgba(255, 255, 255, 0.02);

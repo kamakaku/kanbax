@@ -156,6 +156,37 @@ const INITIATIVES_STORAGE_KEY = 'kanbax-initiatives';
 type InboxStatus = 'eingang' | 'spaeter' | 'bearbeitet' | 'archiv';
 type InboxView = InboxStatus;
 type TimelineOverride = { date: string; isPoint: boolean; durationDays?: number };
+const WEEKLY_SCOPE_PREFIX = 'weekly:';
+const getWeekStart = (date: Date) => {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const day = start.getDay();
+    const diff = (day + 6) % 7;
+    start.setDate(start.getDate() - diff);
+    return start;
+};
+const getWeekEnd = (date: Date) => {
+    const start = getWeekStart(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return end;
+};
+const toISODate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+const buildWeeklyScopeKey = (tenantId: string, weekStart: Date) => `${tenantId}:${toISODate(weekStart)}`;
+const getWeekNumber = (date: Date) => {
+    const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = target.getUTCDay() || 7;
+    target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+    const diff = target.getTime() - yearStart.getTime();
+    return Math.ceil(((diff / 86400000) + 1) / 7);
+};
 const loadInboxStatuses = (): Record<string, InboxStatus> => {
     if (typeof window === 'undefined') return {};
     try {
@@ -448,6 +479,11 @@ const App: React.FC = () => {
             alert(e.message || 'Failed to add to scope');
         }
     };
+    const handleInboxPlanThisWeek = (item: typeof inboxCustomItems[number]) => {
+        const weeklyScope = ensureCurrentWeeklyScope();
+        if (!weeklyScope) return;
+        handleInboxAddToScope(item, weeklyScope.id);
+    };
     const handleInboxEdit = (item: typeof inboxCustomItems[number]) => {
         setInboxDraft({
             title: item.title || '',
@@ -561,8 +597,9 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
+        if (view !== 'inbox') return;
         loadInboxForTenant(activeTenantId, inboxCustomItems, inboxItemStatuses);
-    }, [activeTenantId, session?.access_token]);
+    }, [activeTenantId, session?.access_token, view]);
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
         if (view !== 'inbox') return;
@@ -707,6 +744,7 @@ const App: React.FC = () => {
     const [scopePriorityFilterOpen, setScopePriorityFilterOpen] = useState(false);
     const [scopeStatusFilterOpen, setScopeStatusFilterOpen] = useState(false);
     const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list' | 'timeline'>('board');
+    const [scopeTaskCreateTargetId, setScopeTaskCreateTargetId] = useState<string | null>(null);
     const [isScopeCreateOpen, setIsScopeCreateOpen] = useState(false);
     const [scopeTab, setScopeTab] = useState<'current' | 'completed'>('current');
     const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
@@ -985,8 +1023,6 @@ const App: React.FC = () => {
     const [checklistDraft, setChecklistDraft] = useState<TaskView['checklist']>([]);
     const [checklistInput, setChecklistInput] = useState('');
     const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
-    const [linkedDraft, setLinkedDraft] = useState<string[]>([]);
-    const [linkSelectId, setLinkSelectId] = useState('');
     const newDescriptionRef = useRef<HTMLDivElement | null>(null);
     const editDescriptionRef = useRef<HTMLDivElement | null>(null);
     const [loading, setLoading] = useState(true);
@@ -1572,6 +1608,7 @@ const App: React.FC = () => {
     };
 
     const setScopeInitiative = (scopeId: string, initiativeId: string | null) => {
+        if (scopeId.startsWith(WEEKLY_SCOPE_PREFIX)) return;
         if (!canManageScopeById(scopeId)) return;
         updateScopeWindows((prev) =>
             prev.map((window) =>
@@ -3001,8 +3038,14 @@ const App: React.FC = () => {
         };
     }, []);
 
+    const profileLoadRef = useRef({ inFlight: false, lastAt: 0 });
     const loadProfile = async () => {
         if (!session?.access_token) return;
+        if (profileLoadRef.current.inFlight) return;
+        const now = Date.now();
+        if (now - profileLoadRef.current.lastAt < 5000) return;
+        profileLoadRef.current.inFlight = true;
+        profileLoadRef.current.lastAt = now;
         setProfileLoaded(false);
         try {
             const res = await fetch(`${API_BASE}/me`, { headers: getApiHeaders(false) });
@@ -3042,6 +3085,7 @@ const App: React.FC = () => {
             setAuthError(e.message);
         } finally {
             setProfileLoaded(true);
+            profileLoadRef.current.inFlight = false;
         }
     };
 
@@ -3065,23 +3109,25 @@ const App: React.FC = () => {
     }, [isTeamModalOpen, activeTenantId, memberships]);
 
     useEffect(() => {
-        if (activeTenantId && session?.access_token) {
-            loadMembersForHuddle(activeTenantId);
-            loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
-        }
-    }, [activeTenantId, memberships, session?.access_token]);
+        if (!activeTenantId || !session?.access_token) return;
+        if (view !== 'scope' && view !== 'initiatives' && view !== 'settings') return;
+        loadMembersForHuddle(activeTenantId);
+        loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
+    }, [activeTenantId, memberships, session?.access_token, view]);
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
+        if (view !== 'timeline' && !(view === 'scope' && scopeDetailView === 'timeline')) return;
         loadTimelineOverridesForTenant(activeTenantId, timelineOverrides);
-    }, [activeTenantId, session?.access_token]);
+    }, [activeTenantId, session?.access_token, view, scopeDetailView, timelineOverrides]);
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
+        if (view !== 'timeline' && !(view === 'scope' && scopeDetailView === 'timeline')) return;
         if (timelineOverrideSyncRef.current.skipNextSave && timelineOverrideSyncRef.current.tenantId === activeTenantId) {
             timelineOverrideSyncRef.current = { tenantId: activeTenantId, skipNextSave: false };
             return;
         }
         saveTimelineOverridesForTenant(activeTenantId, timelineOverrides);
-    }, [activeTenantId, timelineOverrides, session?.access_token]);
+    }, [activeTenantId, timelineOverrides, session?.access_token, view, scopeDetailView]);
     const scopeBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
     const tasksBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
     const scopeTasksFetchInFlightRef = useRef<Record<string, boolean>>({});
@@ -3264,9 +3310,6 @@ const App: React.FC = () => {
     }, [isEditModalOpen]);
 
     const selectedTask = selectedTaskId ? tasks.find((task) => task.id === selectedTaskId) ?? null : null;
-    const incomingLinkedTasks = selectedTask
-        ? tasks.filter((task) => (task.linkedTaskIds || []).includes(selectedTask.id))
-        : [];
     const taskById = new Map(tasks.map((task) => [task.id, task]));
     const currentUserLabel = String(userProfile?.email || session?.user?.email || 'U');
     const currentUserInitial = currentUserLabel.charAt(0).toUpperCase() || 'U';
@@ -3362,6 +3405,15 @@ const App: React.FC = () => {
             return window.createdBy === currentUserId;
         });
     }, [scopeKey, scopeWindowsByBoard, userProfile?.id, userProfile?.isSuperAdmin, session?.user?.id, memberships]);
+    const currentWeeklyScopeId = (() => {
+        if (!activeTenantId) return null;
+        const weekStart = getWeekStart(new Date());
+        return `${WEEKLY_SCOPE_PREFIX}${buildWeeklyScopeKey(activeTenantId, weekStart)}`;
+    })();
+    const currentWeeklyScope = useMemo(() => {
+        if (!currentWeeklyScopeId) return null;
+        return scopeWindows.find((window) => window.id === currentWeeklyScopeId) || null;
+    }, [scopeWindows, currentWeeklyScopeId]);
     const activeScopeWindow = useMemo(() => {
         if (!activeScopeId) return null;
         return scopeWindows.find((window) => window.id === activeScopeId) || null;
@@ -3447,7 +3499,10 @@ const App: React.FC = () => {
     const initiativeScopeOptions = useMemo(() => {
         if (!activeInitiativeId) return [];
         return scopeWindows.filter(
-            (scope) => scope.initiativeId !== activeInitiativeId && !scope.completionStatus
+            (scope) =>
+                scope.initiativeId !== activeInitiativeId
+                && !scope.completionStatus
+                && !scope.id.startsWith(WEEKLY_SCOPE_PREFIX)
         );
     }, [scopeWindows, activeInitiativeId]);
     const isTeamAdminForTenant = memberships.some(
@@ -3518,11 +3573,20 @@ const App: React.FC = () => {
         return Array.from(labelSet).sort((a, b) => a.localeCompare(b));
     }, [scopeListTasks]);
     const filteredScopeWindows = useMemo(() => {
-        if (scopeTab === 'completed') {
-            return scopeWindows.filter((scope) => Boolean(scope.completionStatus));
-        }
-        return scopeWindows.filter((scope) => !scope.completionStatus);
-    }, [scopeTab, scopeWindows]);
+        const base =
+            scopeTab === 'completed'
+                ? scopeWindows.filter((scope) => Boolean(scope.completionStatus))
+                : scopeWindows.filter((scope) => !scope.completionStatus);
+        const sortByDate = (window: ScopeWindow) => {
+            const stamp = window.startDate || window.createdAt;
+            return stamp ? new Date(stamp).getTime() : 0;
+        };
+        const weeklyId = currentWeeklyScopeId;
+        const weekly = weeklyId ? base.find((scope) => scope.id === weeklyId) : null;
+        const rest = base.filter((scope) => scope.id !== weeklyId);
+        rest.sort((a, b) => sortByDate(b) - sortByDate(a));
+        return weekly ? [weekly, ...rest] : rest;
+    }, [scopeTab, scopeWindows, currentWeeklyScopeId]);
     const scopeVisibleTasks = useMemo(() => {
         if (!activeScopeWindow) return [];
         const scopeUserId = userProfile?.id || session?.user?.id || '';
@@ -3879,6 +3943,10 @@ const App: React.FC = () => {
         }
     }, [view, initiativeRouteId]);
     useEffect(() => {
+        if (!activeTenantId || !currentWeeklyScopeId) return;
+        ensureCurrentWeeklyScope();
+    }, [activeTenantId, currentWeeklyScopeId]);
+    useEffect(() => {
         if (scopeScreen !== 'detail') {
             setScopePriorityFilterOpen(false);
             setScopeStatusFilterOpen(false);
@@ -3925,6 +3993,31 @@ const App: React.FC = () => {
             saveScopesForTenant(scopeKey, next);
             return { ...prev, [scopeKey]: next };
         });
+    };
+    const ensureCurrentWeeklyScope = () => {
+        if (!activeTenantId) return null;
+        const weekStart = getWeekStart(new Date());
+        const weekEnd = getWeekEnd(weekStart);
+        const weeklyKey = buildWeeklyScopeKey(activeTenantId, weekStart);
+        const weeklyId = `${WEEKLY_SCOPE_PREFIX}${weeklyKey}`;
+        const existing = (scopeWindowsByBoard[activeTenantId] || []).find((window) => window.id === weeklyId);
+        if (existing) return existing;
+        const weekNumber = getWeekNumber(weekStart);
+        const nextWindow: ScopeWindow = {
+            id: weeklyId,
+            name: `Diese Woche (KW ${weekNumber})`,
+            description: 'Auto-created weekly focus window',
+            startDate: toISODate(weekStart),
+            endDate: toISODate(weekEnd),
+            taskIds: [],
+            createdAt: new Date().toISOString(),
+            visibility: 'shared',
+        };
+        updateScopeWindows((prev) => {
+            if (prev.some((window) => window.id === weeklyId)) return prev;
+            return [nextWindow, ...prev];
+        });
+        return nextWindow;
     };
     const createInitiativeId = () => {
         if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -3998,6 +4091,10 @@ const App: React.FC = () => {
     const handleScopeClose = () => {
         if (!activeScopeWindow) return;
         if (!canManageScopeById(activeScopeWindow.id)) return;
+        if (currentWeeklyScopeId && activeScopeWindow.id === currentWeeklyScopeId) {
+            alert('Der aktuelle Wochen-Scope kann nicht abgeschlossen werden.');
+            return;
+        }
         if (!scopeCompletionStatus) {
             alert('Bitte Ziel erreicht auswählen.');
             return;
@@ -5087,29 +5184,28 @@ const App: React.FC = () => {
     };
 
     useEffect(() => {
-        if (!session?.access_token || displayMemberships.length === 0) return;
+        if (!session?.access_token || !activeTenantId) return;
         let cancelled = false;
         const poll = async () => {
             if (pollInFlightRef.current) return;
             pollInFlightRef.current = true;
-            for (const membership of displayMemberships) {
-                const tenantId = membership.tenantId;
-                const huddleName = getHuddleName(membership.tenant?.name);
-                try {
-                    const res = await fetch(`${API_BASE}/tasks`, { headers: getApiHeaders(true, tenantId) });
-                    if (!res.ok) continue;
+            const membership = displayMemberships.find((item) => item.tenantId === activeTenantId);
+            const huddleName = getHuddleName(membership?.tenant?.name);
+            try {
+                const res = await fetch(`${API_BASE}/tasks`, { headers: getApiHeaders(true, activeTenantId) });
+                if (res.ok) {
                     const data = await res.json();
                     if (!cancelled) {
-                        setTasksByTenant((prev) => ({ ...prev, [tenantId]: data }));
-                        handleTaskNotifications(tenantId, huddleName, data);
+                        setTasksByTenant((prev) => ({ ...prev, [activeTenantId]: data }));
+                        handleTaskNotifications(activeTenantId, huddleName, data);
                     }
-                } catch {
-                    // Ignore polling errors
                 }
+            } catch {
+                // Ignore polling errors
             }
             pollInFlightRef.current = false;
         };
-        poll();
+        const initialDelay = window.setTimeout(poll, 8000);
         if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
         }
@@ -5117,12 +5213,13 @@ const App: React.FC = () => {
         return () => {
             cancelled = true;
             pollInFlightRef.current = false;
+            clearTimeout(initialDelay);
             if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
             }
         };
-    }, [session?.access_token, displayMemberships]);
+    }, [session?.access_token, displayMemberships, activeTenantId]);
 
     const handleMemberRoleChange = async (memberId: string, role: string) => {
         if (!activeTenantId) return;
@@ -5277,7 +5374,6 @@ const App: React.FC = () => {
                     : task.status === status
             ),
         }));
-    const linkedToSet = new Set(tasks.flatMap((task) => task.linkedTaskIds));
     const normalizedSearch = filterText.trim().toLowerCase();
     const searchPool = normalizedSearch
         ? Object.entries(tasksByTenant).flatMap(([tenantId, list]) =>
@@ -5412,7 +5508,21 @@ const App: React.FC = () => {
                 throw new Error(err.error || 'Failed to create task');
             }
 
+            let createdTaskId: string | null = null;
+            try {
+                const data = await res.json();
+                createdTaskId = data?.task?.id || data?.id || data?.taskId || null;
+            } catch {
+                createdTaskId = null;
+            }
+            if (createdTaskId && scopeTaskCreateTargetId) {
+                handleScopeAddTask(scopeTaskCreateTargetId, createdTaskId);
+                setScopeTaskCreateTargetId(null);
+                setToastMessage('Task created in scope');
+            }
+
             setIsModalOpen(false);
+            setScopeTaskCreateTargetId(null);
             setNewTask({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
             setNewTaskAttachments([]);
             setNewTaskKinds([]);
@@ -5435,6 +5545,21 @@ const App: React.FC = () => {
         } catch (e: any) {
             alert(e.message);
         }
+    };
+
+    const openScopeTaskModal = () => {
+        if (!activeScopeWindow || !activeTenantId) return;
+        setScopeTaskCreateTargetId(activeScopeWindow.id);
+        setNewTaskHuddleId(activeTenantId);
+        setNewTaskBoardId(resolveWritableBoardId(activeTenantId));
+        setNewTask({ title: '', description: '', priority: 'MEDIUM', dueDate: toDateInput(activeScopeWindow.endDate) });
+        setNewTaskKinds([]);
+        setNewKindInput('');
+        setNewTaskAttachments([]);
+        setNewTaskStatus(TaskStatus.BACKLOG);
+        setNewTaskOwnerId(userProfile?.id ?? null);
+        setNewTaskAssignees([]);
+        setIsModalOpen(true);
     };
 
     const updateTaskStatusLocal = (taskId: string, newStatus: TaskStatus) => {
@@ -5529,8 +5654,6 @@ const App: React.FC = () => {
         setChecklistDraft(task.checklist || []);
         setCommentInput('');
         setChecklistInput('');
-        setLinkedDraft(task.linkedTaskIds || []);
-        setLinkSelectId('');
         setIsDetailsModalOpen(true);
     };
 
@@ -5563,8 +5686,6 @@ const App: React.FC = () => {
         setEditKindInput('');
         setChecklistDraft(task.checklist || []);
         setChecklistInput('');
-        setLinkedDraft(task.linkedTaskIds || []);
-        setLinkSelectId('');
         if (task.kinds && task.kinds.length > 0) {
             setKnownKinds((prev) => {
                 const merged = new Set(prev);
@@ -5592,6 +5713,7 @@ const App: React.FC = () => {
         setNewTaskKinds([]);
         setNewKindInput('');
         setNewTaskBoardId(null);
+        setScopeTaskCreateTargetId(null);
     };
 
     const closeDetailsModal = () => {
@@ -5608,8 +5730,6 @@ const App: React.FC = () => {
         setEditKindInput('');
         setChecklistDraft([]);
         setChecklistInput('');
-        setLinkedDraft([]);
-        setLinkSelectId('');
     };
 
     const closeKrComposer = () => {
@@ -6050,30 +6170,6 @@ const App: React.FC = () => {
         setChecklistDraft(nextChecklist);
         try {
             await submitTaskUpdate({ checklist: nextChecklist });
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
-
-    const handleAddLink = async () => {
-        if (!linkSelectId || !selectedTask) return;
-        const nextLinks = linkedDraft.includes(linkSelectId)
-            ? linkedDraft
-            : [...linkedDraft, linkSelectId];
-        setLinkedDraft(nextLinks);
-        setLinkSelectId('');
-        try {
-            await submitTaskUpdate({ linkedTaskIds: nextLinks });
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
-
-    const handleRemoveLink = async (taskId: string) => {
-        const nextLinks = linkedDraft.filter((id) => id !== taskId);
-        setLinkedDraft(nextLinks);
-        try {
-            await submitTaskUpdate({ linkedTaskIds: nextLinks });
         } catch (e: any) {
             alert(e.message);
         }
@@ -7237,6 +7333,18 @@ const App: React.FC = () => {
                                     )}
                                     {view === 'scope' && scopeScreen === 'detail' && activeScopeWindow && (
                                         <>
+                                            <button
+                                                className="icon-action create"
+                                                disabled={!canEditActiveScopeItems || isActiveScopeCompleted}
+                                                onClick={openScopeTaskModal}
+                                                data-tooltip="Task im Scope erstellen"
+                                                aria-label="Task im Scope erstellen"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                    <path d="M12 5v14" />
+                                                    <path d="M5 12h14" />
+                                                </svg>
+                                            </button>
                                             {canManageActiveScope && (
                                                 <button
                                                     className="icon-action settings"
@@ -7250,7 +7358,7 @@ const App: React.FC = () => {
                                                     </svg>
                                                 </button>
                                             )}
-                                            {canManageActiveScope && (
+                                            {canManageActiveScope && (!currentWeeklyScopeId || activeScopeWindow.id !== currentWeeklyScopeId) && (
                                                 <button
                                                     className="icon-action"
                                                     onClick={() => setIsScopeCloseOpen(true)}
@@ -9172,9 +9280,7 @@ const App: React.FC = () => {
                                                         {column.tasks.map((task) => {
                                                             const checklistDone = task.checklist.filter((item) => item.done).length;
                                                             const checklistTotal = task.checklist.length;
-                                                            const linkedCount = task.linkedTaskIds.length;
                                                             const isChecklistComplete = checklistTotal > 0 && checklistDone === checklistTotal;
-                                                            const isLinkedFromOther = linkedToSet.has(task.id);
                                                             const isDraggable = task.sourceType ? task.sourceType === 'MANUAL' : true;
                                                             const dueStatus = getDueStatus(task);
                                                             const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
@@ -9221,12 +9327,6 @@ const App: React.FC = () => {
                                                                         </div>
                                                                         <div className="task-card-header">
                                                                             <div className="task-title-row">
-                                                                                {isLinkedFromOther && (
-                                                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
-                                                                                        <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                                        <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                                                    </svg>
-                                                                                )}
                                                                                 {task.title}
                                                                             </div>
                                                                             <button
@@ -9278,15 +9378,6 @@ const App: React.FC = () => {
                                                                                             <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
                                                                                         </svg>
                                                                                         {task.comments.length}
-                                                                                    </span>
-                                                                                )}
-                                                                                {linkedCount > 0 && (
-                                                                                    <span className="icon-badge">
-                                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                                                        </svg>
-                                                                                        {linkedCount}
                                                                                     </span>
                                                                                 )}
                                                                                 {task.attachments.length > 0 && (
@@ -9420,12 +9511,6 @@ const App: React.FC = () => {
                                                                                 </div>
                                                                             </div>
                                                                             <div>
-                                                                                <div className="table-details-label">Linked tasks</div>
-                                                                                <div className="table-details-text">
-                                                                                    {task.linkedTaskIds.length > 0 ? task.linkedTaskIds.length : '—'}
-                                                                                </div>
-                                                                            </div>
-                                                                            <div>
                                                                                 <div className="table-details-label">Attachments</div>
                                                                                 <div className="table-details-text">
                                                                                     {task.attachments.length > 0 ? task.attachments.length : '—'}
@@ -9487,9 +9572,15 @@ const App: React.FC = () => {
                                                             updateScopeUrl(null, 'replace');
                                                         }}
                                                     >
-                                                        <div className="inbox-avatar">{getInitials(scopeWindow.name)}</div>
                                                             <div className="inbox-sidebar-body">
-                                                                <div className="inbox-sidebar-title">{scopeWindow.name}</div>
+                                                                <div className="inbox-sidebar-title">
+                                                                    {scopeWindow.name}
+                                                                    {scopeWindow.id === currentWeeklyScopeId && (
+                                                                        <span className="dashboard-badge dashboard-badge-week">
+                                                                            Diese Woche
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <div className="inbox-sidebar-meta">
                                                                     <div className="inbox-sidebar-meta-date">{getScopeDateLabel(scopeWindow)}</div>
                                                                     {scopeWindow.initiativeId && initiativeLookup.get(scopeWindow.initiativeId) && (
@@ -9806,12 +9897,15 @@ const App: React.FC = () => {
                                                             <div className="inbox-detail-topbar-actions">
                                                                 {inboxView === 'eingang' && (
                                                                     <div className="filter-dropdown inbox-scope-dropdown" ref={inboxScopeRef}>
-                                                                        <button
-                                                                            type="button"
+                                                                            <button
+                                                                                type="button"
                                                                                 className="icon-action scope-toggle inbox-action tooltip-target"
                                                                                 data-tooltip={t('inbox.action.addScopeTooltip', 'Zum Scope hinzufügen')}
                                                                                 aria-label={t('inbox.action.addScope', 'Zum Scope hinzufügen')}
                                                                                 onClick={() => {
+                                                                                    if (inboxScopeMenuId !== selectedItem.id) {
+                                                                                        ensureCurrentWeeklyScope();
+                                                                                    }
                                                                                     setInboxScopeMenuId((prev) =>
                                                                                         prev === selectedItem.id ? null : selectedItem.id
                                                                                     );
@@ -9835,28 +9929,61 @@ const App: React.FC = () => {
                                                                                             {t('scope.empty.title', 'No scopes yet')}
                                                                                         </div>
                                                                                     ) : (
-                                                                                        scopeWindows.map((window) => (
-                                                                                            <button
-                                                                                                key={window.id}
-                                                                                                type="button"
-                                                                                                className="filter-option"
-                                                                                                onClick={() => handleInboxAddToScope(selectedItem, window.id)}
-                                                                                            >
-                                                                                                <span>{window.name}</span>
-                                                                                                <span className="filter-option-meta">
-                                                                                                    {getScopeDateLabel(window)}
-                                                                                                </span>
-                                                                                            </button>
-                                                                                        ))
+                                                                                        <>
+                                                                                            {currentWeeklyScope && (
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    className="filter-option"
+                                                                                                    onClick={() => handleInboxAddToScope(selectedItem, currentWeeklyScope.id)}
+                                                                                                >
+                                                                                                    <span>Diese Woche</span>
+                                                                                                    <span className="filter-option-meta">
+                                                                                                        {getScopeDateLabel(currentWeeklyScope)}
+                                                                                                    </span>
+                                                                                                </button>
+                                                                                            )}
+                                                                                            {scopeWindows
+                                                                                                .filter((window) => window.id !== currentWeeklyScope?.id)
+                                                                                                .map((window) => (
+                                                                                                    <button
+                                                                                                        key={window.id}
+                                                                                                        type="button"
+                                                                                                        className="filter-option"
+                                                                                                        onClick={() => handleInboxAddToScope(selectedItem, window.id)}
+                                                                                                    >
+                                                                                                        <span>{window.name}</span>
+                                                                                                        <span className="filter-option-meta">
+                                                                                                            {getScopeDateLabel(window)}
+                                                                                                        </span>
+                                                                                                    </button>
+                                                                                                ))}
+                                                                                        </>
                                                                                     )}
                                                                                 </div>
                                                                             )}
                                                                         </div>
                                                                     )}
-                                                                    {inboxView === 'eingang' && (
-                                                                        <button
-                                                                            type="button"
-                                                                            className="icon-action inbox-action tooltip-target"
+                                                            {inboxView === 'eingang' && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="icon-action inbox-action tooltip-target"
+                                                                    data-tooltip="In diese Woche planen"
+                                                                    aria-label="In diese Woche planen"
+                                                                    onClick={() => handleInboxPlanThisWeek(selectedItem)}
+                                                                >
+                                                                    <span className="inbox-action-icon" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+                                                                            <rect x="4" y="5" width="16" height="15" rx="2" />
+                                                                            <path d="M16 3v4M8 3v4M4 10h16" />
+                                                                            <path d="M9 15l2 2 4-4" />
+                                                                        </svg>
+                                                                    </span>
+                                                                </button>
+                                                            )}
+                                                            {inboxView === 'eingang' && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="icon-action inbox-action tooltip-target"
                                                                             data-tooltip={t('inbox.action.laterTooltip', 'Later')}
                                                                             aria-label={t('inbox.action.later', 'Later')}
                                                                             onClick={() => setInboxStatus(selectedItem.id, 'spaeter')}
@@ -10586,9 +10713,7 @@ const App: React.FC = () => {
                                         {displayTasks.map((task: TaskView) => {
                                             const checklistDone = task.checklist.filter((item) => item.done).length;
                                             const checklistTotal = task.checklist.length;
-                                            const linkedCount = task.linkedTaskIds.length;
                                             const isChecklistComplete = checklistTotal > 0 && checklistDone === checklistTotal;
-                                            const isLinkedFromOther = linkedToSet.has(task.id);
                                             const isDraggable = task.sourceType ? task.sourceType === 'MANUAL' : true;
                                             const dueStatus = getDueStatus(task);
                                             const dueLabel = dueStatus === 'overdue' ? 'Overdue' : dueStatus === 'due-soon' ? 'Due soon' : null;
@@ -10634,12 +10759,6 @@ const App: React.FC = () => {
                                                             </div>
                                                             <div className="task-card-header">
                                                                 <div className="task-title-row">
-                                                                    {isLinkedFromOther && (
-                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="linked-icon">
-                                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                                        </svg>
-                                                                    )}
                                                                     {task.title}
                                                                 </div>
                                                                 <button
@@ -10691,15 +10810,6 @@ const App: React.FC = () => {
                                                                             <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
                                                                         </svg>
                                                                         {task.comments.length}
-                                                                    </span>
-                                                                )}
-                                                                {linkedCount > 0 && (
-                                                                    <span className="icon-badge">
-                                                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-                                                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                                                        </svg>
-                                                                        {linkedCount}
                                                                     </span>
                                                                 )}
                                                                 {task.attachments.length > 0 && (
@@ -10832,12 +10942,6 @@ const App: React.FC = () => {
                                                                     {task.checklist.length > 0
                                                                         ? `${task.checklist.filter((item) => item.done).length}/${task.checklist.length} done`
                                                                         : '—'}
-                                                                </div>
-                                                            </div>
-                                                            <div>
-                                                                <div className="table-details-label">Linked tasks</div>
-                                                                <div className="table-details-text">
-                                                                    {task.linkedTaskIds.length > 0 ? task.linkedTaskIds.length : '—'}
                                                                 </div>
                                                             </div>
                                                             <div>
@@ -11244,11 +11348,16 @@ const App: React.FC = () => {
                                             className="filter-select"
                                             onClick={() => {
                                                 if (!canManageActiveScope || isActiveScopeCompleted) return;
+                                                if (activeScopeWindow.id.startsWith(WEEKLY_SCOPE_PREFIX)) return;
                                                 setScopeInitiativeOpen((prev) => !prev);
                                             }}
                                             aria-haspopup="listbox"
                                             aria-expanded={scopeInitiativeOpen}
-                                            disabled={!canManageActiveScope || isActiveScopeCompleted}
+                                            disabled={
+                                                !canManageActiveScope
+                                                || isActiveScopeCompleted
+                                                || activeScopeWindow.id.startsWith(WEEKLY_SCOPE_PREFIX)
+                                            }
                                         >
                                             {activeScopeWindow.initiativeId
                                                 ? initiativeLookup.get(activeScopeWindow.initiativeId)?.name || 'Initiative'
@@ -11289,6 +11398,11 @@ const App: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
+                                    {activeScopeWindow.id.startsWith(WEEKLY_SCOPE_PREFIX) && (
+                                        <div className="panel-text">
+                                            Weekly Scopes können keiner Initiative zugewiesen werden.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="panel-section">
@@ -12331,55 +12445,6 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="detail-section">
-                                <div className="detail-section-title">Linked tasks</div>
-                                <div className="link-row">
-                                    <select
-                                        className="link-select"
-                                        value={linkSelectId}
-                                        onChange={(e) => setLinkSelectId(e.target.value)}
-                                    >
-                                        <option value="">Select task to link</option>
-                                        {tasks
-                                            .filter((task) => task.id !== editingTaskId && !linkedDraft.includes(task.id))
-                                            .map((task) => (
-                                                <option key={task.id} value={task.id}>
-                                                    {task.title}
-                                                </option>
-                                            ))}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        className="icon-action create"
-                                        onClick={handleAddLink}
-                                        data-tooltip="Link erstellen"
-                                        aria-label="Link erstellen"
-                                    >
-                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                            <path d="M12 5v14" />
-                                            <path d="M5 12h14" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div className="link-list">
-                                    {linkedDraft.length > 0 ? (
-                                        linkedDraft.map((taskId) => (
-                                            <div key={taskId} className="link-chip">
-                                                <span className="link-title">{taskById.get(taskId)?.title ?? taskId}</span>
-                                                <button
-                                                    type="button"
-                                                    className="link-remove"
-                                                    onClick={() => handleRemoveLink(taskId)}
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="link-empty">No linked tasks.</div>
-                                    )}
-                                </div>
-                            </div>
                             </div>
                             <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem 1.25rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
@@ -12747,20 +12812,6 @@ const App: React.FC = () => {
                                         )}
                                     </span>
                                 </div>
-                                <div className="detail-row">
-                                    <span className="detail-label">
-                                        <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" className="detail-icon">
-                                            <path d="M10 14a5 5 0 0 1 0-7l2-2a5 5 0 1 1 7 7l-1 1" />
-                                            <path d="M14 10a5 5 0 0 1 0 7l-2 2a5 5 0 1 1-7-7l1-1" />
-                                        </svg>
-                                        Linked in
-                                    </span>
-                                    <span className="detail-value">
-                                        {incomingLinkedTasks.length > 0
-                                            ? incomingLinkedTasks.map((task) => task.title).join(', ')
-                                            : '—'}
-                                    </span>
-                                </div>
                             </div>
                         </div>
 
@@ -12777,55 +12828,6 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="detail-section">
-                            <div className="detail-section-title">Linked tasks</div>
-                            <div className="link-row">
-                                <select
-                                    className="link-select"
-                                    value={linkSelectId}
-                                    onChange={(e) => setLinkSelectId(e.target.value)}
-                                >
-                                    <option value="">Select task to link</option>
-                                    {tasks
-                                        .filter((task) => task.id !== selectedTask.id && !linkedDraft.includes(task.id))
-                                        .map((task) => (
-                                            <option key={task.id} value={task.id}>
-                                                {task.title}
-                                            </option>
-                                        ))}
-                                </select>
-                                <button
-                                    type="button"
-                                    className="icon-action create"
-                                    onClick={handleAddLink}
-                                    data-tooltip="Link erstellen"
-                                    aria-label="Link erstellen"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
-                                        <path d="M12 5v14" />
-                                        <path d="M5 12h14" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="link-list">
-                                {linkedDraft.length > 0 ? (
-                                    linkedDraft.map((taskId) => (
-                                        <div key={taskId} className="link-chip">
-                                            <span className="link-title">{taskById.get(taskId)?.title ?? taskId}</span>
-                                            <button
-                                                type="button"
-                                                className="link-remove"
-                                                onClick={() => handleRemoveLink(taskId)}
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="link-empty">No linked tasks.</div>
-                                )}
-                            </div>
-                        </div>
 
                         <div className="checklist-panel">
                             <div className="section-title">Checklist</div>
@@ -12900,7 +12902,6 @@ const App: React.FC = () => {
 
                         {detailTab === 'comments' && (
                             <div className="comments-panel">
-                                <div className="section-title">Comments</div>
                                 <div className="comment-input-row">
                                     <div className="comment-avatar">{currentUserInitial}</div>
                                     <input
@@ -12959,7 +12960,6 @@ const App: React.FC = () => {
 
                         {detailTab === 'attachments' && (
                             <div className="detail-section">
-                                <div className="detail-section-title">Attachments</div>
                                 <div className="link-row">
                                     <input
                                         className="link-select"
@@ -13032,7 +13032,6 @@ const App: React.FC = () => {
 
                         {detailTab === 'activity' && (
                             <div className="detail-section">
-                                <div className="detail-section-title">Activity</div>
                                 <div className="activity-list">
                                     {selectedTask.activityLog && selectedTask.activityLog.length > 0 ? (
                                         [...selectedTask.activityLog]
