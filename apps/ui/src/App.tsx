@@ -778,7 +778,7 @@ const App: React.FC = () => {
     const [scopeDetailView, setScopeDetailView] = useState<'board' | 'list' | 'timeline'>('board');
     const [scopeTaskCreateTargetId, setScopeTaskCreateTargetId] = useState<string | null>(null);
     const [isScopeCreateOpen, setIsScopeCreateOpen] = useState(false);
-    const [scopeTab, setScopeTab] = useState<'current' | 'completed'>('current');
+    const [scopeTab, setScopeTab] = useState<'current' | 'review' | 'completed'>('current');
     const [isScopeSettingsOpen, setIsScopeSettingsOpen] = useState(false);
     const [initiativeScreen, setInitiativeScreen] = useState<'list' | 'detail'>('list');
     const [initiativeRouteId, setInitiativeRouteId] = useState<string | null>(null);
@@ -1031,6 +1031,7 @@ const App: React.FC = () => {
     const [newKindInput, setNewKindInput] = useState('');
     const [newTaskHuddleId, setNewTaskHuddleId] = useState<string | null>(null);
     const [newTaskBoardId, setNewTaskBoardId] = useState<string | null>(null);
+    const [newTaskScopeId, setNewTaskScopeId] = useState<string | null>(null);
     const [newTaskOwnerId, setNewTaskOwnerId] = useState<string | null>(null);
     const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
     const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>(TaskStatus.BACKLOG);
@@ -1042,6 +1043,8 @@ const App: React.FC = () => {
     const [editTaskHuddleId, setEditTaskHuddleId] = useState<string | null>(null);
     const [editTaskBoardId, setEditTaskBoardId] = useState<string | null>(null);
     const [editTaskBoardOriginal, setEditTaskBoardOriginal] = useState<string | null>(null);
+    const [editTaskScopeId, setEditTaskScopeId] = useState<string | null>(null);
+    const [editTaskScopeOriginal, setEditTaskScopeOriginal] = useState<string | null>(null);
     const [editTaskTenantOriginal, setEditTaskTenantOriginal] = useState<string | null>(null);
     const [editTaskOwnerId, setEditTaskOwnerId] = useState<string | null>(null);
     const [editTaskAssignees, setEditTaskAssignees] = useState<string[]>([]);
@@ -3437,6 +3440,22 @@ const App: React.FC = () => {
             return window.createdBy === currentUserId;
         });
     }, [scopeKey, scopeWindowsByBoard, userProfile?.id, userProfile?.isSuperAdmin, session?.user?.id, memberships]);
+    const getVisibleScopeWindowsForTenant = (tenantId?: string | null) => {
+        if (!tenantId) return [];
+        const raw = scopeWindowsByBoard[tenantId] || [];
+        const currentUserId = userProfile?.id || session?.user?.id || '';
+        const isTeamAdminForScope = memberships.some(
+            (membership) =>
+                membership.tenantId === tenantId
+                && (membership.role === 'OWNER' || membership.role === 'ADMIN')
+        );
+        return raw.filter((window) => {
+            if (window.visibility !== 'personal') return true;
+            if (userProfile?.isSuperAdmin || isTeamAdminForScope) return true;
+            if (!window.createdBy) return false;
+            return window.createdBy === currentUserId;
+        });
+    };
     const currentWeeklyScopeId = (() => {
         if (!activeTenantId) return null;
         const weekStart = getWeekStart(new Date());
@@ -3446,6 +3465,17 @@ const App: React.FC = () => {
         if (!currentWeeklyScopeId) return null;
         return scopeWindows.find((window) => window.id === currentWeeklyScopeId) || null;
     }, [scopeWindows, currentWeeklyScopeId]);
+    const weeklyScopeStats = useMemo(() => {
+        if (!currentWeeklyScope) return null;
+        const tasks = currentWeeklyScope.taskIds
+            .map((taskId) => scopeTaskById.get(taskId))
+            .filter(Boolean) as TaskView[];
+        const done = tasks.filter((task) => task.status === TaskStatus.DONE).length;
+        const open = tasks.filter((task) => isOpenTask(task)).length;
+        const total = tasks.length;
+        const completion = total ? Math.round((done / total) * 100) : 0;
+        return { total, done, open, completion };
+    }, [currentWeeklyScope, scopeTaskById]);
     const activeScopeWindow = useMemo(() => {
         if (!activeScopeId) return null;
         return scopeWindows.find((window) => window.id === activeScopeId) || null;
@@ -3606,10 +3636,21 @@ const App: React.FC = () => {
         return Array.from(labelSet).sort((a, b) => a.localeCompare(b));
     }, [scopeListTasks]);
     const filteredScopeWindows = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isExpired = (scope: ScopeWindow) => {
+            if (!scope.endDate) return false;
+            const end = new Date(scope.endDate);
+            if (Number.isNaN(end.getTime())) return false;
+            end.setHours(0, 0, 0, 0);
+            return end < today;
+        };
         const base =
             scopeTab === 'completed'
                 ? scopeWindows.filter((scope) => Boolean(scope.completionStatus))
-                : scopeWindows.filter((scope) => !scope.completionStatus);
+                : scopeTab === 'review'
+                    ? scopeWindows.filter((scope) => !scope.completionStatus && isExpired(scope))
+                    : scopeWindows.filter((scope) => !scope.completionStatus && !isExpired(scope));
         const sortByDate = (window: ScopeWindow) => {
             const stamp = window.startDate || window.createdAt;
             return stamp ? new Date(stamp).getTime() : 0;
@@ -4223,6 +4264,7 @@ const App: React.FC = () => {
         const nextHuddleId = activeTenantId || displayMemberships[0]?.tenantId || null;
         setNewTaskHuddleId(nextHuddleId);
         setNewTaskBoardId(resolveWritableBoardId(nextHuddleId));
+        setNewTaskScopeId(null);
         setNewTaskOwnerId(userProfile?.id || null);
         setNewTaskAssignees([]);
         setIsModalOpen(true);
@@ -5565,9 +5607,11 @@ const App: React.FC = () => {
             } catch {
                 createdTaskId = null;
             }
-            if (createdTaskId && scopeTaskCreateTargetId) {
-                handleScopeAddTask(scopeTaskCreateTargetId, createdTaskId);
+            const targetScopeId = newTaskScopeId || scopeTaskCreateTargetId;
+            if (createdTaskId && targetScopeId) {
+                handleScopeAddTask(targetScopeId, createdTaskId);
                 setScopeTaskCreateTargetId(null);
+                setNewTaskScopeId(null);
                 setToastMessage('Task created in scope');
             }
 
@@ -5578,6 +5622,7 @@ const App: React.FC = () => {
             setNewTaskKinds([]);
             setNewKindInput('');
             setNewTaskBoardId(null);
+            setNewTaskScopeId(null);
             if (newTaskKinds.length > 0) {
                 setKnownKinds((prev) => {
                     const merged = new Set(prev);
@@ -5609,6 +5654,7 @@ const App: React.FC = () => {
         setNewTaskStatus(TaskStatus.BACKLOG);
         setNewTaskOwnerId(userProfile?.id ?? null);
         setNewTaskAssignees([]);
+        setNewTaskScopeId(activeScopeWindow.id);
         setIsModalOpen(true);
     };
 
@@ -5754,6 +5800,12 @@ const App: React.FC = () => {
         setExistingAttachments(task.attachments || []);
         setNewAttachments([]);
         setRemovedAttachmentIds([]);
+        const scopedWindow = activeScopeWindow?.taskIds.includes(task.id)
+            ? activeScopeWindow
+            : scopeWindows.find((window) => window.taskIds.includes(task.id)) || null;
+        const scopeId = scopedWindow?.id || null;
+        setEditTaskScopeId(scopeId);
+        setEditTaskScopeOriginal(scopeId);
         setIsEditModalOpen(true);
     };
 
@@ -5763,6 +5815,7 @@ const App: React.FC = () => {
         setNewTaskKinds([]);
         setNewKindInput('');
         setNewTaskBoardId(null);
+        setNewTaskScopeId(null);
         setScopeTaskCreateTargetId(null);
     };
 
@@ -5780,6 +5833,8 @@ const App: React.FC = () => {
         setEditKindInput('');
         setChecklistDraft([]);
         setChecklistInput('');
+        setEditTaskScopeId(null);
+        setEditTaskScopeOriginal(null);
     };
 
     const closeKrComposer = () => {
@@ -6334,6 +6389,37 @@ const App: React.FC = () => {
                     const boardErr = await boardRes.json();
                     throw new Error(boardErr.error || 'Failed to move task to board');
                 }
+            }
+            if (editTaskScopeId !== editTaskScopeOriginal) {
+                updateScopeWindows((prev) => {
+                    let next = prev;
+                    if (editTaskScopeOriginal) {
+                        next = next.map((window) =>
+                            window.id === editTaskScopeOriginal
+                                ? { ...window, taskIds: window.taskIds.filter((id) => id !== editingTaskId) }
+                                : window
+                        );
+                    } else {
+                        next = next.map((window) =>
+                            window.taskIds.includes(editingTaskId)
+                                ? { ...window, taskIds: window.taskIds.filter((id) => id !== editingTaskId) }
+                                : window
+                        );
+                    }
+                    if (editTaskScopeId) {
+                        next = next.map((window) =>
+                            window.id === editTaskScopeId
+                                ? {
+                                    ...window,
+                                    taskIds: window.taskIds.includes(editingTaskId)
+                                        ? window.taskIds
+                                        : window.taskIds.concat(editingTaskId)
+                                }
+                                : window
+                        );
+                    }
+                    return next;
+                });
             }
 
             setIsEditModalOpen(false);
@@ -7333,8 +7419,75 @@ const App: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            {(view === 'kanban' || view === 'table' || view === 'timeline' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow) || (view === 'scope' && scopeScreen === 'list')) && (
+                            {(view === 'dashboard' || view === 'kanban' || view === 'table' || view === 'timeline' || (view === 'scope' && scopeScreen === 'detail' && activeScopeWindow) || (view === 'scope' && scopeScreen === 'list')) && (
                                 <div className="page-heading-actions">
+                                    {view === 'dashboard' && (
+                                        <div className="page-heading-icons">
+                                            <button
+                                                type="button"
+                                                className="icon-action create"
+                                                onClick={() => {
+                                                    setView('inbox');
+                                                    setInboxCaptureOpen(true);
+                                                }}
+                                                data-tooltip="Inbox Item"
+                                                aria-label="Inbox Item"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                                    <path d="M4 4h16v12H4z" />
+                                                    <path d="M4 16h6l2 3h4l2-3h6" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="icon-action create"
+                                                onClick={openCreateTask}
+                                                data-tooltip="Task erstellen"
+                                                aria-label="Task erstellen"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+                                                    <path d="M12 5v14" />
+                                                    <path d="M5 12h14" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="icon-action create"
+                                                onClick={() => {
+                                                    setView('scope');
+                                                    setScopeScreen('list');
+                                                    setIsScopeCreateOpen(true);
+                                                }}
+                                                data-tooltip="Scope erstellen"
+                                                aria-label="Scope erstellen"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                                    <circle cx="12" cy="12" r="7.5" />
+                                                    <circle cx="12" cy="12" r="2.5" />
+                                                    <path d="M12 4v3" />
+                                                    <path d="M12 17v3" />
+                                                    <path d="M4 12h3" />
+                                                    <path d="M17 12h3" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="icon-action create"
+                                                onClick={() => {
+                                                    setView('initiatives');
+                                                    setInitiativeScreen('list');
+                                                    setIsInitiativeCreateOpen(true);
+                                                }}
+                                                data-tooltip="Initiative"
+                                                aria-label="Initiative"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6">
+                                                    <path d="M4 16l6-6 4 4 6-6" />
+                                                    <path d="M4 20h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    )}
                                     {(view === 'kanban' || view === 'table' || view === 'timeline') && (
                                         <>
                                             <button
@@ -9282,8 +9435,9 @@ const App: React.FC = () => {
                                 role="tablist"
                                 aria-label="Scope filter"
                                 style={{
-                                    ['--active-index' as any]: scopeTab === 'completed' ? 1 : 0,
-                                    ['--segment-count' as any]: 2,
+                                    ['--active-index' as any]:
+                                        scopeTab === 'completed' ? 2 : scopeTab === 'review' ? 1 : 0,
+                                    ['--segment-count' as any]: 3,
                                     alignSelf: 'flex-start'
                                 }}
                             >
@@ -9294,6 +9448,14 @@ const App: React.FC = () => {
                                     aria-selected={scopeTab === 'current'}
                                 >
                                     Aktuell
+                                </button>
+                                <button
+                                    className={`view-pill ${scopeTab === 'review' ? 'active' : ''}`}
+                                    onClick={() => setScopeTab('review')}
+                                    role="tab"
+                                    aria-selected={scopeTab === 'review'}
+                                >
+                                    Review
                                 </button>
                                 <button
                                     className={`view-pill ${scopeTab === 'completed' ? 'active' : ''}`}
@@ -9752,51 +9914,152 @@ const App: React.FC = () => {
                         {!activeTenantId ? (
                             <div className="empty-state">Select a huddle to see Home.</div>
                         ) : (
-                            <div className="dashboard-visuals">
+                            <>
+                                <div className="dashboard-sections dashboard-summary-grid">
                                 <div className="dashboard-card dashboard-list ui-card">
-                                    <div className="dashboard-card-title ui-card-header">Scope</div>
+                                    <div className="dashboard-card-title ui-card-header">Scope diese Woche</div>
                                     <div className="dashboard-card-content ui-card-body">
-                                        {scopeWindows.length === 0 ? (
-                                            <div className="dashboard-empty">No scope windows yet.</div>
+                                        {!currentWeeklyScope ? (
+                                            <div className="dashboard-empty">Kein Weekly Scope vorhanden.</div>
                                         ) : (
-                                            scopeWindows.slice(0, 5).map((scopeWindow) => (
+                                            <>
                                                 <button
-                                                    key={scopeWindow.id}
+                                                    type="button"
                                                     className="dashboard-item"
-                                                    onClick={() => openScopeDetail(scopeWindow.id)}
+                                                    onClick={() => openScopeDetail(currentWeeklyScope.id)}
                                                 >
-                                                    <div className="dashboard-item-title">{scopeWindow.name}</div>
+                                                    <div className="dashboard-item-title">{currentWeeklyScope.name}</div>
                                                     <div className="dashboard-item-meta">
-                                                        {getScopeDateLabel(scopeWindow)} · {scopeWindow.taskIds.length} tasks
+                                                        {getScopeDateLabel(currentWeeklyScope)} · {currentWeeklyScope.taskIds.length} tasks
                                                     </div>
                                                 </button>
-                                            ))
+                                                <div className="dashboard-kpi-row">
+                                                    <span>Offen</span>
+                                                    <strong>{weeklyScopeStats?.open ?? 0}</strong>
+                                                </div>
+                                                <div className="dashboard-kpi-row">
+                                                    <span>Erledigt</span>
+                                                    <strong>{weeklyScopeStats?.done ?? 0}</strong>
+                                                </div>
+                                                <div className="dashboard-kpi-row">
+                                                    <span>Completion</span>
+                                                    <strong>{weeklyScopeStats?.completion ?? 0}%</strong>
+                                                </div>
+                                                <div className="dashboard-progress">
+                                                    <span
+                                                        className="dashboard-progress-fill"
+                                                        style={{ width: `${weeklyScopeStats?.completion ?? 0}%` }}
+                                                    />
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>
                                 <div className="dashboard-card dashboard-list ui-card">
-                                    <div className="dashboard-card-title ui-card-header">My Focus</div>
-                                    <div className="dashboard-card-content ui-card-body">
-                                        {focusTasksToday.length === 0 ? (
-                                            <div className="dashboard-empty">Nothing due today.</div>
-                                        ) : (
-                                            focusTasksToday.slice(0, 6).map((task) => (
-                                                <button
-                                                    key={task.id}
-                                                    className="dashboard-item"
-                                                    onClick={() => handleCardClick(task)}
-                                                >
-                                                    <div className="dashboard-item-title">{task.title}</div>
-                                                    <div className="dashboard-item-meta">
-                                                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
-                                                        <span>• {getBoardLabel(task.boardId)}</span>
+                                    {(() => {
+                                        const todoCount =
+                                            (dashboardSummary.statusCounts[TaskStatus.TODO] || 0) +
+                                            (dashboardSummary.statusCounts[TaskStatus.BACKLOG] || 0);
+                                        const doingCount = dashboardSummary.statusCounts[TaskStatus.IN_PROGRESS] || 0;
+                                        const doneCount = dashboardSummary.statusCounts[TaskStatus.DONE] || 0;
+                                        const total = Math.max(1, todoCount + doingCount + doneCount);
+                                        const r = 46;
+                                        const c = 2 * Math.PI * r;
+                                        const todoLen = (todoCount / total) * c;
+                                        const doingLen = (doingCount / total) * c;
+                                        const doneLen = (doneCount / total) * c;
+                                        const todoOffset = 0;
+                                        const doingOffset = todoOffset - todoLen;
+                                        const doneOffset = doingOffset - doingLen;
+                                        return (
+                                            <>
+                                                <div className="dashboard-card-title ui-card-header">Task status</div>
+                                                <div className="dashboard-card-content ui-card-body">
+                                                    <div className="dashboard-donut">
+                                                        <svg viewBox="0 0 120 120" role="img" aria-label="Task status donut">
+                                                            <circle className="dashboard-donut-track" cx="60" cy="60" r={r} />
+                                                            <circle
+                                                                className="dashboard-donut-slice slice-todo"
+                                                                cx="60"
+                                                                cy="60"
+                                                                r={r}
+                                                                strokeDasharray={`${todoLen} ${c - todoLen}`}
+                                                                strokeDashoffset={todoOffset}
+                                                            />
+                                                            <circle
+                                                                className="dashboard-donut-slice slice-doing"
+                                                                cx="60"
+                                                                cy="60"
+                                                                r={r}
+                                                                strokeDasharray={`${doingLen} ${c - doingLen}`}
+                                                                strokeDashoffset={doingOffset}
+                                                            />
+                                                            <circle
+                                                                className="dashboard-donut-slice slice-done"
+                                                                cx="60"
+                                                                cy="60"
+                                                                r={r}
+                                                                strokeDasharray={`${doneLen} ${c - doneLen}`}
+                                                                strokeDashoffset={doneOffset}
+                                                            />
+                                                            <text x="60" y="56" textAnchor="middle" className="dashboard-donut-value">
+                                                                {todoCount + doingCount + doneCount}
+                                                            </text>
+                                                            <text x="60" y="74" textAnchor="middle" className="dashboard-donut-label">
+                                                                tasks
+                                                            </text>
+                                                        </svg>
                                                     </div>
-                                                </button>
-                                            ))
-                                        )}
+                                                    <div className="dashboard-donut-legend">
+                                                        <div><span className="dot todo" />ToDo {todoCount}</div>
+                                                        <div><span className="dot doing" />Doing {doingCount}</div>
+                                                        <div><span className="dot done" />Done {doneCount}</div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                                </div>
+                                <div className="dashboard-visuals dashboard-visuals-interactive">
+                                <div className="dashboard-line-card">
+                                    <div className="dashboard-line-header">
+                                        <div>
+                                            <div className="dashboard-line-title">Activity / Progress</div>
+                                            <div className="dashboard-line-value">
+                                                {lineChartTotals.activity}
+                                                <span>events · 14d</span>
+                                            </div>
+                                        </div>
+                                        <div className="dashboard-line-chip">Live trend</div>
+                                    </div>
+                                    {renderLineChart(
+                                        [
+                                            { key: 'activity', label: 'Activity', series: lineChartSeries.activity, className: 'line-activity' },
+                                            { key: 'open', label: 'Open', series: lineChartSeries.open, className: 'line-open' },
+                                            { key: 'done', label: 'Done', series: lineChartSeries.done, className: 'line-done' },
+                                        ],
+                                        {
+                                            labels: lineChartLabels,
+                                            hoverIndex: lineHoverIndex,
+                                            onHover: setLineHoverIndex,
+                                            width: 300,
+                                            height: 120,
+                                            padding: 16,
+                                        }
+                                    )}
+                                    <div className="dashboard-line-legend">
+                                        <span className="line-key line-activity">Activity</span>
+                                        <span className="line-key line-open">Open</span>
+                                        <span className="line-key line-done">Done</span>
+                                    </div>
+                                    <div className="dashboard-line-axis">
+                                        <span>{lineChartLabels[0] ?? ''}</span>
+                                        <span>{lineChartLabels[lineChartLabels.length - 1] ?? ''}</span>
                                     </div>
                                 </div>
                             </div>
+                            </>
                         )}
                     </div>
                 ) : view === 'inbox' ? (
@@ -12245,7 +12508,11 @@ const App: React.FC = () => {
                                     <label>Huddle</label>
                                     <select
                                         value={newTaskHuddleId || ''}
-                                        onChange={(e) => setNewTaskHuddleId(e.target.value)}
+                                        onChange={(e) => {
+                                            const nextHuddleId = e.target.value;
+                                            setNewTaskHuddleId(nextHuddleId);
+                                            setNewTaskScopeId(null);
+                                        }}
                                     >
                                         {displayMemberships.map((membership) => (
                                             <option key={membership.id} value={membership.tenantId}>
@@ -12255,16 +12522,19 @@ const App: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>Tasks</label>
+                                    <label>Scope</label>
                                     <select
-                                        value={newTaskBoardId || ''}
-                                        onChange={(e) => setNewTaskBoardId(e.target.value)}
+                                        value={newTaskScopeId || ''}
+                                        onChange={(e) => setNewTaskScopeId(e.target.value || null)}
                                     >
-                                        {getWritableBoards(newTaskHuddleId).map((item) => (
-                                            <option key={item.id} value={item.id}>
-                                                {item.name}
-                                            </option>
-                                        ))}
+                                        <option value="">Ohne Scope</option>
+                                        {getVisibleScopeWindowsForTenant(newTaskHuddleId)
+                                            .filter((scope) => !scope.completionStatus)
+                                            .map((scope) => (
+                                                <option key={scope.id} value={scope.id}>
+                                                    {scope.name} · {getScopeDateLabel(scope)}
+                                                </option>
+                                            ))}
                                     </select>
                                 </div>
                                 {!isPersonalTenant(newTaskHuddleId) && (
@@ -13230,7 +13500,11 @@ const App: React.FC = () => {
                                     <label>Huddle</label>
                                     <select
                                         value={editTaskHuddleId || ''}
-                                        onChange={(e) => setEditTaskHuddleId(e.target.value)}
+                                        onChange={(e) => {
+                                            setEditTaskHuddleId(e.target.value);
+                                            setEditTaskScopeId(null);
+                                            setEditTaskScopeOriginal(null);
+                                        }}
                                     >
                                         {displayMemberships.map((membership) => (
                                             <option key={membership.id} value={membership.tenantId}>
@@ -13239,19 +13513,24 @@ const App: React.FC = () => {
                                         ))}
                                     </select>
                                 </div>
-                                <div className="form-group">
-                                    <label>Tasks</label>
-                                    <select
-                                        value={editTaskBoardId || ''}
-                                        onChange={(e) => setEditTaskBoardId(e.target.value)}
-                                    >
-                                        {getWritableBoards(editTaskHuddleId || activeTenantId).map((item) => (
-                                            <option key={item.id} value={item.id}>
-                                                {item.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {view === 'scope' && (
+                                    <div className="form-group">
+                                        <label>Scope</label>
+                                        <select
+                                            value={editTaskScopeId || ''}
+                                            onChange={(e) => setEditTaskScopeId(e.target.value || null)}
+                                        >
+                                            <option value="">Ohne Scope</option>
+                                            {scopeWindows
+                                                .filter((scope) => !scope.completionStatus)
+                                                .map((scope) => (
+                                                    <option key={scope.id} value={scope.id}>
+                                                        {scope.name} · {getScopeDateLabel(scope)}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                )}
                                 {!isPersonalTenant(editTaskHuddleId) && (
                                     <div className="form-group">
                                         <label>Owner</label>
