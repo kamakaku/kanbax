@@ -374,7 +374,7 @@ const App: React.FC = () => {
             });
             if (!res.ok) return;
             const data = await res.json();
-            const items = Array.isArray(data?.items) ? data.items : [];
+            const items: typeof inboxCustomItems = Array.isArray(data?.items) ? (data.items as typeof inboxCustomItems) : [];
             const statuses = data?.statuses && typeof data.statuses === 'object' ? data.statuses : {};
             const filteredLocal = localItems.filter((item) => !item.tenantId || item.tenantId === tenantId);
             const localById = new Map(filteredLocal.map((item) => [item.id, item]));
@@ -6432,8 +6432,6 @@ const App: React.FC = () => {
             setRemovedAttachmentIds([]);
             setChecklistDraft([]);
             setChecklistInput('');
-            setLinkedDraft([]);
-            setLinkSelectId('');
             if (editTaskKinds.length > 0) {
                 setKnownKinds((prev) => {
                     const merged = new Set(prev);
