@@ -261,7 +261,8 @@ const App: React.FC = () => {
     const getPriorityLabel = (value?: string) =>
         getOptionLabel(INBOX_PRIORITY_OPTIONS, value, 'task.field.selectPriority', 'Priority wählen');
 
-    const [view, setView] = useState<'dashboard' | 'kanban' | 'list' | 'table' | 'timeline' | 'calendar' | 'settings' | 'okr' | 'scope' | 'inbox' | 'initiatives'>('dashboard');
+    type ViewKey = 'dashboard' | 'kanban' | 'list' | 'table' | 'timeline' | 'calendar' | 'settings' | 'okr' | 'scope' | 'inbox' | 'initiatives';
+    const [view, setView] = useState<ViewKey>('dashboard');
     const [expandedTableTaskId, setExpandedTableTaskId] = useState<string | null>(null);
     const [detailTab, setDetailTab] = useState<'comments' | 'attachments' | 'activity'>('comments');
     const [inboxScopeMenuId, setInboxScopeMenuId] = useState<string | null>(null);
@@ -3367,7 +3368,7 @@ const App: React.FC = () => {
                         status,
                         tasks: tasks.filter((task: TaskView) => task.status === status),
                     }));
-                    const board = { id: activeBoardId, name: boards.find((b) => b.id === activeBoardId)?.name || 'Tasks', columns };
+                    const board = { id: activeBoardId, name: boards.find((b: any) => b.id === activeBoardId)?.name || 'Tasks', columns };
                     setBoard(board);
                 } else {
                     setBoard(null);
@@ -4914,7 +4915,7 @@ const App: React.FC = () => {
             || ((view === 'scope' || view === 'initiatives' || view === 'settings') && (!dataHydration.scopes || !dataHydration.members))
         )
     );
-    const onboardingSteps = useMemo(() => ([
+    const onboardingSteps = useMemo<Array<{ view: ViewKey; selector: string; title: string; body: string }>>(() => ([
         {
             view: 'inbox',
             selector: '[data-tour="inbox-list"]',
