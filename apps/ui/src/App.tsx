@@ -1250,7 +1250,7 @@ const App: React.FC = () => {
                 ? storedBoardId
                 : fallbackBoardId;
             setActiveBoardId(nextBoardId);
-            if (nextBoardId) {
+            if (nextBoardId && activeTenantId) {
                 updateUiPrefs((prev) => ({
                     ...prev,
                     activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: nextBoardId }
@@ -1556,10 +1556,12 @@ const App: React.FC = () => {
             setActiveBoardId(created.id);
             setBoard(created);
             try {
-                updateUiPrefs((prev) => ({
-                    ...prev,
-                    activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: created.id }
-                }));
+                if (activeTenantId) {
+                    updateUiPrefs((prev) => ({
+                        ...prev,
+                        activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: created.id }
+                    }));
+                }
             } catch {
                 // ignore
             }
@@ -1573,10 +1575,12 @@ const App: React.FC = () => {
         if (!boardId) return;
         setActiveBoardId(boardId);
         try {
-            updateUiPrefs((prev) => ({
-                ...prev,
-                activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: boardId }
-            }));
+            if (activeTenantId) {
+                updateUiPrefs((prev) => ({
+                    ...prev,
+                    activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: boardId }
+                }));
+            }
         } catch {
             // ignore
         }
@@ -2035,17 +2039,19 @@ const App: React.FC = () => {
             setBoard(nextBoard);
             setIsBoardSettingsOpen(false);
             try {
-                if (nextBoard?.id) {
-                    updateUiPrefs((prev) => ({
-                        ...prev,
-                        activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: nextBoard.id }
-                    }));
-                } else {
-                    updateUiPrefs((prev) => {
-                        const activeBoardByTenant = { ...(prev.activeBoardByTenant || {}) };
-                        delete activeBoardByTenant[activeTenantId];
-                        return { ...prev, activeBoardByTenant };
-                    });
+                if (activeTenantId) {
+                    if (nextBoard?.id) {
+                        updateUiPrefs((prev) => ({
+                            ...prev,
+                            activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: nextBoard.id }
+                        }));
+                    } else {
+                        updateUiPrefs((prev) => {
+                            const activeBoardByTenant = { ...(prev.activeBoardByTenant || {}) };
+                            delete activeBoardByTenant[activeTenantId];
+                            return { ...prev, activeBoardByTenant };
+                        });
+                    }
                 }
             } catch {
                 // ignore
