@@ -653,7 +653,6 @@ const App: React.FC = () => {
                 }
             });
             localStorage.setItem(resetFlag, 'done');
-            window.location.reload();
         } catch {
             // ignore storage errors
         }
