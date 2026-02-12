@@ -325,8 +325,12 @@ const App: React.FC = () => {
         statuses: {},
     });
     const scopesFetchInFlightRef = useRef<Record<string, boolean>>({});
+    const scopesFetchLastAtRef = useRef<Record<string, number>>({});
     const timelineFetchInFlightRef = useRef<Record<string, boolean>>({});
     const membersFetchInFlightRef = useRef<Record<string, boolean>>({});
+    const membersFetchLastAtRef = useRef<Record<string, number>>({});
+    const inboxFetchLastAtRef = useRef<Record<string, number>>({});
+    const inboxFetchInFlightRef = useRef<Record<string, boolean>>({});
     const inboxSyncRef = useRef<{ tenantId: string | null; skipNextSave: boolean }>({ tenantId: null, skipNextSave: false });
     type InboxItemsUpdater = typeof inboxCustomItems | ((items: typeof inboxCustomItems) => typeof inboxCustomItems);
     const persistInboxItems = (itemsOrUpdater: InboxItemsUpdater) => {
@@ -385,6 +389,12 @@ const App: React.FC = () => {
     ) {
         try {
             if (!session?.access_token) return;
+            if (inboxFetchInFlightRef.current[tenantId]) return;
+            inboxFetchInFlightRef.current[tenantId] = true;
+            if (shouldSkipStartupLoad(`inbox:${tenantId}`, 15000)) return;
+            const now = Date.now();
+            if (now - (inboxFetchLastAtRef.current[tenantId] || 0) < 8000) return;
+            inboxFetchLastAtRef.current[tenantId] = now;
             inboxSyncRef.current = { tenantId, skipNextSave: true };
             const res = await fetch(`${API_BASE}/teams/${tenantId}/inbox`, {
                 headers: getApiHeaders(true, tenantId),
@@ -417,6 +427,8 @@ const App: React.FC = () => {
             }
         } catch {
             // ignore
+        } finally {
+            inboxFetchInFlightRef.current[tenantId] = false;
         }
     }
 
@@ -628,6 +640,14 @@ const App: React.FC = () => {
     const uiPrefsInitializedRef = useRef(false);
     const uiPrefsSaveTimerRef = useRef<number | null>(null);
     const uiPrefsPendingRef = useRef<Record<string, any> | null>(null);
+    const startupLoadRef = useRef<Record<string, number>>({});
+    const shouldSkipStartupLoad = (key: string, minMs = 15000) => {
+        const now = Date.now();
+        const last = startupLoadRef.current[key] || 0;
+        if (now - last < minMs) return true;
+        startupLoadRef.current[key] = now;
+        return false;
+    };
     const [activeTenantId, setActiveTenantId] = useState<string | null>(() => {
         try {
             return localStorage.getItem('kanbax-active-tenant');
@@ -703,11 +723,6 @@ const App: React.FC = () => {
         }
     }, []);
 
-    useEffect(() => {
-        if (!activeTenantId || !session?.access_token) return;
-        if (view !== 'inbox') return;
-        loadInboxForTenant(activeTenantId, inboxCustomItems, inboxItemStatuses);
-    }, [activeTenantId, session?.access_token, view]);
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
         if (view !== 'inbox') return;
@@ -1186,11 +1201,25 @@ const App: React.FC = () => {
     };
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data }) => setSession(data.session));
+        let isMounted = true;
+        const lastTokenRef = { current: '' };
+        supabase.auth.getSession().then(({ data }) => {
+            if (!isMounted) return;
+            const token = data.session?.access_token || '';
+            if (token === lastTokenRef.current) return;
+            lastTokenRef.current = token;
+            setSession(data.session);
+        });
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+            const token = nextSession?.access_token || '';
+            if (token === lastTokenRef.current) return;
+            lastTokenRef.current = token;
             setSession(nextSession);
         });
-        return () => subscription.unsubscribe();
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     useEffect(() => {
@@ -1214,9 +1243,18 @@ const App: React.FC = () => {
     }, [view]);
 
     const fetchDataInFlightRef = useRef(false);
+    const fetchDataLastAtRef = useRef(0);
     const fetchDataPendingRef = useRef(false);
+    const fetchDataLastKeyRef = useRef('');
     const fetchData = async () => {
         if (fetchDataInFlightRef.current) return;
+        const now = Date.now();
+        if (now - fetchDataLastAtRef.current < 3000) return;
+        const key = `${activeTenantId || 'none'}:${activeBoardId || 'none'}`;
+        if (session?.access_token && activeTenantId && shouldSkipStartupLoad(`tasks:${key}`, 15000)) return;
+        if (fetchDataLastKeyRef.current === key && now - fetchDataLastAtRef.current < 15000) return;
+        fetchDataLastKeyRef.current = key;
+        fetchDataLastAtRef.current = now;
         fetchDataInFlightRef.current = true;
         try {
             setLoading(true);
@@ -2931,9 +2969,19 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (session && activeTenantId) {
+            if (shouldSkipStartupLoad(`fetchData:${activeTenantId}`, 15000)) return;
             fetchData();
         }
     }, [session, activeTenantId]);
+    useEffect(() => {
+        if (!session?.access_token || !activeTenantId) {
+            realtimeReadyRef.current = false;
+            return;
+        }
+        if (profileLoaded && !loading) {
+            realtimeReadyRef.current = true;
+        }
+    }, [session?.access_token, activeTenantId, profileLoaded, loading]);
 
 
     useEffect(() => {
@@ -2976,7 +3024,8 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
-        if (view !== 'scope' && !activeScopeId) return;
+        if (view !== 'scope') return;
+        if (shouldSkipStartupLoad(`scopetasks:${activeTenantId}`, 15000)) return;
         let cancelled = false;
         const loadScopeTasks = async () => {
             try {
@@ -3182,14 +3231,20 @@ const App: React.FC = () => {
         };
     }, []);
 
-    const profileLoadRef = useRef({ inFlight: false, lastAt: 0 });
-    const loadProfile = async () => {
+    const profileLoadRef = useRef({ inFlight: false, lastAt: 0, lastUserId: '', lastToken: '', bootLoaded: false });
+    const loadProfile = async (options?: { force?: boolean }) => {
         if (!session?.access_token) return;
+        if (!options?.force && profileLoadRef.current.bootLoaded) return;
         if (profileLoadRef.current.inFlight) return;
         const now = Date.now();
+        const sessionUserId = session?.user?.id || '';
+        if (sessionUserId && profileLoadRef.current.lastUserId === sessionUserId && now - profileLoadRef.current.lastAt < 15000) return;
         if (now - profileLoadRef.current.lastAt < 5000) return;
+        if (session?.access_token && profileLoadRef.current.lastToken === session.access_token && shouldSkipStartupLoad(`me:${session.access_token}`, 20000)) return;
         profileLoadRef.current.inFlight = true;
         profileLoadRef.current.lastAt = now;
+        profileLoadRef.current.lastUserId = sessionUserId;
+        profileLoadRef.current.lastToken = session?.access_token || '';
         setProfileLoaded(false);
         try {
             const res = await fetch(`${API_BASE}/me`, { headers: getApiHeaders(false) });
@@ -3225,6 +3280,7 @@ const App: React.FC = () => {
             if (!hasActive && (preferredMembership?.tenantId || fallbackMembership?.tenantId)) {
                 updateActiveTenant(preferredMembership?.tenantId || fallbackMembership?.tenantId);
             }
+            profileLoadRef.current.bootLoaded = true;
         } catch (e: any) {
             setAuthError(e.message);
         } finally {
@@ -3234,7 +3290,7 @@ const App: React.FC = () => {
     };
 
     useEffect(() => {
-        loadProfile();
+        loadProfile({ force: false });
     }, [session]);
 
     useEffect(() => {
@@ -3275,15 +3331,32 @@ const App: React.FC = () => {
     const scopeBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
     const tasksBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
     const scopeTasksFetchInFlightRef = useRef<Record<string, boolean>>({});
+    const realtimeReadyRef = useRef(false);
+    const taskRefreshTimerRef = useRef<number | null>(null);
+    const scheduleTaskRefresh = (tenantId: string) => {
+        if (taskRefreshTimerRef.current) return;
+        taskRefreshTimerRef.current = window.setTimeout(() => {
+            taskRefreshTimerRef.current = null;
+            triggerFetchData();
+            refreshScopeTasksForTenant(tenantId);
+        }, 800);
+    };
 
     useEffect(() => {
         if (!activeTenantId || !session?.access_token) return;
+        realtimeReadyRef.current = false;
+        if (taskRefreshTimerRef.current) {
+            window.clearTimeout(taskRefreshTimerRef.current);
+            taskRefreshTimerRef.current = null;
+        }
         const inboxChannel = supabase
             .channel(`huddle-inbox-${activeTenantId}`)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'huddle_inbox_items', filter: `tenant_id=eq.${activeTenantId}` },
                 () => {
+                    if (!realtimeReadyRef.current) return;
+                    if (view !== 'inbox') return;
                     const snapshot = inboxSnapshotRef.current;
                     loadInboxForTenant(activeTenantId, snapshot.items, snapshot.statuses);
                 }
@@ -3295,6 +3368,8 @@ const App: React.FC = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'huddle_scopes', filter: `tenant_id=eq.${activeTenantId}` },
                 () => {
+                    if (!realtimeReadyRef.current) return;
+                    if (view !== 'scope' && view !== 'initiatives' && view !== 'settings') return;
                     loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
                 }
             )
@@ -3305,6 +3380,8 @@ const App: React.FC = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'huddle_scope_members', filter: `tenant_id=eq.${activeTenantId}` },
                 () => {
+                    if (!realtimeReadyRef.current) return;
+                    if (view !== 'scope' && view !== 'initiatives' && view !== 'settings') return;
                     loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
                 }
             )
@@ -3315,6 +3392,8 @@ const App: React.FC = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'huddle_timeline_overrides', filter: `tenant_id=eq.${activeTenantId}` },
                 () => {
+                    if (!realtimeReadyRef.current) return;
+                    if (view !== 'timeline' && !(view === 'scope' && scopeDetailView === 'timeline')) return;
                     loadTimelineOverridesForTenant(activeTenantId, timelineOverridesRef.current);
                 }
             )
@@ -3324,6 +3403,8 @@ const App: React.FC = () => {
                 config: { broadcast: { ack: true, self: false } },
             })
             .on('broadcast', { event: 'scope-update' }, () => {
+                if (!realtimeReadyRef.current) return;
+                if (view !== 'scope' && view !== 'initiatives' && view !== 'settings') return;
                 loadScopesForTenant(activeTenantId, resolveLocalScopeFallback(activeTenantId));
             })
             .subscribe();
@@ -3333,8 +3414,8 @@ const App: React.FC = () => {
                 config: { broadcast: { ack: true, self: false } },
             })
             .on('broadcast', { event: 'task-update' }, () => {
-                triggerFetchData();
-                refreshScopeTasksForTenant(activeTenantId);
+                if (!realtimeReadyRef.current) return;
+                scheduleTaskRefresh(activeTenantId);
             })
             .subscribe();
         tasksBroadcastChannelRef.current = tasksBroadcastChannel;
@@ -3344,7 +3425,8 @@ const App: React.FC = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'Task', filter: `tenantId=eq.${activeTenantId}` },
                 () => {
-                    triggerFetchData();
+                    if (!realtimeReadyRef.current) return;
+                    scheduleTaskRefresh(activeTenantId);
                 }
             )
             .subscribe();
@@ -3354,7 +3436,8 @@ const App: React.FC = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'task', filter: `tenantId=eq.${activeTenantId}` },
                 () => {
-                    triggerFetchData();
+                    if (!realtimeReadyRef.current) return;
+                    scheduleTaskRefresh(activeTenantId);
                 }
             )
             .subscribe();
@@ -3364,7 +3447,8 @@ const App: React.FC = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'huddle_task_favorites', filter: `tenant_id=eq.${activeTenantId}` },
                 () => {
-                    triggerFetchData();
+                    if (!realtimeReadyRef.current) return;
+                    scheduleTaskRefresh(activeTenantId);
                 }
             )
             .subscribe();
@@ -4271,6 +4355,8 @@ const App: React.FC = () => {
     const refreshScopeTasksForTenant = async (tenantId: string) => {
         try {
             if (!session?.access_token) return;
+            if (view !== 'scope' && !activeScopeId) return;
+            if (shouldSkipStartupLoad(`scopetasks:${tenantId}`, 15000)) return;
             if (scopeTasksFetchInFlightRef.current[tenantId]) return;
             scopeTasksFetchInFlightRef.current[tenantId] = true;
             const res = await fetch(`${API_BASE}/tasks?boardId=all`, { headers: getApiHeaders(true, tenantId) });
@@ -4985,8 +5071,12 @@ const App: React.FC = () => {
     async function loadScopesForTenant(tenantId: string, localFallback: ScopeWindow[] = []) {
         try {
             if (!session?.access_token) return;
+            if (shouldSkipStartupLoad(`scopes:${tenantId}`, 15000)) return;
+            const now = Date.now();
+            if (now - (scopesFetchLastAtRef.current[tenantId] || 0) < 8000) return;
             if (scopesFetchInFlightRef.current[tenantId]) return;
             scopesFetchInFlightRef.current[tenantId] = true;
+            scopesFetchLastAtRef.current[tenantId] = now;
             scopeSyncRef.current = { tenantId, skipNextSave: true };
             const res = await fetch(`${API_BASE}/teams/${tenantId}/scopes`, {
                 headers: getApiHeaders(true, tenantId),
@@ -5118,8 +5208,11 @@ const App: React.FC = () => {
 
     const loadMembersForHuddle = async (tenantId: string | null | undefined) => {
         if (!tenantId || huddleMembersByTenant[tenantId] || !session?.access_token) return;
+        const now = Date.now();
+        if (now - (membersFetchLastAtRef.current[tenantId] || 0) < 8000) return;
         if (membersFetchInFlightRef.current[tenantId]) return;
         membersFetchInFlightRef.current[tenantId] = true;
+        membersFetchLastAtRef.current[tenantId] = now;
         try {
             const res = await fetch(`${API_BASE}/teams/${tenantId}/members`, { headers: getApiHeaders(false) });
             if (!res.ok) throw new Error('Failed to load members');
@@ -5146,7 +5239,7 @@ const App: React.FC = () => {
             if (decision === 'accept' && invite.tenantId) {
                 updateActiveTenant(invite.tenantId);
             }
-            await loadProfile();
+            await loadProfile({ force: true });
             if (decision === 'accept') {
                 setIsInvitesModalOpen(false);
             }
@@ -5266,7 +5359,7 @@ const App: React.FC = () => {
                 const err = await res.json();
                 throw new Error(err.error || 'Failed to leave huddle');
             }
-            await loadProfile();
+            await loadProfile({ force: true });
             if (activeTenantId === tenantId) {
                 updateActiveTenant('');
             }
