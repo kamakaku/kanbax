@@ -86,6 +86,7 @@ const isApiRoute = (pathName: string) =>
     pathName.startsWith('/okrs') ||
     pathName.startsWith('/calendar') ||
     pathName.startsWith('/me') ||
+    pathName.startsWith('/boot') ||
     pathName.startsWith('/teams') ||
     pathName.startsWith('/invites');
 
@@ -1471,6 +1472,68 @@ app.get('/me', async (req, res) => {
     });
 
     res.json({ user, memberships, invites });
+});
+
+app.get('/boot', async (req, res) => {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const memberships = await prisma.teamMembership.findMany({
+        where: { userId: user.id },
+        include: { tenant: true },
+        orderBy: { createdAt: 'asc' },
+    });
+    const invites = await prisma.teamInvite.findMany({
+        where: { email: user.email, status: 'PENDING' },
+        include: { tenant: true, invitedBy: true },
+    });
+
+    let tenantId: string | null = (req as any).tenantId || null;
+    const preferredTenantId = user?.preferences?.defaultHuddleId || null;
+    if (!tenantId && preferredTenantId && memberships.some((m) => m.tenantId === preferredTenantId)) {
+        tenantId = preferredTenantId;
+    }
+    if (!tenantId) {
+        tenantId = memberships[0]?.tenantId || null;
+    }
+
+    if (!tenantId) {
+        return res.json({
+            user,
+            memberships,
+            invites,
+            tenantId: null,
+            boards: [],
+            activeBoardId: null,
+            tasks: [],
+        });
+    }
+
+    await ensureDefaultBoard(tenantId);
+    const boards = await prisma.board.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' },
+    });
+    const boardList = boards.length ? boards : [await ensureDefaultBoard(tenantId)];
+    const activeBoardId =
+        user?.preferences?.ui?.activeBoardByTenant?.[tenantId]
+        || boardList[0]?.id
+        || 'default-board';
+
+    const membership = memberships.find((m) => m.tenantId === tenantId) || null;
+    const role = user.isSuperAdmin ? 'SUPERADMIN' : (membership?.role || 'MEMBER');
+    const principal = buildPrincipal(tenantId, user, role);
+    const tasks = await queryService.getTasks(principal, activeBoardId);
+
+    res.json({
+        user,
+        memberships,
+        invites,
+        tenantId,
+        boards: boardList.map((board) => ({ id: board.id, name: board.name })),
+        activeBoardId,
+        tasks,
+    });
 });
 
 app.patch('/me', async (req, res) => {

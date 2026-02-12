@@ -3283,6 +3283,31 @@ textarea::placeholder {
   gap: 0.5rem;
 }
 
+.page-breadcrumb-hint {
+  margin-top: 0.25rem;
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.inline-spinner {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--accent-primary);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .board-switch-inline {
   display: inline-flex;
   align-items: center;

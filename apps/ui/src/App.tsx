@@ -391,6 +391,7 @@ const App: React.FC = () => {
             if (!session?.access_token) return;
             if (inboxFetchInFlightRef.current[tenantId]) return;
             inboxFetchInFlightRef.current[tenantId] = true;
+            if (!bootLoadRef.current.loaded) return;
             if (shouldSkipStartupLoad(`inbox:${tenantId}`, 15000)) return;
             const now = Date.now();
             if (now - (inboxFetchLastAtRef.current[tenantId] || 0) < 8000) return;
@@ -419,6 +420,9 @@ const App: React.FC = () => {
             });
             setInboxCustomItems(mergedItems);
             setInboxItemStatuses(statuses);
+            if (tenantId === activeTenantId) {
+                setDataHydration((prev) => ({ ...prev, inbox: true }));
+            }
             try {
                 localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(mergedItems));
                 localStorage.setItem(INBOX_STATUS_STORAGE_KEY, JSON.stringify(statuses));
@@ -648,6 +652,9 @@ const App: React.FC = () => {
         startupLoadRef.current[key] = now;
         return false;
     };
+    const bootLoadRef = useRef({ inFlight: false, loaded: false, token: '' });
+    const [bootLoading, setBootLoading] = useState(false);
+    const [dataHydration, setDataHydration] = useState({ inbox: false, scopes: false, members: false });
     const [activeTenantId, setActiveTenantId] = useState<string | null>(() => {
         try {
             return localStorage.getItem('kanbax-active-tenant');
@@ -2969,10 +2976,15 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (session && activeTenantId) {
+            if (bootLoadRef.current.loaded && bootLoadRef.current.token === session.access_token) return;
             if (shouldSkipStartupLoad(`fetchData:${activeTenantId}`, 15000)) return;
             fetchData();
         }
     }, [session, activeTenantId]);
+    useEffect(() => {
+        if (!activeTenantId) return;
+        setDataHydration({ inbox: false, scopes: false, members: false });
+    }, [activeTenantId]);
     useEffect(() => {
         if (!session?.access_token || !activeTenantId) {
             realtimeReadyRef.current = false;
@@ -3290,7 +3302,60 @@ const App: React.FC = () => {
     };
 
     useEffect(() => {
-        loadProfile({ force: false });
+        const loadBoot = async () => {
+            if (!session?.access_token) return;
+            if (bootLoadRef.current.inFlight) return;
+            if (bootLoadRef.current.loaded && bootLoadRef.current.token === session.access_token) return;
+            bootLoadRef.current.inFlight = true;
+            setBootLoading(true);
+            setLoading(true);
+            try {
+                const res = await fetch(`${API_BASE}/boot`, { headers: getApiHeaders(false) });
+                if (!res.ok) throw new Error('Failed to load boot data');
+                const data = await res.json();
+                setUserProfile(data.user);
+                setMemberships(data.memberships || []);
+                setInvites(data.invites || []);
+                setProfileLoaded(true);
+                const tenantId = data.tenantId || null;
+                setActiveTenantId(tenantId);
+                const boards = Array.isArray(data.boards)
+                    ? data.boards.map((board: any) => ({ id: board.id, name: board.name, columns: [] }))
+                    : [];
+                setBoards(boards);
+                if (tenantId) {
+                    setBoardsByTenant((prev) => ({ ...prev, [tenantId]: boards }));
+                }
+                const activeBoardId = data.activeBoardId || boards[0]?.id || null;
+                setActiveBoardId(activeBoardId);
+                const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+                setTasks(tasks);
+                if (tenantId) {
+                    setTasksByTenant((prev) => ({ ...prev, [tenantId]: tasks }));
+                }
+                if (activeBoardId) {
+                    const statuses = [TaskStatus.BACKLOG, TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE];
+                    const columns = statuses.map((status) => ({
+                        status,
+                        tasks: tasks.filter((task: TaskView) => task.status === status),
+                    }));
+                    const board = { id: activeBoardId, name: boards.find((b) => b.id === activeBoardId)?.name || 'Tasks', columns };
+                    setBoard(board);
+                } else {
+                    setBoard(null);
+                }
+                bootLoadRef.current.loaded = true;
+                bootLoadRef.current.token = session.access_token;
+                setError(null);
+            } catch (e: any) {
+                setError(e.message);
+            } finally {
+                setLoading(false);
+                bootLoadRef.current.inFlight = false;
+                setBootLoading(false);
+            }
+        };
+        loadBoot();
     }, [session]);
 
     useEffect(() => {
@@ -4811,6 +4876,16 @@ const App: React.FC = () => {
         if (view === 'kanban') items.push({ label: activeBoard?.name || 'Tasks', onClick: () => setView('kanban') });
         return items;
     }, [view, activeHuddleName, activeBoard?.name, scopeScreen, activeScopeWindow, initiativeScreen, activeInitiative]);
+    const showLoadHint = Boolean(
+        session?.access_token
+        && activeTenantId
+        && (
+            bootLoading
+            || (view === 'dashboard' && loading)
+            || (view === 'inbox' && !dataHydration.inbox)
+            || ((view === 'scope' || view === 'initiatives' || view === 'settings') && (!dataHydration.scopes || !dataHydration.members))
+        )
+    );
     const notificationSnapshotRef = useRef<Record<string, any>>({});
     const initializedHuddlesRef = useRef<Set<string>>(new Set());
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
@@ -5120,6 +5195,9 @@ const App: React.FC = () => {
             if (deduped.length !== scopes.length) {
                 saveScopesForTenant(tenantId, deduped);
             }
+            if (tenantId === activeTenantId) {
+                setDataHydration((prev) => ({ ...prev, scopes: true }));
+            }
         } catch {
             // ignore
         } finally {
@@ -5218,6 +5296,9 @@ const App: React.FC = () => {
             if (!res.ok) throw new Error('Failed to load members');
             const data = await res.json();
             setHuddleMembersByTenant((prev) => ({ ...prev, [tenantId]: data }));
+            if (tenantId === activeTenantId) {
+                setDataHydration((prev) => ({ ...prev, members: true }));
+            }
         } catch (err: any) {
             setTeamError(err.message);
         } finally {
@@ -7572,6 +7653,12 @@ const App: React.FC = () => {
                             </div>
                         )}
                     </div>
+                    {showLoadHint && (
+                        <div className="page-breadcrumb-hint">
+                            <span className="inline-spinner" aria-hidden="true" />
+                            Daten werden noch geladen…
+                        </div>
+                    )}
                     <div
                         className={`page-heading${view === 'kanban' || view === 'table' || view === 'dashboard' || view === 'initiatives' || view === 'inbox' || view === 'timeline' || view === 'scope' ? ' page-heading-style' : ''}`}
                     >
