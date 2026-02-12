@@ -173,6 +173,22 @@ const getWeekEnd = (date: Date) => {
     end.setHours(23, 59, 59, 999);
     return end;
 };
+const dedupeScopes = (scopes: ScopeWindow[]) => {
+    const byId = new Map<string, ScopeWindow>();
+    const score = (scope: ScopeWindow) => {
+        const taskScore = scope.taskIds?.length || 0;
+        const completionScore = scope.completionStatus ? 10 : 0;
+        const createdScore = scope.createdAt ? new Date(scope.createdAt).getTime() : 0;
+        return taskScore * 1000 + completionScore * 100 + createdScore;
+    };
+    scopes.forEach((scope) => {
+        const existing = byId.get(scope.id);
+        if (!existing || score(scope) >= score(existing)) {
+            byId.set(scope.id, scope);
+        }
+    });
+    return Array.from(byId.values());
+};
 const toISODate = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -335,6 +351,7 @@ const App: React.FC = () => {
     };
     const persistInboxPlannedScopes = (next: Record<string, string>) => {
         setInboxPlannedScopes(next);
+        updateUiPrefs((prev) => ({ ...prev, inboxPlannedScopes: next }));
         if (typeof window === 'undefined') return;
         try {
             window.localStorage.setItem(INBOX_PLANNED_STORAGE_KEY, JSON.stringify(next));
@@ -607,6 +624,10 @@ const App: React.FC = () => {
     const [userProfile, setUserProfile] = useState<any>(null);
     const [memberships, setMemberships] = useState<any[]>([]);
     const [invites, setInvites] = useState<any[]>([]);
+    const [uiPrefs, setUiPrefs] = useState<Record<string, any>>({});
+    const uiPrefsInitializedRef = useRef(false);
+    const uiPrefsSaveTimerRef = useRef<number | null>(null);
+    const uiPrefsPendingRef = useRef<Record<string, any> | null>(null);
     const [activeTenantId, setActiveTenantId] = useState<string | null>(() => {
         try {
             return localStorage.getItem('kanbax-active-tenant');
@@ -614,6 +635,62 @@ const App: React.FC = () => {
             return null;
         }
     });
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const resetFlag = 'kanbax-reset-all';
+        if (localStorage.getItem(resetFlag) === 'done') return;
+        try {
+            Object.keys(localStorage).forEach((key) => {
+                if (
+                    key.startsWith('kanbax-')
+                    || key === INBOX_STORAGE_KEY
+                    || key === INBOX_STATUS_STORAGE_KEY
+                    || key === INBOX_PLANNED_STORAGE_KEY
+                    || key === TIMELINE_OVERRIDE_KEY
+                    || key === INITIATIVES_STORAGE_KEY
+                ) {
+                    localStorage.removeItem(key);
+                }
+            });
+            localStorage.setItem(resetFlag, 'done');
+            window.location.reload();
+        } catch {
+            // ignore storage errors
+        }
+    }, []);
+    const scheduleUiPrefsSave = (nextUi: Record<string, any>) => {
+        if (!session?.access_token || !userProfile) return;
+        uiPrefsPendingRef.current = nextUi;
+        if (uiPrefsSaveTimerRef.current) {
+            window.clearTimeout(uiPrefsSaveTimerRef.current);
+        }
+        uiPrefsSaveTimerRef.current = window.setTimeout(async () => {
+            const pending = uiPrefsPendingRef.current;
+            if (!pending) return;
+            uiPrefsPendingRef.current = null;
+            try {
+                const mergedPrefs = { ...(userProfile?.preferences || {}), ui: pending };
+                const res = await fetch(`${API_BASE}/me`, {
+                    method: 'PATCH',
+                    headers: getApiHeaders(false),
+                    body: JSON.stringify({ preferences: mergedPrefs }),
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                setUserProfile(data.user);
+            } catch {
+                // ignore
+            }
+        }, 600);
+    };
+    const updateUiPrefs = (updater: ((prev: Record<string, any>) => Record<string, any>) | Record<string, any>) => {
+        setUiPrefs((prev) => {
+            const base = prev && typeof prev === 'object' ? prev : {};
+            const next = typeof updater === 'function' ? updater(base) : { ...base, ...updater };
+            scheduleUiPrefsSave(next);
+            return next;
+        });
+    };
     useEffect(() => {
         try {
             const raw = localStorage.getItem(INBOX_STORAGE_KEY);
@@ -896,6 +973,37 @@ const App: React.FC = () => {
     const timelineRangeRef = useRef<HTMLDivElement | null>(null);
     const [timelineOverrides, setTimelineOverrides] = useState<Record<string, TimelineOverride>>(loadTimelineOverrides);
     const timelineOverridesRef = useRef<Record<string, TimelineOverride>>({});
+    useEffect(() => {
+        const nextUi = userProfile?.preferences?.ui;
+        if (!nextUi || typeof nextUi !== 'object') return;
+        setUiPrefs(nextUi);
+        if (uiPrefsInitializedRef.current) return;
+        uiPrefsInitializedRef.current = true;
+        if (nextUi.activeTenantId) {
+            setActiveTenantId(nextUi.activeTenantId);
+        }
+        if (typeof nextUi.sidebarCollapsed === 'boolean') {
+            setIsSidebarCollapsed(nextUi.sidebarCollapsed);
+        }
+        if (nextUi.initiativesByTenant && typeof nextUi.initiativesByTenant === 'object') {
+            setInitiativesByTenant(nextUi.initiativesByTenant);
+        }
+        if (Array.isArray(nextUi.okrPinned)) {
+            setOkrPinned(nextUi.okrPinned);
+        }
+        if (Array.isArray(nextUi.okrRecent)) {
+            setOkrRecent(nextUi.okrRecent);
+        }
+        if (Array.isArray(nextUi.kindHistory)) {
+            setKnownKinds(nextUi.kindHistory);
+        }
+        if (nextUi.inboxPlannedScopes && typeof nextUi.inboxPlannedScopes === 'object') {
+            setInboxPlannedScopes(nextUi.inboxPlannedScopes);
+        }
+        if (nextUi.timelineOverrides && typeof nextUi.timelineOverrides === 'object') {
+            setTimelineOverrides(nextUi.timelineOverrides);
+        }
+    }, [userProfile?.preferences]);
     const timelineOverrideSyncRef = useRef<{ tenantId: string | null; skipNextSave: boolean }>({ tenantId: null, skipNextSave: false });
     const timelineScrollRef = useRef<HTMLDivElement | null>(null);
     const [timelineDragTaskId, setTimelineDragTaskId] = useState<string | null>(null);
@@ -1128,24 +1236,25 @@ const App: React.FC = () => {
                 setBoardsByTenant((prev) => ({ ...prev, [activeTenantId]: boardsData }));
             }
 
-            const storedBoardId = (() => {
-                try {
-                    return localStorage.getItem(`kanbax-active-board:${activeTenantId}`);
-                } catch {
-                    return null;
-                }
-            })();
+            const storedBoardId =
+                (uiPrefs.activeBoardByTenant && activeTenantId ? uiPrefs.activeBoardByTenant[activeTenantId] : null)
+                || (() => {
+                    try {
+                        return localStorage.getItem(`kanbax-active-board:${activeTenantId}`);
+                    } catch {
+                        return null;
+                    }
+                })();
             const fallbackBoardId = boardsData[0]?.id || null;
             const nextBoardId = (storedBoardId && boardsData.some((b: BoardView) => b.id === storedBoardId))
                 ? storedBoardId
                 : fallbackBoardId;
             setActiveBoardId(nextBoardId);
             if (nextBoardId) {
-                try {
-                    localStorage.setItem(`kanbax-active-board:${activeTenantId}`, nextBoardId);
-                } catch {
-                    // ignore
-                }
+                updateUiPrefs((prev) => ({
+                    ...prev,
+                    activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: nextBoardId }
+                }));
             }
 
             const tasksBoardId = nextBoardId || '';
@@ -1171,21 +1280,19 @@ const App: React.FC = () => {
             const taskKinds = tasksData
                 .flatMap((task: TaskView) => (task.kinds || []).map((kind) => kind.trim()))
                 .filter((kind: string) => kind.length > 0);
-            const storedKinds = (() => {
-                try {
-                    const raw = localStorage.getItem('kanbax-kind-history');
-                    return raw ? (JSON.parse(raw) as string[]) : [];
-                } catch {
-                    return [];
-                }
-            })();
+            const storedKinds = Array.isArray(uiPrefs.kindHistory)
+                ? uiPrefs.kindHistory
+                : (() => {
+                    try {
+                        const raw = localStorage.getItem('kanbax-kind-history');
+                        return raw ? (JSON.parse(raw) as string[]) : [];
+                    } catch {
+                        return [];
+                    }
+                })();
             const mergedKinds = Array.from(new Set([...storedKinds, ...taskKinds])).sort((a, b) => a.localeCompare(b));
             setKnownKinds(mergedKinds);
-            try {
-                localStorage.setItem('kanbax-kind-history', JSON.stringify(mergedKinds));
-            } catch {
-                // Ignore storage errors
-            }
+            updateUiPrefs((prev) => ({ ...prev, kindHistory: mergedKinds }));
             setError(null);
         } catch (e: any) {
             setError(e.message);
@@ -1449,7 +1556,10 @@ const App: React.FC = () => {
             setActiveBoardId(created.id);
             setBoard(created);
             try {
-                localStorage.setItem(`kanbax-active-board:${activeTenantId}`, created.id);
+                updateUiPrefs((prev) => ({
+                    ...prev,
+                    activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: created.id }
+                }));
             } catch {
                 // ignore
             }
@@ -1463,7 +1573,10 @@ const App: React.FC = () => {
         if (!boardId) return;
         setActiveBoardId(boardId);
         try {
-            localStorage.setItem(`kanbax-active-board:${activeTenantId}`, boardId);
+            updateUiPrefs((prev) => ({
+                ...prev,
+                activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: boardId }
+            }));
         } catch {
             // ignore
         }
@@ -1923,9 +2036,16 @@ const App: React.FC = () => {
             setIsBoardSettingsOpen(false);
             try {
                 if (nextBoard?.id) {
-                    localStorage.setItem(`kanbax-active-board:${activeTenantId}`, nextBoard.id);
+                    updateUiPrefs((prev) => ({
+                        ...prev,
+                        activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: nextBoard.id }
+                    }));
                 } else {
-                    localStorage.removeItem(`kanbax-active-board:${activeTenantId}`);
+                    updateUiPrefs((prev) => {
+                        const activeBoardByTenant = { ...(prev.activeBoardByTenant || {}) };
+                        delete activeBoardByTenant[activeTenantId];
+                        return { ...prev, activeBoardByTenant };
+                    });
                 }
             } catch {
                 // ignore
@@ -2825,19 +2945,11 @@ const App: React.FC = () => {
     }, [activeBoardId, activeTenantId, userProfile?.id, session?.user?.id, tasksByTenant]);
 
     useEffect(() => {
-        try {
-            localStorage.setItem('kanbax-okr-pinned', JSON.stringify(okrPinned));
-        } catch {
-            // ignore
-        }
+        updateUiPrefs((prev) => ({ ...prev, okrPinned }));
     }, [okrPinned]);
 
     useEffect(() => {
-        try {
-            localStorage.setItem('kanbax-okr-recent', JSON.stringify(okrRecent));
-        } catch {
-            // ignore
-        }
+        updateUiPrefs((prev) => ({ ...prev, okrRecent }));
     }, [okrRecent]);
 
     useEffect(() => {
@@ -2848,11 +2960,7 @@ const App: React.FC = () => {
         }
     }, [scopeWindowsByBoard]);
     useEffect(() => {
-        try {
-            localStorage.setItem(INITIATIVES_STORAGE_KEY, JSON.stringify(initiativesByTenant));
-        } catch {
-            // ignore
-        }
+        updateUiPrefs((prev) => ({ ...prev, initiativesByTenant }));
     }, [initiativesByTenant]);
 
     useEffect(() => {
@@ -2885,11 +2993,7 @@ const App: React.FC = () => {
 
 
     useEffect(() => {
-        try {
-            localStorage.setItem('kanbax-sidebar-collapsed', String(isSidebarCollapsed));
-        } catch {
-            // ignore
-        }
+        updateUiPrefs((prev) => ({ ...prev, sidebarCollapsed: isSidebarCollapsed }));
     }, [isSidebarCollapsed]);
 
     useEffect(() => {
@@ -3344,7 +3448,11 @@ const App: React.FC = () => {
         }
     }, [isEditModalOpen]);
 
-    const selectedTask = selectedTaskId ? tasks.find((task) => task.id === selectedTaskId) ?? null : null;
+    const selectedTask = selectedTaskId
+        ? tasks.find((task) => task.id === selectedTaskId)
+            ?? (activeTenantId ? scopeTasksByTenant[activeTenantId]?.find((task) => task.id === selectedTaskId) : null)
+            ?? null
+        : null;
     const taskById = new Map(tasks.map((task) => [task.id, task]));
     const currentUserLabel = String(userProfile?.email || session?.user?.email || 'U');
     const currentUserInitial = currentUserLabel.charAt(0).toUpperCase() || 'U';
@@ -3426,7 +3534,7 @@ const App: React.FC = () => {
     const scopeKey = activeTenantId || null;
     const scopeWindows = useMemo(() => {
         if (!scopeKey) return [];
-        const raw = scopeWindowsByBoard[scopeKey] || [];
+        const raw = dedupeScopes(scopeWindowsByBoard[scopeKey] || []);
         const currentUserId = userProfile?.id || session?.user?.id || '';
         const isTeamAdminForScope = memberships.some(
             (membership) =>
@@ -4070,7 +4178,7 @@ const App: React.FC = () => {
         if (!scopeKey) return;
         setScopeWindowsByBoard((prev) => {
             const current = prev[scopeKey] || [];
-            const next = updater(current);
+            const next = dedupeScopes(updater(current));
             // Persist immediately so scope taskIds are saved even if effects are skipped.
             saveScopesForTenant(scopeKey, next);
             return { ...prev, [scopeKey]: next };
@@ -4496,8 +4604,13 @@ const App: React.FC = () => {
             if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) return false;
             const due = new Date(task.dueDate);
             return due >= start && due <= end;
+        }).filter((task) => {
+            const tenantId = task.tenantId || activeTenantId;
+            if (!tenantId) return false;
+            const scopesForTenant = scopeWindowsByBoard[tenantId] || [];
+            return scopesForTenant.some((scope) => scope.taskIds.includes(task.id));
         });
-    }, [allTasks]);
+    }, [allTasks, activeTenantId, scopeWindowsByBoard]);
     const isSpecialSidebarBoard = (boardId?: string | null) =>
         boardId === ARCHIVED_BOARD_ID || boardId === ALL_BOARD_ID || boardId === OWN_BOARD_ID;
     const renderSidebarBoardIcon = (boardId?: string | null, compact = false) => {
@@ -4544,13 +4657,24 @@ const App: React.FC = () => {
     const quickPinItems = useMemo(() => {
         return allTasks
             .filter((task) => task.isFavorite && task.status !== TaskStatus.ARCHIVED)
+            .filter((task) => {
+                const tenantId = task.tenantId || activeTenantId;
+                if (!tenantId) return false;
+                const scopesForTenant = scopeWindowsByBoard[tenantId] || [];
+                return scopesForTenant.some((scope) => scope.taskIds.includes(task.id));
+            })
             .slice(0, 5)
             .map((task) => ({
                 id: task.id,
                 label: task.title,
-                sublabel: getBoardLabel(task.boardId),
+                sublabel: (() => {
+                    const tenantId = task.tenantId || activeTenantId;
+                    const scopesForTenant = tenantId ? (scopeWindowsByBoard[tenantId] || []) : [];
+                    const scope = scopesForTenant.find((item) => item.taskIds.includes(task.id));
+                    return scope ? scope.name : getBoardLabel(task.boardId);
+                })(),
             }));
-    }, [allTasks]);
+    }, [allTasks, activeTenantId, scopeWindowsByBoard]);
     const breadcrumbItems = useMemo(() => {
         if (view === 'settings') {
             return [{ label: 'Settings' }];
@@ -4713,12 +4837,29 @@ const App: React.FC = () => {
 
     const updateActiveTenant = (tenantId: string) => {
         setActiveTenantId(tenantId);
-        try {
-            localStorage.setItem('kanbax-active-tenant', tenantId);
-        } catch {
-            // ignore storage
-        }
+        updateUiPrefs((prev) => ({ ...prev, activeTenantId: tenantId }));
     };
+    const toggleSidebarCollapsed = () => {
+        setIsSidebarCollapsed((prev) => {
+            const next = !prev;
+            updateUiPrefs((prefs) => ({ ...prefs, sidebarCollapsed: next }));
+            return next;
+        });
+    };
+    useEffect(() => {
+        if (!activeTenantId || !activeBoardId) return;
+        updateUiPrefs((prev) => ({
+            ...prev,
+            activeBoardByTenant: { ...(prev.activeBoardByTenant || {}), [activeTenantId]: activeBoardId },
+        }));
+    }, [activeTenantId, activeBoardId]);
+    useEffect(() => {
+        if (!activeTenantId) return;
+        const preferredBoard = uiPrefs.activeBoardByTenant?.[activeTenantId];
+        if (preferredBoard && preferredBoard !== activeBoardId) {
+            setActiveBoardId(preferredBoard);
+        }
+    }, [activeTenantId, uiPrefs.activeBoardByTenant]);
 
     const handleAuthSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -4879,7 +5020,11 @@ const App: React.FC = () => {
                 setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: localFallback }));
                 return;
             }
-            setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: scopes }));
+            const deduped = dedupeScopes(scopes);
+            setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: deduped }));
+            if (deduped.length !== scopes.length) {
+                saveScopesForTenant(tenantId, deduped);
+            }
         } catch {
             // ignore
         } finally {
@@ -4889,26 +5034,27 @@ const App: React.FC = () => {
 
     const resolveLocalScopeFallback = (tenantId: string) => {
         const direct = scopeWindowsByBoard[tenantId] || [];
-        if (direct.length > 0) return direct;
+        if (direct.length > 0) return dedupeScopes(direct);
         if (!memberships || memberships.length !== 1) return [];
         const tenantIds = new Set(memberships.map((membership) => membership.tenantId));
         const legacyScopes = Object.entries(scopeWindowsByBoard)
             .filter(([key]) => !tenantIds.has(key))
             .flatMap(([, scopes]) => scopes);
         if (legacyScopes.length > 0) {
-            setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: legacyScopes }));
+            setScopeWindowsByBoard((prev) => ({ ...prev, [tenantId]: dedupeScopes(legacyScopes) }));
         }
-        return legacyScopes;
+        return dedupeScopes(legacyScopes);
     };
 
     async function saveScopesForTenant(tenantId: string, scopes: ScopeWindow[]) {
         try {
             if (!session?.access_token) return;
+            const normalizedScopes = dedupeScopes(scopes);
             const res = await fetch(`${API_BASE}/teams/${tenantId}/scopes`, {
                 method: 'PUT',
                 headers: getApiHeaders(true, tenantId),
                 body: JSON.stringify({
-                    scopes: scopes.map((scope) => ({
+                    scopes: normalizedScopes.map((scope) => ({
                         ...scope,
                         visibility: scope.visibility === 'personal' ? 'personal' : 'shared',
                         createdBy: scope.createdBy || null,
@@ -5025,6 +5171,7 @@ const App: React.FC = () => {
                         notifications: settingsDraft.notifications,
                         workingHours: settingsDraft.workingHours,
                         reminders: settingsDraft.reminders,
+                        ui: userProfile?.preferences?.ui || uiPrefs || {},
                     },
                 }),
             });
@@ -5498,11 +5645,13 @@ const App: React.FC = () => {
         `${tenantId || 'unknown'}:${boardId || 'unknown'}:${status}`;
     const persistOrder = (tenantId: string | null | undefined, boardId: string | null | undefined, orders: Record<string, string[]>) => {
         if (!tenantId || !boardId) return;
-        try {
-            localStorage.setItem(`kanbax-task-order:${tenantId}:${boardId}`, JSON.stringify(orders));
-        } catch {
-            // Ignore storage errors
-        }
+        updateUiPrefs((prev) => ({
+            ...prev,
+            taskOrderByBoard: {
+                ...(prev.taskOrderByBoard || {}),
+                [`${tenantId}:${boardId}`]: orders,
+            },
+        }));
     };
     const handleSearchSelect = (kind: 'task' | 'huddle' | 'column', payload: any) => {
         if (kind === 'task') {
@@ -5544,6 +5693,12 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!activeTenantId || !activeBoardId) return;
         try {
+            const prefKey = `${activeTenantId}:${activeBoardId}`;
+            const storedPrefs = uiPrefs.taskOrderByBoard?.[prefKey];
+            if (storedPrefs && typeof storedPrefs === 'object') {
+                setTaskOrderByColumn(storedPrefs as Record<string, string[]>);
+                return;
+            }
             const stored = localStorage.getItem(`kanbax-task-order:${activeTenantId}:${activeBoardId}`);
             if (stored) {
                 const parsed = JSON.parse(stored) as Record<string, string[]>;
@@ -5554,7 +5709,7 @@ const App: React.FC = () => {
         } catch {
             setTaskOrderByColumn({});
         }
-    }, [activeTenantId, activeBoardId]);
+    }, [activeTenantId, activeBoardId, uiPrefs.taskOrderByBoard]);
 
     useEffect(() => {
         if (!activeTenantId || tasks.length === 0) return;
@@ -5628,11 +5783,7 @@ const App: React.FC = () => {
                     const merged = new Set(prev);
                     newTaskKinds.forEach((kind) => merged.add(kind));
                     const next = Array.from(merged).sort((a, b) => a.localeCompare(b));
-                    try {
-                        localStorage.setItem('kanbax-kind-history', JSON.stringify(next));
-                    } catch {
-                        // Ignore storage errors
-                    }
+                    updateUiPrefs((prev) => ({ ...prev, kindHistory: next }));
                     return next;
                 });
             }
@@ -5789,11 +5940,7 @@ const App: React.FC = () => {
                     if (kind.trim().length > 0) merged.add(kind);
                 });
                 const next = Array.from(merged).sort((a, b) => a.localeCompare(b));
-                try {
-                    localStorage.setItem('kanbax-kind-history', JSON.stringify(next));
-                } catch {
-                    // Ignore storage errors
-                }
+                updateUiPrefs((prev) => ({ ...prev, kindHistory: next }));
                 return next;
             });
         }
@@ -6437,11 +6584,7 @@ const App: React.FC = () => {
                     const merged = new Set(prev);
                     editTaskKinds.forEach((kind) => merged.add(kind));
                     const next = Array.from(merged).sort((a, b) => a.localeCompare(b));
-                    try {
-                        localStorage.setItem('kanbax-kind-history', JSON.stringify(next));
-                    } catch {
-                        // Ignore storage errors
-                    }
+                    updateUiPrefs((prev) => ({ ...prev, kindHistory: next }));
                     return next;
                 });
             }
@@ -6823,9 +6966,21 @@ const App: React.FC = () => {
                                                         type="button"
                                                         className="quick-pin quick-pin-panel-item"
                                                         onClick={() => {
-                                                            setView('kanban');
-                                                            setActiveBoardId(task.boardId || activeBoardId || 'default-board');
-                                                            setPendingTaskOpen({ taskId: task.id, tenantId: task.tenantId || activeTenantId || '' });
+                                                            const tenantId = task.tenantId || activeTenantId || '';
+                                                            const scopesForTenant = tenantId ? (scopeWindowsByBoard[tenantId] || []) : [];
+                                                            const matchingScope = scopesForTenant.find((scope) => scope.taskIds.includes(task.id)) || null;
+                                                            if (tenantId && tenantId !== activeTenantId) {
+                                                                updateActiveTenant(tenantId);
+                                                            }
+                                                            if (matchingScope) {
+                                                                setView('scope');
+                                                                openScopeDetail(matchingScope.id);
+                                                                setSelectedTaskId(task.id);
+                                                                setIsDetailsModalOpen(true);
+                                                            } else {
+                                                                setView('scope');
+                                                                setScopeScreen('list');
+                                                            }
                                                             setIsFocusDropdownOpen(false);
                                                         }}
                                                     >
@@ -6874,9 +7029,21 @@ const App: React.FC = () => {
                                                 onClick={() => {
                                                     const task = allTasks.find((item) => item.id === pin.id);
                                                     if (!task) return;
-                                                    setView('kanban');
-                                                    setActiveBoardId(task.boardId || activeBoardId || 'default-board');
-                                                    setPendingTaskOpen({ taskId: task.id, tenantId: task.tenantId || activeTenantId || '' });
+                                                    const tenantId = task.tenantId || activeTenantId || '';
+                                                    const scopesForTenant = tenantId ? (scopeWindowsByBoard[tenantId] || []) : [];
+                                                    const matchingScope = scopesForTenant.find((scope) => scope.taskIds.includes(task.id)) || null;
+                                                    if (tenantId && tenantId !== activeTenantId) {
+                                                        updateActiveTenant(tenantId);
+                                                    }
+                                                    if (matchingScope) {
+                                                        setView('scope');
+                                                        openScopeDetail(matchingScope.id);
+                                                        setSelectedTaskId(task.id);
+                                                        setIsDetailsModalOpen(true);
+                                                    } else {
+                                                        setView('scope');
+                                                        setScopeScreen('list');
+                                                    }
                                                     setIsQuickPinsOpen(false);
                                                 }}
                                             >
@@ -7140,7 +7307,7 @@ const App: React.FC = () => {
                     <div className="sidebar-footer">
                         <button
                             className="sidebar-toggle"
-                            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+                            onClick={toggleSidebarCollapsed}
                             aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                         >
@@ -7611,15 +7778,15 @@ const App: React.FC = () => {
                 {isPersonalActive && !hasSharedHuddles && !dismissHuddleCta && (
                     <div className="huddle-cta">
                         <div>
-                            <div className="huddle-cta-title">Share work with a huddle</div>
-                            <div className="huddle-cta-text">Create a shared huddle for your team while keeping your private tasks separate.</div>
+                            <div className="huddle-cta-title">Arbeit mit einem Huddle teilen.</div>
+                            <div className="huddle-cta-text">Erstellen Sie einen gemeinsamen Huddle für Ihr Team, während Sie Ihre privaten Aufgaben getrennt halten.</div>
                         </div>
                         <div className="huddle-cta-actions">
                             <button className="btn btn-primary btn-compact" onClick={() => setIsTeamModalOpen(true)}>
-                                Create shared huddle
+                                Huddle erstellen
                             </button>
                             <button className="btn btn-ghost btn-compact" onClick={() => setDismissHuddleCta(true)}>
-                                Dismiss
+                                Ablehnen
                             </button>
                         </div>
                     </div>
