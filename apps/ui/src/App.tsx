@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { TaskView, BoardView, TaskStatus } from '@kanbax/domain';
 import { supabase } from './supabaseClient';
@@ -154,6 +154,12 @@ const INBOX_STATUS_STORAGE_KEY = 'kanbax-inbox-statuses';
 const INBOX_PLANNED_STORAGE_KEY = 'kanbax-inbox-planned-scopes';
 const TIMELINE_OVERRIDE_KEY = 'kanbax-timeline-overrides';
 const INITIATIVES_STORAGE_KEY = 'kanbax-initiatives';
+const ONBOARDING_STORAGE_KEY = 'kanbax-onboarding-v1';
+const TOUR_TOOLTIP_WIDTH = 320;
+const TOUR_TOOLTIP_HEIGHT = 180;
+const TOUR_HIGHLIGHT_PAD = 10;
+const TOUR_EDGE_PADDING = 16;
+const TOUR_GAP = 14;
 type InboxStatus = 'eingang' | 'spaeter' | 'bearbeitet' | 'archiv';
 type InboxView = InboxStatus;
 type TimelineOverride = { date: string; isPoint: boolean; durationDays?: number };
@@ -654,6 +660,16 @@ const App: React.FC = () => {
     };
     const bootLoadRef = useRef({ inFlight: false, loaded: false, token: '' });
     const [bootLoading, setBootLoading] = useState(false);
+    const [onboardingOpen, setOnboardingOpen] = useState(false);
+    const [onboardingStep, setOnboardingStep] = useState(0);
+    const [onboardingTarget, setOnboardingTarget] = useState<{ rect: DOMRect; selector: string } | null>(null);
+    const [onboardingTooltip, setOnboardingTooltip] = useState<{
+        top: number;
+        left: number;
+        width: number;
+        placement: 'top' | 'bottom';
+        arrowLeft: number;
+    } | null>(null);
     const [dataHydration, setDataHydration] = useState({ inbox: false, scopes: false, members: false });
     const [activeTenantId, setActiveTenantId] = useState<string | null>(() => {
         try {
@@ -680,6 +696,18 @@ const App: React.FC = () => {
                 }
             });
             localStorage.setItem(resetFlag, 'done');
+        } catch {
+            // ignore storage errors
+        }
+    }, []);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const seen = localStorage.getItem(ONBOARDING_STORAGE_KEY) === 'done';
+            if (!seen) {
+                setOnboardingOpen(true);
+                setOnboardingStep(0);
+            }
         } catch {
             // ignore storage errors
         }
@@ -4886,6 +4914,122 @@ const App: React.FC = () => {
             || ((view === 'scope' || view === 'initiatives' || view === 'settings') && (!dataHydration.scopes || !dataHydration.members))
         )
     );
+    const onboardingSteps = useMemo(() => ([
+        {
+            view: 'inbox',
+            selector: '[data-tour="inbox-list"]',
+            title: 'Inbox — Was ist das?',
+            body: 'Die Inbox sammelt alle eingehenden Aufgaben. Ziel: schnell entscheiden, was wichtig ist, bevor du es einplanst.',
+        },
+        {
+            view: 'inbox',
+            selector: '[data-tour="inbox-create"]',
+            title: 'Inbox — Wie benutze ich sie?',
+            body: 'Ordne Items in „Später“ oder „Bearbeitet“ ein, oder verschiebe sie direkt in ein Scope. So bleibt nichts liegen.',
+        },
+        {
+            view: 'scope',
+            selector: '[data-tour="scope-list"]',
+            title: 'Scopes — Was ist das?',
+            body: 'Scopes sind Zeitfenster (z. B. diese Woche), in denen Tasks fokussiert erledigt werden.',
+        },
+        {
+            view: 'scope',
+            selector: '[data-tour="scope-detail"]',
+            title: 'Scopes — Wie benutze ich sie?',
+            body: 'Lege ein Scope an, ziehe Tasks hinein oder weise sie beim Erstellen zu. Im Scope planst du die Umsetzung.',
+        },
+        {
+            view: 'initiatives',
+            selector: '[data-tour="initiative-list"]',
+            title: 'Initiatives — Was ist das?',
+            body: 'Initiatives bündeln mehrere Scopes zu einem übergeordneten Ziel oder Projekt.',
+        },
+        {
+            view: 'initiatives',
+            selector: '[data-tour="initiative-create"]',
+            title: 'Initiatives — Wie benutze ich sie?',
+            body: 'Erstelle eine Initiative, ordne Scopes zu und verfolge den Fortschritt zentral.',
+        },
+    ]), []);
+    const completeOnboarding = () => {
+        setOnboardingOpen(false);
+        setOnboardingStep(0);
+        try {
+            localStorage.setItem(ONBOARDING_STORAGE_KEY, 'done');
+        } catch {
+            // ignore storage errors
+        }
+    };
+    const updateOnboardingTarget = useCallback(() => {
+        if (!onboardingOpen || typeof window === 'undefined') return;
+        const step = onboardingSteps[onboardingStep];
+        const selector = step?.selector;
+        if (!selector) {
+            setOnboardingTarget(null);
+            setOnboardingTooltip(null);
+            return;
+        }
+        const element = document.querySelector(selector) as HTMLElement | null;
+        const width = Math.min(TOUR_TOOLTIP_WIDTH, window.innerWidth - TOUR_EDGE_PADDING * 2);
+        if (!element) {
+            setOnboardingTarget(null);
+            setOnboardingTooltip({
+                top: Math.max(TOUR_EDGE_PADDING, 120),
+                left: Math.max(TOUR_EDGE_PADDING, (window.innerWidth - width) / 2),
+                width,
+                placement: 'bottom',
+                arrowLeft: width / 2,
+            });
+            return;
+        }
+        const rect = element.getBoundingClientRect();
+        const targetCenterX = rect.left + rect.width / 2;
+        let placement: 'top' | 'bottom' = 'bottom';
+        let top = rect.bottom + TOUR_GAP;
+        if (top + TOUR_TOOLTIP_HEIGHT > window.innerHeight - TOUR_EDGE_PADDING) {
+            placement = 'top';
+            top = rect.top - TOUR_GAP - TOUR_TOOLTIP_HEIGHT;
+        }
+        if (top < TOUR_EDGE_PADDING) {
+            placement = 'bottom';
+            top = Math.min(window.innerHeight - TOUR_TOOLTIP_HEIGHT - TOUR_EDGE_PADDING, rect.bottom + TOUR_GAP);
+        }
+        let left = targetCenterX - width / 2;
+        left = Math.max(TOUR_EDGE_PADDING, Math.min(left, window.innerWidth - width - TOUR_EDGE_PADDING));
+        const arrowLeft = Math.max(18, Math.min(width - 18, targetCenterX - left));
+        setOnboardingTarget({ rect, selector });
+        setOnboardingTooltip({ top, left, width, placement, arrowLeft });
+    }, [onboardingOpen, onboardingStep, onboardingSteps]);
+    useEffect(() => {
+        if (!onboardingOpen) return;
+        const step = onboardingSteps[onboardingStep];
+        if (step?.view && view !== step.view) {
+            setView(step.view);
+        }
+        if (step?.view === 'scope' && scopeScreen !== 'list') {
+            setScopeScreen('list');
+        }
+        if (step?.view === 'initiatives' && initiativeScreen !== 'list') {
+            setInitiativeScreen('list');
+        }
+    }, [onboardingOpen, onboardingStep, onboardingSteps, view, scopeScreen, initiativeScreen]);
+    useEffect(() => {
+        if (!onboardingOpen || typeof window === 'undefined') return;
+        let raf = 0;
+        const refresh = () => {
+            raf = window.requestAnimationFrame(() => updateOnboardingTarget());
+        };
+        refresh();
+        const handleResize = () => refresh();
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('scroll', handleResize, true);
+        return () => {
+            window.cancelAnimationFrame(raf);
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('scroll', handleResize, true);
+        };
+    }, [onboardingOpen, onboardingStep, view, updateOnboardingTarget]);
     const notificationSnapshotRef = useRef<Record<string, any>>({});
     const initializedHuddlesRef = useRef<Set<string>>(new Set());
     const inviteSnapshotRef = useRef<Set<string>>(new Set());
@@ -7235,6 +7379,18 @@ const App: React.FC = () => {
                                 )}
                             </div>
                         )}
+                        <button
+                            type="button"
+                            className="help-button"
+                            onClick={() => {
+                                setOnboardingOpen(true);
+                                setOnboardingStep(0);
+                            }}
+                            aria-label="How-To öffnen"
+                            title="How-To"
+                        >
+                            ?
+                        </button>
                         <div className="notif-dropdown">
                             <button
                                 className="notif-button"
@@ -10118,7 +10274,7 @@ const App: React.FC = () => {
                                 </div>
                                 <div className="dashboard-card-content ui-card-body">
                                         <div className="inbox-layout scope-inbox-layout">
-                                            <div className="inbox-sidebar scope-inbox-sidebar">
+                                            <div className="inbox-sidebar scope-inbox-sidebar" data-tour="scope-list">
                                                 {filteredScopeWindows.length === 0 ? (
                                                     <div className="scope-empty">Noch keine Scope Windows.</div>
                                                 ) : (
@@ -10186,6 +10342,7 @@ const App: React.FC = () => {
                                                             onClick={() => openScopeDetail(activeScopeWindow.id)}
                                                             data-tooltip="Zu den Scope-Details"
                                                             aria-label="Zu den Scope-Details"
+                                                            data-tour="scope-detail"
                                                         >
                                                             <span className="inbox-action-icon" aria-hidden="true">
                                                                 <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
@@ -10417,7 +10574,7 @@ const App: React.FC = () => {
                         {!activeTenantId ? (
                             <div className="empty-state">Select a huddle to see Inbox.</div>
                         ) : (
-                            <div className="dashboard-card dashboard-list ui-card">
+                            <div className="dashboard-card dashboard-list ui-card" data-tour="inbox">
                                 <div className="dashboard-card-title ui-card-header">
                                     <div className="dashboard-card-title-row inbox-header-row">
                                         {(() => {
@@ -10436,7 +10593,7 @@ const App: React.FC = () => {
                                                 </div>
                                             );
                                         })()}
-                                        <div className="inbox-header-actions">
+                                        <div className="inbox-header-actions" data-tour="inbox-create">
                                             <button
                                                 type="button"
                                             className="btn btn-save btn-compact tooltip-target"
@@ -10468,7 +10625,7 @@ const App: React.FC = () => {
                                             null;
                                         return (
                                             <div className="inbox-layout">
-                                                <div className="inbox-sidebar">
+                                                <div className="inbox-sidebar" data-tour="inbox-list">
                                                     {filteredInboxItems.length === 0 && (
                                                         <div className="dashboard-empty inbox-empty">
                                                             <div className="inbox-empty-title">{t('inbox.empty.title', 'Inbox Zero')}</div>
@@ -10839,7 +10996,7 @@ const App: React.FC = () => {
                         {!activeTenantId ? (
                             <div className="empty-state">Select a huddle to manage initiatives.</div>
                         ) : initiativeScreen === 'detail' && activeInitiative ? (
-                            <div className="initiative-detail">
+                            <div className="initiative-detail" data-tour="initiatives">
                                 <div className="scope-detail-body">
                                     <div className="initiative-detail-grid">
                                         <div className="scope-section">
@@ -11036,6 +11193,7 @@ const App: React.FC = () => {
                                                     data-tooltip="Initiative erstellen"
                                                     aria-label="Initiative erstellen"
                                                     onClick={() => setIsInitiativeCreateOpen(true)}
+                                                    data-tour="initiative-create"
                                                 >
                                                     <span className="btn-save-icon">
                                                         <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" stroke="currentColor">
@@ -11055,7 +11213,7 @@ const App: React.FC = () => {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="scope-window-grid">
+                                            <div className="scope-window-grid" data-tour="initiative-list">
                                                 {filteredInitiatives.map((initiative) => {
                                                     const metrics = initiativeMetricsById.get(initiative.id);
                                                     return (
@@ -13796,6 +13954,77 @@ const App: React.FC = () => {
                         </button>
                         <img src={imagePreview.src} alt={imagePreview.name} />
                         <div className="image-overlay-caption">{imagePreview.name}</div>
+                    </div>
+                </div>
+            )}
+
+            {onboardingOpen && (
+                <div className="tour-overlay" role="dialog" aria-modal="true">
+                    <div className="tour-backdrop" />
+                    {onboardingTarget && (
+                        <div
+                            className="tour-highlight"
+                            style={{
+                                top: `${Math.max(0, onboardingTarget.rect.top - TOUR_HIGHLIGHT_PAD)}px`,
+                                left: `${Math.max(0, onboardingTarget.rect.left - TOUR_HIGHLIGHT_PAD)}px`,
+                                width: `${Math.max(0, onboardingTarget.rect.width + TOUR_HIGHLIGHT_PAD * 2)}px`,
+                                height: `${Math.max(0, onboardingTarget.rect.height + TOUR_HIGHLIGHT_PAD * 2)}px`,
+                            }}
+                        />
+                    )}
+                    <div
+                        className="tour-tooltip"
+                        data-placement={onboardingTooltip?.placement || 'bottom'}
+                        style={{
+                            top: `${onboardingTooltip?.top ?? 120}px`,
+                            left: `${onboardingTooltip?.left ?? 24}px`,
+                            width: `${onboardingTooltip?.width ?? TOUR_TOOLTIP_WIDTH}px`,
+                            ['--arrow-left' as any]: `${onboardingTooltip?.arrowLeft ?? TOUR_TOOLTIP_WIDTH / 2}px`,
+                        }}
+                    >
+                        <div className="tour-header">
+                            <div>
+                                <div className="tour-title">How‑To</div>
+                                <div className="tour-subtitle">
+                                    Schritt {onboardingStep + 1} von {onboardingSteps.length}
+                                </div>
+                            </div>
+                            <button className="panel-close" onClick={completeOnboarding} aria-label="Close">
+                                ×
+                            </button>
+                        </div>
+                        <div className="tour-body">
+                            <div className="tour-step-title">{onboardingSteps[onboardingStep]?.title}</div>
+                            <div className="tour-step-text">{onboardingSteps[onboardingStep]?.body}</div>
+                        </div>
+                        <div className="tour-footer">
+                            <button type="button" className="btn btn-ghost btn-compact" onClick={completeOnboarding}>
+                                Überspringen
+                            </button>
+                            <div className="tour-actions">
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost btn-compact"
+                                    disabled={onboardingStep === 0}
+                                    onClick={() => setOnboardingStep((prev) => Math.max(0, prev - 1))}
+                                >
+                                    Zurück
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary btn-compact"
+                                    onClick={() => {
+                                        if (onboardingStep >= onboardingSteps.length - 1) {
+                                            completeOnboarding();
+                                            return;
+                                        }
+                                        setOnboardingStep((prev) => Math.min(onboardingSteps.length - 1, prev + 1));
+                                    }}
+                                >
+                                    {onboardingStep >= onboardingSteps.length - 1 ? 'Fertig' : 'Weiter'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
