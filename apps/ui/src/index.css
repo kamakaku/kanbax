@@ -3661,8 +3661,8 @@ textarea::placeholder {
   flex-direction: column;
   gap: 0;
   transition: none;
-  padding: 1.6rem 1.8rem;
 }
+
 
 .dashboard-card:hover {
   box-shadow: none;
@@ -3716,12 +3716,16 @@ textarea::placeholder {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  background-image: radial-gradient(circle, rgba(30, 30, 30, 0.1) 1px, transparent 1px);
+  background-size: 10px 10px;
+  background-position: 0 0;
 }
 
 .dashboard-card .ui-card-header {
-  padding: 0 0 0.65rem;
+  padding: 0.8rem 1.2rem;
   border: 0;
-  background: transparent;
+  border: 1px solid var(--border-color);
+  border-bottom: 0;
 }
 
 .dashboard-card-title-row {
@@ -4800,6 +4804,15 @@ textarea::placeholder {
 
 .dashboard-summary-grid {
   margin-top: 0;
+}
+
+.dashboard-summary-grid .dashboard-card-content{
+  padding: 0.8rem 1.2rem;
+}
+
+.dashboard-summary-grid .dashboard-card-title{
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dashboard-actions-row {
