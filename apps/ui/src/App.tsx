@@ -34,6 +34,7 @@ const API_BASE = 'http://localhost:4000';
 const ARCHIVED_BOARD_ID = 'archived';
 const ALL_BOARD_ID = 'all';
 const OWN_BOARD_ID = 'mine';
+const BOARD_VIEWS_DISABLED = true;
 
 interface OkrKeyResult {
     id: string;
@@ -1661,6 +1662,10 @@ const App: React.FC = () => {
     };
 
     const handleBoardNavClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        if (BOARD_VIEWS_DISABLED) {
+            handleScopeNavClick();
+            return;
+        }
         if (isSidebarCollapsed) {
             setIsBoardNavOpen(true);
             setView('kanban');
@@ -1689,6 +1694,10 @@ const App: React.FC = () => {
     };
 
     const handleSidebarBoardSelect = (boardId: string) => {
+        if (BOARD_VIEWS_DISABLED) {
+            handleScopeNavClick();
+            return;
+        }
         handleBoardChange(boardId);
         setIsBoardNavOpen(true);
         setView('kanban');
@@ -3010,6 +3019,13 @@ const App: React.FC = () => {
             fetchData();
         }
     }, [session, activeTenantId]);
+    useEffect(() => {
+        if (!BOARD_VIEWS_DISABLED) return;
+        if (view === 'kanban' || view === 'table' || view === 'timeline' || view === 'list') {
+            setView('scope');
+            setScopeScreen('list');
+        }
+    }, [view]);
     useEffect(() => {
         if (!activeTenantId) return;
         setDataHydration({ inbox: false, scopes: false, members: false });
@@ -5989,10 +6005,18 @@ const App: React.FC = () => {
         }
         if (kind === 'huddle') {
             updateActiveTenant(payload.tenantId);
-            setView('kanban');
+            if (BOARD_VIEWS_DISABLED) {
+                setView('scope');
+            } else {
+                setView('kanban');
+            }
         }
         if (kind === 'column') {
-            setView('kanban');
+            if (BOARD_VIEWS_DISABLED) {
+                setView('scope');
+            } else {
+                setView('kanban');
+            }
         }
         setFilterText('');
     };
@@ -7673,9 +7697,9 @@ const App: React.FC = () => {
                                 </span>
                             ))}
                         </div>
-                        {(view === 'kanban' || view === 'table' || view === 'timeline' || view === 'scope' || view === 'initiatives') && (
+                        {((!BOARD_VIEWS_DISABLED && (view === 'kanban' || view === 'table' || view === 'timeline')) || view === 'scope' || view === 'initiatives') && (
                             <div className="page-breadcrumb-actions">
-                                {(view === 'kanban' || view === 'table') && (
+                                {!BOARD_VIEWS_DISABLED && (view === 'kanban' || view === 'table') && (
                                     <span className="board-switch-inline">
                                         <button
                                             type="button"
@@ -11283,6 +11307,7 @@ const App: React.FC = () => {
                 </>
                 ) : (
                     <>
+                        {!BOARD_VIEWS_DISABLED && (
                         <div className="filter-bar">
                                 <div className="view-switch"
                                 role="tablist"
@@ -11402,8 +11427,8 @@ const App: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                {view === 'table' && (
-                                    <div className="filter-dropdown" ref={statusFilterRef}>
+                                    {view === 'table' && (
+                                        <div className="filter-dropdown" ref={statusFilterRef}>
                                         <button
                                             type="button"
                                             className="filter-select"
@@ -11499,6 +11524,7 @@ const App: React.FC = () => {
                                 </label>
                             </div>
                         </div>
+                        )}
                         {error && <div style={{ color: '#f87171', marginBottom: '1rem' }}>Error: {error}</div>}
 
                         {view === 'kanban' ? (

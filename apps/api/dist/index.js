@@ -1450,7 +1450,10 @@ app.get('/boot', async (req, res) => {
     const membership = memberships.find((m) => m.tenantId === tenantId) || null;
     const role = user.isSuperAdmin ? 'SUPERADMIN' : (membership?.role || 'MEMBER');
     const principal = buildPrincipal(tenantId, user, role);
-    const tasks = await queryService.getTasks(principal, activeBoardId);
+    const taskBoardId = activeBoardId === 'all' || activeBoardId === 'mine' || activeBoardId === 'archived'
+        ? 'all'
+        : activeBoardId;
+    const tasks = await queryService.getTasks(principal, taskBoardId);
     res.json({
         user,
         memberships,

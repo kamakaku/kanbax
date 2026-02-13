@@ -3875,7 +3875,7 @@ textarea::placeholder {
 .inbox-layout {
   display: grid;
   grid-template-columns: 200px 1fr;
-  min-height: calc(100vw - 540px);
+  min-height: calc(100vh - 540px);
   border: 1px solid var(--border-color);
 }
 
